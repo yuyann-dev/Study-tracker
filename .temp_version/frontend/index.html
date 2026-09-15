@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study-tracker</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}
+  :root{
+    --bg:#f5f6fb; --card:#fff; --text:#171533; --muted:#7b7994;
+    --brand:#5b6ef5; --brand2:#9333ea;
+    --ok:#0ea472; --warn:#e08a00; --bad:#e5484d;
+    --line:#eae9f4; --radius:18px;
+    --shadow:0 1px 2px rgba(23,21,51,.04), 0 10px 28px -16px rgba(23,21,51,.28);
+    --m-solid:#0ea472;
+    --m-good:#3cb87b;
+    --m-fuzzy:#e0a020;
+    --m-weak:#e5484d;
+    --m-new:#b0aec4;
+    --m-mastered:#5b6ef5;
+  }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding:24px 16px 60px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto}
+
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:18px;padding:0 4px}
+  .head-main{min-width:0;flex:1}
+  h1{font-size:21px;font-weight:700;letter-spacing:-.3px;word-break:break-all;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .type-badge{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:#eef0fe;color:#5b6ef5;letter-spacing:0}
+  .type-badge.recite{background:#e6f7ee;color:#0ea472}
+  .type-badge.mistake{background:#fdf3e2;color:#e08a00}
+  .sub{font-size:13px;color:var(--muted);margin-top:5px;word-break:break-all}
+  .head-actions{display:flex;gap:8px;flex:0 0 auto}
+  .ghost-btn{
+    background:#fff;border:1px solid var(--line);color:var(--muted);
+    padding:8px 14px;border-radius:10px;font-size:13px;cursor:pointer;
+    font-family:inherit;white-space:nowrap;transition:.15s;
+  }
+  .ghost-btn:hover{color:var(--brand);border-color:#ccd2fa}
+
+  .card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+  h2{font-size:15px;font-weight:650;margin-bottom:14px}
+  .muted{color:var(--muted);font-weight:400;font-size:13px}
+  .hint{font-size:12.5px;color:var(--muted);line-height:1.7;margin-top:12px}
+  .row-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
+
+  /* ============ 欢迎页 ============ */
+  .welcome{text-align:center;padding:56px 28px}
+  .welcome-icon{font-size:52px;margin-bottom:18px;line-height:1}
+  .welcome h2{
+    font-size:24px;font-weight:700;letter-spacing:-.5px;
+    margin-bottom:20px;
+  }
+  .welcome-tagline{
+    font-size:14px;font-weight:600;color:var(--brand);
+    letter-spacing:4px;margin-bottom:8px;
+  }
+  .welcome-sub{
+    color:var(--muted);font-size:13px;line-height:1.7;
+    margin-bottom:32px;max-width:300px;margin-left:auto;margin-right:auto;
+  }
+  .welcome .primary{padding:12px 36px;font-size:15px}
+
+  input[type=number],input[type=date],input[type=text],select{
+    font-family:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);
+    border-radius:10px;background:#fafaff;color:var(--text);outline:none;width:100%;
+    transition:.15s;
+  }
+  input:focus,select:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(91,110,245,.14)}
+  select{
+    cursor:pointer;appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237b7994' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;
+  }
+  .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field span{font-size:12.5px;color:var(--muted)}
+
+  .primary{
+    background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border:none;
+    padding:10px 24px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;
+    font-family:inherit;transition:.15s;white-space:nowrap;
+  }
+  .primary:hover{filter:brightness(1.07)}
+  .primary:active{transform:scale(.98)}
+  .primary:disabled{opacity:.5;cursor:not-allowed}
+  .danger-btn{
+    background:#fff;border:1px solid #f2c9cc;color:var(--bad);
+    padding:8px 16px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  .danger-btn:hover{background:#fdeef0}
+  .soft-btn{
+    background:#fff;border:1px solid var(--line);color:var(--text);
+    padding:8px 16px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;
+    transition:.15s;
+  }
+  .soft-btn:hover{border-color:#ccd2fa;color:var(--brand)}
+
+  .checkin{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .checkin input[type=date]{width:auto;flex:0 0 auto}
+  .page-input{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);padding-bottom:9px}
+  .page-input input{width:96px;text-align:center;font-size:16px;font-weight:650;color:var(--text)}
+
+  .recite-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px}
+  .recite-grid-2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+  .page-range{display:flex;align-items:flex-end;gap:6px}
+  .page-range .field{flex:1}
+  .page-range-sep{padding-bottom:11px;color:var(--muted);font-size:14px;flex:0 0 auto}
+  .recite-preview{
+    margin-top:12px;padding:10px 14px;background:#f5f4fc;
+    border-radius:10px;font-size:12.5px;color:var(--muted);line-height:1.55;
+  }
+  .recite-preview strong{color:var(--brand);font-weight:650}
+  .recite-preview.overdue{background:#fdf3e2;color:#a57010}
+  .recite-preview.overdue strong{color:#c07800}
+  .recite-preview.mastered{background:#e6f7ee;color:#0a7f59}
+  .recite-preview.mastered strong{color:#0ea472}
+  @media(max-width:640px){
+    .recite-grid{grid-template-columns:1fr 1fr}
+    .recite-grid .field:nth-child(1){grid-column:span 2}
+    .recite-grid-2{grid-template-columns:1fr 1fr}
+    .recite-grid-2 .field:nth-child(1){grid-column:span 2}
+  }
+
+  .review-list{list-style:none}
+  .review-item{
+    display:flex;align-items:center;gap:14px;padding:14px;
+    background:#fafaff;border-radius:12px;margin-bottom:10px;
+    border:1px solid var(--line);
+    border-left-width:4px;
+    border-left-color:var(--m-new);
+    transition:.15s;
+  }
+  .review-item:last-child{margin-bottom:0}
+  .review-item.m-solid{border-left-color:var(--m-solid)}
+  .review-item.m-good{border-left-color:var(--m-good)}
+  .review-item.m-fuzzy{border-left-color:var(--m-fuzzy)}
+  .review-item.m-weak{border-left-color:var(--m-weak)}
+  .review-item.m-mastered{border-left-color:var(--m-mastered)}
+  .review-item.overdue-item{background:#fffdf6}
+  .ri-main{flex:1;min-width:0}
+  .ri-content{font-weight:600;font-size:14.5px;word-break:break-all;line-height:1.4;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ri-meta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ri-meta .overdue-tag{color:#c07800;font-weight:600}
+  .ri-actions{display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap}
+  .q-btn{
+    border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;
+    padding:7px 12px;border-radius:8px;transition:.15s;
+  }
+  .q-btn:active{transform:scale(.96)}
+  .q-good{background:#e6f7ee;color:#0ea472}
+  .q-good:hover{background:#d3f0e0}
+  .q-fuzzy{background:#fdf3e2;color:#c07800}
+  .q-fuzzy:hover{background:#f9e8c8}
+  .q-forgot{background:#fdeef0;color:#c93038}
+  .q-forgot:hover{background:#fbdfe2}
+  .review-count{font-size:12px;font-weight:600;background:#5b6ef5;color:#fff;padding:2px 9px;border-radius:999px;min-width:22px;text-align:center}
+  .review-count.overdue{background:#e08a00}
+
+  .overdue-banner{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 14px;background:#fdf8ec;border:1px solid #f5e4b8;
+    border-radius:12px;margin-bottom:12px;flex-wrap:wrap;
+  }
+  .ob-text{display:flex;align-items:center;gap:8px;font-size:13px;color:#8a6a12;flex:1;min-width:200px;flex-wrap:wrap}
+  .ob-icon{font-size:16px;flex:0 0 auto}
+  .ob-main strong{color:#c07800;font-weight:700}
+  .ob-sub{color:#a8842c;font-size:12px}
+  .ob-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .ob-hint{font-size:12px;color:#a8842c;margin-right:2px}
+  .ob-btn{
+    background:#fff;border:1px solid #f0d898;color:#a57010;
+    font-family:inherit;font-size:12px;font-weight:600;
+    padding:6px 12px;border-radius:8px;cursor:pointer;transition:.15s;
+  }
+  .ob-btn:hover{background:#fdf3e2;border-color:#e8c46e;color:#8a5b00}
+  .ob-btn:active{transform:scale(.96)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .stat{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .stat .label{font-size:12.5px;color:var(--muted)}
+  .stat .value{font-size:34px;font-weight:700;letter-spacing:-1.5px;margin:6px 0 2px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat .foot{font-size:11.5px;color:var(--muted);line-height:1.5}
+
+  .status{display:flex;gap:14px;align-items:flex-start}
+  .status.ok{border-left:4px solid var(--ok)}
+  .status.warn{border-left:4px solid var(--warn)}
+  .status.bad{border-left:4px solid var(--bad)}
+  .status-icon{font-size:26px;line-height:1.2}
+  .status-title{font-weight:650;margin-bottom:5px;font-size:15px}
+  .status-desc{font-size:13px;color:var(--muted);line-height:1.7}
+
+  .bar-wrap{position:relative;padding:5px 0}
+  .bar{height:12px;background:#eeeefa;border-radius:999px;overflow:hidden}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));border-radius:999px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+  .bar-time{position:absolute;top:0;width:2px;height:22px;background:#ffb020;border-radius:2px;transform:translateX(-1px)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 0 6px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+  #chart{width:100%;display:block;margin-top:6px}
+
+  .unit-list{list-style:none}
+  .unit-item{padding:12px 0;border-bottom:1px solid var(--line)}
+  .unit-item:last-child{border-bottom:none}
+  .unit-head{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;margin-bottom:6px;gap:10px;flex-wrap:wrap}
+  .unit-name{font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+  .unit-range{color:var(--muted);font-size:12px;flex:0 0 auto}
+  .unit-bar{height:8px;background:#eeeefa;border-radius:999px;overflow:hidden}
+  .unit-bar-fill{height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));border-radius:999px;transition:width .4s}
+  .unit-current{font-size:11.5px;color:var(--brand);font-weight:600}
+  .unit-progress{font-size:11.5px;color:var(--muted);margin-top:5px}
+
+  .m-badge{
+    font-size:11.5px;font-weight:650;
+    padding:2px 9px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:4px;
+    letter-spacing:0;
+  }
+  .m-badge.m-solid{background:#d1f0e0;color:#0a7f59}
+  .m-badge.m-good{background:#e6f7ee;color:#0ea472}
+  .m-badge.m-fuzzy{background:#fdf3e2;color:#c07800}
+  .m-badge.m-weak{background:#fdeef0;color:#c93038}
+  .m-badge.m-new{background:#f0eef9;color:#8b86a8}
+  .m-badge.m-mastered{background:#eef0fe;color:#5b6ef5}
+  .m-badge .dot-sm{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+  .records{list-style:none}
+  .records li{
+    display:flex;align-items:center;gap:10px;padding:12px 2px;
+    border-bottom:1px solid var(--line);font-size:14px;
+    border-left:3px solid transparent;
+    padding-left:10px;border-radius:4px;
+    transition:.15s;
+  }
+  .records li:last-child{border-bottom:none}
+  .records li.m-solid{border-left-color:var(--m-solid)}
+  .records li.m-good{border-left-color:var(--m-good)}
+  .records li.m-fuzzy{border-left-color:var(--m-fuzzy)}
+  .records li.m-weak{border-left-color:var(--m-weak)}
+  .records li.m-mastered{border-left-color:var(--m-mastered)}
+  .r-date{color:var(--muted);width:110px;flex:0 0 auto;font-size:13px}
+  .r-page{font-weight:600;flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+  .r-content{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r-delta{color:var(--ok);font-weight:650;font-size:12.5px;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .r-delta.zero{color:#c3cbd9}
+  .r-del{background:none;border:none;color:#c9d1de;cursor:pointer;font-size:19px;line-height:1;padding:2px 7px;border-radius:7px;font-family:inherit;flex:0 0 auto}
+  .r-del:hover{color:var(--bad);background:#fdeef0}
+  .badge{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;background:#eef0fe;color:#5b6ef5;flex:0 0 auto}
+  .badge-ok{background:#e6f7ee;color:#0ea472}
+  .badge-warn{background:#fdf3e2;color:#c07800}
+  .badge-muted{background:#f0eef9;color:#8b86a8}
+  .empty{font-size:13px;color:var(--muted);padding:8px 2px}
+
+  .footer{text-align:center;font-size:12px;color:#a8a6bd;margin-top:22px;line-height:1.7}
+
+  .mask{
+    position:fixed;inset:0;background:rgba(23,21,51,.45);
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;z-index:100;
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  }
+  .modal{
+    background:#fff;border-radius:20px;padding:26px;width:100%;max-width:520px;
+    box-shadow:0 24px 70px -20px rgba(23,21,51,.45);
+    max-height:90vh;overflow-y:auto;
+    animation:pop .18s ease-out;
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  .modal h2{font-size:19px;margin-bottom:6px}
+  .modal .msub{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6}
+  .modal label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted);margin-bottom:14px}
+  .modal .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .modal .two-col label{margin-bottom:14px}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:10px}
+  .modal-head h2{margin-bottom:0}
+  .x-btn{
+    background:none;border:none;color:#b0aec4;font-size:24px;line-height:1;
+    cursor:pointer;padding:2px 8px;border-radius:7px;font-family:inherit;transition:.15s;
+  }
+  .x-btn:hover{background:#f2f0fb;color:var(--text)}
+  .modal-actions{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .modal-actions .spacer{flex:1}
+  .sec-title{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:22px 0 10px;padding-top:16px;border-top:1px solid var(--line)}
+  .sec-title:first-of-type{border-top:none;padding-top:0;margin-top:0}
+
+  /* 新建弹窗底部的导入入口 */
+  .form-import-hint{
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    margin-top:18px;padding-top:18px;
+    border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--muted);
+    flex-wrap:wrap;
+  }
+  .link-btn{
+    background:none;border:none;padding:0;
+    color:var(--brand);font-family:inherit;font-size:12.5px;font-weight:600;
+    cursor:pointer;text-decoration:underline;
+    text-underline-offset:3px;text-decoration-thickness:1px;
+    transition:.15s;
+  }
+  .link-btn:hover{color:var(--brand2)}
+
+  .type-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .type-opt{cursor:pointer;position:relative;display:block}
+  .type-opt input{position:absolute;opacity:0;pointer-events:none}
+  .type-opt-inner{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:14px 8px;border-radius:12px;border:1.5px solid var(--line);
+    background:#fafaff;transition:.15s;text-align:center;
+  }
+  .type-opt:hover .type-opt-inner{border-color:#ccd2fa}
+  .type-opt input:checked + .type-opt-inner{border-color:var(--brand);background:#f0eeff}
+  .type-opt .type-icon{font-size:22px;line-height:1}
+  .type-opt .type-name{font-size:13px;font-weight:650;color:var(--text)}
+  .type-opt .type-desc{font-size:10.5px;color:var(--muted);line-height:1.3}
+
+  .project-list{list-style:none;margin-bottom:18px;max-height:52vh;overflow-y:auto;padding:2px}
+  .project-item{
+    display:flex;align-items:center;gap:12px;
+    padding:13px 14px;border-radius:12px;cursor:pointer;
+    transition:.15s;border:1.5px solid transparent;margin-bottom:8px;background:#fafaff;
+    border-left-width:4px;
+    border-left-color:transparent;
+  }
+  .project-item:hover{background:#f3f1fe}
+  .project-item.active{background:#f0eeff;border-color:#c9c2fb;border-left-color:var(--brand)}
+  .project-item.type-exercise.active{border-left-color:#5b6ef5}
+  .project-item.type-recite.active{border-left-color:#0ea472}
+  .project-item.type-mistake.active{border-left-color:#e08a00}
+  .project-item.type-recite:not(.active){border-left-color:#bfe8d4}
+  .project-item.type-mistake:not(.active){border-left-color:#f5ddb3}
+  .pi-icon{font-size:20px;flex:0 0 auto;line-height:1}
+  .pi-main{flex:1;min-width:0}
+  .pi-name{
+    font-weight:600;font-size:14.5px;
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    min-width:0;
+  }
+  .pi-name-text{
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    min-width:0;flex:0 1 auto;max-width:100%;
+  }
+  .pi-meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+
+  .type-tag{
+    font-size:10.5px;font-weight:650;
+    padding:2px 8px;border-radius:999px;
+    flex:0 0 auto;letter-spacing:.2px;
+    background:#eef0fe;color:#5b6ef5;
+  }
+  .type-tag.recite{background:#e6f7ee;color:#0ea472}
+  .type-tag.mistake{background:#fdf3e2;color:#c07800}
+
+  .pi-del{
+    background:none;border:none;color:#c9d1de;cursor:pointer;
+    font-size:19px;line-height:1;padding:3px 8px;border-radius:7px;font-family:inherit;transition:.15s;
+  }
+  .pi-del:hover{color:var(--bad);background:#fdeef0}
+
+  .unit-edit-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
+  .unit-edit-row input{font-size:13px;padding:7px 10px}
+  .unit-edit-del{background:none;border:none;color:#c9d1de;cursor:pointer;font-size:20px;padding:2px 8px;border-radius:7px;font-family:inherit}
+  .unit-edit-del:hover{color:var(--bad);background:#fdeef0}
+  .add-row-btn{
+    background:#f5f4fc;border:1px dashed #c9c2fb;color:#5b6ef5;
+    padding:8px 14px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;
+    width:100%;transition:.15s;
+  }
+  .add-row-btn:hover{background:#edeaff}
+
+  .data-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+  .toast{
+    position:fixed;top:24px;left:50%;
+    transform:translate(-50%, -20px);
+    background:#fff;border-radius:16px;padding:16px 22px;
+    box-shadow:0 20px 50px -12px rgba(23,21,51,.35), 0 0 0 1px rgba(23,21,51,.05);
+    display:flex;align-items:center;gap:14px;
+    max-width:min(420px, calc(100vw - 32px));
+    opacity:0;transition:opacity .3s, transform .3s;
+    z-index:200;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translate(-50%, 0)}
+  .toast-icon{font-size:32px;flex:0 0 auto;line-height:1}
+  .toast-body{min-width:0}
+  .toast-title{font-weight:700;font-size:15px;margin-bottom:3px}
+  .toast-desc{font-size:12.5px;color:var(--muted);line-height:1.5}
+
+  @media(max-width:520px){
+    .r-date{width:auto;flex:0 0 auto}
+    h1{font-size:18px}
+    .stat .value{font-size:28px}
+    .modal .two-col{grid-template-columns:1fr;gap:0}
+    .modal .two-col label{margin-bottom:14px}
+    .head-actions .ghost-btn{padding:8px 10px;font-size:12px}
+    .type-picker{grid-template-columns:1fr}
+    .review-item{flex-direction:column;align-items:stretch}
+    .ri-actions{justify-content:stretch}
+    .q-btn{flex:1;text-align:center}
+    .unit-edit-row{grid-template-columns:1fr 1fr 1fr auto;gap:5px}
+    .toast{top:12px;padding:14px 18px}
+    .toast-icon{font-size:28px}
+    .overdue-banner{padding:11px 12px}
+    .ob-text{font-size:12.5px}
+    .ob-hint{display:none}
+    .welcome{padding:44px 22px}
+    .welcome-icon{font-size:44px;margin-bottom:14px}
+    .welcome h2{font-size:21px;margin-bottom:16px}
+    .welcome-tagline{font-size:13px;letter-spacing:3px}
+    .welcome-sub{font-size:12.5px;margin-bottom:26px}
+  }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast" hidden>
+  <div class="toast-icon">🏆</div>
+  <div class="toast-body">
+    <div class="toast-title">—</div>
+    <div class="toast-desc">—</div>
+  </div>
+</div>
+
+<!-- ============ 欢迎页 ============ -->
+<div class="wrap" id="welcome" hidden>
+  <div class="card welcome">
+    <div class="welcome-icon">📚</div>
+    <h2>Study-tracker</h2>
+    <p class="welcome-tagline">刷题 · 背书 · 错题</p>
+    <p class="welcome-sub">自动规划复习节奏<br>多任务并行追踪</p>
+    <button class="primary" id="btnCreateFirst">+ 新建任务</button>
+  </div>
+  <p class="footer">数据只保存在你的浏览器本地</p>
+</div>
+
+<!-- ============ 主界面 ============ -->
+<div class="wrap" id="app" hidden>
+
+  <header class="head">
+    <div class="head-main">
+      <h1 id="bookTitle">—</h1>
+      <p class="sub" id="deadlineLabel">—</p>
+    </div>
+    <div class="head-actions">
+      <button class="ghost-btn" id="btnSwitch">📚 切换</button>
+      <button class="ghost-btn" id="btnSettings">⚙️ 设置</button>
+    </div>
+  </header>
+
+  <section class="card" id="reviewSection" hidden>
+    <div class="row-between">
+      <h2 style="margin:0">📅 今日复习</h2>
+      <span class="review-count" id="reviewCount">0</span>
+    </div>
+
+    <div class="overdue-banner" id="overdueBanner" hidden>
+      <div class="ob-text">
+        <span class="ob-icon">⏰</span>
+        <span class="ob-main">有 <strong id="overdueCount">0</strong> 条内容已逾期</span>
+        <span class="ob-sub" id="overdueSub">—</span>
+      </div>
+      <div class="ob-actions">
+        <span class="ob-hint">分散到未来</span>
+        <button class="ob-btn" data-days="1">1 天</button>
+        <button class="ob-btn" data-days="3">3 天</button>
+        <button class="ob-btn" data-days="5">5 天</button>
+        <button class="ob-btn" data-days="7">7 天</button>
+      </div>
+    </div>
+
+    <ul class="review-list" id="reviewList"></ul>
+    <p class="hint" id="noReviewHint" hidden style="margin-top:0">今天没有需要复习的内容，轻松一下～</p>
+  </section>
+
+  <section class="card" id="checkinSection">
+    <h2 id="checkinTitle">今日打卡</h2>
+
+    <div class="checkin" id="exerciseForm">
+      <input id="inDate" type="date">
+      <div class="page-input">
+        <span>写到了第</span>
+        <input id="inPage" type="number" min="0" placeholder="页码">
+        <span>页</span>
+      </div>
+      <button class="primary" id="btnCheckin">记录</button>
+    </div>
+
+    <div id="reciteForm" hidden>
+      <label class="field" style="margin-bottom:12px">
+        <span>学习内容</span>
+        <input id="reciteContent" type="text" maxlength="80" placeholder="例：第一章 极限的定义与性质">
+      </label>
+      <div class="recite-grid-2">
+        <div class="page-range">
+          <label class="field">
+            <span>起始页</span>
+            <input id="recitePageStart" type="number" min="0" placeholder="页码">
+          </label>
+          <span class="page-range-sep">–</span>
+          <label class="field">
+            <span>结束页（可选）</span>
+            <input id="recitePageEnd" type="number" min="0" placeholder="同起始页">
+          </label>
+        </div>
+        <label class="field">
+          <span>学习日期</span>
+          <input id="reciteDate" type="date">
+        </label>
+        <label class="field">
+          <span>复习进度</span>
+          <select id="reciteStage"></select>
+        </label>
+      </div>
+      <div class="recite-preview" id="recitePreview">—</div>
+      <button class="primary" id="btnReciteAdd" style="margin-top:12px">+ 添加内容</button>
+    </div>
+
+    <p class="hint" id="checkinHint"></p>
+  </section>
+
+  <section class="stats">
+    <div class="stat">
+      <div class="label" id="labelRemaining">剩余页数</div>
+      <div class="value" id="mRemaining">—</div>
+      <div class="foot" id="mRemainingFoot">—</div>
+    </div>
+    <div class="stat">
+      <div class="label">可用天数</div>
+      <div class="value" id="mDays">—</div>
+      <div class="foot" id="mDaysFoot">—</div>
+    </div>
+    <div class="stat">
+      <div class="label" id="labelNeed">需平均每天写</div>
+      <div class="value" id="mNeed">—</div>
+      <div class="foot" id="mNeedFoot">—</div>
+    </div>
+  </section>
+
+  <section class="card status ok" id="statusCard">
+    <div class="status-icon" id="statusIcon">✅</div>
+    <div class="status-body">
+      <div class="status-title" id="statusTitle">—</div>
+      <div class="status-desc" id="statusDesc">—</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row-between">
+      <h2 style="margin:0">进度曲线</h2>
+      <span class="muted" id="progressText">—</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+      <div class="bar-time" id="barTime" hidden></div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:linear-gradient(135deg,#5b6ef5,#9333ea)"></i>实际进度</span>
+      <span><i class="dot" style="background:#d3d2e6"></i>理想进度</span>
+      <span><i class="dot" style="background:#ffb020"></i>今天</span>
+    </div>
+    <canvas id="chart" height="220"></canvas>
+  </section>
+
+  <section class="card" id="unitSection" hidden>
+    <div class="row-between">
+      <h2 style="margin:0">📂 单元掌握情况</h2>
+      <span class="muted" style="font-size:12px">颜色 = 复习掌握度</span>
+    </div>
+    <ul class="unit-list" id="unitList"></ul>
+  </section>
+
+  <section class="card">
+    <h2 id="recordTitle">打卡记录 <span class="muted" id="recCount"></span></h2>
+    <ul class="records" id="recordList"></ul>
+  </section>
+
+  <p class="footer">数据只保存在你的浏览器本地，不会上传到任何服务器。</p>
+</div>
+
+<!-- ============ 切换项目弹窗 ============ -->
+<div class="mask" id="switchMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>我的任务</h2>
+      <button class="x-btn" id="switchClose">×</button>
+    </div>
+    <ul class="project-list" id="projectList"></ul>
+    <button class="primary" id="btnNewProject" style="width:100%">+ 新建任务</button>
+  </div>
+</div>
+
+<!-- ============ 新建任务弹窗 ============ -->
+<div class="mask" id="formMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="formTitle">新建任务</h2>
+      <button class="x-btn" id="formClose">×</button>
+    </div>
+
+    <label>任务名称
+      <input id="fName" type="text" maxlength="40" placeholder="例：数学真题分类习题册">
+    </label>
+
+    <div id="typeRow" style="margin-bottom:14px">
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">任务类型</div>
+      <div class="type-picker">
+        <label class="type-opt">
+          <input type="radio" name="ptype" value="exercise" checked>
+          <span class="type-opt-inner">
+            <span class="type-icon">✏️</span>
+            <span class="type-name">刷题</span>
+            <span class="type-desc">按页码追踪进度</span>
+          </span>
+        </label>
+        <label class="type-opt">
+          <input type="radio" name="ptype" value="recite">
+          <span class="type-opt-inner">
+            <span class="type-icon">📖</span>
+            <span class="type-name">背书</span>
+            <span class="type-desc">艾宾浩斯复习</span>
+          </span>
+        </label>
+        <label class="type-opt">
+          <input type="radio" name="ptype" value="mistake">
+          <span class="type-opt-inner">
+            <span class="type-icon">📝</span>
+            <span class="type-name">错题</span>
+            <span class="type-desc">间隔重复刷题</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <label>总页数
+      <input id="fTotal" type="number" min="1" placeholder="例：236">
+    </label>
+    <label>计划完成日期
+      <input id="fDeadline" type="date">
+    </label>
+    <div class="two-col">
+      <label>开始日期（可选）
+        <input id="fStartDate" type="date">
+      </label>
+      <label>开始页码（可选）
+        <input id="fStartPage" type="number" min="0" placeholder="0">
+      </label>
+    </div>
+
+    <p class="hint" style="margin-top:0">填上「开始日期 + 开始页码」可以立刻估算速度；不填的话，打卡满两天后也能自动估算。</p>
+
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="formCancel">取消</button>
+      <button class="primary" id="formSave">保存</button>
+    </div>
+
+    <!-- 导入入口 -->
+    <div class="form-import-hint">
+      <span>已有备份文件？</span>
+      <button type="button" class="link-btn" id="formImport">导入恢复数据</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 设置弹窗 ============ -->
+<div class="mask" id="settingsMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>设置</h2>
+      <button class="x-btn" id="settingsClose">×</button>
+    </div>
+
+    <div class="sec-title">基本信息</div>
+    <label>任务名称
+      <input id="sName" type="text" maxlength="40">
+    </label>
+    <div class="two-col">
+      <label>总页数
+        <input id="sTotal" type="number" min="1">
+      </label>
+      <label>计划完成日期
+        <input id="sDeadline" type="date">
+      </label>
+    </div>
+    <div class="two-col">
+      <label>开始日期（可选）
+        <input id="sStartDate" type="date">
+      </label>
+      <label>开始页码（可选）
+        <input id="sStartPage" type="number" min="0">
+      </label>
+    </div>
+
+    <div class="sec-title">单元模式</div>
+    <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;margin-bottom:12px">
+      <input id="sUnitMode" type="checkbox" style="width:auto;margin:0">
+      <span style="font-size:13.5px;color:var(--text)">开启单元模式（按单元组织进度）</span>
+    </label>
+    <div id="unitEditor" hidden>
+      <div id="unitEditList"></div>
+      <button class="add-row-btn" id="btnAddUnitRow" type="button">+ 添加单元</button>
+    </div>
+
+    <div class="sec-title" id="intervalSectionTitle" hidden>复习间隔（天）</div>
+    <div id="intervalSection" hidden>
+      <label>间隔天数（逗号分隔）
+        <input id="sIntervals" type="text" placeholder="1, 2, 4, 7, 15, 30">
+      </label>
+      <p class="hint" style="margin-top:0">每学习一个新内容后，按这些间隔依次提醒复习。每次复习后自动前进一档，与「记得/模糊/忘记」无关——这三个按钮只用来标记你的掌握状态。</p>
+    </div>
+
+    <div class="sec-title">数据备份</div>
+    <div class="data-actions">
+      <button class="soft-btn" id="btnExport" type="button">⬇️ 导出备份</button>
+      <button class="soft-btn" id="btnImport" type="button">⬆️ 导入备份</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+    <p class="hint" style="margin-top:10px">导出后会下载一个 JSON 文件。换了浏览器或设备后，导入这个文件即可恢复全部数据。</p>
+
+    <div class="modal-actions">
+      <button class="danger-btn" id="btnReset" type="button">清空当前任务</button>
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="settingsCancel" type="button">取消</button>
+      <button class="primary" id="settingsSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 工具 ============ */
+const $ = s => document.querySelector(s);
+const pad2 = n => String(n).padStart(2, '0');
+const fmtDate = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const todayStr = () => fmtDate(new Date());
+const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const diffDays = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 86400000);
+const addDays = (s, n) => { const d = parseDate(s); d.setDate(d.getDate() + n); return fmtDate(d); };
+const fmtCN = s => { const d = parseDate(s); return `${d.getMonth() + 1}月${d.getDate()}日`; };
+const WEEK = ['周日','周一','周二','周三','周四','周五','周六'];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+const TYPES = {
+  exercise: { name:'刷题', icon:'✏️', badgeCls:'', typeCls:'type-exercise' },
+  recite:   { name:'背书', icon:'📖', badgeCls:'recite', typeCls:'type-recite' },
+  mistake:  { name:'错题', icon:'📝', badgeCls:'mistake', typeCls:'type-mistake' }
+};
+
+const DEFAULT_INTERVALS = [1, 2, 4, 7, 15, 30];
+
+/* ============ 存储 ============ */
+const STORE_KEY = 'study_tracker_v2';
+let store = { currentId: null, projects: {} };
+let lastMetrics = null;
+let lastIntervalsKey = '';
+
+function loadStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === 'object' && obj.projects && typeof obj.projects === 'object') {
+        store = obj;
+        Object.values(store.projects).forEach(p => {
+          (p.items || []).forEach(it => {
+            if (it.pageStart == null && it.page != null) {
+              it.pageStart = it.page;
+              it.pageEnd = it.page;
+            }
+            if (it.pageStart == null) it.pageStart = 0;
+            if (it.pageEnd == null) it.pageEnd = it.pageStart;
+          });
+          if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
+          if (!Array.isArray(p.units)) p.units = [];
+          if (!Array.isArray(p.records)) p.records = [];
+          if (!Array.isArray(p.items)) p.items = [];
+          if (!Array.isArray(p.intervals) || !p.intervals.length) p.intervals = [...DEFAULT_INTERVALS];
+        });
+      }
+    }
+  } catch (e) {}
+}
+function saveStore() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function cur() { return store.currentId ? (store.projects[store.currentId] || null) : null; }
+
+/* ============ 页码辅助 ============ */
+function getItemPageStart(it) {
+  if (it.pageStart != null) return it.pageStart;
+  if (it.page != null) return it.page;
+  return 0;
+}
+function getItemPageEnd(it) {
+  if (it.pageEnd != null) return it.pageEnd;
+  if (it.pageStart != null) return it.pageStart;
+  if (it.page != null) return it.page;
+  return 0;
+}
+function fmtPageRange(it) {
+  const s = getItemPageStart(it);
+  const e = getItemPageEnd(it);
+  if (s === e) return `P${s}`;
+  return `P${s}-${e}`;
+}
+
+/* ============ 核心计算 ============ */
+function getIntervals(p) {
+  return (p.intervals && p.intervals.length) ? p.intervals : DEFAULT_INTERVALS;
+}
+
+function calcNextReviewDateFromLearn(learnDate, completedReviews, intervals) {
+  if (completedReviews >= intervals.length) return null;
+  let total = 0;
+  for (let i = 0; i <= completedReviews; i++) total += intervals[i];
+  return addDays(learnDate, total);
+}
+
+function getCurrentPage(p) {
+  const base = p.startPage || 0;
+  if (p.type === 'exercise') {
+    const recs = p.records || [];
+    return recs.length ? recs.reduce((mx, r) => Math.max(mx, r.page || 0), base) : base;
+  }
+  const items = p.items || [];
+  return items.length ? items.reduce((mx, it) => Math.max(mx, getItemPageEnd(it)), base) : base;
+}
+
+function getMetrics(p) {
+  const t = todayStr();
+  const total = p.total;
+  const currentPage = getCurrentPage(p);
+  const remaining = Math.max(0, total - currentPage);
+
+  const daysLeft = diffDays(t, p.deadline);
+  const daysAvailable = daysLeft + 1;
+  const needPerDay = daysAvailable > 0 ? remaining / daysAvailable : Infinity;
+
+  let speed = null, speedLabel = '';
+  if (p.type === 'exercise') {
+    const recs = [...(p.records || [])].sort((a, b) => a.date < b.date ? -1 : 1);
+    if (recs.length >= 2) {
+      const last = recs[recs.length - 1];
+      let si = recs.length - 1;
+      for (let i = recs.length - 1; i >= 0; i--) {
+        if (diffDays(recs[i].date, last.date) > 14) break;
+        si = i;
+      }
+      const span = diffDays(recs[si].date, last.date);
+      if (span >= 1) { speed = (last.page - recs[si].page) / span; speedLabel = `最近 ${span} 天`; }
+    }
+  } else {
+    const items = [...(p.items || [])].sort((a, b) => a.learnedDate < b.learnedDate ? -1 : 1);
+    if (items.length >= 1) {
+      const firstDate = items[0].learnedDate;
+      const span = diffDays(firstDate, t) + 1;
+      const pages = currentPage - (p.startPage || 0);
+      if (span >= 1 && pages > 0) { speed = pages / span; speedLabel = '自开始学习以来'; }
+    }
+  }
+  if (speed === null && p.startDate) {
+    const span = diffDays(p.startDate, t) + 1;
+    const pages = currentPage - (p.startPage || 0);
+    if (span >= 1 && pages > 0) { speed = pages / span; speedLabel = '自开始以来'; }
+  }
+
+  let etaDate = null;
+  if (remaining === 0) etaDate = t;
+  else if (speed !== null && speed > 0) etaDate = addDays(t, Math.ceil(remaining / speed));
+
+  return { t, total, currentPage, remaining, daysLeft, daysAvailable, needPerDay, speed, speedLabel, etaDate };
+}
+
+function getDueItems(p) {
+  if (p.type === 'exercise') return [];
+  const today = todayStr();
+  return (p.items || []).filter(it => !it.mastered && it.nextReviewDate && it.nextReviewDate <= today);
+}
+function getOverdueItems(p) {
+  if (p.type === 'exercise') return [];
+  const today = todayStr();
+  return (p.items || []).filter(it => !it.mastered && it.nextReviewDate && it.nextReviewDate < today);
+}
+
+function spreadOverdueItems(p, days) {
+  const today = todayStr();
+  const overdue = getOverdueItems(p).sort((a, b) => a.nextReviewDate.localeCompare(b.nextReviewDate));
+  if (!overdue.length) return 0;
+  const perDay = Math.ceil(overdue.length / days);
+  overdue.forEach((it, i) => {
+    const dayOffset = Math.floor(i / perDay) + 1;
+    it.nextReviewDate = addDays(today, dayOffset);
+  });
+  p.updatedAt = Date.now();
+  saveStore();
+  return overdue.length;
+}
+
+/* ============ 复习评价（只影响掌握度） ============ */
+function applyReview(item, quality, p) {
+  const intervals = getIntervals(p);
+  const today = todayStr();
+  const stage = (item.stage || 0) + 1;
+
+  item.reviews = item.reviews || [];
+  item.reviews.push({ date: today, quality, stage });
+
+  if (stage >= intervals.length) {
+    item.mastered = true;
+    item.nextReviewDate = null;
+  } else {
+    item.mastered = false;
+    item.nextReviewDate = addDays(today, intervals[stage]);
+  }
+  item.stage = stage;
+  p.updatedAt = Date.now();
+}
+
+/* ============ 掌握度 ============ */
+function getItemScore(it) {
+  if (!it.reviews || !it.reviews.length) return null;
+  const last = it.reviews[it.reviews.length - 1];
+  if (last.quality === 'good') return 1;
+  if (last.quality === 'fuzzy') return 0.5;
+  return 0;
+}
+
+function getMasteryInfo(it) {
+  if (it.mastered) return { key: 'mastered', label: '已掌握', cls: 'm-mastered' };
+  if (!it.reviews || !it.reviews.length) return { key: 'new', label: '未复习', cls: 'm-new' };
+
+  const last = it.reviews[it.reviews.length - 1];
+  let streak = 0;
+  for (let i = it.reviews.length - 1; i >= 0; i--) {
+    if (it.reviews[i].quality === 'good') streak++;
+    else break;
+  }
+  if (last.quality === 'forgot') return { key: 'weak', label: '需要重点看', cls: 'm-weak' };
+  if (last.quality === 'fuzzy') return { key: 'fuzzy', label: '有点模糊', cls: 'm-fuzzy' };
+  if (streak >= 3) return { key: 'solid', label: '牢固掌握', cls: 'm-solid' };
+  return { key: 'good', label: '掌握', cls: 'm-good' };
+}
+
+function getUnitMastery(p, unit) {
+  const items = (p.items || []).filter(it => {
+    const s = getItemPageStart(it);
+    const e = getItemPageEnd(it);
+    return e >= unit.startPage && s <= unit.endPage;
+  });
+  if (!items.length) return null;
+
+  let sum = 0, count = 0;
+  items.forEach(it => {
+    const sc = getItemScore(it);
+    if (sc !== null) { sum += sc; count++; }
+  });
+  if (count === 0) return null;
+  return sum / count;
+}
+
+function masteryFromScore(score) {
+  if (score === null || score === undefined) return { label: '未开始', cls: 'm-new' };
+  if (score >= 0.8) return { label: '掌握良好', cls: 'm-solid' };
+  if (score >= 0.5) return { label: '需要巩固', cls: 'm-fuzzy' };
+  return { label: '需要重点看', cls: 'm-weak' };
+}
+
+/* ============ 状态卡 ============ */
+function getStatusMessage(p, m) {
+  const pct = m.total > 0 ? m.currentPage / m.total : 0;
+  if (pct >= 1 && m.currentPage > 0) {
+    return { icon:'🏁', cls:'ok', title:'全部内容已完成',
+      desc:`共 ${m.total} 页，你在 ${fmtCN(m.t)} 完成了整个目标。可以在设置中调整截止日期，或开始下一个任务。` };
+  }
+  if (m.daysLeft < 0) {
+    return { icon:'⛔', cls:'bad', title:`已超过目标日期 ${-m.daysLeft} 天`,
+      desc:`还剩 ${m.remaining} 页。可在设置里调整截止日期，或参考「需平均每天写」安排补进度。` };
+  }
+  if (m.etaDate) {
+    const gap = diffDays(m.etaDate, p.deadline);
+    if (gap >= 0) {
+      return { icon:'✅', cls:'ok', title:'按当前速度，可以按时完成',
+        desc:`${m.speedLabel}速度约 ${m.speed.toFixed(1)} 页/天，预计 ${fmtCN(m.etaDate)} 完成，${gap > 0 ? `比目标提前 ${gap} 天。` : '刚好赶上目标。'}` };
+    } else {
+      return { icon:'⚠️', cls:'warn', title:`按当前速度，会晚 ${-gap} 天完成`,
+        desc:`${m.speedLabel}速度约 ${m.speed.toFixed(1)} 页/天，预计 ${fmtCN(m.etaDate)} 完成。需要提高到 ${m.needPerDay.toFixed(1)} 页/天才能赶上目标。` };
+    }
+  }
+  if (p.startDate) {
+    const totalSpan = diffDays(p.startDate, p.deadline);
+    const elapsed = diffDays(p.startDate, m.t);
+    if (totalSpan > 0) {
+      const expectedPct = Math.max(0, Math.min(1, elapsed / totalSpan));
+      const expectedPage = Math.round(expectedPct * m.total);
+      const diffPct = pct - expectedPct;
+      if (diffPct > 0.05) return { icon:'🚀', cls:'ok', title:'进度超前',
+        desc:`当前第 ${m.currentPage} 页，理想进度应在第 ${expectedPage} 页。你比计划快约 ${Math.round(diffPct * m.total)} 页。` };
+      if (diffPct > -0.05) return { icon:'✅', cls:'ok', title:'进度和计划基本一致',
+        desc:`当前第 ${m.currentPage} 页，理想进度应在第 ${expectedPage} 页。保持在正轨上。` };
+      return { icon:'📉', cls:'warn', title:'进度落后于计划',
+        desc:`当前第 ${m.currentPage} 页，理想进度应在第 ${expectedPage} 页，落后约 ${Math.abs(Math.round(diffPct * m.total))} 页。` };
+    }
+  }
+  return { icon:'📝', cls:'warn', title:'数据还不够，暂时无法预测',
+    desc:'再打卡一天，或在设置中补上开始日期，系统就能估算完成时间和每日所需进度。' };
+}
+
+/* ============ 里程碑 ============ */
+const MILESTONES = [
+  { at:25, icon:'📈', title:'完成 25%！', desc:'四分之一已达成。继续推进，节奏很稳。' },
+  { at:50, icon:'🌟', title:'完成 50%！', desc:'进度已经过半，接下来稳扎稳打。' },
+  { at:70, icon:'💪', title:'完成 70%！', desc:'胜利在望。保持节奏，别停下来。' },
+  { at:90, icon:'🔥', title:'完成 90%！', desc:'最后一程，一鼓作气冲线。' },
+  { at:100, icon:'🏆', title:'全部完成！', desc:'恭喜你拿下整个目标，好好犒劳一下自己。' }
+];
+let toastTimer = null;
+function showToast(icon, title, desc) {
+  const t = $('#toast');
+  t.querySelector('.toast-icon').textContent = icon;
+  t.querySelector('.toast-title').textContent = title;
+  t.querySelector('.toast-desc').textContent = desc;
+  t.hidden = false;
+  t.classList.remove('show');
+  void t.offsetWidth;
+  requestAnimationFrame(() => t.classList.add('show'));
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => { t.hidden = true; }, 320);
+  }, 4200);
+}
+function checkMilestones(p, m) {
+  const pct = m.total > 0 ? m.currentPage / m.total * 100 : 0;
+  if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
+  const pending = MILESTONES.filter(ms => pct >= ms.at && !p.shownMilestones.includes(ms.at));
+  if (!pending.length) return;
+  pending.forEach(ms => p.shownMilestones.push(ms.at));
+  saveStore();
+  const latest = pending[pending.length - 1];
+  setTimeout(() => showToast(latest.icon, latest.title, latest.desc), 450);
+}
+
+/* ============ 复习进度下拉 + 预览 ============ */
+function renderStageOptions(p) {
+  const intervals = getIntervals(p);
+  const key = intervals.join(',');
+  const sel = $('#reciteStage');
+  if (key === lastIntervalsKey && sel.options.length > 0) return;
+  lastIntervalsKey = key;
+
+  const prevValue = sel.value;
+  sel.innerHTML = '';
+  for (let i = 0; i < intervals.length; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i === 0 ? '新学（还没复习过）' : `已复习 ${i} 次`;
+    sel.appendChild(opt);
+  }
+  const masterOpt = document.createElement('option');
+  masterOpt.value = intervals.length;
+  masterOpt.textContent = '已掌握（不再提醒）';
+  sel.appendChild(masterOpt);
+
+  if (prevValue && [...sel.options].some(o => o.value === prevValue)) sel.value = prevValue;
+}
+
+function updateRecitePreview() {
+  const p = cur();
+  if (!p || p.type === 'exercise') return;
+
+  const intervals = getIntervals(p);
+  const date = $('#reciteDate').value || todayStr();
+  const stage = parseInt($('#reciteStage').value, 10) || 0;
+  const preview = $('#recitePreview');
+  preview.classList.remove('overdue', 'mastered');
+
+  const next = calcNextReviewDateFromLearn(date, stage, intervals);
+
+  if (next === null) {
+    preview.classList.add('mastered');
+    preview.innerHTML = '✓ <strong>已掌握</strong>，不再提醒复习。';
+    return;
+  }
+  const daysFromNow = diffDays(todayStr(), next);
+  if (daysFromNow < 0) {
+    preview.classList.add('overdue');
+    preview.innerHTML = `下次复习：<strong>${fmtCN(next)}</strong>（已逾期 ${-daysFromNow} 天，添加后会立即出现在「今日复习」）`;
+  } else if (daysFromNow === 0) {
+    preview.innerHTML = `下次复习：<strong>今天</strong>，添加后会出现在「今日复习」。`;
+  } else {
+    preview.innerHTML = `下次复习：<strong>${fmtCN(next)}</strong>（${daysFromNow} 天后）`;
+  }
+}
+
+/* ============ 主渲染 ============ */
+function render() {
+  const p = cur();
+  if (!p) {
+    $('#welcome').hidden = false;
+    $('#app').hidden = true;
+    return;
+  }
+  $('#welcome').hidden = true;
+  $('#app').hidden = false;
+
+  const m = getMetrics(p);
+  lastMetrics = { m, p };
+  const type = TYPES[p.type] || TYPES.exercise;
+
+  $('#bookTitle').innerHTML = `${esc(p.name)} <span class="type-badge ${type.badgeCls}">${type.icon} ${type.name}</span>`;
+
+  let dlText = fmtCN(p.deadline);
+  if (m.daysLeft > 0) dlText += ` · 还有 ${m.daysLeft} 天`;
+  else if (m.daysLeft === 0) dlText += ' · 就是今天';
+  else dlText += ` · 已过期 ${-m.daysLeft} 天`;
+  $('#deadlineLabel').textContent = `目标：${p.deadline}（${dlText}）`;
+
+  const isExercise = p.type === 'exercise';
+  $('#exerciseForm').hidden = !isExercise;
+  $('#reciteForm').hidden = isExercise;
+  $('#checkinTitle').textContent = isExercise ? '今日打卡' : '📖 学习 / 补录内容';
+  $('#checkinHint').textContent = isExercise
+    ? '每天填「当前写到第几页」就行。也可以选过去的日期补录之前的进度，速度会算得更准。'
+    : '每次学完新内容或补录旧内容都在这里登记。页码可以填一个范围。复习评价（记得/模糊/忘记）用来标记掌握程度，不影响复习节奏。';
+
+  if (!isExercise) {
+    renderReview(p);
+    renderStageOptions(p);
+    updateRecitePreview();
+  } else {
+    $('#reviewSection').hidden = true;
+  }
+
+  if (isExercise) {
+    $('#labelRemaining').textContent = '剩余页数';
+    $('#mRemaining').textContent = m.remaining;
+    $('#mRemainingFoot').textContent = `共 ${m.total} 页 · 已写到第 ${m.currentPage} 页`;
+    $('#labelNeed').textContent = '需平均每天写';
+    if (m.remaining === 0 && m.currentPage > 0) {
+      $('#mNeed').textContent = '0'; $('#mNeedFoot').textContent = '已经完成啦';
+    } else if (!isFinite(m.needPerDay) || m.daysAvailable <= 0) {
+      $('#mNeed').textContent = '—'; $('#mNeedFoot').textContent = '今天就是截止日';
+    } else {
+      $('#mNeed').textContent = m.needPerDay.toFixed(1);
+      $('#mNeedFoot').textContent = '页 / 天';
+    }
+  } else {
+    const due = getDueItems(p).length;
+    $('#labelRemaining').textContent = '剩余页数';
+    $('#mRemaining').textContent = m.remaining;
+    $('#mRemainingFoot').textContent = `共 ${m.total} 页 · 学到第 ${m.currentPage} 页`;
+    if (due > 0) {
+      $('#labelNeed').textContent = '今日待复习';
+      $('#mNeed').textContent = due;
+      $('#mNeedFoot').textContent = '条内容';
+    } else {
+      $('#labelNeed').textContent = '需平均每天学';
+      if (m.remaining === 0 && m.currentPage > 0) {
+        $('#mNeed').textContent = '0'; $('#mNeedFoot').textContent = '已经完成啦';
+      } else if (!isFinite(m.needPerDay) || m.daysAvailable <= 0) {
+        $('#mNeed').textContent = '—'; $('#mNeedFoot').textContent = '今天就是截止日';
+      } else {
+        $('#mNeed').textContent = m.needPerDay.toFixed(1);
+        $('#mNeedFoot').textContent = '页 / 天';
+      }
+    }
+  }
+
+  $('#mDays').textContent = Math.max(0, m.daysAvailable);
+  $('#mDaysFoot').textContent = '含今天';
+
+  const status = getStatusMessage(p, m);
+  const card = $('#statusCard');
+  card.className = 'card status ' + (status.cls || 'ok');
+  $('#statusIcon').textContent = status.icon;
+  $('#statusTitle').textContent = status.title;
+  $('#statusDesc').textContent = status.desc;
+
+  const pct = m.total > 0 ? Math.min(100, m.currentPage / m.total * 100) : 0;
+  $('#barFill').style.width = pct + '%';
+  $('#progressText').textContent = `${m.currentPage} / ${m.total} 页 · ${pct.toFixed(1)}%`;
+
+  const barTime = $('#barTime');
+  if (p.startDate) {
+    const totalSpan = diffDays(p.startDate, p.deadline);
+    const elapsed = diffDays(p.startDate, m.t);
+    if (totalSpan > 0) {
+      const tp = Math.max(0, Math.min(100, elapsed / totalSpan * 100));
+      barTime.style.left = tp + '%';
+      barTime.hidden = false;
+    } else barTime.hidden = true;
+  } else barTime.hidden = true;
+
+  if (p.unitMode && (p.units || []).length) {
+    renderUnits(p, m);
+  } else {
+    $('#unitSection').hidden = true;
+  }
+
+  if (isExercise) renderExerciseRecords(p);
+  else renderReciteRecords(p);
+
+  if (isExercise) $('#inPage').placeholder = m.currentPage || '页码';
+  else $('#recitePageStart').placeholder = m.currentPage || '页码';
+
+  requestAnimationFrame(() => drawChart(m, p));
+  checkMilestones(p, m);
+}
+
+function renderReview(p) {
+  const list = $('#reviewList');
+  const due = getDueItems(p);
+  const overdue = getOverdueItems(p);
+
+  $('#reviewSection').hidden = false;
+  const countEl = $('#reviewCount');
+  countEl.textContent = due.length;
+  countEl.classList.toggle('overdue', overdue.length > 0);
+
+  const banner = $('#overdueBanner');
+  if (overdue.length > 0) {
+    banner.hidden = false;
+    $('#overdueCount').textContent = overdue.length;
+    let maxDays = 0;
+    overdue.forEach(it => {
+      const d = diffDays(it.nextReviewDate, todayStr());
+      if (d > maxDays) maxDays = d;
+    });
+    $('#overdueSub').textContent = `最早逾期 ${maxDays} 天 · 可一键分散避免今天堆积`;
+  } else banner.hidden = true;
+
+  if (!due.length) {
+    list.innerHTML = '';
+    $('#noReviewHint').hidden = false;
+    return;
+  }
+  $('#noReviewHint').hidden = true;
+
+  const today = todayStr();
+  due.sort((a, b) => {
+    const aOver = a.nextReviewDate < today ? 1 : 0;
+    const bOver = b.nextReviewDate < today ? 1 : 0;
+    if (aOver !== bOver) return bOver - aOver;
+    return a.nextReviewDate.localeCompare(b.nextReviewDate);
+  });
+
+  list.innerHTML = due.map(it => {
+    const mastery = getMasteryInfo(it);
+    const stage = (it.stage || 0) + 1;
+    const isOverdue = it.nextReviewDate < today;
+    const overdueDays = isOverdue ? diffDays(it.nextReviewDate, today) : 0;
+
+    let lastEvalHtml = '';
+    if (it.reviews && it.reviews.length) {
+      const last = it.reviews[it.reviews.length - 1];
+      const map = { good:'上次：记得', fuzzy:'上次：模糊', forgot:'上次：忘记' };
+      const cls = last.quality === 'good' ? 'm-good' : (last.quality === 'fuzzy' ? 'm-fuzzy' : 'm-weak');
+      lastEvalHtml = `<span class="m-badge ${cls}" style="font-size:10.5px;padding:1px 7px">${map[last.quality]}</span>`;
+    }
+
+    const overdueHtml = isOverdue ? `<span class="overdue-tag">逾期 ${overdueDays} 天</span>` : '';
+
+    return `<li class="review-item ${mastery.cls}${isOverdue ? ' overdue-item' : ''}" data-id="${it.id}">
+      <div class="ri-main">
+        <div class="ri-content">${esc(it.content)}</div>
+        <div class="ri-meta">
+          <span>${fmtPageRange(it)}</span>
+          <span>·</span>
+          <span>学习于 ${fmtCN(it.learnedDate)}</span>
+          <span>·</span>
+          <span>第 ${stage} 次复习</span>
+          ${overdueHtml}
+          ${lastEvalHtml}
+        </div>
+      </div>
+      <div class="ri-actions">
+        <button class="q-btn q-good" data-quality="good">✓ 记得</button>
+        <button class="q-btn q-fuzzy" data-quality="fuzzy">~ 模糊</button>
+        <button class="q-btn q-forgot" data-quality="forgot">✗ 忘记</button>
+      </div>
+    </li>`;
+  }).join('');
+}
+
+function renderUnits(p, m) {
+  $('#unitSection').hidden = false;
+  const list = $('#unitList');
+  const units = [...(p.units || [])].sort((a, b) => (a.startPage || 0) - (b.startPage || 0));
+  const current = m.currentPage;
+
+  list.innerHTML = units.map(u => {
+    const len = Math.max(1, (u.endPage || 0) - (u.startPage || 0) + 1);
+    const done = Math.max(0, Math.min(len, current - (u.startPage || 0) + 1));
+    const pct = len > 0 ? done / len * 100 : 0;
+    const isCurrent = current >= (u.startPage || 0) && current <= (u.endPage || 0);
+    const isDone = current > (u.endPage || 0);
+
+    let masteryHtml = '';
+    if (p.type !== 'exercise') {
+      const score = getUnitMastery(p, u);
+      const mi = masteryFromScore(score);
+      masteryHtml = `<span class="m-badge ${mi.cls}"><span class="dot-sm"></span>${mi.label}</span>`;
+    }
+
+    return `<li class="unit-item">
+      <div class="unit-head">
+        <span class="unit-name">
+          ${esc(u.name || '未命名单元')}
+          ${masteryHtml}
+          ${isCurrent ? '<span class="unit-current">进行中</span>' : ''}
+        </span>
+        <span class="unit-range">${done}/${len} 页${isDone ? ' ✓' : ''}</span>
+      </div>
+      <div class="unit-bar"><div class="unit-bar-fill" style="width:${pct}%"></div></div>
+      <div class="unit-progress">P${u.startPage} - P${u.endPage}</div>
+    </li>`;
+  }).join('');
+}
+
+function renderExerciseRecords(p) {
+  $('#recordTitle').innerHTML = '打卡记录 <span class="muted" id="recCount"></span>';
+  const recs = [...(p.records || [])].sort((a, b) => a.date < b.date ? -1 : 1);
+  const deltas = {};
+  let prev = p.startPage || 0;
+  recs.forEach(r => { deltas[r.date] = (r.page || 0) - prev; prev = r.page || 0; });
+
+  const list = $('#recordList');
+  list.innerHTML = '';
+  $('#recCount').textContent = recs.length ? `共 ${recs.length} 条` : '';
+
+  if (!recs.length) {
+    list.innerHTML = '<li class="empty">还没有记录，先打个卡吧。</li>';
+    return;
+  }
+  [...recs].reverse().forEach(r => {
+    const d = parseDate(r.date);
+    const delta = deltas[r.date];
+    const li = document.createElement('li');
+    li.innerHTML =
+      `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
+      `<span class="r-page">第 ${r.page} 页</span>` +
+      `<span class="r-delta${delta > 0 ? '' : ' zero'}" style="margin-left:auto">${delta > 0 ? '+' + delta : (delta === 0 ? '±0' : delta)}</span>` +
+      `<button class="r-del" data-date="${r.date}" title="删除">×</button>`;
+    list.appendChild(li);
+  });
+}
+
+function renderReciteRecords(p) {
+  $('#recordTitle').innerHTML = '学习记录 <span class="muted" id="recCount"></span>';
+  const items = [...(p.items || [])].sort((a, b) => (b.learnedDate || '').localeCompare(a.learnedDate || ''));
+  const today = todayStr();
+
+  const list = $('#recordList');
+  list.innerHTML = '';
+  $('#recCount').textContent = items.length ? `共 ${items.length} 条` : '';
+
+  if (!items.length) {
+    list.innerHTML = '<li class="empty">还没有学习记录，先添加一条吧。</li>';
+    return;
+  }
+
+  items.forEach(it => {
+    const d = parseDate(it.learnedDate);
+    const mastery = getMasteryInfo(it);
+
+    let rightBadge;
+    if (it.mastered) {
+      rightBadge = '<span class="badge badge-ok">已掌握</span>';
+    } else if (it.nextReviewDate && it.nextReviewDate <= today) {
+      const overdue = diffDays(it.nextReviewDate, today);
+      rightBadge = overdue > 0
+        ? `<span class="badge badge-warn">逾期 ${overdue} 天</span>`
+        : '<span class="badge badge-warn">今日复习</span>';
+    } else if (it.nextReviewDate) {
+      rightBadge = `<span class="badge">${fmtCN(it.nextReviewDate)}复习</span>`;
+    } else {
+      rightBadge = '<span class="badge badge-muted">—</span>';
+    }
+
+    const li = document.createElement('li');
+    li.className = mastery.cls;
+    li.innerHTML =
+      `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日</span>` +
+      `<span class="r-content" title="${esc(it.content)}">${esc(it.content)}</span>` +
+      `<span class="r-page">${fmtPageRange(it)}</span>` +
+      `<span class="m-badge ${mastery.cls}" style="font-size:10.5px"><span class="dot-sm"></span>${mastery.label}</span>` +
+      rightBadge +
+      `<button class="r-del" data-item="${it.id}" title="删除">×</button>`;
+    list.appendChild(li);
+  });
+}
+
+/* ============ 图表 ============ */
+function drawChart(m, p) {
+  const canvas = $('#chart');
+  if (!canvas) return;
+  const W = canvas.clientWidth || 600;
+  const H = 220;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 38, r: 14, t: 14, b: 28 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  let pts = [];
+  if (p.type === 'exercise') {
+    pts = (p.records || []).map(r => ({ date: r.date, page: r.page }));
+  } else {
+    const byDate = {};
+    (p.items || []).forEach(it => {
+      const e = getItemPageEnd(it);
+      if (!byDate[it.learnedDate] || byDate[it.learnedDate] < e) byDate[it.learnedDate] = e;
+    });
+    pts = Object.keys(byDate).sort().map(d => ({ date: d, page: byDate[d] }));
+  }
+  pts.sort((a, b) => a.date < b.date ? -1 : 1);
+
+  const idealStart = (p.startDate && (!pts.length || p.startDate < pts[0].date))
+    ? p.startDate : (pts.length ? pts[0].date : m.t);
+  const idealStartPage = (p.startDate && idealStart === p.startDate)
+    ? (p.startPage || 0) : (pts.length ? pts[0].page : 0);
+
+  let startD = idealStart;
+  let endD = p.deadline > m.t ? p.deadline : m.t;
+  if (m.etaDate && m.etaDate > endD) endD = m.etaDate;
+
+  const spanDays = Math.max(1, diffDays(startD, endD));
+  const X = d => pad.l + (diffDays(startD, d) / spanDays) * cw;
+  const Y = pg => pad.t + ch - (Math.min(Math.max(pg, 0), m.total) / m.total) * ch;
+
+  ctx.font = '11px -apple-system,sans-serif';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 4; i++) {
+    const val = m.total * i / 4;
+    const y = Y(val);
+    ctx.strokeStyle = '#eeeefa';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(pad.l + cw, y);
+    ctx.stroke();
+    ctx.fillStyle = '#a3a1ba';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(val), pad.l - 6, y);
+  }
+
+  ctx.strokeStyle = '#d3d2e6';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(X(idealStart), Y(idealStartPage));
+  ctx.lineTo(X(p.deadline), Y(m.total));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const xt = X(m.t);
+  ctx.strokeStyle = '#ffb020';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(xt, pad.t);
+  ctx.lineTo(xt, pad.t + ch);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const linePts = [];
+  if (p.startDate && (!pts.length || p.startDate < pts[0].date)) {
+    linePts.push({ date: p.startDate, page: p.startPage || 0 });
+  }
+  pts.forEach(pt => linePts.push(pt));
+
+  if (linePts.length) {
+    const grad = ctx.createLinearGradient(pad.l, 0, pad.l + cw, 0);
+    grad.addColorStop(0, '#5b6ef5');
+    grad.addColorStop(1, '#9333ea');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    linePts.forEach((pt, i) => {
+      const x = X(pt.date), y = Y(pt.page);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    ctx.fillStyle = '#5b6ef5';
+    linePts.forEach(pt => {
+      ctx.beginPath();
+      ctx.arc(X(pt.date), Y(pt.page), 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    const last = linePts[linePts.length - 1];
+    ctx.beginPath();
+    ctx.arc(X(last.date), Y(last.page), 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#5b6ef5';
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = '#a3a1ba';
+  ctx.font = '11px -apple-system,sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  ctx.fillText(fmtCN(startD), pad.l, pad.t + ch + 8);
+  ctx.textAlign = 'right';
+  ctx.fillText(fmtCN(endD), pad.l + cw, pad.t + ch + 8);
+
+  if (xt > pad.l + 46 && xt < pad.l + cw - 46) {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e0a020';
+    ctx.fillText('今天', xt, pad.t + ch + 8);
+  }
+}
+
+/* ============ 项目切换 ============ */
+function openSwitch() { renderProjectList(); $('#switchMask').hidden = false; }
+function closeSwitch() { $('#switchMask').hidden = true; }
+
+function renderProjectList() {
+  const list = $('#projectList');
+  const ids = Object.keys(store.projects);
+  if (!ids.length) {
+    list.innerHTML = '<li class="empty" style="padding:20px 8px;text-align:center">还没有任务，点下面新建一个吧。</li>';
+    return;
+  }
+  const arr = ids.map(id => store.projects[id]).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  list.innerHTML = arr.map(p => {
+    const m = getMetrics(p);
+    const pct = p.total > 0 ? Math.min(100, m.currentPage / p.total * 100) : 0;
+    const active = p.id === store.currentId;
+    const type = TYPES[p.type] || TYPES.exercise;
+
+    let extra = '';
+    if (p.type !== 'exercise') {
+      const due = getDueItems(p).length;
+      const over = getOverdueItems(p).length;
+      if (due > 0) {
+        extra = over > 0
+          ? ` · <span style="color:#c07800;font-weight:600">${due} 条待复习（${over} 逾期）</span>`
+          : ` · <span style="color:#e08a00;font-weight:600">${due} 条待复习</span>`;
+      }
+    }
+
+    return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}" data-id="${p.id}">
+      <span class="pi-icon">${type.icon}</span>
+      <div class="pi-main">
+        <div class="pi-name">
+          <span class="pi-name-text">${esc(p.name)}</span>
+          <span class="type-tag ${type.badgeCls}">${type.name}</span>
+        </div>
+        <div class="pi-meta">${m.currentPage} / ${p.total} 页 · ${pct.toFixed(0)}% · 目标 ${p.deadline}${extra}</div>
+      </div>
+      <button class="pi-del" data-del="${p.id}" title="删除">×</button>
+    </li>`;
+  }).join('');
+}
+
+/* ============ 新建 ============ */
+function openFormCreate() {
+  $('#formTitle').textContent = '新建任务';
+  $('#fName').value = '';
+  $('#fTotal').value = '';
+  const d = new Date(); d.setDate(d.getDate() + 100);
+  $('#fDeadline').value = fmtDate(d);
+  $('#fStartDate').value = '';
+  $('#fStartPage').value = '';
+  document.querySelector('input[name="ptype"][value="exercise"]').checked = true;
+  $('#formMask').hidden = false;
+  setTimeout(() => $('#fName').focus(), 50);
+}
+function closeForm() { $('#formMask').hidden = true; }
+
+/* ============ 设置 ============ */
+let editingProjectId = null;
+
+function openSettings() {
+  const p = cur();
+  if (!p) return;
+  editingProjectId = p.id;
+
+  $('#sName').value = p.name;
+  $('#sTotal').value = p.total;
+  $('#sDeadline').value = p.deadline;
+  $('#sStartDate').value = p.startDate || '';
+  $('#sStartPage').value = p.startPage || 0;
+
+  const isExercise = p.type === 'exercise';
+  const isRecite = !isExercise;
+  $('#intervalSectionTitle').hidden = !isRecite;
+  $('#intervalSection').hidden = !isRecite;
+  if (isRecite) $('#sIntervals').value = getIntervals(p).join(', ');
+
+  $('#sUnitMode').checked = !!p.unitMode;
+  renderUnitEditor(p.units || []);
+  $('#unitEditor').hidden = !p.unitMode;
+
+  $('#settingsMask').hidden = false;
+}
+function closeSettings() { $('#settingsMask').hidden = true; }
+
+function renderUnitEditor(units) {
+  const wrap = $('#unitEditList');
+  wrap.innerHTML = '';
+  units.forEach(u => addUnitRow(u.name || '', u.startPage || '', u.endPage || ''));
+}
+
+function addUnitRow(name, startPage, endPage) {
+  const wrap = $('#unitEditList');
+  const row = document.createElement('div');
+  row.className = 'unit-edit-row';
+  row.innerHTML = `
+    <input type="text" placeholder="单元名称" value="${esc(name)}" data-role="uname">
+    <input type="number" placeholder="起始页" value="${startPage === '' ? '' : esc(startPage)}" data-role="ustart" min="0">
+    <input type="number" placeholder="结束页" value="${endPage === '' ? '' : esc(endPage)}" data-role="uend" min="0">
+    <button type="button" class="unit-edit-del" title="删除">×</button>
+  `;
+  wrap.appendChild(row);
+}
+
+/* ============ 导出 / 导入 ============ */
+function exportData() {
+  const data = JSON.stringify({
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    store: store
+  }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `study-tracker-${todayStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const obj = JSON.parse(e.target.result);
+      let imported = null;
+      if (obj && obj.store && obj.store.projects) imported = obj.store;
+      else if (obj && obj.projects) imported = obj;
+      if (!imported || typeof imported.projects !== 'object') throw new Error('文件格式不正确');
+
+      if (!confirm('导入会覆盖当前全部数据，确定继续吗？')) return;
+
+      store = imported;
+      Object.values(store.projects).forEach(p => {
+        (p.items || []).forEach(it => {
+          if (it.pageStart == null && it.page != null) {
+            it.pageStart = it.page;
+            it.pageEnd = it.page;
+          }
+          if (it.pageStart == null) it.pageStart = 0;
+          if (it.pageEnd == null) it.pageEnd = it.pageStart;
+        });
+        if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
+        if (!Array.isArray(p.units)) p.units = [];
+        if (!Array.isArray(p.records)) p.records = [];
+        if (!Array.isArray(p.items)) p.items = [];
+        if (!Array.isArray(p.intervals) || !p.intervals.length) p.intervals = [...DEFAULT_INTERVALS];
+      });
+      if (!store.currentId || !store.projects[store.currentId]) {
+        const ids = Object.keys(store.projects);
+        store.currentId = ids.length ? ids[0] : null;
+      }
+      saveStore();
+      closeSettings();
+      closeForm();
+      render();
+      alert('导入成功！');
+    } catch (err) {
+      alert('导入失败：' + err.message);
+    }
+  };
+  reader.onerror = () => alert('读取文件失败');
+  reader.readAsText(file);
+}
+
+/* ============ 事件绑定 ============ */
+$('#btnSwitch').addEventListener('click', openSwitch);
+$('#switchClose').addEventListener('click', closeSwitch);
+$('#btnNewProject').addEventListener('click', () => { closeSwitch(); openFormCreate(); });
+$('#btnCreateFirst').addEventListener('click', openFormCreate);
+$('#btnSettings').addEventListener('click', openSettings);
+
+$('#formClose').addEventListener('click', closeForm);
+$('#formCancel').addEventListener('click', closeForm);
+
+function submitFormCreate() {
+  const name = ($('#fName').value || '').trim();
+  const total = parseInt($('#fTotal').value, 10);
+  const deadline = $('#fDeadline').value;
+  const startDate = $('#fStartDate').value;
+  const startPage = parseInt($('#fStartPage').value, 10) || 0;
+  const type = (document.querySelector('input[name="ptype"]:checked') || {}).value || 'exercise';
+
+  if (!name) return alert('请填写任务名称～');
+  if (!total || total < 1) return alert('请填写有效的总页数～');
+  if (!deadline) return alert('请选择计划完成日期～');
+  if (startDate && diffDays(startDate, deadline) < 0) return alert('开始日期不能晚于截止日期～');
+
+  const id = genId();
+  store.projects[id] = {
+    id, name, type, total, deadline,
+    startDate: startDate || '',
+    startPage: startPage,
+    unitMode: false,
+    units: [],
+    intervals: [...DEFAULT_INTERVALS],
+    records: [],
+    items: [],
+    shownMilestones: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  store.currentId = id;
+  lastIntervalsKey = '';
+  saveStore();
+  closeForm();
+  render();
+}
+$('#formSave').addEventListener('click', submitFormCreate);
+
+['fName', 'fTotal', 'fDeadline', 'fStartDate', 'fStartPage'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') submitFormCreate(); });
+});
+
+/* 新建弹窗底部的导入入口 */
+$('#formImport').addEventListener('click', () => $('#importFile').click());
+
+$('#settingsClose').addEventListener('click', closeSettings);
+$('#settingsCancel').addEventListener('click', closeSettings);
+
+$('#sUnitMode').addEventListener('change', e => { $('#unitEditor').hidden = !e.target.checked; });
+$('#btnAddUnitRow').addEventListener('click', () => addUnitRow('', '', ''));
+$('#unitEditList').addEventListener('click', e => {
+  const btn = e.target.closest('.unit-edit-del');
+  if (btn) btn.closest('.unit-edit-row').remove();
+});
+
+$('#btnExport').addEventListener('click', exportData);
+$('#btnImport').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (f) importData(f);
+  e.target.value = '';
+});
+
+function submitSettings() {
+  const p = store.projects[editingProjectId];
+  if (!p) return;
+
+  const name = ($('#sName').value || '').trim();
+  const total = parseInt($('#sTotal').value, 10);
+  const deadline = $('#sDeadline').value;
+  const startDate = $('#sStartDate').value;
+  const startPage = parseInt($('#sStartPage').value, 10) || 0;
+
+  if (!name) return alert('请填写任务名称～');
+  if (!total || total < 1) return alert('请填写有效的总页数～');
+  if (!deadline) return alert('请选择计划完成日期～');
+  if (startDate && diffDays(startDate, deadline) < 0) return alert('开始日期不能晚于截止日期～');
+
+  const unitMode = $('#sUnitMode').checked;
+  const units = [];
+  if (unitMode) {
+    const rows = $('#unitEditList').querySelectorAll('.unit-edit-row');
+    for (const row of rows) {
+      const un = row.querySelector('[data-role="uname"]').value.trim();
+      const us = parseInt(row.querySelector('[data-role="ustart"]').value, 10);
+      const ue = parseInt(row.querySelector('[data-role="uend"]').value, 10);
+      if (!un && isNaN(us) && isNaN(ue)) continue;
+      if (!un) return alert('请填写单元名称～');
+      if (isNaN(us) || isNaN(ue)) return alert(`单元「${un}」的页码不完整～`);
+      if (us > ue) return alert(`单元「${un}」起始页不能大于结束页～`);
+      units.push({ name: un, startPage: us, endPage: ue });
+    }
+  }
+
+  let intervals = p.intervals || [...DEFAULT_INTERVALS];
+  if (p.type !== 'exercise') {
+    const str = $('#sIntervals').value.trim();
+    const arr = str.split(/[,，\s]+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n) && n > 0);
+    if (!arr.length) return alert('请至少填写一个复习间隔～');
+    if (arr.join(',') !== getIntervals(p).join(',')) lastIntervalsKey = '';
+    intervals = arr;
+  }
+
+  p.name = name;
+  p.total = total;
+  p.deadline = deadline;
+  p.startDate = startDate || '';
+  p.startPage = startPage;
+  p.unitMode = unitMode;
+  p.units = units;
+  p.intervals = intervals;
+  p.updatedAt = Date.now();
+
+  saveStore();
+  closeSettings();
+  render();
+}
+$('#settingsSave').addEventListener('click', submitSettings);
+
+['sName', 'sTotal', 'sDeadline', 'sStartDate', 'sStartPage', 'sIntervals'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') submitSettings(); });
+});
+
+$('#btnReset').addEventListener('click', () => {
+  const p = store.projects[editingProjectId];
+  if (!p) return;
+  if (!confirm(`确定要清空「${p.name}」的全部数据吗？此操作不可撤销。`)) return;
+  delete store.projects[p.id];
+  const ids = Object.keys(store.projects);
+  store.currentId = ids.length ? ids[0] : null;
+  saveStore();
+  closeSettings();
+  render();
+});
+
+$('#switchMask').addEventListener('click', e => { if (e.target === $('#switchMask')) closeSwitch(); });
+$('#formMask').addEventListener('click', e => { if (e.target === $('#formMask')) closeForm(); });
+$('#settingsMask').addEventListener('click', e => { if (e.target === $('#settingsMask')) closeSettings(); });
+
+$('#projectList').addEventListener('click', e => {
+  const delBtn = e.target.closest('.pi-del');
+  if (delBtn) {
+    e.stopPropagation();
+    const id = delBtn.dataset.del;
+    const p = store.projects[id];
+    if (!p) return;
+    if (confirm(`确定要删除「${p.name}」吗？\n该任务的全部记录都会被永久删除。`)) {
+      delete store.projects[id];
+      if (store.currentId === id) {
+        const rest = Object.keys(store.projects);
+        store.currentId = rest.length ? rest[0] : null;
+      }
+      saveStore();
+      closeSwitch();
+      render();
+    }
+    return;
+  }
+  const item = e.target.closest('.project-item');
+  if (!item) return;
+  const id = item.dataset.id;
+  if (store.projects[id]) {
+    store.currentId = id;
+    lastIntervalsKey = '';
+    saveStore();
+    closeSwitch();
+    render();
+  }
+});
+
+/* 刷题打卡 */
+$('#btnCheckin').addEventListener('click', () => {
+  const p = cur();
+  if (!p || p.type !== 'exercise') return;
+
+  const date = $('#inDate').value || todayStr();
+  const pageVal = parseInt($('#inPage').value, 10);
+  if (isNaN(pageVal) || pageVal < 0) return alert('请输入有效的页码～');
+  if (pageVal > p.total) {
+    if (!confirm(`你填的第 ${pageVal} 页超过了总页数 ${p.total} 页，确定要记录吗？`)) return;
+  }
+  if (!Array.isArray(p.records)) p.records = [];
+  const idx = p.records.findIndex(r => r.date === date);
+  if (idx >= 0) p.records[idx].page = pageVal;
+  else p.records.push({ date, page: pageVal });
+  p.updatedAt = Date.now();
+  saveStore();
+  $('#inPage').value = '';
+  render();
+});
+$('#inPage').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnCheckin').click(); });
+
+/* 背书 / 错题添加 */
+$('#btnReciteAdd').addEventListener('click', () => {
+  const p = cur();
+  if (!p || p.type === 'exercise') return;
+
+  const content = ($('#reciteContent').value || '').trim();
+  const pageStart = parseInt($('#recitePageStart').value, 10);
+  const pageEndRaw = parseInt($('#recitePageEnd').value, 10);
+  const date = $('#reciteDate').value || todayStr();
+  const completedReviews = parseInt($('#reciteStage').value, 10) || 0;
+
+  if (!content) return alert('请填写学习内容～');
+  if (isNaN(pageStart) || pageStart < 0) return alert('请输入有效的起始页～');
+  let pageEnd = isNaN(pageEndRaw) ? pageStart : pageEndRaw;
+  if (pageEnd < pageStart) return alert('结束页不能小于起始页～');
+  if (date > todayStr()) return alert('学习日期不能晚于今天～');
+
+  const intervals = getIntervals(p);
+  const nextReviewDate = calcNextReviewDateFromLearn(date, completedReviews, intervals);
+  const mastered = nextReviewDate === null;
+
+  if (!Array.isArray(p.items)) p.items = [];
+  p.items.push({
+    id: genId(),
+    content,
+    pageStart,
+    pageEnd,
+    learnedDate: date,
+    stage: completedReviews,
+    nextReviewDate,
+    reviews: [],
+    mastered
+  });
+  p.updatedAt = Date.now();
+  saveStore();
+
+  $('#reciteContent').value = '';
+  $('#recitePageStart').value = '';
+  $('#recitePageEnd').value = '';
+  $('#reciteDate').value = todayStr();
+  $('#reciteStage').value = '0';
+  updateRecitePreview();
+  render();
+});
+
+$('#reciteContent').addEventListener('keydown', e => { if (e.key === 'Enter') $('#recitePageStart').focus(); });
+$('#recitePageStart').addEventListener('keydown', e => { if (e.key === 'Enter') $('#recitePageEnd').focus(); });
+$('#recitePageEnd').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnReciteAdd').click(); });
+$('#reciteDate').addEventListener('change', updateRecitePreview);
+$('#reciteStage').addEventListener('change', updateRecitePreview);
+
+/* 复习按钮 */
+$('#reviewList').addEventListener('click', e => {
+  const btn = e.target.closest('.q-btn');
+  if (!btn) return;
+  const itemEl = btn.closest('.review-item');
+  if (!itemEl) return;
+  const itemId = itemEl.dataset.id;
+  const quality = btn.dataset.quality;
+  const p = cur();
+  if (!p) return;
+  const item = (p.items || []).find(it => it.id === itemId);
+  if (!item) return;
+
+  applyReview(item, quality, p);
+  saveStore();
+  render();
+});
+
+/* 逾期一键分散 */
+$('#overdueBanner').addEventListener('click', e => {
+  const btn = e.target.closest('.ob-btn');
+  if (!btn) return;
+  const days = parseInt(btn.dataset.days, 10);
+  if (!days || days < 1) return;
+  const p = cur();
+  if (!p) return;
+  const count = spreadOverdueItems(p, days);
+  if (count > 0) {
+    render();
+    showToast('📅', `已分散 ${count} 条内容`, `未来 ${days} 天均匀安排，今天不再堆积。`);
+  }
+});
+
+/* 记录删除 */
+$('#recordList').addEventListener('click', e => {
+  const btn = e.target.closest('.r-del');
+  if (!btn) return;
+  const p = cur();
+  if (!p) return;
+
+  if (btn.dataset.date) {
+    const date = btn.dataset.date;
+    if (confirm(`删除 ${fmtCN(date)} 的打卡记录？`)) {
+      p.records = (p.records || []).filter(r => r.date !== date);
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+    }
+  } else if (btn.dataset.item) {
+    const id = btn.dataset.item;
+    const item = (p.items || []).find(it => it.id === id);
+    if (!item) return;
+    if (confirm(`删除「${item.content}」及其全部复习记录？`)) {
+      p.items = (p.items || []).filter(it => it.id !== id);
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+    }
+  }
+});
+
+/* Esc 关闭弹窗 */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#settingsMask').hidden) closeSettings();
+  else if (!$('#formMask').hidden) closeForm();
+  else if (!$('#switchMask').hidden) closeSwitch();
+});
+
+window.addEventListener('resize', () => {
+  if (lastMetrics) drawChart(lastMetrics.m, lastMetrics.p);
+});
+
+/* ============ 启动 ============ */
+(function boot() {
+  loadStore();
+  if (store.currentId && !store.projects[store.currentId]) {
+    const ids = Object.keys(store.projects);
+    store.currentId = ids.length ? ids[0] : null;
+    saveStore();
+  }
+  $('#inDate').value = todayStr();
+  $('#reciteDate').value = todayStr();
+  render();
+})();
+</script>
+</body>
+</html>
