@@ -190,7 +190,51 @@
   .pct-chips{display:inline-flex;gap:5px}
   .pct-chip{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:8px;padding:5px 9px;font-size:12px;cursor:pointer;font-family:inherit;transition:.15s}
   .pct-chip:hover{border-color:#c4c9f5;color:var(--brand)}
-  .pct-chip.active{background:#eef0fe;border-color:var(--brand);color:var(--brand);font-weight:600}
+    .pct-chip.active{background:#eef0fe;border-color:var(--brand);color:var(--brand);font-weight:600}
+  .sec-multi{position:relative;flex:1 1 220px;min-width:180px}
+  .sec-multi-btn{
+    width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;
+    background:#fff;text-align:left;font-size:14px;cursor:pointer;font-family:inherit;
+    display:flex;flex-wrap:wrap;gap:4px;align-items:center;color:var(--text);min-height:38px;
+  }
+  .sec-multi-btn:hover{border-color:#ccd2fa}
+  .sec-multi-panel{
+    position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;
+    border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.12);z-index:60;max-height:300px;overflow-y:auto;padding:6px;
+  }
+  .sec-multi-row{
+    display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
+    cursor:pointer;font-size:13.5px;user-select:none;
+  }
+  .sec-multi-row:hover{background:#f3f1fe}
+  .sec-multi-row.sel{background:#eef0fe;font-weight:600}
+  .sec-multi-row .ck{width:16px;font-weight:700;color:#3d4fd6;flex:0 0 auto}
+  .sec-multi-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sec-multi-row .w{font-size:11.5px;color:var(--muted);flex:0 0 auto}
+  .sec-multi-actions{
+    display:flex;gap:6px;padding:6px 4px 2px;border-top:1px solid var(--line);margin-top:4px;
+  }
+  .sec-multi-act{
+    flex:1;border:none;background:#f6f4ff;color:#3d4fd6;padding:7px;
+    border-radius:8px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;
+  }
+  .sec-multi-act:hover{background:#eef0fe}
+  .set-scope-pct{
+    display:flex;flex-direction:column;gap:8px;margin-top:10px;padding:10px 12px;
+    border:1px solid var(--line);border-radius:10px;background:#fafaff;
+  }
+  .set-scope-pct .ssp-head{font-size:12.5px;color:var(--muted);margin-bottom:2px}
+  .set-scope-pct .ssp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .set-scope-pct .ssp-name{
+    flex:1 1 120px;min-width:0;font-size:13.5px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .set-scope-pct .ssp-pct{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+  .set-scope-pct .ssp-input{
+    width:72px;text-align:center;padding:7px 6px;font-size:14px;font-weight:600;
+  }
+  .set-scope-pct .pct-chips{display:inline-flex;gap:5px;flex:0 0 auto}
 
   .pp-summary{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
   .pp-kpi{flex:1;min-width:110px;background:#f7f7fc;border-radius:12px;padding:11px 14px}
@@ -257,6 +301,17 @@
   .pp-unit-track{height:9px;background:#ecebf5;border-radius:6px;overflow:hidden}
   .pp-unit-fill{height:100%;background:linear-gradient(90deg,#5b6ef5,#9333ea);border-radius:6px}
   .pp-empty{color:var(--muted);font-size:13px;text-align:center;padding:24px 0}
+
+  /* 完成情况看板：洞察区 */
+  .pp-insight-title{font-size:13px;font-weight:700;margin:18px 0 9px;color:var(--text)}
+  .pp-stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px}
+  .pp-stat{background:#f7f6fc;border-radius:10px;padding:9px 11px}
+  .pp-stat .v{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+  .pp-stat .k{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+  .pp-stat .v.up{color:var(--ok)} .pp-stat .v.down{color:var(--bad)} .pp-stat .v.warn{color:#c07800}
+  .pp-eta-box{background:#fafaff;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:12.5px;line-height:1.9;color:var(--text)}
+  .pp-eta-box b{font-variant-numeric:tabular-nums}
+  .pp-gap-warn{font-size:12.5px;color:#c07800;margin-top:8px;line-height:1.6}
 
   .recite-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px}
   .recite-grid-2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
@@ -645,6 +700,14 @@
   }
   .wb-filter-btn.active{background:var(--brand);color:#fff}
   .wb-empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
+  .wb-subtitle{font-size:12.5px;color:var(--muted);line-height:1.6;margin:-6px 0 14px}
+  .wb-dist{margin:-4px 0 16px}
+  .wb-dist-bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:#f1f1f7}
+  .wb-dist-seg{height:100%;transition:flex .3s}
+  .wb-dist-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:11.5px;color:var(--muted)}
+  .wb-dist-legend .d{display:inline-flex;align-items:center;gap:5px}
+  .wb-dist-legend .d i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .wb-dist-legend b{color:var(--text);font-variant-numeric:tabular-nums}
 
   .skip-btn{
     background:none;border:none;color:#b0aec4;cursor:pointer;
@@ -837,16 +900,18 @@
         </div>
         <div class="set-scope" id="setScopeSec" hidden>
           <span>完成</span>
-          <select id="inSetScope"></select>
-          <span class="pct-wrap" id="setPctWrap" hidden>
-            <input id="inSetPct" type="number" min="1" max="100" value="100"><span>%</span>
-            <span class="pct-chips" id="setPctChips">
-              <button type="button" class="pct-chip" data-pct="25">25%</button>
-              <button type="button" class="pct-chip" data-pct="50">50%</button>
-              <button type="button" class="pct-chip" data-pct="75">75%</button>
-              <button type="button" class="pct-chip active" data-pct="100">100%</button>
-            </span>
-          </span>
+          <div class="sec-multi" id="inSetScopeMulti">
+            <button type="button" class="sec-multi-btn" id="inSetScopeBtn">
+              <span class="muted">整套（全部板块）</span>
+            </button>
+            <div class="sec-multi-panel" id="inSetScopePanel" hidden>
+              <div id="inSetScopeList"></div>
+              <div class="sec-multi-actions">
+                <button type="button" class="sec-multi-act" id="inSetScopeAll">全选全部板块</button>
+                <button type="button" class="sec-multi-act" id="inSetScopeNone">清空（=整套）</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="page-input" id="setScopeLegacy" style="padding-bottom:0">
           <span class="set-part" style="border-left:none;padding-left:0;margin-left:0">部分完成（选填）：做了
@@ -856,11 +921,12 @@
         </div>
         <button class="primary" id="btnSetCheckin">记录</button>
       </div>
+      <div class="set-scope-pct" id="setScopePctList" hidden></div>
     </div>
 
     <div id="reciteForm" hidden>
       <label class="field" style="margin-bottom:12px">
-        <span>学习内容</span>
+        <span id="reciteContentLabel">学习内容</span>
         <input id="reciteContent" type="text" maxlength="80" placeholder="例：第一章 极限的定义与性质">
       </label>
       <div class="recite-grid-2" style="align-items:flex-end">
@@ -882,17 +948,21 @@
         </label>
       </div>
       <div class="recite-grid-2">
-        <div class="page-range">
+        <div class="page-range" id="recitePageRangeWrap">
           <label class="field">
-            <span>起始页</span>
+            <span id="recitePageStartLabel">起始页</span>
             <input id="recitePageStart" type="number" min="0" placeholder="页码">
           </label>
           <span class="page-range-sep">–</span>
-          <label class="field">
+          <label class="field" id="recitePageEndWrap">
             <span>结束页（可选）</span>
             <input id="recitePageEnd" type="number" min="0" placeholder="同起始页">
           </label>
         </div>
+        <label class="field" id="reciteSourceWrap" hidden>
+          <span>出处（选填）</span>
+          <input id="reciteSource" type="text" maxlength="40" placeholder="例：2023甲卷第5题 / 必修二P30">
+        </label>
         <label class="field">
           <span>学习日期</span>
           <input id="reciteDate" type="date">
@@ -925,7 +995,7 @@
       <div class="foot" id="mDaysFoot">—</div>
     </div>
     <div class="stat">
-      <div class="label" id="labelNeed">需平均每天写</div>
+      <div class="label" id="labelNeed">每个学习日目标</div>
       <div class="value" id="mNeed">—</div>
       <div class="foot" id="mNeedFoot">—</div>
     </div>
@@ -936,6 +1006,7 @@
     <div class="status-body">
       <div class="status-title" id="statusTitle">—</div>
       <div class="status-desc" id="statusDesc">—</div>
+      <div class="status-desc" id="statusAlgoNote" style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;opacity:.85"></div>
     </div>
   </section>
 
@@ -1216,13 +1287,16 @@
       <h2>🎯 薄弱点看板</h2>
       <button class="x-btn" id="weaknessClose">×</button>
     </div>
+    <div id="wbSubtitle" class="wb-subtitle"></div>
 
     <div class="wb-stats">
-      <div class="wb-stat s-total"><div class="num" id="wbTotal">0</div><div class="lab">总条目</div></div>
+      <div class="wb-stat s-total"><div class="num" id="wbTotal">0</div><div class="lab" id="wbTotalLab">总条目</div></div>
       <div class="wb-stat s-mastered"><div class="num" id="wbMastered">0</div><div class="lab">已掌握</div></div>
       <div class="wb-stat s-due"><div class="num" id="wbDue">0</div><div class="lab">待复习</div></div>
       <div class="wb-stat s-weak"><div class="num" id="wbWeak">0</div><div class="lab">薄弱</div></div>
     </div>
+
+    <div id="wbDist" class="wb-dist"></div>
 
     <div class="wb-filter">
       <button class="wb-filter-btn active" data-filter="all">全部</button>
@@ -1231,14 +1305,16 @@
       <button class="wb-filter-btn" data-filter="unmastered">未掌握</button>
     </div>
 
-    <div class="wb-section-title">📋 条目明细（按掌握度升序）</div>
+    <div class="wb-section-title" id="wbListTitle">📋 条目明细（越靠前越该先处理）</div>
     <ul class="wb-list" id="wbList"></ul>
 
     <div class="wb-section-title">📌 我的注意事项</div>
     <textarea id="wbNotePad" class="wb-notepad" placeholder="写点提醒自己的话，会一直显示在这里…&#10;例：线代第二问必用行列式展开；英语作文先列提纲"></textarea>
 
-    <div class="wb-section-title">📂 单元掌握度</div>
-    <div class="wb-units" id="wbUnits"></div>
+    <div id="wbUnitBlock">
+      <div class="wb-section-title">📂 单元掌握度</div>
+      <div class="wb-units" id="wbUnits"></div>
+    </div>
 
     <div id="wbReasonBlock">
       <div class="wb-section-title">🔖 错因分布</div>
@@ -1317,9 +1393,9 @@
           </p>
           <p><b>背书</b>：把今天新背的内容录进去，点一下「记得 / 模糊 / 忘记」。</p>
           <p class="g-note" style="padding-left:14px;margin-top:2px;margin-bottom:10px">
-            系统按你点的效果安排下次复习的时间。
+            进度按填写的页码范围统计（一条跨多页算多页，同一页建多条只算一页）；系统按你点的效果安排下次复习时间。
           </p>
-          <p><b>错题</b>：同上，按钮是「做对了 / 看答案 / 又错了」。</p>
+          <p><b>错题</b>：每道错题记一条，可在「出处」里自由填写它来自哪套卷、哪本书哪页（选填，不填也行），按钮是「做对了 / 看答案 / 又错了」。进度按题（条）数统计。</p>
         </div>
       </div>
 
@@ -1357,8 +1433,9 @@
         <div class="g-content">
           <div style="font-size:13.5px;line-height:2">
             <b>🏠 今日总览</b> —— 今天该做什么，连续打了几天卡<br>
-            <b>🎯 薄弱点</b> —— 哪一章、哪类错因最弱，用红黄绿标出来<br>
-            <b>📊 完成情况</b> —— 已完成 / 未完成的页码或套号
+            <b>🏠 今日总览</b> —— 今天该新学多少、复习多少、连续打了几天卡<br>
+            <b>🎯 薄弱点</b> —— 背书/错题的复习作战中心：按紧急度排序、掌握度分布；错题还有错因画像<br>
+            <b>📊 完成情况</b> —— 刷题的节奏与坚持统计、完成时间预测、漏做页码定位、套号明细
           </div>
         </div>
       </div>
@@ -1668,6 +1745,8 @@ document.addEventListener('click', e => {
   if (panel && !panel.hidden && !e.target.closest('#reasonDD')) panel.hidden = true;
   const pop = $('#reasonPopover');
   if (pop && !pop.hidden && !e.target.closest('#reasonPopover') && !e.target.closest('[data-reasonpicker]')) pop.hidden = true;
+  const scopePanel = $('#inSetScopePanel');
+  if (scopePanel && !scopePanel.hidden && !e.target.closest('#inSetScopeMulti')) scopePanel.hidden = true;
 });
 
 /* ============ 存储 ============ */
@@ -1757,6 +1836,20 @@ function fmtPageRange(it) {
   if (s === e) return `P${s}`;
   return `P${s}-${e}`;
 }
+/* 错题出处：优先自由文本（可写套卷/习题册任意来源），兼容老版本用页码记录的来源 */
+function getItemSource(it) {
+  if (it.source != null && String(it.source).trim() !== '') return String(it.source).trim();
+  if (it.pageStart != null || it.pageEnd != null) {
+    const s = getItemPageStart(it), e = getItemPageEnd(it);
+    if (s || e) return s === e ? `P${s}` : `P${s}-${e}`;
+  }
+  return '';
+}
+/* 列表/看板里条目的定位文字：错题显示出处（可空），背书显示页码区间 */
+function fmtItemLocator(p, it) {
+  if (p.type === 'mistake') return getItemSource(it);
+  return fmtPageRange(it);
+}
 
 /* ============ 核心计算 ============ */
 function getIntervals(p) {
@@ -1771,7 +1864,12 @@ function calcNextReviewDateFromLearn(learnDate, completedReviews, intervals) {
 }
 
 function isSetMode(p) { return !!p && p.type === 'exercise' && p.unit === 'set'; }
-function unitName(p) { return isSetMode(p) ? '套' : '页'; }
+function unitName(p) {
+  if (isSetMode(p)) return '套';
+  // 错题一题一条、粒度固定，按"条"；背书条目粒度不固定（可跨页/同页多条），按客观的"页"
+  if (p && p.type === 'mistake') return '条';
+  return '页';
+}
 function fmtUnitNum(n) {
   const r = Math.round(n * 100) / 100;
   return Number.isInteger(r) ? String(r) : r.toFixed(1);
@@ -1863,73 +1961,263 @@ function getCompletedSets(p, targetDate) {
 }
 function getCompletedPages(p) {
   if (isSetMode(p)) return getCompletedSets(p);
+  // 错题：一题一条、粒度固定，直接按条目数统计（页码仅用于定位题目来源）
+  if (p.type === 'mistake') return (p.items || []).length;
+  // 刷题(练习册)与背书：按"页码区间合并"算进度。背书条目粒度不固定（一条可跨多页、
+  // 一页也可拆多条），只有覆盖到的页码范围是客观、可比的进度度量。
   let ranges;
   if (p.type === 'exercise') {
     ranges = (p.records || []).map(r => getRecordRange(r, p));
   } else {
     ranges = (p.items || []).map(it => ({ start: getItemPageStart(it), end: getItemPageEnd(it) }));
   }
-  const merged = mergeRanges(ranges);
-  return countMergedPages(merged);
+  return countMergedPages(mergeRanges(ranges));
 }
 function getCompletedPagesAtDate(p, targetDate) {
   if (isSetMode(p)) return getCompletedSets(p, targetDate);
+  if (p.type === 'mistake') {
+    return (p.items || []).filter(it => it.learnedDate <= targetDate).length;
+  }
   let ranges;
   if (p.type === 'exercise') {
     ranges = (p.records || []).filter(r => r.date <= targetDate).map(r => getRecordRange(r, p));
   } else {
-    ranges = (p.items || []).filter(it => it.learnedDate <= targetDate).map(it => ({ start: getItemPageStart(it), end: getItemPageEnd(it) }));
+    ranges = (p.items || []).filter(it => it.learnedDate <= targetDate)
+      .map(it => ({ start: getItemPageStart(it), end: getItemPageEnd(it) }));
   }
-  const merged = mergeRanges(ranges);
-  return countMergedPages(merged);
+  return countMergedPages(mergeRanges(ranges));
 }
 
+/* ============ 节奏估计：活跃率 × 学习日产能 ============
+ * 旧算法把"剩余量/剩余自然日"当每日目标，并把"14天内进度差/14"当速度，
+ * 隐含两个错误假设：① 你每天都学；② 休息日也算学习日。
+ * 新模型从历史打卡重建"每日新增完成量"，估计两个参数：
+ *   activityPerDay —— 任一自然日你会学习的概率（贝叶斯 Beta 后验，先验≈每周5天）
+ *   perStudyDayRaw —— 学习日当天的平均完成量（EWMA，半衰期14天，近期更重）
+ * 自然日产能 = activityPerDay × perStudyDayRaw，才是外推 ETA 的正确速度。
+ * 学习日目标 = (剩余量 + 已落后量) / 剩余预期学习日数，自动把过去的债分摊回来。
+ */
 function getMetrics(p) {
   const t = todayStr();
   const total = p.total;
   const currentPage = getCompletedPages(p);
   const remaining = Math.max(0, total - currentPage);
 
-  const daysLeft = diffDays(t, p.deadline);
-  const daysAvailable = daysLeft + 1;
+  const daysLeft = p.deadline ? diffDays(t, p.deadline) : null;
+  const daysAvailable = daysLeft === null ? null : daysLeft + 1;
+  // 兼容旧通知/看板：假设"天天学"的保守自然日均值
   const needPerDay = daysAvailable > 0 ? remaining / daysAvailable : Infinity;
 
-  let speed = null, speedLabel = '';
+  // ---- 收集所有完成日期（exercise→records.date；recite/mistake→items.learnedDate）----
+  const dateSet = new Set();
   if (p.type === 'exercise') {
-    const recs = [...(p.records || [])].sort((a, b) => a.date < b.date ? -1 : 1);
-    if (recs.length >= 2) {
-      const last = recs[recs.length - 1];
-      let si = recs.length - 1;
-      for (let i = recs.length - 1; i >= 0; i--) {
-        if (diffDays(recs[i].date, last.date) > 14) break;
-        si = i;
-      }
-      const span = diffDays(recs[si].date, last.date);
-      if (span >= 1) {
-        const pagesLast = getCompletedPagesAtDate(p, last.date);
-        const pagesStart = getCompletedPagesAtDate(p, recs[si].date);
-        speed = (pagesLast - pagesStart) / span;
-        speedLabel = `最近 ${span} 天`;
-      }
-    }
+    (p.records || []).forEach(r => { if (r.date) dateSet.add(r.date); });
   } else {
-    const items = [...(p.items || [])].sort((a, b) => a.learnedDate < b.learnedDate ? -1 : 1);
-    if (items.length >= 1) {
-      const firstDate = items[0].learnedDate;
-      const span = diffDays(firstDate, t) + 1;
-      if (span >= 1 && currentPage > 0) { speed = currentPage / span; speedLabel = '自开始学习以来'; }
+    (p.items || []).forEach(it => { if (it.learnedDate) dateSet.add(it.learnedDate); });
+  }
+  const allDates = [...dateSet].sort();
+
+  // 累计完成量（自动处理区间合并 / 套卷权重 / 背书 learnedDate）
+  const cumByDate = {};
+  allDates.forEach(d => { cumByDate[d] = getCompletedPagesAtDate(p, d); });
+  const idxOf = {};
+  allDates.forEach((d, i) => { idxOf[d] = i; });
+
+  // 观察窗口：最近 60 个自然日，且不早于第一条记录（ISO 日期可按字符串字典序比较）
+  const WINDOW_DAYS = 60;
+  const cutoff = addDays(t, -(WINDOW_DAYS - 1));
+  let windowStart = allDates.length ? (allDates[0] > cutoff ? allDates[0] : cutoff) : cutoff;
+  if (windowStart > t) windowStart = t;
+  const inWindowDates = allDates.filter(d => d >= windowStart && d <= t);
+
+  // 窗口内每日新增完成量（与上一个记录日做差，区间合并保证 cum 单调不减）
+  const dailyDelta = [];
+  inWindowDates.forEach(d => {
+    const i = idxOf[d];
+    const prevCum = i > 0 ? cumByDate[allDates[i - 1]] : 0;
+    dailyDelta.push({ date: d, delta: Math.max(0, cumByDate[d] - prevCum) });
+  });
+
+  const activeDays = dailyDelta.filter(x => x.delta > 0).length;
+  const windowDays = Math.max(1, diffDays(windowStart, t) + 1);
+  const activeSet = new Set(dailyDelta.filter(x => x.delta > 0).map(x => x.date));
+
+  // ---- 活跃率：对窗口内每个自然日的 0/1 学习指示做 EWMA（半衰期10天），再向先验收缩 ----
+  // v3.1：先验强度随观察到的学习日数自适应衰减。
+  // 原固定 PRIOR_K=10 会让“每天都学”的重度用户被永久低估（上限约 0.884）。
+  // 现在：activeDays 越少越依赖先验（每周约 5 天）；累积到 10 个学习日后完全相信历史数据。
+  const ACT_HALF = 10;
+  const PRIOR_RATE = 5 / 7;
+  const PRIOR_K = Math.max(0, 10 - Math.min(activeDays, 10));
+
+  let wAll = 0, wActive = 0;
+  for (let age = 0; age < windowDays; age++) {
+    const d = addDays(t, -age);
+    const w = Math.pow(0.5, age / ACT_HALF);
+    wAll += w;
+    if (activeSet.has(d)) wActive += w;
+  }
+  const rawActivity = wAll > 0 ? wActive / wAll : 0;
+  const activityPerDay = (wActive + PRIOR_RATE * PRIOR_K) / (wAll + PRIOR_K);
+  const activityPerWeek = activityPerDay * 7;
+
+  // ---- 学习日产能：EWMA，半衰期 14 天（只对真正推进了进度的日子加权）----
+  const HALF_LIFE = 14;
+  let wSum = 0, dwSum = 0;
+  dailyDelta.forEach(x => {
+    if (x.delta <= 0) return;
+    const age = Math.max(0, diffDays(x.date, t));
+    const w = Math.pow(0.5, age / HALF_LIFE);
+    wSum += w; dwSum += w * x.delta;
+  });
+  const perStudyDayRaw = wSum > 0 ? dwSum / wSum : 0;
+
+  // ---- 自然日产能（含休息日），与 ETA 同口径 ----
+  const naturalDailyRate = activityPerDay * perStudyDayRaw;
+
+  // ---- 置信度 ----
+  let confidence = 'low';
+  if (activeDays >= 7 && windowDays >= 14) confidence = 'high';
+  else if (activeDays >= 3 && windowDays >= 7) confidence = 'medium';
+  const enoughData = confidence !== 'low';
+
+    // ---- 稀疏打卡检测：记录间隔越长，产能归因越不精确 ----
+  // 系统只能把完成量归到「有打卡的那一天」，长间隔会让单日产能被高估。
+  // 这里用相邻学习日的间隔中位数来判断，≥4 天就在 UI 上提示。
+  let medianGap = null;
+  if (activeDays >= 2) {
+    const activeDates = dailyDelta.filter(x => x.delta > 0).map(x => x.date);
+    const gaps = [];
+    for (let i = 1; i < activeDates.length; i++) {
+      gaps.push(diffDays(activeDates[i - 1], activeDates[i]));
+    }
+    if (gaps.length) {
+      gaps.sort((a, b) => a - b);
+      medianGap = gaps[Math.floor(gaps.length / 2)];
     }
   }
-  if (speed === null && p.startDate) {
-    const span = diffDays(p.startDate, t) + 1;
-    if (span >= 1 && currentPage > 0) { speed = currentPage / span; speedLabel = '自开始以来'; }
+  const sparseLogging = medianGap != null && medianGap >= 4;
+
+  // ---- 产能波动区间：给"乐观/保守"完成范围，而不是一个看似精确的单点日期 ----
+  const activeVals = dailyDelta.filter(x => x.delta > 0).map(x => x.delta).sort((a, b) => a - b);
+  const quantile = (arr, q) => {
+    if (!arr.length) return null;
+    const pos = (arr.length - 1) * q, b = Math.floor(pos), r = pos - b;
+    return arr[b + 1] != null ? arr[b] + r * (arr[b + 1] - arr[b]) : arr[b];
+  };
+  let rateHigh = null, rateLow = null; // 状态好 / 状态差时，每个学习日的典型产能
+  if (confidence === 'high' && activeVals.length >= 7) {
+    // 经验分位，并保留 ±8% 的最小带宽（即使每天很规律，日常也难免波动，范围不应退化成一个点）
+    rateHigh = Math.max(quantile(activeVals, 0.75), perStudyDayRaw * 1.08);
+    rateLow  = Math.min(quantile(activeVals, 0.25), perStudyDayRaw * 0.92);
+  } else if (enoughData && activeVals.length >= 3) {
+    rateHigh = perStudyDayRaw * 1.3;   // 样本偏少，给较宽的启发式区间并在文案标注
+    rateLow  = perStudyDayRaw * 0.7;
+  }
+  const natRateHigh = activityPerDay * (rateHigh || 0); // 乐观自然日产能（早完成）
+  const natRateLow  = activityPerDay * (rateLow || 0);  // 保守自然日产能（晚完成）
+
+  // ---- 速度（自然日口径，兼容旧 status/图表）----
+  let speed = null, speedLabel = '';
+  if (naturalDailyRate > 0) {
+    speed = naturalDailyRate;
+    speedLabel = `近${windowDays}天节奏（每周约${Math.round(activityPerWeek)}个学习日）`;
+  }
+  if (speed === null) {
+    const fbDate = allDates[0] || p.startDate;
+    if (fbDate) {
+      const span = diffDays(fbDate, t) + 1;
+      if (span >= 1 && currentPage > 0) { speed = currentPage / span; speedLabel = '自开始以来（粗估）'; }
+    }
   }
 
-  let etaDate = null;
-  if (remaining === 0) etaDate = t;
-  else if (speed !== null && speed > 0) etaDate = addDays(t, Math.ceil(remaining / speed));
+  // ---- ETA（基准 + 乐观/保守区间）----
+  let etaDate = null, etaEarlyDate = null, etaLateDate = null;
+  if (remaining === 0) { etaDate = etaEarlyDate = etaLateDate = t; }
+  else if (speed !== null && speed > 0) {
+    etaDate = addDays(t, Math.ceil(remaining / speed));
+    if (enoughData) {
+      if (natRateHigh > 0) etaEarlyDate = addDays(t, Math.ceil(remaining / natRateHigh));
+      if (natRateLow > 0)  etaLateDate  = addDays(t, Math.ceil(remaining / natRateLow));
+    }
+  }
 
-  return { t, total, currentPage, remaining, daysLeft, daysAvailable, needPerDay, speed, speedLabel, etaDate };
+  // ---- 落后量（仅用于文案解释；不重复加进目标，因为 remaining 已含落后）----
+  let behind = 0;
+  if (p.startDate && p.deadline && total > 0) {
+    const totalSpan = diffDays(p.startDate, p.deadline);
+    const elapsed = diffDays(p.startDate, t);
+    if (totalSpan > 0) {
+      const idealAtToday = total * Math.max(0, Math.min(1, elapsed / totalSpan));
+      behind = Math.max(0, idealAtToday - currentPage);
+    }
+  }
+  // 剩余预期学习日数（含今天）；无截止日时不存在"追赶目标"，下面不计算每学习日目标
+  const hasDeadline = daysAvailable != null && daysAvailable > 0;
+  const studyDaysRemaining = hasDeadline ? Math.max(0.5, daysAvailable * activityPerDay) : null;
+  // 每个学习日该做多少 = 剩余 / 剩余学习日（落后已体现在 remaining 里，不再叠加，否则会堆到做不到）
+  let perStudyDay = null;
+  // 可行性分级：把"目标负荷"和"历史产能"对比，做不到时给出路而不是硬塞数字
+  let feasibility = null, ratio = null, feasiblePerWeek = null, feasibleDays = null;
+  if (enoughData && remaining > 0 && hasDeadline) {
+    perStudyDay = remaining / studyDaysRemaining;
+    if (perStudyDayRaw > 0) {
+      ratio = perStudyDay / perStudyDayRaw;
+      // 用"最快/最慢"完成所需自然日数与可用天数比较来分档，比单点均值更稳健、更好解释
+      const daysNeededEarly = natRateHigh > 0 ? remaining / natRateHigh : Infinity; // 状态最好时
+      const daysNeededLate  = natRateLow  > 0 ? remaining / natRateLow  : Infinity; // 状态较差时
+      if (daysNeededLate <= daysAvailable) feasibility = 'easy';         // 即使慢一点也来得及
+      else if (daysNeededEarly > daysAvailable) feasibility = 'impossible'; // 拼尽全力仍赶不上
+      else feasibility = 'stretch';                                      // 正常发挥有风险、加把劲可赶上
+      feasiblePerWeek = remaining / perStudyDayRaw / (daysAvailable / 7);
+      if (naturalDailyRate > 0) feasibleDays = remaining / naturalDailyRate;
+    }
+  }
+  // 数据不足时，告诉用户再补多少天打卡预测才稳
+  // “再积累多少学习日”，而不是“再连续打卡多少天”——后者对低频用户不准确
+  const needMoreActiveDays = confidence === 'high' ? 0 : Math.max(0, 7 - activeDays);
+  const needMoreDays = needMoreActiveDays; // 兼容旧调用点
+
+  // 今天已推进多少（用于"今日是否达标"提示）：当前累计 − 昨天及以前的累计
+  const cumYesterday = getCompletedPagesAtDate(p, addDays(t, -1));
+  const todayDone = Math.max(0, currentPage - cumYesterday);
+
+  // ---- 坚持度 & 趋势（供看板/完成情况使用）----
+  const isActiveDay = d => activeSet.has(d);
+  // 当前连续：今天学了从今天算；今天还没学则从昨天往回算（不因今天尚未学就清零）
+  let streakNow = 0;
+  let cursor = isActiveDay(t) ? t : addDays(t, -1);
+  while (cursor >= windowStart && isActiveDay(cursor)) { streakNow++; cursor = addDays(cursor, -1); }
+  // 窗口内最长连续 & 最长停摆
+  let longestStreak = 0, runOn = 0, longestBreak = 0, runOff = 0;
+  for (let age = windowDays - 1; age >= 0; age--) {
+    const d = addDays(t, -age);
+    if (isActiveDay(d)) { runOn++; longestStreak = Math.max(longestStreak, runOn); runOff = 0; }
+    else { runOff++; longestBreak = Math.max(longestBreak, runOff); runOn = 0; }
+  }
+  const lastStudyDate = allDates.length ? allDates[allDates.length - 1] : null;
+  // 趋势：近 7 天学习日平均产能 vs 之前 3 周（8~28 天前）学习日平均产能
+  const meanActive = dates => {
+    const vals = dailyDelta.filter(x => dates.includes(x.date) && x.delta > 0).map(x => x.delta);
+    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  };
+  const recentDates = [], prevDates = [];
+  for (let o = 0; o <= 6; o++) recentDates.push(addDays(t, -o));
+  for (let o = 7; o <= 27; o++) prevDates.push(addDays(t, -o));
+  const recentRate = meanActive(recentDates), prevRate = meanActive(prevDates);
+  let trendPct = null;
+  if (recentRate != null && prevRate != null && prevRate > 0) trendPct = (recentRate - prevRate) / prevRate;
+
+  return {
+    t, total, currentPage, remaining, daysLeft, daysAvailable,
+    needPerDay, speed, speedLabel, etaDate, etaEarlyDate, etaLateDate,
+    activeDays, windowDays, activityPerWeek, perStudyDayRaw, rateHigh, rateLow,
+    perStudyDay, studyDaysRemaining, behind, confidence, enoughData,
+    feasibility, ratio, feasiblePerWeek, feasibleDays, needMoreDays, needMoreActiveDays,
+    sparseLogging, medianGap,
+    todayDone, streakNow, longestStreak, longestBreak, lastStudyDate,
+    recentRate, prevRate, trendPct
+  };
 }
 
 function getDueItems(p) {
@@ -2204,24 +2492,31 @@ function getMasteryInfo(it) {
   return { key: 'weak', label: '需要重点看', cls: 'm-weak' };
 }
 
-function getUnitMastery(p, unit) {
-  const items = (p.items || []).filter(it => {
-    const s = getItemPageStart(it);
-    const e = getItemPageEnd(it);
-    return e >= unit.startPage && s <= unit.endPage;
-  });
-  if (!items.length) return null;
-
-  let sum = 0;
-  items.forEach(it => {
-    if (it.mastered || it.manualMastered) {
-      sum += 1.0;
-    } else {
-      const sc = getItemScore(it);
-      sum += (sc !== null) ? sc : 0;
+/* 取单元内的条目及其归属权重（按页码重叠比例分摊，跨页条不会被多个单元重复计数） */
+function getUnitItemEntries(p, unit) {
+  const us = parseInt(unit.startPage, 10) || 0;
+  const ue = parseInt(unit.endPage, 10) || 0;
+  const out = [];
+  (p.items || []).forEach(it => {
+    const s = getItemPageStart(it), e = getItemPageEnd(it);
+    const ovS = Math.max(s, us), ovE = Math.min(e, ue);
+    if (ovE >= ovS) {
+      const span = Math.max(1, e - s + 1);
+      const w = Math.min(1, (ovE - ovS + 1) / span); // 重叠页数占该条目跨度的比例
+      out.push({ it, w });
     }
   });
-  return sum / items.length;
+  return out;
+}
+function getUnitMastery(p, unit) {
+  const entries = getUnitItemEntries(p, unit);
+  if (!entries.length) return null;
+  let sw = 0, sws = 0;
+  entries.forEach(({ it, w }) => {
+    const sc = (it.mastered || it.manualMastered) ? 1.0 : (getItemScore(it) ?? 0);
+    sw += w; sws += sc * w;
+  });
+  return sw > 0 ? sws / sw : 0;
 }
 
 function masteryFromScore(score) {
@@ -2242,35 +2537,68 @@ function getStatusMessage(p, m) {
   }
   if (m.daysLeft < 0) {
     return { icon:'⛔', cls:'bad', title:`已超过目标日期 ${-m.daysLeft} 天`,
-      desc:`还剩 ${rem} ${u}。可在设置里调整截止日期，或参考每日所需安排补进度。` };
+      desc:`还剩 ${rem} ${u}。可在设置里调整截止日期，或参考下方"每个学习日需做"安排补进度。` };
   }
-  if (m.etaDate) {
-    const gap = diffDays(m.etaDate, p.deadline);
-    if (gap >= 0) {
-      return { icon:'✅', cls:'ok', title:'按当前速度，可以按时完成',
-        desc:`${m.speedLabel}速度约 ${m.speed.toFixed(1)} ${u}/天，预计 ${fmtCN(m.etaDate)} 完成，${gap > 0 ? `比目标提前 ${gap} 天。` : '刚好赶上目标。'}` };
-    } else {
-      return { icon:'⚠️', cls:'warn', title:`按当前速度，会晚 ${-gap} 天完成`,
-        desc:`${m.speedLabel}速度约 ${m.speed.toFixed(1)} ${u}/天，预计 ${fmtCN(m.etaDate)} 完成。需要提高到 ${m.needPerDay.toFixed(1)} ${u}/天才能赶上目标。` };
+
+  // 数据不足：诚实说明，并告诉用户再打多久就准
+  if (!m.enoughData || !m.etaDate) {
+    if (m.needMoreActiveDays > 0) {
+      return { icon:'📝', cls:'warn', title:'打卡数据还少，预测仅供参考',
+        desc:`系统靠你最近约 2 周的真实打卡来估计节奏（每周学几天、每次${p.type === 'mistake' ? '订正几题' : '做多少页'}）。现在已积累 ${m.activeDays} 个学习日，再积累约 ${m.needMoreActiveDays} 个学习日后，估算会稳定下来。现在先按下面的粗略目标推进即可。截止日期只是规划目标，随时可在设置里调整。` };
     }
+    return { icon:'📝', cls:'warn', title:'数据还不够，暂时无法预测',
+      desc:'再积累几个学习日，系统会结合你的真实活跃频率估算完成时间和每次目标。截止日期可随时在设置里调整。' };
   }
-  if (p.startDate) {
-    const totalSpan = diffDays(p.startDate, p.deadline);
-    const elapsed = diffDays(p.startDate, m.t);
-    if (totalSpan > 0) {
-      const expectedPct = Math.max(0, Math.min(1, elapsed / totalSpan));
-      const expectedPage = fmtUnitNum(Math.round(expectedPct * m.total));
-      const diffPct = pct - expectedPct;
-      if (diffPct > 0.05) return { icon:'🚀', cls:'ok', title:'进度超前',
-        desc:`当前完成 ${curN} ${u}，理想进度应为 ${expectedPage} ${u}。你比计划快约 ${fmtUnitNum(Math.round(diffPct * m.total))} ${u}。` };
-      if (diffPct > -0.05) return { icon:'✅', cls:'ok', title:'进度和计划基本一致',
-        desc:`当前完成 ${curN} ${u}，理想进度应为 ${expectedPage} ${u}。保持在正轨上。` };
-      return { icon:'📉', cls:'warn', title:'进度落后于计划',
-        desc:`当前完成 ${curN} ${u}，理想进度应为 ${expectedPage} ${u}，落后约 ${fmtUnitNum(Math.abs(Math.round(diffPct * m.total)))} ${u}。` };
+
+  const verb = p.type === 'mistake' ? '订正' : (p.type === 'recite' ? '新学' : '做');
+  // 有数据：先说节奏
+  const paceBits = `按你每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${m.perStudyDayRaw.toFixed(1)} ${u} 的节奏`;
+  const confTxt = m.confidence === 'medium' ? '（样本还少，范围偏宽，多打卡几天会更准）' : '';
+  // v3.1：稀疏打卡提示——打卡间隔过长会让产能归因不准
+  const sparseNote = m.sparseLogging
+    ? `（提示：你最近打卡间隔中位数约 ${m.medianGap} 天，系统只能把每次进度归到打卡那一天，产能估计可能有偏差；建议每天记录一次，哪怕只做一点点。）`
+    : '';
+  // 完成时间范围（乐观 ~ 保守）
+  let rangeTxt = `预计 ${fmtCN(m.etaDate)} 完成`;
+  if (m.etaEarlyDate && m.etaLateDate && m.etaEarlyDate !== m.etaLateDate) {
+    rangeTxt = `预计 ${fmtCN(m.etaEarlyDate)}～${fmtCN(m.etaLateDate)} 之间完成`;
+  }
+  const adjustHint = '截止日期只是规划目标，可随时在设置里按实际节奏调整。';
+
+  // 未设截止日：只给预计完成范围，不评判早晚/可行性
+  if (!p.deadline) {
+    return { icon:'📈', cls:'ok', title:'保持节奏，持续推进',
+      desc:`${paceBits}，${rangeTxt}全部 ${tot} ${u}。可在设置里添加截止日，获得每个学习日目标和可行性提醒。${confTxt}` };
+  }
+
+  // 可行性分支
+  if (m.feasibility === 'impossible') {
+    const needDays = m.feasibleDays ? Math.ceil(m.feasibleDays) : '若干';
+    const needWk = m.feasiblePerWeek ? Math.ceil(m.feasiblePerWeek * 10) / 10 : null;
+    const earlyTxt = m.etaEarlyDate ? `哪怕按你状态最好时的节奏（每次约 ${m.rateHigh.toFixed(1)} ${u}），也要到 ${fmtCN(m.etaEarlyDate)}` : `预计 ${fmtCN(m.etaDate)} 才能完成`;
+    let suggestion = '';
+    if (m.daysLeft > 0) {
+      if (needWk && needWk <= 7) {
+        suggestion = `要在 ${fmtCN(p.deadline)} 前完成，二选一：① 把每周学习日提到约 ${needWk} 天（现在约 ${Math.round(m.activityPerWeek)} 天）；② 或在设置里把截止日放宽到约 ${fmtCN(addDays(m.t, needDays))}。`;
+      } else {
+        suggestion = `即使每周学满 7 天也赶不上 ${fmtCN(p.deadline)}。建议在设置里把截止日放宽到约 ${fmtCN(addDays(m.t, needDays))}，或适当减少总量。`;
+      }
     }
+    return { icon:'🚧', cls:'bad', title:`按你历史节奏，赶不上 ${fmtCN(p.deadline)}`,
+      desc:`${paceBits}，${earlyTxt}，已经晚于目标日期。硬要卡线需每个学习日${verb} ${m.perStudyDay.toFixed(1)} ${u}（比平时多 ${((m.ratio-1)*100).toFixed(0)}%），很难坚持。${suggestion}${sparseNote}${adjustHint}` };
   }
-  return { icon:'📝', cls:'warn', title:'数据还不够，暂时无法预测',
-    desc:'再打卡一天，或在设置中补上开始日期，系统就能估算完成时间和每日所需进度。' };
+  if (m.feasibility === 'stretch') {
+    return { icon:'⚠️', cls:'warn', title:`需要比平时多努一点力`,
+      desc:`${paceBits}，${rangeTxt}，基准约 ${fmtCN(m.etaDate)}，存在赶不上 ${fmtCN(p.deadline)} 的风险。要稳妥按时完成，每个学习日${verb} ${m.perStudyDay.toFixed(1)} ${u}（比平时多 ${((m.ratio-1)*100).toFixed(0)}%），仍在可坚持范围。${confTxt}${sparseNote}${adjustHint}` };
+  }
+  // easy：连保守节奏都来得及
+  const gapLate = m.etaLateDate ? diffDays(m.etaLateDate, p.deadline) : diffDays(m.etaDate, p.deadline);
+  const safeTxt = m.rateLow != null
+    ? `即使按你状态较差时的节奏（每次约 ${m.rateLow.toFixed(1)} ${u}），预计 ${fmtCN(m.etaLateDate || m.etaDate)} 也能完成`
+    : `${rangeTxt}`;
+  const aheadTxt = gapLate > 0 ? `，比目标最晚还提前 ${gapLate} 天` : (gapLate === 0 ? '，最晚也刚好赶上' : '');
+    return { icon:'✅', cls:'ok', title:'按当前节奏，可以按时完成',
+    desc:`${paceBits}，${safeTxt}${aheadTxt}。每个学习日${verb} ${m.perStudyDay.toFixed(1)} ${u} 即可，和你平时差不多。${confTxt}${sparseNote}${adjustHint}` };
 }
 
 /* ============ 里程碑 ============ */
@@ -2440,6 +2768,15 @@ function render() {
   $('#reciteForm').hidden = isExercise;
   renderReasonDropdown(p);
   $('#reciteErrTagWrap').hidden = (p.type !== 'mistake');
+  // 内容输入与提交按钮按类型措辞
+  const contentLab = $('#reciteContentLabel');
+  if (contentLab) contentLab.textContent = p.type === 'mistake' ? '错题 / 知识点' : '学习内容';
+  const contentInput = $('#reciteContent');
+  if (contentInput) contentInput.placeholder = p.type === 'mistake'
+    ? '例：线代第3题 · 特征值计算'
+    : '例：第一章 极限的定义与性质';
+  $('#btnReciteAdd').textContent = p.type === 'mistake' ? '+ 记录错题' : '+ 添加内容';
+  $('#checkinTitle').textContent = isExercise ? '今日打卡' : (p.type === 'mistake' ? '📝 登记 / 补录错题' : '📖 学习 / 补录内容');
   const noteInput = $('#reciteNote');
   if (p.type === 'mistake') {
     noteInput.placeholder = '例：这道线代题第二问总是卡，多练同类';
@@ -2449,7 +2786,6 @@ function render() {
   const qBtns = document.querySelectorAll('#reciteQuality .rec-qbtn');
   const qText = p.type === 'mistake' ? ['做对了', '看答案', '又错了'] : ['记得', '模糊', '忘记'];
   qBtns.forEach((b, i) => { b.textContent = qText[i]; b.dataset.q = ['good','fuzzy','forgot'][i]; });
-  $('#checkinTitle').textContent = isExercise ? '今日打卡' : '📖 学习 / 补录内容';
   if (isExercise && !setMode) applyPageModeUI();
   if (setMode) {
     if (!$('#inSetDate').value) $('#inSetDate').value = m.t;
@@ -2457,7 +2793,7 @@ function render() {
   }
   $('#checkinHint').textContent = !isExercise
     ? (p.type === 'mistake'
-      ? '每次做错题后登记进来。答对了自动推进复习间隔，看答案不进不退，又错了自动打回前几轮。'
+      ? '每次做错题后登记进来，“出处”可自由填写它来自哪套卷/哪本书哪页（选填）。答对了自动推进复习间隔，看答案不进不退，又错了自动打回前几轮。'
       : '每次学完新内容或补录旧内容都在这里登记。页码可以填一个范围。复习评价（记得/模糊/忘记）用来标记掌握程度。')
     : setMode
       ? (getPaperSections(p).length
@@ -2477,39 +2813,85 @@ function render() {
     $('#labelRemaining').textContent = setMode ? '剩余套数' : '剩余页数';
     $('#mRemaining').textContent = fmtUnitNum(m.remaining);
     $('#mRemainingFoot').textContent = `共 ${fmtUnitNum(m.total)} ${u} · 已完成 ${fmtUnitNum(m.currentPage)} ${u}`;
-    $('#labelNeed').textContent = setMode ? '需平均每天做' : '需平均每天写';
     if (m.remaining === 0 && m.currentPage > 0) {
+      $('#labelNeed').textContent = '需平均每天做';
       $('#mNeed').textContent = '0'; $('#mNeedFoot').textContent = '已经完成啦';
     } else if (!isFinite(m.needPerDay) || m.daysAvailable <= 0) {
-      $('#mNeed').textContent = '—'; $('#mNeedFoot').textContent = '今天就是截止日';
+      $('#labelNeed').textContent = '每个学习日目标';
+      $('#mNeed').textContent = '—';
+      $('#mNeedFoot').textContent = m.daysAvailable == null
+        ? (m.etaDate ? `未设截止日，按当前节奏预计 ${fmtCN(m.etaDate)} 完成` : '未设截止日，可在设置中添加')
+        : '今天就是截止日';
+    } else if (m.perStudyDay != null) {
+      $('#labelNeed').textContent = '每个学习日需做';
+      $('#mNeed').textContent = m.perStudyDay.toFixed(1);
+      const bits = [];
+      if (m.todayDone > 0) {
+        bits.push(m.todayDone >= m.perStudyDay
+          ? `今天已做 ${fmtUnitNum(m.todayDone)}，达标`
+          : `今天已做 ${fmtUnitNum(m.todayDone)} / ${m.perStudyDay.toFixed(1)}`);
+      }
+      bits.push(`约每周 ${Math.round(m.activityPerWeek)} 个学习日`);
+      if (m.feasibility === 'stretch') bits.push(`比平时多 ${((m.ratio-1)*100).toFixed(0)}%`);
+      else if (m.feasibility === 'impossible') bits.push('当前节奏赶不上，见上方建议');
+      else bits.push('按平时节奏即可');
+      $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
+      $('#labelNeed').textContent = '需平均每天做';
       $('#mNeed').textContent = m.needPerDay.toFixed(1);
-      $('#mNeedFoot').textContent = `${u} / 天`;
+      $('#mNeedFoot').textContent = m.needMoreDays > 0 ? `粗估（剩余÷剩余自然日）· 再积累约 ${m.needMoreDays} 个学习日后会更准` : '再积累几个学习日，将按你的真实节奏给出学习日目标';
     }
   } else {
+    const isMistake = p.type === 'mistake';
+    const ru = unitName(p); // 错题=条，背书=页
     const due = getDueItems(p).length;
-    $('#labelRemaining').textContent = '剩余页数';
+    $('#labelRemaining').textContent = isMistake ? '剩余题数' : '剩余页数';
     $('#mRemaining').textContent = m.remaining;
-    $('#mRemainingFoot').textContent = `共 ${m.total} 页 · 已完成 ${m.currentPage} 页`;
+    $('#mRemainingFoot').textContent = isMistake
+      ? `目标共 ${m.total} 条 · 已收录 ${m.currentPage} 条`
+      : `共 ${m.total} 页 · 已完成 ${m.currentPage} 页`;
     if (due > 0) {
       $('#labelNeed').textContent = '今日待复习';
       $('#mNeed').textContent = due;
-      $('#mNeedFoot').textContent = '条内容';
-    } else {
-      $('#labelNeed').textContent = '需平均每天学';
-      if (m.remaining === 0 && m.currentPage > 0) {
-        $('#mNeed').textContent = '0'; $('#mNeedFoot').textContent = '已经完成啦';
-      } else if (!isFinite(m.needPerDay) || m.daysAvailable <= 0) {
-        $('#mNeed').textContent = '—'; $('#mNeedFoot').textContent = '今天就是截止日';
-      } else {
-        $('#mNeed').textContent = m.needPerDay.toFixed(1);
-        $('#mNeedFoot').textContent = '页 / 天';
+      $('#mNeedFoot').textContent = '条内容（复习优先，清完再添新的）';
+    } else if (m.remaining === 0 && m.currentPage > 0) {
+      $('#labelNeed').textContent = '每个学习日目标';
+      $('#mNeed').textContent = '0'; $('#mNeedFoot').textContent = '已经完成啦';
+    } else if (!isFinite(m.needPerDay) || m.daysAvailable <= 0) {
+      $('#labelNeed').textContent = '每个学习日目标';
+      $('#mNeed').textContent = '—';
+      $('#mNeedFoot').textContent = m.daysAvailable == null
+        ? (m.etaDate ? `未设截止日，按当前节奏预计 ${fmtCN(m.etaDate)} 完成` : '未设截止日，可在设置中添加')
+        : '今天就是截止日';
+    } else if (m.perStudyDay != null) {
+      $('#labelNeed').textContent = isMistake ? '每个学习日订正' : '每个学习日新学';
+      $('#mNeed').textContent = m.perStudyDay.toFixed(1);
+      const actVerb = isMistake ? '已订正' : '已学';
+      const bits = [];
+      if (m.todayDone > 0) {
+        bits.push(m.todayDone >= m.perStudyDay
+          ? `今天${actVerb} ${fmtUnitNum(m.todayDone)} ${ru}，达标`
+          : `今天${actVerb} ${fmtUnitNum(m.todayDone)} / ${m.perStudyDay.toFixed(1)} ${ru}`);
       }
+      bits.push(`约每周 ${Math.round(m.activityPerWeek)} 个学习日`);
+      if (m.feasibility === 'stretch') bits.push(`比平时多 ${((m.ratio-1)*100).toFixed(0)}%`);
+      else if (m.feasibility === 'impossible') bits.push('当前节奏赶不上，见上方建议');
+      else bits.push('按平时节奏即可');
+      $('#mNeedFoot').textContent = bits.join(' · ');
+    } else {
+      $('#labelNeed').textContent = isMistake ? '需平均每天订正' : '需平均每天学';
+      $('#mNeed').textContent = m.needPerDay.toFixed(1);
+      $('#mNeedFoot').textContent = m.needMoreDays > 0 ? `粗估（剩余÷剩余自然日）· 再积累约 ${m.needMoreDays} 个学习日后会更准` : `${ru} / 天`;
     }
   }
 
-  $('#mDays').textContent = Math.max(0, m.daysAvailable);
-  $('#mDaysFoot').textContent = '含今天';
+  if (m.daysAvailable == null) {
+    $('#mDays').textContent = '—';
+    $('#mDaysFoot').textContent = '未设截止日';
+  } else {
+    $('#mDays').textContent = Math.max(0, m.daysAvailable);
+    $('#mDaysFoot').textContent = '含今天';
+  }
 
   const status = getStatusMessage(p, m);
   const card = $('#statusCard');
@@ -2517,6 +2899,17 @@ function render() {
   $('#statusIcon').textContent = status.icon;
   $('#statusTitle').textContent = status.title;
   $('#statusDesc').textContent = status.desc;
+  // 常驻算法说明：让用户知道数字怎么来、何时可信
+  let algoNote = '';
+  const doneAll = m.currentPage > 0 && m.remaining === 0;
+  if (!doneAll) {
+    if (!m.enoughData) {
+      algoNote = `怎么算的：系统统计你最近每个“真正学习的日子”推进了多少${u}、每周大约学几天，据此折算预计完成时间。累计约 2 周、满 7 个学习日后才会给出可靠范围；现在数据少，请先按粗略目标推进。`;
+    } else {
+      algoNote = `怎么算的：按你最近的真实节奏（每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${m.perStudyDayRaw.toFixed(1)} ${u}）估算，完成日期给的是“顺利～慢一点”的范围而非死线；休息日不摊任务，只要在学习日做到目标量即可。节奏一变，范围会自动更新，截止日也可随时在设置里调整。`;
+    }
+  }
+  $('#statusAlgoNote').textContent = algoNote;
 
   const pct = m.total > 0 ? Math.min(100, m.currentPage / m.total * 100) : 0;
   $('#barFill').style.width = pct + '%';
@@ -2533,7 +2926,7 @@ function render() {
     } else barTime.hidden = true;
   } else barTime.hidden = true;
 
-  if (p.unitMode && (p.units || []).length) {
+  if (p.unitMode && (p.units || []).length && p.type !== 'mistake') {
     renderUnits(p, m);
   } else {
     $('#unitSection').hidden = true;
@@ -2542,7 +2935,14 @@ function render() {
   if (isExercise) renderExerciseRecords(p);
   else renderReciteRecords(p);
 
-  if (!isExercise) $('#recitePageStart').placeholder = '页码';
+  if (!isExercise) {
+    const isMistake = p.type === 'mistake';
+    // 错题不按页码/单元统计：页码区隐藏，改用自由“出处”；背书保留页码区间
+    const pageWrap = $('#recitePageRangeWrap');
+    if (pageWrap) pageWrap.hidden = isMistake;
+    const sourceWrap = $('#reciteSourceWrap');
+    if (sourceWrap) sourceWrap.hidden = !isMistake;
+  }
 
   requestAnimationFrame(() => drawChart(m, p));
   checkMilestones(p, m);
@@ -2613,8 +3013,7 @@ function renderReview(p) {
       <div class="ri-main">
         <div class="ri-content">${esc(it.content)}</div>
         <div class="ri-meta">
-          <span>${fmtPageRange(it)}</span>
-          <span>·</span>
+          ${(loc => loc ? `<span>${esc(loc)}</span><span>·</span>` : '')(fmtItemLocator(p, it))}
           <span>学习于 ${fmtCN(it.learnedDate)}</span>
           <span>·</span>
           <span>第 ${stage} 次复习</span>
@@ -2640,33 +3039,51 @@ function renderUnits(p, m) {
   $('#unitSection').hidden = false;
   const list = $('#unitList');
   const units = [...(p.units || [])].sort((a, b) => (a.startPage || 0) - (b.startPage || 0));
-  const current = m.currentPage;
+  const isEx = p.type === 'exercise';
 
   list.innerHTML = units.map(u => {
-    const len = Math.max(1, (u.endPage || 0) - (u.startPage || 0) + 1);
-    const done = Math.max(0, Math.min(len, current - (u.startPage || 0) + 1));
-    const pct = len > 0 ? done / len * 100 : 0;
-    const isCurrent = current >= (u.startPage || 0) && current <= (u.endPage || 0);
-    const isDone = current > (u.endPage || 0);
+    const us = u.startPage || 0, ue = u.endPage || 0;
 
-    let masteryHtml = '';
-    if (p.type !== 'exercise') {
+    if (!isEx) {
+      // 背书 / 错题：单元卡按“条目掌握度”，不按页码推进
+      const entries = getUnitItemEntries(p, u);
+      const cnt = entries.length;
+      const masteredCnt = entries.filter(({ it }) => it.mastered || it.manualMastered).length;
       const score = getUnitMastery(p, u);
+      const pct = score === null ? 0 : Math.round(score * 100);
+      const barColor = score === null ? '#e0e0ee' : (score >= 0.8 ? '#0ea472' : (score >= 0.4 ? '#e0a020' : '#e5484d'));
       const mi = masteryFromScore(score);
-      masteryHtml = `<span class="m-badge ${mi.cls}"><span class="dot-sm"></span>${mi.label}</span>`;
+      const unitWord = '条';
+      const rangeTxt = p.type === 'mistake' ? '' : `P${us} - P${ue} · `;
+      return `<li class="unit-item">
+        <div class="unit-head">
+          <span class="unit-name">${esc(u.name || '未命名单元')}
+            <span class="m-badge ${mi.cls}"><span class="dot-sm"></span>${mi.label}</span>
+          </span>
+          <span class="unit-range">掌握 ${masteredCnt}/${cnt} ${unitWord} · ${pct}%</span>
+        </div>
+        <div class="unit-bar"><div class="unit-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        <div class="unit-progress">${rangeTxt}共 ${cnt} ${unitWord}内容</div>
+      </li>`;
     }
 
+    // 刷题练习册：按页码推进
+    const len = Math.max(1, ue - us + 1);
+    const current = m.currentPage;
+    const done = Math.max(0, Math.min(len, current - us + 1));
+    const pct = len > 0 ? done / len * 100 : 0;
+    const isCurrent = current >= us && current <= ue;
+    const isDone = current > ue;
     return `<li class="unit-item">
       <div class="unit-head">
         <span class="unit-name">
           ${esc(u.name || '未命名单元')}
-          ${masteryHtml}
           ${isCurrent ? '<span class="unit-current">进行中</span>' : ''}
         </span>
         <span class="unit-range">${done}/${len} 页${isDone ? ' ✓' : ''}</span>
       </div>
       <div class="unit-bar"><div class="unit-bar-fill" style="width:${pct}%"></div></div>
-      <div class="unit-progress">P${u.startPage} - P${u.endPage}</div>
+      <div class="unit-progress">P${us} - P${ue}</div>
     </li>`;
   }).join('');
 }
@@ -2820,7 +3237,7 @@ function renderReciteRecords(p) {
       `<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">` +
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日</span>` +
       `<span class="r-content" title="${esc(it.content)}">${esc(it.content)}</span>` +
-      `<span class="r-page">${fmtPageRange(it)}</span>` +
+      ((loc => loc ? `<span class="r-page">${esc(loc)}</span>` : '')(fmtItemLocator(p, it))) +
       ((it.errTags || []).map(reasonPill).join('')) +
       `<span class="m-badge ${mastery.cls}" style="font-size:10.5px"><span class="dot-sm"></span>${mastery.label}</span>` +
       rightBadge +
@@ -2888,14 +3305,16 @@ function drawChart(m, p) {
     ctx.fillText(Math.round(val), pad.l - 6, y);
   }
 
-  ctx.strokeStyle = '#d3d2e6';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([5, 4]);
-  ctx.beginPath();
-  ctx.moveTo(X(idealStart), Y(idealStartPage));
-  ctx.lineTo(X(p.deadline), Y(m.total));
-  ctx.stroke();
-  ctx.setLineDash([]);
+  if (p.deadline) {
+    ctx.strokeStyle = '#d3d2e6';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(X(idealStart), Y(idealStartPage));
+    ctx.lineTo(X(p.deadline), Y(m.total));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   const xt = X(m.t);
   ctx.strokeStyle = '#ffb020';
@@ -3019,9 +3438,30 @@ function openProgressBoard() {
 function closeProgressBoard() { $('#progressMask').hidden = true; document.body.style.overflow=''; }
 
 /* ============ 今日总览 ============ */
+const REMIND_KEY = 'study_tracker_remind';
+const REMIND_FIRED_KEY = 'study_tracker_remind_fired';
+function isValidHHMM(t) { return typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t); }
+/* 读取提醒设置：支持多个提醒时间 times[]，并兼容旧版本的单个 time 字段 */
 function getReminder() {
-  try { return JSON.parse(localStorage.getItem('study_tracker_remind') || '{}'); }
-  catch (e) { return {}; }
+  let r = {};
+  try { r = JSON.parse(localStorage.getItem(REMIND_KEY) || '{}'); } catch (e) { r = {}; }
+  let times = [];
+  if (Array.isArray(r.times)) times = r.times.filter(isValidHHMM);
+  else if (isValidHHMM(r.time)) times = [r.time];
+  times = [...new Set(times)].sort();
+  if (!times.length) times = ['20:00'];
+  return { enabled: !!r.enabled, times, time: times[0] };
+}
+function saveReminder(enabled, times) {
+  const clean = [...new Set((times || []).filter(isValidHHMM))].sort();
+  const t = clean.length ? clean : ['20:00'];
+  localStorage.setItem(REMIND_KEY, JSON.stringify({ enabled: !!enabled, times: t, time: t[0] }));
+  return t;
+}
+/* 当天各时间点是否已弹过（防止同一分钟轮询重复弹、支持一天多个时间各弹一次） */
+function getFiredMark() {
+  try { const m = JSON.parse(localStorage.getItem(REMIND_FIRED_KEY) || '{}'); if (m && m.date === todayStr() && Array.isArray(m.times)) return m; } catch (e) {}
+  return { date: todayStr(), times: [] };
 }
 /* ---- 备份提醒 ---- */
 const BACKUP_SNOOZE_KEY = 'study_tracker_backup_snooze'; // 值为日期字符串 或 'never'
@@ -3104,18 +3544,33 @@ function openDashboard() {
       unit = isSetMode(p) ? '套' : '页';
       pct = total > 0 ? done / total * 100 : 0;
       const m = getMetrics(p);
-      let planned = (m && isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay : 0;
-      if (isSetMode(p)) plannedSetTotal += planned; else plannedPageTotal += planned;
-      exRows.push({ name: p.name, pct, done, total, unit, planned });
+      let planned = 0, planFeasible = true;
+      if (m) {
+        if (m.feasibility === 'impossible') { planFeasible = false; }
+        else if (m.perStudyDay != null) planned = m.perStudyDay;
+        else if (isFinite(m.needPerDay) && m.needPerDay > 0) planned = m.needPerDay;
+      }
+      if (planFeasible) { if (isSetMode(p)) plannedSetTotal += planned; else plannedPageTotal += planned; }
+      exRows.push({ name: p.name, pct, done, total, unit, planned: planFeasible ? planned : -1 });
     } else {
       const items = p.items || [];
-      total = items.length;
-      done = items.filter(it => it.mastered || it.manualMastered).length;
-      pct = total > 0 ? done / total * 100 : 0;
       const due = getDueItems(p).length;
       const over = getOverdueItems(p).length;
       dueTotal += due; overdueTotal += over;
-      const row = { name: p.name, pct, done, total, due, over };
+      // 进度口径与主页一致：背书按已背页数 / 总页数；错题按已攻克 / 已收录条数
+      if (p.type === 'recite') { total = p.total || 0; done = getCompletedPages(p); }
+      else { total = items.length; done = items.filter(it => it.mastered || it.manualMastered).length; }
+      pct = total > 0 ? done / total * 100 : 0;
+      // 背书/错题同样给“每个学习日新学目标”（背书按页、错题按条）；数据不足时退回粗略的每天均摊
+      const mm = getMetrics(p);
+      let plan = null, planBad = false, approx = false;
+      if (mm) {
+        if (mm.feasibility === 'impossible') planBad = true;
+        else if (mm.perStudyDay != null) plan = mm.perStudyDay;
+        else if (isFinite(mm.needPerDay) && mm.needPerDay > 0) { plan = mm.needPerDay; approx = true; }
+      }
+      const ru = unitName(p);
+      const row = { name: p.name, pct, done, total, due, over, plan, planBad, approx, unit: ru };
       if (p.type === 'recite') reRows.push(row); else miRows.push(row);
     }
   });
@@ -3123,10 +3578,11 @@ function openDashboard() {
   const fmtD = v => Number.isInteger(v) ? String(v) : (Math.round(v * 10) / 10).toString();
   let plannedSummary = '';
   if (plannedPageTotal > 0 || plannedSetTotal > 0) {
-    plannedSummary = `今天刷题建议：` +
+    plannedSummary = `学习日刷题建议：` +
       (plannedPageTotal > 0 ? `约 ${fmtD(plannedPageTotal)} 页` : '') +
       (plannedPageTotal > 0 && plannedSetTotal > 0 ? ' + ' : '') +
-      (plannedSetTotal > 0 ? `约 ${fmtD(plannedSetTotal)} 套` : '');
+      (plannedSetTotal > 0 ? `约 ${fmtD(plannedSetTotal)} 套` : '') +
+      '（休息日不摊任务）';
   }
   const hasPlan = plannedPageTotal > 0 || plannedSetTotal > 0;
   const reviewTotal = dueTotal;
@@ -3142,7 +3598,7 @@ function openDashboard() {
     msg = `📌 今天有 <b>${dueTotal}</b> 条待复习，按间隔过一遍`;
     enc = '状态正佳，一鼓作气！';
   } else if (hasPlan) {
-    msg = `✅ 复习已清完，今天的刷题目标：${plannedSummary.replace('今天刷题建议：', '')}`;
+    msg = `✅ 复习已清完，${plannedSummary.replace('学习日刷题建议：', '下次学习建议：').replace('（休息日不摊任务）', '')}`;
     enc = '按节奏推进，每天进步一点点～';
   } else {
     msg = '🎉 今天没有待复习，状态很好';
@@ -3155,8 +3611,20 @@ function openDashboard() {
       <span class="dp-pct">${fmtD(r.done)}/${r.total}</span>
       ${extra || ''}
     </div>`;
-  const exExtra = r => `<span class="dp-pct" style="flex:0 0 auto;color:var(--muted)">今日计划 ${r.planned.toFixed(1)}${r.unit}</span>`;
-  const reExtra = r => `<span class="dp-pct" style="flex:0 0 auto;color:${r.over > 0 ? '#c07800' : 'var(--muted)'}">待复习${r.due}${r.over > 0 ? '·逾期' + r.over : ''}</span>`;
+  const exExtra = r => r.planned < 0
+    ? `<span class="dp-pct" style="flex:0 0 auto;color:#c93038">节奏需调整，见主页</span>`
+    : `<span class="dp-pct" style="flex:0 0 auto;color:var(--muted)">学习日 ${r.planned.toFixed(1)}${r.unit}</span>`;
+  const reviewExtra = verb => r => {
+    const parts = [];
+    if (r.planBad) parts.push('<span style="color:#c93038">节奏需调整</span>');
+    else if (r.plan != null) parts.push(r.approx
+      ? `<span style="color:var(--muted)">约每天 ${r.plan.toFixed(1)}${r.unit}（估算）</span>`
+      : `<span style="color:var(--muted)">学习日${verb} ${r.plan.toFixed(1)}${r.unit}</span>`);
+    parts.push(`<span style="color:${r.over > 0 ? '#c07800' : 'var(--muted)'}">待复习${r.due}${r.over > 0 ? '·逾期' + r.over : ''}</span>`);
+    return `<span class="dp-pct" style="flex:0 0 auto;display:inline-flex;gap:8px;align-items:center">${parts.join('<span style="color:var(--line)">|</span>')}</span>`;
+  };
+  const reExtra = reviewExtra('新学');
+  const miExtra = reviewExtra('订正');
 
   const section = (title, sub, rows, extraFn) => `
     <div style="font-weight:600;font-size:14px;margin:14px 0 4px">${title} <span style="font-weight:400;font-size:12px;color:var(--muted)">${sub}</span></div>
@@ -3171,16 +3639,22 @@ function openDashboard() {
   if (!('Notification' in window)) {
     notifHtml = '<div style="margin-top:16px;font-size:12.5px;color:var(--muted)">当前浏览器不支持桌面通知。</div>';
   } else {
-    const timeVal = remind.time || '20:00';
+    const timeRows = getReminder().times.map(t =>
+      `<div class="rt-row" style="display:flex;gap:6px;align-items:center">
+        <input type="time" class="rt-time" value="${t}" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+        <button type="button" class="rt-del ghost-btn" title="删除这个时间" style="padding:6px 10px">×</button>
+      </div>`).join('');
     notifHtml = `<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
-      <div style="font-weight:600;font-size:14px;margin-bottom:8px">⏰ 每日提醒</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:8px">⏰ 每日提醒（可设多个时间）</div>
+      <div id="remindTimes" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+        ${timeRows}
+      </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px">
-        <input type="time" id="dashRemindTime" value="${timeVal}" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-        <button class="ghost-btn" id="btnSaveTime">保存时间</button>
+        <button type="button" class="ghost-btn" id="btnAddTime">＋ 添加时间</button>
         <button class="ghost-btn" id="btnToggleRemind">${remind.enabled ? '✅ 已开启 · 点此关闭' : '开启桌面通知'}</button>
         <button class="ghost-btn" id="btnPreviewRemind">预览效果</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">默认关闭；到点弹出桌面通知，按刷题/背书/错题分别列出今天还差多少。网页需在浏览器中打开才会触发。</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.7">默认关闭；可添加多个时间（如 08:00 和 20:00），每个时间点当天各提醒一次，按刷题/背书/错题分别列出今天还差多少。网页需在浏览器中打开才会触发。</div>
     </div>`;
   }
 
@@ -3213,37 +3687,57 @@ function openDashboard() {
     </div>
     <div class="dash-grid">
       <div class="dash-card"><div class="dash-num" style="color:${overdueTotal > 0 ? '#c93038' : 'inherit'}">${reviewTotal}</div><div class="dash-lab">今日待复习（背书+错题）${overdueTotal > 0 ? ' · 含' + overdueTotal + '条逾期' : ''}</div></div>
-      <div class="dash-card"><div class="dash-num">${planNum}</div><div class="dash-lab">今日刷题计划</div></div>
+      <div class="dash-card"><div class="dash-num">${planNum}</div><div class="dash-lab">刷题 · 每个学习日目标（页/套）</div></div>
       <div class="dash-card"><div class="dash-num">${streak}</div><div class="dash-lab">连续打卡（天）</div></div>
     </div>
-    ${section('✏️ 刷题', '进度 / 今日建议', exRows, exExtra)}
-    ${section('📖 背书', '艾宾浩斯复习', reRows, reExtra)}
-    ${section('📝 错题', '间隔重复', miRows, reExtra)}
+    ${section('✏️ 刷题', '进度 / 学习日建议', exRows, exExtra)}
+    ${section('📖 背书', '新学进度 + 艾宾浩斯复习', reRows, reExtra)}
+    ${section('📝 错题', '订正进度 + 间隔重复', miRows, miExtra)}
     ${notifHtml}
   `;
   $('#dashMask').hidden = false;
   modalTop($('#dashMask'));
+  const collectTimes = () => [...document.querySelectorAll('#remindTimes .rt-time')]
+    .map(i => i.value).filter(isValidHHMM);
+  const timesBox = $('#remindTimes');
+  if (timesBox) {
+    timesBox.addEventListener('click', e => {
+      const del = e.target.closest('.rt-del');
+      if (!del) return;
+      const cur = getReminder();
+      const rows = [...document.querySelectorAll('#remindTimes .rt-row')];
+      if (rows.length <= 1) { alert('至少保留一个提醒时间～'); return; }
+      del.closest('.rt-row').remove();
+      saveReminder(cur.enabled, collectTimes());
+      openDashboard();
+    });
+    timesBox.addEventListener('change', e => {
+      if (!e.target.classList.contains('rt-time')) return;
+      const cur = getReminder();
+      saveReminder(cur.enabled, collectTimes());
+    });
+  }
+  const addBtn = $('#btnAddTime');
+  if (addBtn) addBtn.addEventListener('click', () => {
+    const cur = getReminder();
+    const presets = ['08:00', '12:00', '18:00', '21:00', '07:30', '12:30', '22:00'];
+    const next = presets.find(t => !cur.times.includes(t)) || '20:00';
+    saveReminder(cur.enabled, cur.times.concat(next));
+    openDashboard();
+  });
   const b = $('#btnToggleRemind');
   if (b) b.addEventListener('click', async () => {
-    const t = ($('#dashRemindTime').value || '20:00');
     const curRem = getReminder();
+    const times = collectTimes().length ? collectTimes() : curRem.times;
     if (!curRem.enabled) {
       let perm = Notification.permission;
       if (perm !== 'granted') perm = await Notification.requestPermission();
       if (perm !== 'granted') { alert('需要浏览器通知权限才能提醒～'); return; }
-      localStorage.setItem('study_tracker_remind', JSON.stringify({ enabled: true, time: t }));
+      saveReminder(true, times);
     } else {
-      localStorage.setItem('study_tracker_remind', JSON.stringify({ enabled: false, time: t }));
+      saveReminder(false, times);
     }
     openDashboard();
-  });
-  const sv = $('#btnSaveTime');
-  if (sv) sv.addEventListener('click', () => {
-    const t = ($('#dashRemindTime').value || '20:00');
-    const curRem = getReminder();
-    localStorage.setItem('study_tracker_remind', JSON.stringify({ enabled: !!curRem.enabled, time: t }));
-    sv.textContent = '✓ 已保存';
-    setTimeout(() => { sv.textContent = '保存时间'; }, 1200);
   });
   const pv = $('#btnPreviewRemind');
   if (pv) pv.addEventListener('click', () => {
@@ -3289,34 +3783,55 @@ function buildReminderBody() {
   const lines = [];
   let over = 0, hasReview = false;
   Object.values(store.projects).forEach(p => {
+    const m = getMetrics(p);
     if (p.type === 'exercise') {
-      const m = getMetrics(p);
-      const need = (m && isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay : 0;
-      if (need > 0) lines.push(`${p.name}今天约刷${(Math.round(need * 10) / 10)}${isSetMode(p) ? '套' : '页'}`);
+      let need = 0, paceNote = '';
+      if (m) {
+        if (m.feasibility === 'impossible') {
+          lines.push(`${p.name}按当前节奏可能赶不上截止日，打开看看调整建议`);
+        } else if (m.perStudyDay != null) { need = m.perStudyDay; paceNote = `（每周约${Math.round(m.activityPerWeek)}个学习日）`; }
+        else if (isFinite(m.needPerDay) && m.needPerDay > 0) need = m.needPerDay;
+      }
+      const unit = isSetMode(p) ? '套' : '页';
+      if (need > 0) lines.push(`${p.name}今天如果学习约${(Math.round(need * 10) / 10)}${unit}${paceNote}`);
     } else {
+      const isMistake = p.type === 'mistake';
+      const unit = unitName(p); // 背书=页，错题=条
+      const verb = isMistake ? '订正' : '新学';
       const du = getDueItems(p).length, ov = getOverdueItems(p).length;
       over += ov;
       if (du > 0) { lines.push(`${p.name}还有${du}条待复习${ov ? `（${ov}条逾期）` : ''}`); hasReview = true; }
+      // 复习之外，同样提醒推进新进度
+      if (m) {
+        if (m.feasibility === 'impossible') {
+          lines.push(`${p.name}按当前节奏可能赶不上截止日，打开看看调整建议`);
+        } else if (m.remaining > 0) {
+          let need = 0, approx = '';
+          if (m.perStudyDay != null) { need = m.perStudyDay; approx = `（每周约${Math.round(m.activityPerWeek)}个学习日）`; }
+          else if (isFinite(m.needPerDay) && m.needPerDay > 0) { need = m.needPerDay; approx = '（估算）'; }
+          if (need > 0) lines.push(`${p.name}今天如果${verb}约${(Math.round(need * 10) / 10)}${unit}${approx}`);
+        }
+      }
     }
   });
   if (!lines.length) return '今天的任务都清完啦，保持节奏，你真棒！';
-  const head = over > 0 ? `有${over}条逾期，别拖啦！\n` : (hasReview ? '今天该复习这些：\n' : '今天的刷题计划：\n');
-  const cheer = over > 0 ? '先把逾期的清掉，越拖越忘！' : (hasReview ? '过一遍就稳了，一鼓作气！' : '按节奏推进，每天进步一点点～');
+  const head = over > 0 ? `有${over}条逾期，别拖啦！\n` : (hasReview ? '今天该做这些：\n' : '今天的学习计划：\n');
+  const cheer = over > 0 ? '先把逾期的清掉，越拖越忘！' : (hasReview ? '复习优先，再推进新内容，一鼓作气！' : '按节奏推进，每天进步一点点～');
   return head + lines.join('；') + '。\n' + cheer;
 }
 
-let lastNotifiedDate = '';
 setInterval(() => {
   const r = getReminder();
   if (!r || !r.enabled || !('Notification' in window) || Notification.permission !== 'granted') return;
   const now = new Date();
   const hm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-  const today = todayStr();
-  if (hm === r.time && lastNotifiedDate !== today) {
-    lastNotifiedDate = today;
-    const body = buildReminderBody();
-    try { new Notification('Study Tracker 学习提醒', { body }); } catch (e) {}
-  }
+  if (!r.times.includes(hm)) return;
+  const mark = getFiredMark();           // 每个时间点当天只弹一次，多个时间点各弹一次
+  if (mark.times.includes(hm)) return;
+  mark.times.push(hm);
+  try { localStorage.setItem(REMIND_FIRED_KEY, JSON.stringify(mark)); } catch (e) {}
+  const body = buildReminderBody();
+  try { new Notification('Study Tracker 学习提醒', { body }); } catch (e) {}
 }, 30000);
 
 function rangeText(a, b) { return a === b ? `${a}` : `${a}-${b}`; }
@@ -3355,11 +3870,111 @@ function renderProgressBoard(p) {
     <div class="pp-kpi"><div class="n">${pct.toFixed(1)}%</div><div class="l">总进度</div></div>`;
 
   const body = $('#ppBody');
-  if (isSetMode(p)) {
-    body.innerHTML = renderSetGrid(p);
+  const detail = isSetMode(p) ? renderSetGrid(p) : renderBookBreakdown(p);
+  body.innerHTML = renderProgressInsights(p, m) + detail;
+}
+
+/* 完成情况看板独有洞察：节奏/坚持、预测、漏做定位 */
+function renderProgressInsights(p, m) {
+  const u = unitName(p);
+  const setMode = isSetMode(p);
+  const enough = m.enoughData;
+  const num = v => (Number.isInteger(v) ? String(v) : (Math.round(v * 10) / 10).toFixed(1));
+
+  // —— 节奏与坚持卡 ——
+  const trendCell = (() => {
+    if (m.trendPct == null) return `<div class="pp-stat"><div class="v">—</div><div class="k">近7天节奏<br>数据积累中</div></div>`;
+    const pctV = Math.round(m.trendPct * 100);
+    if (Math.abs(pctV) < 10) return `<div class="pp-stat"><div class="v">→ 平稳</div><div class="k">近7天 vs 之前</div></div>`;
+    if (pctV > 0) return `<div class="pp-stat"><div class="v up">↑ ${pctV}%</div><div class="k">近7天提速</div></div>`;
+    return `<div class="pp-stat"><div class="v down">↓ ${-pctV}%</div><div class="k">近7天放缓</div></div>`;
+  })();
+  const breakCell = m.longestBreak >= 3
+    ? `<div class="pp-stat"><div class="v warn">${m.longestBreak} 天</div><div class="k">最长停摆<br>注意别断太久</div></div>`
+    : `<div class="pp-stat"><div class="v">${m.longestBreak} 天</div><div class="k">最长停摆</div></div>`;
+
+  // 模式特有统计
+  let modeCells = '';
+  let gapWarn = '';
+  if (setMode) {
+    const state = getSetState(p);
+    let cDone = 0, cPart = 0, cNone = 0;
+    for (let n = 1; n <= p.total; n++) {
+      const frac = state[n] ? getSetFraction(p, n, state) : 0;
+      if (frac >= 0.999) cDone++; else if (frac > 0.0001) cPart++; else cNone++;
+    }
+    modeCells = `
+      <div class="pp-stat"><div class="v up">${cDone}</div><div class="k">已完成套数</div></div>
+      <div class="pp-stat"><div class="v warn">${cPart}</div><div class="k">部分完成</div></div>
+      <div class="pp-stat"><div class="v">${cNone}</div><div class="k">未开始</div></div>`;
   } else {
-    body.innerHTML = renderBookBreakdown(p);
+    const doneRanges = getBookDoneRanges(p);
+    const undone = complementRanges(doneRanges, p.total);
+    // “夹在中间”的漏做段：前后都还有内容（既不是开头没开始，也不是还没学到的尾部）
+    const holes = undone.filter(r => r.start > 1 && r.end < p.total);
+    const holePages = holes.reduce((s, r) => s + (r.end - r.start + 1), 0);
+    modeCells = `<div class="pp-stat"><div class="v ${holes.length ? 'warn' : ''}">${holes.length}</div><div class="k">中间漏做段数</div></div>
+      <div class="pp-stat"><div class="v ${holePages ? 'warn' : ''}">${holePages}</div><div class="k">漏做页数（${u}）</div></div>`;
+    if (holes.length) {
+      const preview = holes.slice(0, 6).map(r => rangeText(r.start, r.end)).join('、') + (holes.length > 6 ? ' 等' : '');
+      gapWarn = `<div class="pp-gap-warn">⚠️ 已学范围内有 <b>${holes.length}</b> 段、共 <b>${holePages}</b> 页夹在中间还没做：${preview}。这些通常是当时跳过的难点，建议优先回看。</div>`;
+    }
   }
+
+  const statGrid = `<div class="pp-insight-title">📈 学习节奏与坚持（近 ${m.windowDays} 天）</div>
+    <div class="pp-stat-grid">
+      <div class="pp-stat"><div class="v">${m.activeDays}</div><div class="k">学习日数</div></div>
+      <div class="pp-stat"><div class="v">${enough ? num(m.perStudyDayRaw) : '—'}</div><div class="k">每次平均（${u}）</div></div>
+      <div class="pp-stat"><div class="v">${enough ? num(m.activityPerWeek) : '—'}</div><div class="k">每周学习天数</div></div>
+      <div class="pp-stat"><div class="v">${m.streakNow} <span style="font-size:11px;color:var(--muted);font-weight:400">/ 最长${m.longestStreak}</span></div><div class="k">当前连续（天）</div></div>
+      ${breakCell}
+      ${trendCell}
+      ${modeCells}
+    </div>
+    ${gapWarn}`;
+
+  // —— 完成预测盒 ——
+  let etaLines = '';
+  if (m.remaining <= 0) {
+    etaLines = `🎉 已全部完成，共 ${fmtUnitNum(m.total)} ${u}。可以把目标总量或截止日调整到下一阶段。`;
+  } else if (!enough) {
+    let planNum = null, planNote = '';
+    if (m.perStudyDay != null) {
+      planNum = num(m.perStudyDay);
+    } else if (isFinite(m.needPerDay) && m.needPerDay > 0) {
+      planNum = num(m.needPerDay);
+      planNote = '（粗估：把剩余量均摊到剩余自然日；打卡满 7 个学习日后会按你的真实节奏修正）';
+    }
+    if (planNum != null) {
+      etaLines = `完成时间范围还在估算中：再积累约 <b>${m.needMoreActiveDays}</b> 个学习日（累计满 7 个）后，会给出较可靠的“顺利～慢一点”完成区间。<br>当前先按每个学习日 <b>${planNum}</b> ${u} 的节奏推进即可${planNote}。`;
+    } else {
+      etaLines = `完成时间范围还在估算中：再积累约 <b>${m.needMoreActiveDays}</b> 个学习日（累计满 7 个）后，会给出较可靠的“顺利～慢一点”完成区间。<br>当前未设截止日，可先按自己的节奏推进，或在设置里添加截止日获取每学习日目标。`;
+    }
+    if (m.sparseLogging) {
+      etaLines += `<br><span style="color:#c07800">⚠️ 你最近打卡间隔较长（中位数约 ${m.medianGap} 天），产能估计可能有偏差，建议每天记录一次。</span>`;
+    }
+  } else {
+    etaLines = `按你最近每周约 <b>${num(m.activityPerWeek)}</b> 个学习日、每次约 <b>${num(m.perStudyDayRaw)}</b> ${u} 的节奏：<br>预计在 <b>${fmtCN(m.etaEarlyDate)} ～ ${fmtCN(m.etaLateDate)}</b> 之间完成，基准约 <b>${fmtCN(m.etaDate)}</b>。`;
+    if (m.feasibility === 'easy') etaLines += `<br><span style="color:var(--ok)">✅ 按当前节奏即可按时完成，保持就好。</span>`;
+    else if (m.feasibility === 'stretch') etaLines += `<br><span style="color:#c07800">⚠️ 需要比平时略多投入（约多 ${Math.round((m.ratio - 1) * 100)}%），或在设置里把截止日延后到 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))} 更稳妥。</span>`;
+    else if (m.feasibility === 'impossible') etaLines += `<br><span style="color:var(--bad)">🚧 按当前节奏难以赶上截止日：建议增加每周学习天数，或把截止日延后到约 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))}。</span>`;
+    // 相对理想进度
+    if (p.startDate && p.deadline && p.total > 0) {
+      const span = diffDays(p.startDate, p.deadline);
+      const elapsed = diffDays(p.startDate, m.t);
+      if (span > 0) {
+        const ideal = p.total * Math.max(0, Math.min(1, elapsed / span));
+        const g = Math.round(m.currentPage - ideal);
+        if (Math.abs(g) >= 1) etaLines += g > 0
+          ? `<br>📈 相对“${p.startDate}→${p.deadline} 匀速”的理想进度，<b style="color:var(--ok)">超前约 ${g} ${u}</b>。`
+          : `<br>📉 相对理想进度，<b style="color:var(--bad)">落后约 ${-g} ${u}</b>（落后量已计入每个学习日目标，不用额外补）。`;
+        else etaLines += `<br>➖ 与理想进度基本同步。`;
+      }
+    }
+  }
+  const etaBox = `<div class="pp-insight-title">🔮 完成预测</div><div class="pp-eta-box">${etaLines}</div>`;
+
+  return `<div class="pp-insight">${statGrid}${etaBox}</div>`;
 }
 
 function renderSetGrid(p) {
@@ -3534,12 +4149,20 @@ function syncFormUnit() {
   $('#paperCfg').hidden = !isSet;
   const isPageExercise = isExercise && unit === 'page';
   $('#fStartPageWrap').hidden = !isPageExercise;
-  $('#fTotalLabel').textContent = isSet ? '总套数' : (isExercise ? '总页数' : '总条目');
-  $('#fTotal').placeholder = isSet ? '例：20（共多少套卷）' : (isExercise ? '例：236' : '例：预计要背/订正多少条');
+  $('#fTotalLabel').textContent = isSet ? '总套数' : (type === 'mistake' ? '预计错题总数' : '总页数');
+  $('#fTotal').placeholder = isSet
+    ? '例：20（共多少套卷）'
+    : (type === 'mistake'
+      ? '例：100（预计会订正多少道，可随时调整）'
+      : '例：236（这本书/题集共多少页）');
   $('#fStartPageLabel').textContent = isSet ? '已完成套数（可选）' : '开始页码（可选）';
   $('#fUnitHint').textContent = isSet
     ? '套卷可整套记录，也可只记录某个板块完成的百分比，进度按你设置的板块权重计算。填「开始日期」可立刻估算速度。'
-    : '填上「开始日期 + 开始页码」可以立刻估算速度；不填的话，打卡满两天后也能自动估算。';
+    : isExercise
+      ? '填上「开始日期 + 开始页码」可以立刻估算速度；不填的话，打卡几次后也能自动估算。'
+      : (type === 'mistake'
+        ? '错题按“题（条）”统计：每记录一道错题就是 1 条；可在“出处”里自由填写它来自哪套卷、哪本书哪页（选填）。总数只是预估，可随时在设置里调整。累计约 2 周、满 7 个学习日后完成预测会比较准。'
+        : '背书按页码范围统计进度：一条内容跨多页算多页，同一页建多条只算一页。累计约 2 周、满 7 个学习日后，完成预测会比较准。');
   const labelMode = (document.querySelector('input[name="ppaperlabel"]:checked') || {}).value || 'index';
   $('#fPaperYear').hidden = !(isSet && labelMode === 'year');
 }
@@ -3589,14 +4212,15 @@ function openSettings() {
   $('#intervalSection').hidden = !isRecite;
   if (isRecite) $('#sIntervals').value = getIntervals(p).join(', ');
 
-  $('#sTotalLabel').textContent = setMode ? '总套数' : (isExercise ? '总页数' : '总条目');
+  $('#sTotalLabel').textContent = setMode ? '总套数' : (p.type === 'mistake' ? '预计错题总数' : '总页数');
   $('#sStartPageLabel').textContent = setMode ? '已完成套数（可选）' : '开始页码（可选）';
   $('#sStartPageWrap').hidden = !(isExercise && !setMode);
 
   $('#sUnitMode').checked = !!p.unitMode;
   renderUnitEditor(p.units || []);
   $('#unitEditor').hidden = !p.unitMode;
-  $('#unitSectionWrap').hidden = setMode;
+  // 套卷无页码；错题按条、来源多样（习题册/套卷），不使用页码单元
+  $('#unitSectionWrap').hidden = setMode || p.type === 'mistake';
 
   $('#paperSectionWrap').hidden = !setMode;
   if (setMode) {
@@ -3656,61 +4280,119 @@ function closeWeaknessBoard() { $('#weaknessMask').hidden = true; document.body.
 function renderWeaknessBoard(p) {
   const items = p.items || [];
   const weakThreshold = p.weakThreshold || 0.4;
+  const isMistake = p.type === 'mistake';
+  const today = todayStr();
+  const word = isMistake ? '题' : '条';
 
-  const mastered = items.filter(it => it.mastered || it.manualMastered).length;
+  const isMastered = it => it.mastered || it.manualMastered;
+  const mastered = items.filter(isMastered).length;
   const due = getDueItems(p).length;
   const weak = items.filter(it => {
-    if (it.mastered || it.manualMastered) return false;
+    if (isMastered(it)) return false;
     const s = getItemScore(it);
     return s !== null && s < weakThreshold;
   }).length;
+
+  // 副标题：讲清这个看板是干什么的、怎么用
+  $('#wbSubtitle').textContent = isMistake
+    ? '错题复习作战中心：下方按「今天最该重做 → 已掌握」排序，先清逾期/到期和反复错的题；错因分布按历史累计统计，即使后来做对也保留，帮你盯住自己的系统性弱点。'
+    : '记忆复习看板：下方按「今天最该复习 → 已掌握」排序，先清逾期/到期和最生疏的内容；坚持按间隔复习，记忆才牢。';
+  $('#wbTotalLab').textContent = isMistake ? '总题数' : '总条目';
+  $('#wbListTitle').textContent = isMistake ? '📋 错题明细（越靠前越该先重做）' : '📋 内容明细（越靠前越该先复习）';
 
   $('#wbTotal').textContent = items.length;
   $('#wbMastered').textContent = mastered;
   $('#wbDue').textContent = due;
   $('#wbWeak').textContent = weak;
 
-  const scored = items.map(it => ({
-    it,
-    score: (it.mastered || it.manualMastered) ? 1.0 : (getItemScore(it) ?? -1)
-  }));
-  scored.sort((a, b) => a.score - b.score);
+  // —— 掌握度分布堆叠条 ——
+  const distDefs = [
+    ['new', '未复习', 'var(--m-new)'],
+    ['weak', '薄弱', 'var(--m-weak)'],
+    ['fuzzy', '需巩固', 'var(--m-fuzzy)'],
+    ['good', '基本掌握', 'var(--m-good)'],
+    ['solid', '牢固', 'var(--m-solid)'],
+    ['mastered', '已掌握', 'var(--m-mastered)']
+  ];
+  const distCounts = {};
+  items.forEach(it => { const k = getMasteryInfo(it).key; distCounts[k] = (distCounts[k] || 0) + 1; });
+  const distSegs = distDefs.map(([k, , color]) => {
+    const n = distCounts[k] || 0;
+    return n > 0 ? `<div class="wb-dist-seg" style="flex:${n};background:${color}" title="${k} ${n}"></div>` : '';
+  }).join('');
+  const distLegend = distDefs.map(([k, label, color]) =>
+    `<span class="d"><i style="background:${color}"></i>${label}<b>${distCounts[k] || 0}</b></span>`).join('');
+  $('#wbDist').innerHTML = items.length
+    ? `<div class="wb-dist-bar">${distSegs}</div><div class="wb-dist-legend">${distLegend}</div>`
+    : '';
 
-  const today = todayStr();
+  // —— 紧急度排序：到期/逾期 → 薄弱 → 其余（按下次复习日）→ 已掌握沉底 ——
+  const scoreOf = it => isMastered(it) ? 1.0 : (getItemScore(it) ?? -1);
+  const rankOf = it => {
+    if (isMastered(it)) return { g: 9, sub: 0 };
+    const nd = it.nextReviewDate || '9999-12-31';
+    if (nd <= today) return { g: 0, sub: nd };           // 到期/逾期，越早越前
+    const sc = scoreOf(it);
+    if (sc >= 0 && sc < weakThreshold) return { g: 1, sub: String(sc) }; // 薄弱
+    return { g: 2, sub: nd };                            // 其余按下次复习日
+  };
+  const scored = items.map(it => ({ it, score: scoreOf(it) }));
+  scored.sort((a, b) => {
+    const ra = rankOf(a.it), rb = rankOf(b.it);
+    if (ra.g !== rb.g) return ra.g - rb.g;
+    if (ra.sub < rb.sub) return -1;
+    if (ra.sub > rb.sub) return 1;
+    return a.score - b.score;
+  });
+
   const filtered = scored.filter(({ it, score }) => {
-    if (wbCurrentFilter === 'weak') return !it.mastered && !it.manualMastered && score >= 0 && score < weakThreshold;
-    if (wbCurrentFilter === 'due') return !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
-    if (wbCurrentFilter === 'unmastered') return !it.mastered && !it.manualMastered;
+    if (wbCurrentFilter === 'weak') return !isMastered(it) && score >= 0 && score < weakThreshold;
+    if (wbCurrentFilter === 'due') return !isMastered(it) && it.nextReviewDate && it.nextReviewDate <= today;
+    if (wbCurrentFilter === 'unmastered') return !isMastered(it);
     return true;
   });
 
+  // 单条渲染（错题显示错因+出处，背书显示页码）
+  const itemLi = ({ it, score }) => {
+    const displayScore = score < 0 ? '未复习' : score.toFixed(2);
+    const scoreCls = score < 0 ? 's-yellow' : (score < weakThreshold ? 's-red' : (score < 0.8 ? 's-yellow' : 's-green'));
+    const mastery = getMasteryInfo(it);
+    const overdue = it.nextReviewDate && !isMastered(it) && it.nextReviewDate < today
+      ? `<span style="color:#c07800;font-weight:600">逾期${diffDays(it.nextReviewDate, today)}天</span>` : '';
+    const loc = fmtItemLocator(p, it);
+    const tagHtml = isMistake && (it.errTags || []).length
+      ? `<span style="color:#8a6a12">${it.errTags.slice(0, 2).map(esc).join('/')}${it.errTags.length > 2 ? '…' : ''}</span><span>·</span>` : '';
+    const locHtml = loc ? `<span>${esc(loc)}</span><span>·</span>` : '';
+    return `<li class="wb-item ${mastery.cls}" data-id="${it.id}">
+      <div class="wb-item-main">
+        <div class="wb-item-content">${esc(it.content)}</div>
+        <div class="wb-item-meta">
+          ${tagHtml}${locHtml}
+          <span>${fmtCN(it.learnedDate)}</span>
+          <span>·</span>
+          <span>${(it.reviews || []).length}次复习</span>
+          ${overdue ? '<span>·</span>' + overdue : ''}
+        </div>
+      </div>
+      <span class="wb-score ${scoreCls}">${displayScore}</span>
+    </li>`;
+  };
+
   const list = $('#wbList');
+  const useUnit = !isMistake && p.unitMode && (p.units || []).length;
   if (!filtered.length) {
     list.innerHTML = '<div class="wb-empty">没有符合条件的条目 🎉</div>';
-  } else if (p.unitMode && (p.units || []).length) {
+  } else if (useUnit) {
     const units = [...p.units].sort((a, b) => (a.startPage || 0) - (b.startPage || 0));
-    const pageOf = it => {
-      const n = parseInt(getItemPageStart(it), 10);
-      return isNaN(n) ? 0 : n;
-    };
+    const pageOf = it => { const n = parseInt(getItemPageStart(it), 10); return isNaN(n) ? 0 : n; };
     const unitOfItem = it => {
       const pg = pageOf(it);
-      for (const u of units) {
-        const s = parseInt(u.startPage, 10) || 0;
-        const e = parseInt(u.endPage, 10) || 0;
-        if (pg >= s && pg <= e) return u;
-      }
-      return null;
+      return units.find(u => pg >= (parseInt(u.startPage, 10) || 0) && pg <= (parseInt(u.endPage, 10) || 0)) || null;
     };
-
     let html = '';
     for (const u of units) {
-      const s = parseInt(u.startPage, 10) || 0;
-      const e = parseInt(u.endPage, 10) || 0;
-      const inUnit = filtered.filter(({ it }) => {
-        const pg = pageOf(it);
-        return pg >= s && pg <= e;
-      });
+      const s = parseInt(u.startPage, 10) || 0, e = parseInt(u.endPage, 10) || 0;
+      const inUnit = filtered.filter(({ it }) => { const pg = pageOf(it); return pg >= s && pg <= e; });
       if (!inUnit.length) continue;
       const unitScore = getUnitMastery(p, u);
       const umi = masteryFromScore(unitScore);
@@ -3722,89 +4404,38 @@ function renderWeaknessBoard(p) {
           <span style="font-size:12.5px;font-weight:600;color:${uBarColor}">${upct}% · ${umi.label}</span>
         </div>
         <div class="wb-unit-group-bar"><div style="height:100%;width:${upct}%;background:${uBarColor};border-radius:3px"></div></div>
-        <ul class="wb-unit-items">`;
-      for (const { it, score } of inUnit) {
-        const displayScore = score < 0 ? '未复习' : score.toFixed(2);
-        const scoreCls = score < 0 ? 's-yellow' : (score < weakThreshold ? 's-red' : (score < 0.8 ? 's-yellow' : 's-green'));
-        const mastery = getMasteryInfo(it);
-        const overdue = it.nextReviewDate && !it.mastered && !it.manualMastered && it.nextReviewDate < today
-          ? `<span style="color:#c07800;font-weight:600">逾期${diffDays(it.nextReviewDate, today)}天</span>` : '';
-        html += `<li class="wb-item ${mastery.cls}" data-id="${it.id}">
-          <div class="wb-item-main">
-            <div class="wb-item-content">${esc(it.content)}</div>
-            <div class="wb-item-meta">
-              <span>${fmtPageRange(it)}</span>
-              <span>·</span>
-              <span>${fmtCN(it.learnedDate)}</span>
-              <span>·</span>
-              <span>${(it.reviews || []).length}次复习</span>
-              ${overdue ? '<span>·</span>' + overdue : ''}
-            </div>
-          </div>
-          <span class="wb-score ${scoreCls}">${displayScore}</span>
-        </li>`;
-      }
-      html += '</ul></div>';
+        <ul class="wb-unit-items">${inUnit.map(itemLi).join('')}</ul>
+      </div>`;
     }
     const noUnit = filtered.filter(({ it }) => !unitOfItem(it));
     if (noUnit.length) {
       html += `<div class="wb-unit-group">
-        <div class="wb-unit-group-head">
-          <span>📂 未归类 <span class="muted" style="font-size:12px">${noUnit.length}条</span></span>
-        </div>
-        <ul class="wb-unit-items">`;
-      for (const { it, score } of noUnit) {
-        const displayScore = score < 0 ? '未复习' : score.toFixed(2);
-        const scoreCls = score < 0 ? 's-yellow' : (score < weakThreshold ? 's-red' : (score < 0.8 ? 's-yellow' : 's-green'));
-        const mastery = getMasteryInfo(it);
-        html += `<li class="wb-item ${mastery.cls}" data-id="${it.id}">
-          <div class="wb-item-main">
-            <div class="wb-item-content">${esc(it.content)}</div>
-            <div class="wb-item-meta">
-              <span>${fmtPageRange(it)}</span>
-              <span>·</span>
-              <span>${(it.reviews || []).length}次复习</span>
-            </div>
-          </div>
-          <span class="wb-score ${scoreCls}">${displayScore}</span>
-        </li>`;
-      }
-      html += '</ul></div>';
+        <div class="wb-unit-group-head"><span>📂 未归类 <span class="muted" style="font-size:12px">${noUnit.length}条</span></span></div>
+        <ul class="wb-unit-items">${noUnit.map(itemLi).join('')}</ul>
+      </div>`;
     }
     list.innerHTML = html;
   } else {
-    list.innerHTML = filtered.map(({ it, score }) => {
-      const displayScore = score < 0 ? '未复习' : score.toFixed(2);
-      const scoreCls = score < 0 ? 's-yellow' : (score < weakThreshold ? 's-red' : (score < 0.8 ? 's-yellow' : 's-green'));
-      const mastery = getMasteryInfo(it);
-      const overdue = it.nextReviewDate && !it.mastered && !it.manualMastered && it.nextReviewDate < today
-        ? `<span style="color:#c07800;font-weight:600">逾期${diffDays(it.nextReviewDate, today)}天</span>` : '';
-      return `<li class="wb-item ${mastery.cls}" data-id="${it.id}">
-        <div class="wb-item-main">
-          <div class="wb-item-content">${esc(it.content)}</div>
-          <div class="wb-item-meta">
-            <span>${fmtPageRange(it)}</span>
-            <span>·</span>
-            <span>${fmtCN(it.learnedDate)}</span>
-            <span>·</span>
-            <span>${(it.reviews || []).length}次复习</span>
-            ${overdue ? '<span>·</span>' + overdue : ''}
-          </div>
-        </div>
-        <span class="wb-score ${scoreCls}">${displayScore}</span>
-      </li>`;
-    }).join('');
+    list.innerHTML = filtered.map(itemLi).join('');
   }
 
   const reasonsEl = $('#wbReasons');
   const detailEl = $('#wbReasonDetail');
   const reasonBlock = $('#wbReasonBlock');
-  if (p.type === 'mistake') {
+  if (isMistake) {
     reasonBlock.hidden = false;
     const permanentSet = new Set(ERROR_REASONS);
     (p.customErrorReasons || []).forEach(r => { if (r.permanent) permanentSet.add(r.name); });
     const cnt = {};
-    items.forEach(it => { (it.errTags || []).forEach(tag => { if (permanentSet.has(tag)) cnt[tag] = (cnt[tag] || 0) + 1; }); });
+    const reasonItems = {};
+    items.forEach(it => {
+      (it.errTags || []).forEach(tag => {
+        if (permanentSet.has(tag)) {
+          cnt[tag] = (cnt[tag] || 0) + 1;
+          (reasonItems[tag] = reasonItems[tag] || []).push(it);
+        }
+      });
+    });
     if (!Array.isArray(p.reasonOrder)) p.reasonOrder = [];
     let arr = Object.entries(cnt).sort((a, b) => {
       const ia = p.reasonOrder.indexOf(a[0]), ib = p.reasonOrder.indexOf(b[0]);
@@ -3815,7 +4446,7 @@ function renderWeaknessBoard(p) {
     });
     const total = arr.reduce((s, [, n]) => s + n, 0);
     if (!total) {
-      reasonsEl.innerHTML = '<div style="font-size:13px;color:var(--muted)">还没有标注错因，录入错题时选一个吧～</div>';
+      reasonsEl.innerHTML = '<div style="font-size:13px;color:var(--muted)">还没有标注错因，录入错题时选一个吧～错因按历史累计统计，做对后仍会保留。</div>';
       detailEl.innerHTML = '';
     } else {
       const R = 70, r = 42, cx = 85, cy = 85;
@@ -3836,9 +4467,11 @@ function renderWeaknessBoard(p) {
       const legend = arr.map(([name, n]) => {
         const [bg] = reasonColor(name);
         const pc = Math.round(n / total * 100);
-        return `<div class="wb-pie-row" data-reason="${esc(name)}">
+        const rel = reasonItems[name] || [];
+        const relMastered = rel.filter(isMastered).length;
+        return `<div class="wb-pie-row" data-reason="${esc(name)}" title="历史累计 ${n} 次 · 涉及 ${rel.length} 题 · 已攻克 ${relMastered} 题">
           <span class="dot" style="background:${bg}"></span>
-          <span class="nm">${esc(name)}</span>
+          <span class="nm">${esc(name)} <span class="muted" style="font-size:11px">✓${relMastered}/${rel.length}</span></span>
           <span class="ct">${n}</span>
           <span class="pc">${pc}%</span></div>`;
       }).join('');
@@ -3846,14 +4479,25 @@ function renderWeaknessBoard(p) {
         <svg class="wb-pie" width="170" height="170" viewBox="0 0 170 170">
           ${paths}
           <text x="85" y="82" text-anchor="middle" font-size="26" font-weight="700" fill="#333">${total}</text>
-          <text x="85" y="100" text-anchor="middle" font-size="11" fill="#888">总错次</text>
+          <text x="85" y="100" text-anchor="middle" font-size="11" fill="#888">累计错次</text>
         </svg>
-        <div class="wb-pie-legend">${legend}</div>`;
+        <div class="wb-pie-legend">
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">按历史累计统计，做对后仍保留；✓已攻克/涉及题数</div>
+          ${legend}
+        </div>`;
       const showDetail = name => {
-        const matched = items.filter(it => (it.errTags || []).includes(name));
-        detailEl.innerHTML = `<div class="rd-head">${esc(name)} · ${matched.length} 道</div>` +
-          (matched.length ? matched.map(it =>
-            `<div class="rd-item"><span>${esc(it.content)}</span><span class="muted">${fmtPageRange(it)} · ${fmtCN(it.learnedDate)}</span></div>`).join('')
+        const matched = (reasonItems[name] || []);
+        const mMastered = matched.filter(isMastered).length;
+        const head = `<div class="rd-head">${esc(name)} · ${matched.length} 题 · 已攻克 ${mMastered} · 待巩固 ${matched.length - mMastered}</div>`;
+        detailEl.innerHTML = head +
+          (matched.length ? matched.map(it => {
+            const loc = getItemSource(it);
+            const status = isMastered(it)
+              ? '<span style="color:var(--ok);font-weight:600;white-space:nowrap">✓ 已攻克</span>'
+              : `<span style="color:${scoreOf(it) < weakThreshold ? '#c93038' : '#c07800'};font-weight:600;white-space:nowrap">${getMasteryInfo(it).label}</span>`;
+            const locTxt = [loc, fmtCN(it.learnedDate)].filter(Boolean).join(' · ');
+            return `<div class="rd-item"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.content)}</span><span style="display:flex;gap:8px;align-items:center;flex:0 0 auto"><span class="muted" style="white-space:nowrap">${esc(locTxt)}</span>${status}</span></div>`;
+          }).join('')
           : '<div class="muted" style="font-size:12.5px">没有相关条目</div>');
       };
       reasonsEl.onclick = e => {
@@ -3872,8 +4516,11 @@ function renderWeaknessBoard(p) {
   pad.value = p.notePad || '';
   pad.oninput = () => { p.notePad = pad.value; p.updatedAt = Date.now(); saveStore(); };
 
+  // 单元掌握度：仅背书且开启单元模式时显示（错题不使用单元）
+  const unitBlock = $('#wbUnitBlock');
   const unitsEl = $('#wbUnits');
-  if (p.unitMode && (p.units || []).length) {
+  if (useUnit) {
+    unitBlock.hidden = false;
     const units = [...p.units].sort((a, b) => (a.startPage || 0) - (b.startPage || 0));
     unitsEl.innerHTML = units.map(u => {
       const score = getUnitMastery(p, u);
@@ -3889,12 +4536,8 @@ function renderWeaknessBoard(p) {
       </div>`;
     }).join('');
   } else {
-    const weak = items.filter(it => !it.mastered && !it.manualMastered && getItemScore(it) !== null && getItemScore(it) < weakThreshold).length;
-    const ok = items.filter(it => !it.mastered && !it.manualMastered && (getItemScore(it) ?? 0) >= weakThreshold).length;
-    const unrev = items.filter(it => !it.mastered && !it.manualMastered && getItemScore(it) === null).length;
-    unitsEl.innerHTML = `<div style="font-size:12.5px;color:var(--muted);line-height:2">
-      🔴 薄弱：${weak} 条 · 🟡 需巩固：${ok} 条 · ⚪ 未复习：${unrev} 条 · 🟢 已掌握：${mastered} 条
-    </div>`;
+    unitBlock.hidden = true;
+    unitsEl.innerHTML = '';
   }
 }
 
@@ -4052,7 +4695,7 @@ function submitFormCreate() {
     : 'page';
 
   if (!name) return alert('请填写任务名称～');
-  if (!total || total < 1) return alert(unit === 'set' ? '请填写有效的总套数～' : '请填写有效的总页数～');
+  if (!total || total < 1) return alert(unit === 'set' ? '请填写有效的总套数～' : (type === 'mistake' ? '请填写有效的预计错题总数～' : '请填写有效的总页数～'));
   if (!deadline) return alert('请选择计划完成日期～');
   if (startDate && diffDays(startDate, deadline) < 0) return alert('开始日期不能晚于截止日期～');
 
@@ -4133,7 +4776,7 @@ function submitSettings() {
   const startPage = parseInt($('#sStartPage').value, 10) || 0;
 
   if (!name) return alert('请填写任务名称～');
-  if (!total || total < 1) return alert(isSetMode(p) ? '请填写有效的总套数～' : '请填写有效的总页数～');
+  if (!total || total < 1) return alert(isSetMode(p) ? '请填写有效的总套数～' : (p.type === 'mistake' ? '请填写有效的预计错题总数～' : '请填写有效的总页数～'));
   if (!deadline) return alert('请选择计划完成日期～');
   if (startDate && diffDays(startDate, deadline) < 0) return alert('开始日期不能晚于截止日期～');
 
@@ -4167,8 +4810,8 @@ function submitSettings() {
   p.deadline = deadline;
   p.startDate = startDate || '';
   p.startPage = startPage;
-  p.unitMode = unitMode;
-  p.units = units;
+  p.unitMode = p.type === 'mistake' ? false : unitMode; // 错题不使用页码单元
+  p.units = p.type === 'mistake' ? [] : units;
   p.intervals = intervals;
 
   if (isSetMode(p)) {
@@ -4283,9 +4926,13 @@ function resetEntryInputs() {
   pageRangeMode = false; applyPageModeUI();
   ['inPageStart', 'inPageEnd'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
   if ($('#inDate')) $('#inDate').value = t;
-  ['inSetNo', 'inSetDone', 'inSetTotalQ', 'inSetPct'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
+  ['inSetNo', 'inSetDone', 'inSetTotalQ'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
+  setSelectedSecIds = [];
+  setSecPct = {};
+  if ($('#inSetScopePanel')) $('#inSetScopePanel').hidden = true;
+  if ($('#setScopePctList')) { $('#setScopePctList').hidden = true; $('#setScopePctList').innerHTML = ''; }
   if ($('#inSetDate')) $('#inSetDate').value = t;
-  ['reciteContent', 'reciteNote', 'recitePageStart', 'recitePageEnd'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
+  ['reciteContent', 'reciteNote', 'reciteSource', 'recitePageStart', 'recitePageEnd'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
   if ($('#reciteDate')) $('#reciteDate').value = t;
   reciteQuality = null;
   document.querySelectorAll('.rec-qbtn.active').forEach(b => b.classList.remove('active'));
@@ -4297,7 +4944,10 @@ function resetEntryInputs() {
   if (cur()) updateRecitePreview();
 }
 
-/* 套卷打卡表单联动 */
+/* 套卷打卡表单联动：多选板块 */
+let setSelectedSecIds = [];   // 空数组 = 整套
+let setSecPct = {};           // { secId: '百分比字符串' }
+
 function syncSetFormUI(p) {
   const secs = getPaperSections(p);
   const hasSec = secs.length > 0;
@@ -4306,29 +4956,117 @@ function syncSetFormUI(p) {
   $('#inSetLabelHint').textContent = (p.paperLabelMode === 'year' && p.paperYearStart)
     ? `（按年份：第 1 套=${paperLabel(p, 1)}，依次递增，共 ${p.total} 套到 ${paperLabel(p, p.total)}）`
     : `（共 ${p.total} 套 · ${paperLabel(p, 1)}～${paperLabel(p, p.total)}）`;
-  const sel = $('#inSetScope');
   if (hasSec) {
-    const curVal = sel.value;
-    sel.innerHTML = `<option value="all">整套（全部板块）</option>` +
-      secs.map(s => `<option value="${s.id}">${esc(s.name)}（权重${s.weight}%）</option>`).join('');
-    if ([...sel.options].some(o => o.value === curVal)) sel.value = curVal;
-    applySetScopeChange();
+    const validIds = new Set(secs.map(s => s.id));
+    setSelectedSecIds = setSelectedSecIds.filter(id => validIds.has(id));
+    renderSetScopeMulti(p);
+    renderSetScopePctList(p);
   }
 }
-function applySetScopeChange() {
-  const isAll = $('#inSetScope').value === 'all';
-  $('#setPctWrap').hidden = isAll;
+
+function renderSetScopeMulti(p) {
+  const secs = getPaperSections(p);
+  const list = $('#inSetScopeList');
+  const btn = $('#inSetScopeBtn');
+  if (!list || !btn) return;
+  list.innerHTML = secs.map(s => {
+    const on = setSelectedSecIds.includes(s.id);
+    return `<div class="sec-multi-row${on ? ' sel' : ''}" data-sid="${esc(s.id)}">
+      <span class="ck">${on ? '✓' : ''}</span>
+      <span class="nm">${esc(s.name)}</span>
+      <span class="w">权重${s.weight}%</span>
+    </div>`;
+  }).join('');
+  if (setSelectedSecIds.length) {
+    btn.innerHTML = setSelectedSecIds.map(id => {
+      const s = secs.find(x => x.id === id);
+      return s ? reasonPill(s.name) : '';
+    }).join('');
+  } else {
+    btn.innerHTML = '<span class="muted">整套（全部板块）</span>';
+  }
 }
-$('#inSetScope').addEventListener('change', applySetScopeChange);
-$('#setPctChips').addEventListener('click', e => {
-  const chip = e.target.closest('.pct-chip');
-  if (!chip) return;
-  $('#inSetPct').value = chip.dataset.pct;
-  $('#setPctChips').querySelectorAll('.pct-chip').forEach(c => c.classList.toggle('active', c === chip));
+
+function renderSetScopePctList(p) {
+  const secs = getPaperSections(p);
+  const box = $('#setScopePctList');
+  if (!box) return;
+  if (!setSelectedSecIds.length) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+  box.hidden = false;
+  const rows = setSelectedSecIds.map(id => {
+    const s = secs.find(x => x.id === id);
+    if (!s) return '';
+    const raw = setSecPct[s.id];
+    const v = (raw != null && raw !== '') ? raw : 100;
+    const vNum = parseInt(v, 10);
+    const chips = [25, 50, 75, 100].map(n =>
+      `<button type="button" class="pct-chip ssp-chip${vNum === n ? ' active' : ''}" data-pct="${n}" data-sid="${esc(s.id)}">${n}%</button>`
+    ).join('');
+    return `<div class="ssp-row" data-sid="${esc(s.id)}">
+      <span class="ssp-name">${esc(s.name)}</span>
+      <span class="ssp-pct">
+        <input type="number" class="ssp-input" min="1" max="100" value="${v}" data-sid="${esc(s.id)}"><span>%</span>
+      </span>
+      <span class="pct-chips">${chips}</span>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div class="ssp-head">分别填写本次各板块完成度（默认 100%）</div>${rows}`;
+}
+
+/* 多选下拉交互 */
+$('#inSetScopeBtn').addEventListener('click', () => {
+  const panel = $('#inSetScopePanel');
+  panel.hidden = !panel.hidden;
 });
-$('#inSetPct').addEventListener('input', () => {
-  const v = parseInt($('#inSetPct').value, 10);
-  $('#setPctChips').querySelectorAll('.pct-chip').forEach(c => c.classList.toggle('active', parseInt(c.dataset.pct, 10) === v));
+$('#inSetScopeList').addEventListener('click', e => {
+  const row = e.target.closest('.sec-multi-row');
+  if (!row) return;
+  const sid = row.dataset.sid;
+  const i = setSelectedSecIds.indexOf(sid);
+  if (i >= 0) setSelectedSecIds.splice(i, 1); else setSelectedSecIds.push(sid);
+  const p = cur();
+  if (!p) return;
+  const order = getPaperSections(p).map(s => s.id);
+  setSelectedSecIds.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  renderSetScopeMulti(p);
+  renderSetScopePctList(p);
+});
+$('#inSetScopeAll').addEventListener('click', () => {
+  const p = cur(); if (!p) return;
+  setSelectedSecIds = getPaperSections(p).map(s => s.id);
+  renderSetScopeMulti(p);
+  renderSetScopePctList(p);
+});
+$('#inSetScopeNone').addEventListener('click', () => {
+  const p = cur(); if (!p) return;
+  setSelectedSecIds = [];
+  setSecPct = {};
+  renderSetScopeMulti(p);
+  renderSetScopePctList(p);
+});
+$('#setScopePctList').addEventListener('input', e => {
+  const inp = e.target.closest('.ssp-input');
+  if (!inp) return;
+  const sid = inp.dataset.sid;
+  setSecPct[sid] = inp.value;
+  const v = parseInt(inp.value, 10);
+  const row = inp.closest('.ssp-row');
+  row.querySelectorAll('.ssp-chip').forEach(c =>
+    c.classList.toggle('active', parseInt(c.dataset.pct, 10) === v));
+});
+$('#setScopePctList').addEventListener('click', e => {
+  const chip = e.target.closest('.ssp-chip');
+  if (!chip) return;
+  const sid = chip.dataset.sid;
+  const row = chip.closest('.ssp-row');
+  const inp = row.querySelector('.ssp-input');
+  if (inp) inp.value = chip.dataset.pct;
+  setSecPct[sid] = chip.dataset.pct;
+  row.querySelectorAll('.ssp-chip').forEach(c => c.classList.toggle('active', c === chip));
 });
 
 /* 套卷打卡 */
@@ -4345,18 +5083,48 @@ $('#btnSetCheckin').addEventListener('click', () => {
 
   const secs = getPaperSections(p);
   if (secs.length) {
-    const scope = $('#inSetScope').value || 'all';
-    if (scope === 'all') {
+    if (!setSelectedSecIds.length) {
       p.records = p.records.filter(r => !(r.set === setNo && r.date === date));
       p.records.push({ date, set: setNo, all: true, rid: genId() });
     } else {
-      const pct = parseInt($('#inSetPct').value, 10);
-      if (isNaN(pct) || pct < 1 || pct > 100) return alert('请填写该板块完成的百分比（1-100）～');
-      const sec = secs.find(s => s.id === scope);
-      if (!sec) return alert('板块不存在，请重新选择～');
-      p.records = p.records.filter(r => !(r.set === setNo && r.date === date && (r.all === true || r.secId === scope)));
-      p.records.push({ date, set: setNo, secId: scope, pct, rid: genId() });
+      const entries = [];
+      for (const sid of setSelectedSecIds) {
+        const s = secs.find(x => x.id === sid);
+        if (!s) continue;
+        const raw = setSecPct[sid];
+        const pct = (raw != null && raw !== '') ? parseInt(raw, 10) : 100;
+        if (isNaN(pct) || pct < 1 || pct > 100) {
+          return alert(`「${s.name}」的完成百分比需在 1-100 之间～`);
+        }
+        entries.push({ sid, pct });
+      }
+      // 累加语义：每个被选中的板块各生成一条记录，由 getSetState 封顶 100%
+      // 检查累加后是否会超过 100%，超出时弹窗提示
+      const stBefore = getSetState(p)[setNo] || { secs: {} };
+      const overs = [];
+      entries.forEach(en => {
+        const s = secs.find(x => x.id === en.sid);
+        const existing = (stBefore.secs && stBefore.secs[en.sid]) || 0;
+        const total = existing + en.pct;
+        if (total > 100) {
+          overs.push({ name: s.name, existing: Math.round(existing), pct: en.pct, total: Math.round(total) });
+        }
+      });
+      if (overs.length) {
+        const msg = overs.map(o =>
+          `· ${o.name}：已累计 ${o.existing}%，本次 +${o.pct}% = ${o.total}%，超出部分不计`
+        ).join('\n');
+        alert(`以下板块累加后超过 100%，已按 100% 封顶计算：\n\n${msg}`);
+      }
+      entries.forEach(en => {
+        p.records.push({ date, set: setNo, secId: en.sid, pct: en.pct, rid: genId() });
+      });
     }
+    setSelectedSecIds = [];
+    setSecPct = {};
+    $('#inSetScopePanel').hidden = true;
+    renderSetScopeMulti(p);
+    renderSetScopePctList(p);
   } else {
     const doneRaw = $('#inSetDone').value.trim();
     const qRaw = $('#inSetTotalQ').value.trim();
@@ -4374,11 +5142,12 @@ $('#btnSetCheckin').addEventListener('click', () => {
 
   p.updatedAt = Date.now();
   saveStore();
-  $('#inSetNo').value = ''; $('#inSetDone').value = ''; $('#inSetTotalQ').value = '';
-  $('#inSetPct').value = '100';
+  $('#inSetNo').value = '';
+  $('#inSetDone').value = '';
+  $('#inSetTotalQ').value = '';
   render();
 });
-['inSetNo', 'inSetDone', 'inSetTotalQ', 'inSetPct'].forEach(id => {
+['inSetNo', 'inSetDone', 'inSetTotalQ'].forEach(id => {
   document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnSetCheckin').click(); });
 });
 
@@ -4427,15 +5196,20 @@ $('#btnReciteAdd').addEventListener('click', () => {
   const content = ($('#reciteContent').value || '').trim();
   const errTags = ($('#reciteErrTagSel').value || '').split(',').filter(Boolean);
   const note = ($('#reciteNote').value || '').trim().slice(0, 60);
-  const pageStart = parseInt($('#recitePageStart').value, 10);
-  const pageEndRaw = parseInt($('#recitePageEnd').value, 10);
+  const source = ($('#reciteSource') ? $('#reciteSource').value : '').trim().slice(0, 40);
+  const isMistake = p.type === 'mistake';
   const date = $('#reciteDate').value || todayStr();
 
-  if (!content) return alert('请填写学习内容～');
+  let pageStart = 0, pageEnd = 0;
+  if (!isMistake) {
+    pageStart = parseInt($('#recitePageStart').value, 10);
+    const pageEndRaw = parseInt($('#recitePageEnd').value, 10);
+    if (isNaN(pageStart) || pageStart < 0) return alert('请输入有效的起始页～');
+    pageEnd = isNaN(pageEndRaw) ? pageStart : pageEndRaw;
+    if (pageEnd < pageStart) return alert('结束页不能小于起始页～');
+  }
+  if (!content) return alert(isMistake ? '请填写错题内容～' : '请填写学习内容～');
   if (!reciteQuality) return alert('请先选择本次学习效果～');
-  if (isNaN(pageStart) || pageStart < 0) return alert('请输入有效的起始页～');
-  let pageEnd = isNaN(pageEndRaw) ? pageStart : pageEndRaw;
-  if (pageEnd < pageStart) return alert('结束页不能小于起始页～');
   if (date > todayStr()) return alert('学习日期不能晚于今天～');
 
   const intervals = getIntervals(p);
@@ -4445,13 +5219,11 @@ $('#btnReciteAdd').addEventListener('click', () => {
   if (!Array.isArray(p.items)) p.items = [];
   const firstReview = { date, quality: reciteQuality, stage: 0 };
   if (note) firstReview.note = note;
-  p.items.push({
+  const newItem = {
     id: genId(),
     content,
     errTags,
     note,
-    pageStart,
-    pageEnd,
     learnedDate: date,
     stage: 0,
     nextReviewDate,
@@ -4460,13 +5232,21 @@ $('#btnReciteAdd').addEventListener('click', () => {
     manualMastered: false,
     wrongStreak: 0,
     customIntervals: null
-  });
+  };
+  if (isMistake) {
+    if (source) newItem.source = source; // 错题只记自由出处，不记页码
+  } else {
+    newItem.pageStart = pageStart;
+    newItem.pageEnd = pageEnd;
+  }
+  p.items.push(newItem);
   p.updatedAt = Date.now();
   saveStore();
 
   $('#reciteContent').value = '';
   $('#reciteErrTagSel').value = '';
   $('#reciteNote').value = '';
+  if ($('#reciteSource')) $('#reciteSource').value = '';
   $('#recitePageStart').value = '';
   $('#recitePageEnd').value = '';
   $('#reciteDate').value = todayStr();
@@ -4478,9 +5258,16 @@ $('#btnReciteAdd').addEventListener('click', () => {
   render();
 });
 
-$('#reciteContent').addEventListener('keydown', e => { if (e.key === 'Enter') $('#recitePageStart').focus(); });
+$('#reciteContent').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const p = cur();
+  if (p && p.type === 'mistake') { if ($('#reciteSource')) $('#reciteSource').focus(); }
+  else $('#recitePageStart').focus();
+});
 $('#recitePageStart').addEventListener('keydown', e => { if (e.key === 'Enter') $('#recitePageEnd').focus(); });
 $('#recitePageEnd').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnReciteAdd').click(); });
+$('#reciteSource').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#reciteDate').focus(); } });
 $('#reciteDate').addEventListener('change', updateRecitePreview);
 
 /* 新错因：永久/临时按钮选择 */
