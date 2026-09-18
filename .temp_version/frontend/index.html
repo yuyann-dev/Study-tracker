@@ -159,6 +159,8 @@
   .page-input input{appearance:textfield;-moz-appearance:textfield}
   .mode-mini{background:none;border:none;color:var(--brand,#5b6ef5);cursor:pointer;font-size:12.5px;padding:6px 4px 6px 2px;font-family:inherit;white-space:nowrap;opacity:.85}
   .mode-mini:hover{opacity:1;text-decoration:underline}
+  .date-quick{display:inline-flex;gap:2px;padding-bottom:9px}
+  .date-quick .mode-mini{padding:6px 8px}
   .set-part{display:inline-flex;align-items:center;gap:6px;margin-left:6px;padding-left:10px;border-left:1px dashed var(--line,#e8e7f2);color:var(--muted);font-size:13px}
   .set-part input{width:64px;font-size:14px;font-weight:550;padding:8px 4px}
   .checkin-block{display:flex;flex-direction:column;gap:2px}
@@ -592,7 +594,7 @@
   .toast{
     position:fixed;top:24px;left:50%;
     transform:translate(-50%, -20px);
-    background:#fff;border-radius:16px;padding:16px 22px;
+    background:var(--card);color:var(--text);border-radius:16px;padding:16px 22px;
     box-shadow:0 20px 50px -12px rgba(23,21,51,.35), 0 0 0 1px rgba(23,21,51,.05);
     display:flex;align-items:center;gap:14px;
     max-width:min(420px, calc(100vw - 32px));
@@ -793,7 +795,110 @@
     .dash-hero{padding:18px 18px}
     .dash-hero .greet-big{font-size:22px}
   }
+
+  /* 深色模式：由 html[data-theme] 控制（JS 依用户选择 + 系统偏好决定） */
+  html[data-theme="dark"]{
+    --bg:#12121a;
+    --card:#1c1c27;
+    --text:#e8e8f0;
+    --muted:#8e8ea4;
+    --line:#2c2c3a;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 28px -16px rgba(0,0,0,.55);
+    --shadow-hover:0 2px 4px rgba(0,0,0,.45), 0 14px 34px -16px rgba(0,0,0,.6);
+  }
+  html[data-theme="dark"] body{background:var(--bg);color:var(--text)}
+  html[data-theme="dark"] input[type=number],
+  html[data-theme="dark"] input[type=date],
+  html[data-theme="dark"] input[type=text],
+  html[data-theme="dark"] select,
+  html[data-theme="dark"] textarea{
+    background:#23232f;color:var(--text);border-color:var(--line);
+  }
+  html[data-theme="dark"] input:focus,
+  html[data-theme="dark"] select:focus,
+  html[data-theme="dark"] textarea:focus{background:#2a2a38}
+  html[data-theme="dark"] .card,
+  html[data-theme="dark"] .stat,
+  html[data-theme="dark"] .modal{background:var(--card)}
+  html[data-theme="dark"] .ghost-btn,
+  html[data-theme="dark"] .soft-btn{background:#23232f;color:var(--muted);border-color:var(--line)}
+  html[data-theme="dark"] .ghost-btn:hover,
+  html[data-theme="dark"] .soft-btn:hover{background:#2a2a38}
+  html[data-theme="dark"] .review-item,
+  html[data-theme="dark"] .wb-item,
+  html[data-theme="dark"] .pp-cell,
+  html[data-theme="dark"] .pp-stat,
+  html[data-theme="dark"] .wb-stat,
+  html[data-theme="dark"] .dash-card,
+  html[data-theme="dark"] .dash-proj,
+  html[data-theme="dark"] .sec-multi-btn,
+  html[data-theme="dark"] .reason-dd-btn,
+  html[data-theme="dark"] .tag-btn,
+  html[data-theme="dark"] .pct-chip,
+  html[data-theme="dark"] .hist-q-btn,
+  html[data-theme="dark"] .sec-multi-panel,
+  html[data-theme="dark"] .reason-dd-panel,
+  html[data-theme="dark"] #reasonPopover,
+  html[data-theme="dark"] .hist-panel,
+  html[data-theme="dark"] .pp-kpi,
+  html[data-theme="dark"] .g-callout,
+  html[data-theme="dark"] .lock-hint,
+  html[data-theme="dark"] .set-scope-pct,
+  html[data-theme="dark"] .overdue-banner,
+  html[data-theme="dark"] .recite-preview,
+  html[data-theme="dark"] .wb-reasons-card,
+  html[data-theme="dark"] .pp-eta-box,
+  html[data-theme="dark"] .pp-cell-detail{
+    background:var(--card);color:var(--text);border-color:var(--line);
+  }
+  html[data-theme="dark"] .sec-multi-row:hover,
+  html[data-theme="dark"] .reason-dd-row:hover,
+  html[data-theme="dark"] .rp-row:hover,
+  html[data-theme="dark"] .wb-item:hover,
+  html[data-theme="dark"] .project-item:hover,
+  html[data-theme="dark"] .wb-pie-row:hover{background:#23232f}
+  html[data-theme="dark"] .sec-multi-row.sel,
+  html[data-theme="dark"] .reason-dd-row.sel,
+  html[data-theme="dark"] .rp-row.sel,
+  html[data-theme="dark"] .project-item.active{background:#2a2a44}
+  html[data-theme="dark"] .type-opt-inner,
+  html[data-theme="dark"] .seg-opt span{background:#23232f;color:var(--muted);border-color:var(--line)}
+  html[data-theme="dark"] .type-opt input:checked + .type-opt-inner,
+  html[data-theme="dark"] .seg-opt input:checked + span{background:#2a2a44;color:var(--text)}
+  html[data-theme="dark"] .review-item.overdue-item{background:#2a2418}
+  html[data-theme="dark"] .pp-cell.part{background:#2a2418}
+  html[data-theme="dark"] .pp-cell.done{background:#1a2a22}
+  html[data-theme="dark"] .mask{background:rgba(0,0,0,.6)}
+  html[data-theme="dark"] .wb-notepad{background:#2a2418;color:#d8c88a}
+  html[data-theme="dark"] .bar{background:#23232f}
+  html[data-theme="dark"] .unit-bar,
+  html[data-theme="dark"] .unit-bar-fill,
+  html[data-theme="dark"] .dash-proj .dp-bar,
+  html[data-theme="dark"] .pp-sec-track,
+  html[data-theme="dark"] .pp-unit-track,
+  html[data-theme="dark"] .wb-unit-bar,
+  html[data-theme="dark"] .wb-unit-group-bar,
+  html[data-theme="dark"] .pp-dist-bar{background:#23232f}
+  /* Bug 3：深色模式下「逾期横幅」文字对比度，避免浅底琥珀字看不清 */
+  html[data-theme="dark"] .overdue-banner .ob-text{color:#d4a24e}
+  html[data-theme="dark"] .overdue-banner .ob-main strong{color:#e8b85c}
+  html[data-theme="dark"] .overdue-banner .ob-sub{color:#b89146}
+  html[data-theme="dark"] .overdue-banner .ob-btn{background:#2a2a38;color:#d4a24e;border-color:#4a3a1a}
+  html[data-theme="dark"] .overdue-banner .ob-btn:hover{background:#333344}
 </style>
+<script>
+/* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
+(function () {
+  try {
+    var pref = localStorage.getItem('study_tracker_theme') || 'auto';
+    var actual = pref;
+    if (pref !== 'light' && pref !== 'dark') {
+      actual = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', actual);
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 
@@ -879,6 +984,10 @@
 
     <div class="checkin" id="exerciseForm">
       <input id="inDate" type="date">
+      <div class="date-quick">
+        <button type="button" class="mode-mini" data-set-date="today">今天</button>
+        <button type="button" class="mode-mini" data-set-date="yesterday">昨天</button>
+      </div>
       <div class="page-input">
         <span id="piLead">学到第</span>
         <input id="inPageStart" type="number" min="0" placeholder="起始页" hidden>
@@ -893,6 +1002,10 @@
     <div id="setForm" hidden>
       <div class="checkin">
         <input id="inSetDate" type="date">
+        <div class="date-quick">
+          <button type="button" class="mode-mini" data-set-date="today">今天</button>
+          <button type="button" class="mode-mini" data-set-date="yesterday">昨天</button>
+        </div>
         <div class="page-input" style="padding-bottom:0">
           <span>第</span>
           <input id="inSetNo" type="number" min="1" placeholder="套号" style="width:88px">
@@ -1249,6 +1362,24 @@
     </div>
     <p class="hint" style="margin-top:10px">导出后会下载一个 JSON 文件。换了浏览器或设备后，导入这个文件即可恢复全部数据。</p>
 
+    <div class="sec-title">外观</div>
+    <label style="margin-bottom:12px">主题
+      <div class="seg" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">
+        <label class="seg-opt">
+          <input type="radio" name="theme" value="auto">
+          <span>🌓 跟随系统</span>
+        </label>
+        <label class="seg-opt">
+          <input type="radio" name="theme" value="light">
+          <span>☀️ 浅色</span>
+        </label>
+        <label class="seg-opt">
+          <input type="radio" name="theme" value="dark">
+          <span>🌙 深色</span>
+        </label>
+      </div>
+    </label>
+
     <div class="sec-title">其他</div>
     <div class="data-actions">
       <button class="soft-btn" id="btnShowGuide" type="button">📖 使用指南（再看一次）</button>
@@ -1432,7 +1563,6 @@
         </div>
         <div class="g-content">
           <div style="font-size:13.5px;line-height:2">
-            <b>🏠 今日总览</b> —— 今天该做什么，连续打了几天卡<br>
             <b>🏠 今日总览</b> —— 今天该新学多少、复习多少、连续打了几天卡<br>
             <b>🎯 薄弱点</b> —— 背书/错题的复习作战中心：按紧急度排序、掌握度分布；错题还有错因画像<br>
             <b>📊 完成情况</b> —— 刷题的节奏与坚持统计、完成时间预测、漏做页码定位、套号明细
@@ -1503,6 +1633,26 @@ const addDays = (s, n) => { const d = parseDate(s); d.setDate(d.getDate() + n); 
 const fmtCN = s => { const d = parseDate(s); return `${d.getMonth() + 1}月${d.getDate()}日`; };
 const WEEK = ['周日','周一','周二','周三','周四','周五','周六'];
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+/* ============ 主题管理 ============ */
+const THEME_KEY = 'study_tracker_theme';
+function getThemePref() {
+  try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
+}
+function resolveTheme(pref) {
+  if (pref === 'light' || pref === 'dark') return pref;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function applyTheme() {
+  const pref = getThemePref();
+  document.documentElement.setAttribute('data-theme', resolveTheme(pref));
+  const radio = document.querySelector(`input[name="theme"][value="${pref}"]`);
+  if (radio) radio.checked = true;
+}
+function setThemePref(pref) {
+  try { localStorage.setItem(THEME_KEY, pref); } catch (e) {}
+  applyTheme();
+}
 
 const TYPES = {
   exercise: { name:'刷题', icon:'✏️', badgeCls:'', typeCls:'type-exercise' },
@@ -2736,6 +2886,7 @@ function updateRecitePreview() {
 function render() {
   const p = cur();
   if (!p) {
+    document.title = 'Study Tracker';
     $('#welcome').hidden = false;
     $('#app').hidden = true;
     return;
@@ -2946,6 +3097,16 @@ function render() {
 
   requestAnimationFrame(() => drawChart(m, p));
   checkMilestones(p, m);
+
+  // 浏览器标签页标题：显示待复习数量
+  if (p.type !== 'exercise') {
+    const dueCount = getDueItems(p).length;
+    document.title = dueCount > 0
+      ? `(${dueCount}) ${p.name} · Study Tracker`
+      : `${p.name} · Study Tracker`;
+  } else {
+    document.title = `${p.name} · Study Tracker`;
+  }
 }
 
 function renderReview(p) {
@@ -3294,19 +3455,19 @@ function drawChart(m, p) {
   for (let i = 0; i <= 4; i++) {
     const val = m.total * i / 4;
     const y = Y(val);
-    ctx.strokeStyle = '#eeeefa';
+      ctx.strokeStyle = 'rgba(127,127,151,.18)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(pad.l, y);
     ctx.lineTo(pad.l + cw, y);
     ctx.stroke();
-    ctx.fillStyle = '#a3a1ba';
+    ctx.fillStyle = 'rgba(127,127,151,.85)';
     ctx.textAlign = 'right';
     ctx.fillText(Math.round(val), pad.l - 6, y);
   }
 
   if (p.deadline) {
-    ctx.strokeStyle = '#d3d2e6';
+    ctx.strokeStyle = 'rgba(127,127,151,.5)';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 4]);
     ctx.beginPath();
@@ -3363,7 +3524,7 @@ function drawChart(m, p) {
     ctx.stroke();
   }
 
-  ctx.fillStyle = '#a3a1ba';
+  ctx.fillStyle = 'rgba(127,127,151,.85)';
   ctx.font = '11px -apple-system,sans-serif';
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
@@ -3477,6 +3638,9 @@ function setBackupSnooze(val) {
 function checkBackupReminder() {
   const snooze = getBackupSnooze();
   if (snooze === 'never') return null;
+  if (snooze) {
+    if (diffDays(snooze, todayStr()) < 30) return null;
+  }
 
   let last = '';
   try { last = localStorage.getItem('study_tracker_last_backup') || ''; } catch (e) {}
@@ -3499,11 +3663,6 @@ function checkBackupReminder() {
     // 有导出记录：超过 30 天提醒
     const days = diffDays(last, today);
     if (days < 30) return null;
-    // 若用户点了「30 天内不再提醒」，且 snooze 日期在未来，跳过
-    if (snooze && snooze !== 'never') {
-      const snoozeDays = diffDays(snooze, today);
-      if (snoozeDays < 30) return null;
-    }
   }
 
   const lastText = last ? `上次导出：${fmtCN(last)}` : '还没有导出过备份';
@@ -4911,15 +5070,33 @@ function applyPageModeUI() {
   const lead = $('#piLead'), st = $('#inPageStart'), dash = $('#piDash'),
         end = $('#inPageEnd'), tg = $('#btnToggleRange');
   if (!lead || !st) return;
+  let lastEnd = 0;
+  const p = cur();
+  if (p && p.type === 'exercise' && !isSetMode(p)) {
+    (p.records || []).forEach(r => {
+      if (r.endPage != null && r.endPage > lastEnd) lastEnd = r.endPage;
+    });
+  }
   if (pageRangeMode) {
     lead.textContent = '第'; st.hidden = false; dash.hidden = false;
     end.placeholder = '结束页'; tg.textContent = '回到顺序录入';
   } else {
     lead.textContent = '学到第'; st.hidden = true; st.value = ''; dash.hidden = true;
-    end.placeholder = '页码'; tg.textContent = '按区间录入（跳着学）';
+    end.placeholder = lastEnd > 0 ? `上次 ${lastEnd}，本次到` : '页码';
+    tg.textContent = '按区间录入（跳着学）';
   }
 }
 $('#btnToggleRange').addEventListener('click', () => { pageRangeMode = !pageRangeMode; applyPageModeUI(); });
+
+// 日期快捷按钮：一键切到"今天/昨天"
+document.querySelectorAll('[data-set-date]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const wrap = btn.closest('.date-quick');
+    const target = wrap ? wrap.previousElementSibling : null;
+    if (!target || target.tagName !== 'INPUT' || target.type !== 'date') return;
+    target.value = btn.dataset.setDate === 'today' ? todayStr() : addDays(todayStr(), -1);
+  });
+});
 
 function resetEntryInputs() {
   const t = todayStr();
@@ -5142,7 +5319,10 @@ $('#btnSetCheckin').addEventListener('click', () => {
 
   p.updatedAt = Date.now();
   saveStore();
-  $('#inSetNo').value = '';
+  showToast('✅', '已记录', `第 ${setNo} 套`);
+  // 套号自动 +1 并选中，连续录套卷时直接输数字即可
+  $('#inSetNo').value = String(setNo + 1);
+  setTimeout(() => { const el = $('#inSetNo'); if (el) el.select(); }, 0);
   $('#inSetDone').value = '';
   $('#inSetTotalQ').value = '';
   render();
@@ -5181,6 +5361,9 @@ $('#btnCheckin').addEventListener('click', () => {
   }
   p.updatedAt = Date.now();
   saveStore();
+  showToast('✅', '已记录', startPage != null
+    ? `第 ${startPage}-${endPage} 页`
+    : `学到第 ${endPage} 页`);
   $('#inPageStart').value = '';
   $('#inPageEnd').value = '';
   render();
@@ -5347,7 +5530,7 @@ $('#reviewList').addEventListener('click', e => {
       pendingSkipItem = item;
       pendingSkipProject = p;
       $('#confirmMasterMask').hidden = true;
-      $('#skipConfirmText').innerHTML = `确定将「<strong>${esc(item.content)}</strong>」标记为不再出现？<br>跳过后不再出现在复习列表中，但可以在学习记录里找到。`;
+      $('#skipConfirmText').innerHTML = `「<strong>${esc(item.content)}</strong>」将不再出现在复习列表。<br>想再复习时，可在下方「学习记录」里找到它。`;
       $('#skipDismissChk').checked = false;
       $('#skipConfirmMask').hidden = false;
     }
@@ -5590,12 +5773,45 @@ document.addEventListener('keydown', e => {
   else if (!$('#switchMask').hidden) closeSwitch();
 });
 
+/* 复习列表键盘快捷键：1=记得/做对，2=模糊/看答案，3=忘记/又错 */
+document.addEventListener('keydown', e => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // 有任何弹窗打开时不响应
+  if (!$('#confirmMasterMask').hidden || !$('#skipConfirmMask').hidden ||
+      !$('#settingsMask').hidden || !$('#formMask').hidden ||
+      !$('#switchMask').hidden || !$('#dashMask').hidden ||
+      !$('#weaknessMask').hidden || !$('#progressMask').hidden ||
+      !$('#reasonKindMask').hidden || !$('#changelogMask').hidden) return;
+  if ($('#reviewSection').hidden) return;
+  const map = { '1': 'good', '2': 'fuzzy', '3': 'forgot' };
+  const q = map[e.key];
+  if (!q) return;
+  const firstItem = document.querySelector('#reviewList .review-item');
+  if (!firstItem) return;
+  const btn = firstItem.querySelector(`.q-btn[data-quality="${q}"]`);
+  if (btn) { e.preventDefault(); btn.click(); }
+});
+
+/* 主题切换：用户可选 跟随系统 / 浅色 / 深色 */
+document.querySelectorAll('input[name="theme"]').forEach(r => {
+  r.addEventListener('change', () => { if (r.checked) setThemePref(r.value); });
+});
+/* 当用户选"跟随系统"时，系统偏好变了要跟着切 */
+try {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const handler = () => { if (getThemePref() === 'auto') applyTheme(); };
+  if (mq.addEventListener) mq.addEventListener('change', handler);
+  else if (mq.addListener) mq.addListener(handler);
+} catch (e) {}
+
 window.addEventListener('resize', () => {
   if (lastMetrics) drawChart(lastMetrics.m, lastMetrics.p);
 });
 
 /* ============ 启动 ============ */
 (function boot() {
+  applyTheme();
   loadStore();
   if (store.currentId && !store.projects[store.currentId]) {
     const ids = Object.keys(store.projects);
