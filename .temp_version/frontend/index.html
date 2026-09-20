@@ -2,7 +2,31 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* 在页面最早期立即生成 PNG 格式的 apple-touch-icon（iOS 只认 PNG，且必须在添加到主屏幕前就存在） */
+(function(){
+  try{
+    var c=document.createElement('canvas');c.width=180;c.height=180;
+    var x=c.getContext('2d');
+    var g=x.createLinearGradient(0,0,180,180);
+    g.addColorStop(0,'#5b6ef5');g.addColorStop(1,'#9333ea');
+    x.fillStyle=g;x.fillRect(0,0,180,180);
+    x.fillStyle='#fff';x.font='bold 108px -apple-system,sans-serif';
+    x.textAlign='center';x.textBaseline='middle';
+    x.fillText('学',90,97);
+    var l=document.createElement('link');l.rel='apple-touch-icon';l.href=c.toDataURL('image/png');
+    document.head.appendChild(l);
+  }catch(e){}
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="学习追踪">
+<meta name="theme-color" content="#5b6ef5">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href='data:application/manifest+json,{"name":"Study Tracker 学习追踪","short_name":"学习追踪","start_url":".","scope":".","display":"standalone","background_color":"#1a1a2e","theme_color":"#5b6ef5"}'>
 <title>Study-tracker</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -26,6 +50,11 @@
     background:var(--bg); color:var(--text); min-height:100vh;
     padding:24px 16px 60px; -webkit-font-smoothing:antialiased;
     line-break:strict; hanging-punctuation:allow-end; overflow-wrap:break-word;
+    /* PWA 全屏模式 safe-area 适配（不被状态栏/底部指示条遮挡） */
+    padding-top:calc(24px + env(safe-area-inset-top));
+    padding-bottom:calc(60px + env(safe-area-inset-bottom));
+    padding-left:calc(16px + env(safe-area-inset-left));
+    padding-right:calc(16px + env(safe-area-inset-right));
   }
   .wrap{max-width:880px;margin:0 auto}
 
@@ -666,6 +695,20 @@
   .toast-title{font-weight:700;font-size:15px;margin-bottom:3px}
   .toast-desc{font-size:12.5px;color:var(--muted);line-height:1.5}
 
+  /* 应用内提醒（移动端 Notification API 不可用时的兜底） */
+  .inapp-reminder{
+    position:fixed;top:0;left:0;right:0;z-index:300;
+    background:linear-gradient(135deg,#5b6ef5 0%,#9333ea 100%);
+    color:#fff;padding:16px 44px 16px 20px;
+    box-shadow:0 8px 24px rgba(91,110,245,.4);
+    transform:translateY(-100%);transition:transform .35s cubic-bezier(.22,1,.36,1);
+    cursor:pointer;max-height:45vh;overflow-y:auto;
+  }
+  .inapp-reminder.show{transform:translateY(0)}
+  .inapp-reminder .iar-title{font-weight:700;font-size:15px;margin-bottom:4px}
+  .inapp-reminder .iar-body{font-size:13px;line-height:1.65;opacity:.95;white-space:pre-line}
+  .inapp-reminder .iar-close{position:absolute;top:10px;right:14px;font-size:20px;opacity:.7;cursor:pointer;line-height:1}
+
   .wb-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
   .wb-stat{text-align:center;padding:12px 6px;border-radius:12px;background:#f7f6fc}
   .wb-stat .num{font-size:26px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -1052,6 +1095,15 @@
   html[data-theme="dark"] .busy-card{background:#1a1a26;box-shadow:0 18px 50px -18px rgba(0,0,0,.7)}
   html[data-theme="dark"] .busy-text{color:#e4e4ef}
   html[data-theme="dark"] .busy-track{background:#2c2c3a}
+
+  /* 首屏加载界面（消除白屏，页面加载时立即显示，渲染完成后隐藏） */
+  #splashScreen{position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .3s ease}
+  #splashScreen.splash-hide{opacity:0;pointer-events:none}
+  .splash-logo{width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,#5b6ef5 0%,#9333ea 100%);display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:20px;box-shadow:0 8px 24px rgba(91,110,245,.4);animation:splashPulse 1.6s ease-in-out infinite}
+  @keyframes splashPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  .splash-text{color:#a9a6c7;font-size:14px;margin-bottom:16px;letter-spacing:.5px}
+  .splash-spinner{width:28px;height:28px;border:3px solid rgba(91,110,245,.2);border-top-color:#5b6ef5;border-radius:50%;animation:splashSpin .8s linear infinite}
+  @keyframes splashSpin{to{transform:rotate(360deg)}}
   /* 新增元素的黑夜模式适配 */
   html[data-theme="dark"] #pressurePanel{background:#1e1e2a;border-color:#2c2c3a}
   html[data-theme="dark"] .pressure-bar-label{color:#8a8aa3}
@@ -1089,6 +1141,13 @@
 </script>
 </head>
 <body>
+
+<!-- 首屏加载界面（消除白屏，渲染完成后自动隐藏） -->
+<div id="splashScreen">
+  <div class="splash-logo">📚</div>
+  <div class="splash-text">Study Tracker 加载中…</div>
+  <div class="splash-spinner"></div>
+</div>
 
 <div class="toast" id="toast" hidden>
   <div class="toast-icon">🏆</div>
@@ -1528,7 +1587,7 @@
       </label>
     </div>
 
-    <p class="hint" id="fUnitHint" style="margin-top:0">填上「开始日期 + 开始页码」可以立刻估算速度；不填的话，打卡满两天后也能自动估算。</p>
+    <p class="hint" id="fUnitHint" style="margin-top:0">填上「开始日期」可以立刻估算速度；不填的话，打卡满两天后也能自动估算。</p>
 
     <div class="modal-actions">
       <div class="spacer"></div>
@@ -1712,7 +1771,7 @@
       <button class="soft-btn" id="btnImport" type="button">⬆️ 导入备份</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
-    <p class="hint" style="margin-top:10px">导出后会下载一个 JSON 文件。换了浏览器或设备后，导入这个文件即可恢复全部数据。</p>
+    <p class="hint" style="margin-top:10px">导出后会下载一个 JSON 文件。换了浏览器或设备后，导入这个文件即可恢复全部数据。<br><b>iPhone/iPad 用户注意</b>：如果要把本页「添加到主屏幕」，请先在这里导出备份，然后从桌面图标打开后再导入备份（Safari 和桌面版数据不互通）。</p>
 
     <div class="sec-title">外观</div>
     <label style="margin-bottom:12px">主题
@@ -1843,7 +1902,7 @@
       <h2>👋 欢迎使用 Study Tracker</h2>
       <button class="x-btn" id="changelogClose">×</button>
     </div>
-    <div class="kinsoku" style="font-size:14px;line-height:1.8;color:var(--text);max-height:58vh;overflow-y:auto;padding-right:6px">
+    <div class="kinsoku" style="font-size:14px;line-height:1.8;color:var(--text);max-height:58vh;overflow-y:auto;padding:0 8px 0 4px">
       <p style="color:var(--muted);font-size:13px;margin-bottom:22px">
         一个帮你把学习进度管起来的工具。<br>
         刷题、背书、错题都能记，数据只保存在你自己的浏览器里。
@@ -1944,6 +2003,38 @@
       <button class="primary" id="changelogOk" style="min-width:180px;padding:12px 32px;font-size:15px">开始使用</button>
     </div>
     <div style="text-align:center;color:var(--muted);font-size:11.5px;margin-top:10px">本指南只自动弹出一次，之后可在「⚙️ 设置 → 使用指南」随时回看</div>
+  </div>
+</div>
+
+<!-- ============ 数据安全提示弹窗（只弹一次，3秒后才能关闭） ============ -->
+<div class="mask" id="dataSecurityMask" hidden>
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <h2>🔒 数据安全提示</h2>
+    </div>
+    <div class="kinsoku" id="dataSecurityBody" style="font-size:14px;line-height:1.85;color:var(--text);max-height:55vh;overflow-y:auto;padding:0 8px 0 4px"></div>
+    <div style="margin-top:22px;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap">
+      <button class="primary" id="dataSecurityOk" disabled style="min-width:180px;padding:12px 32px;font-size:15px;opacity:.5;cursor:not-allowed">我已知晓（3s）</button>
+    </div>
+    <div style="text-align:center;color:var(--muted);font-size:11.5px;margin-top:10px">请仔细阅读以上内容，3秒后可关闭</div>
+  </div>
+</div>
+
+<!-- ============ 无痕浏览模式提醒弹窗 ============ -->
+<div class="mask" id="incognitoMask" hidden>
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <h2>⚠️ 无痕浏览模式</h2>
+      <button class="x-btn" id="incognitoClose">×</button>
+    </div>
+    <div class="kinsoku" style="font-size:14px;line-height:1.85;color:var(--text)">
+      <p style="margin-bottom:12px">检测到你正在使用<strong>无痕/隐私浏览模式</strong>。</p>
+      <p style="margin-bottom:12px">在此模式下，<strong style="color:var(--bad)">关闭浏览器后所有学习数据将被清除，且无法恢复</strong>。</p>
+      <p>建议在普通模式下使用本应用，或记得定期到「设置 → 导出备份」保存数据。</p>
+    </div>
+    <div style="margin-top:22px;display:flex;gap:10px;justify-content:center">
+      <button class="primary" id="incognitoOk" style="min-width:140px;padding:10px 24px;font-size:14px">我已知晓</button>
+    </div>
   </div>
 </div>
 
@@ -2163,7 +2254,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&am
 /* ============ 主题管理 ============ */
 const THEME_KEY = 'study_tracker_theme';
 function getThemePref() {
-  try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
+  return getLocalVal(THEME_KEY, 'auto');
 }
 function resolveTheme(pref) {
   if (pref === 'light' || pref === 'dark') return pref;
@@ -2176,7 +2267,7 @@ function applyTheme() {
   if (radio) radio.checked = true;
 }
 function setThemePref(pref) {
-  try { localStorage.setItem(THEME_KEY, pref); } catch (e) {}
+  setLocalVal(THEME_KEY, pref);
   applyTheme();
 }
 
@@ -2922,99 +3013,485 @@ function getPresetUnitTemplates() {
   return templates;
 }
 
-function loadStore() {
+async function loadStore() {
+  let lsValid = false;
+  let lsRaw = null;
   try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) {
-      const obj = JSON.parse(raw);
+    lsRaw = localStorage.getItem(STORE_KEY);
+    if (lsRaw) {
+      const obj = JSON.parse(lsRaw);
       if (obj && typeof obj === 'object' && obj.projects && typeof obj.projects === 'object') {
         store = obj;
-        // 迁移前快照，只在有实际修改时才保存，避免每次刷新都写 localStorage
-        const beforeMigrate = JSON.stringify(store);
-        if (store.mistakeGuided == null) store.mistakeGuided = false;
-        Object.values(store.projects).forEach(p => {
-          (p.items || []).forEach(it => {
-            if (it.pageStart == null && it.page != null) {
-              it.pageStart = it.page;
-              it.pageEnd = it.page;
-            }
-            if (it.pageStart == null) it.pageStart = 0;
-            if (it.pageEnd == null) it.pageEnd = it.pageStart;
-            if (it.manualMastered == null) it.manualMastered = false;
-            if (it.wrongStreak == null) it.wrongStreak = 0;
-            if (it.customIntervals === undefined) it.customIntervals = null;
-            if (it.spreadCount == null) it.spreadCount = 0;
-            if (it.lastSpreadDate == null) it.lastSpreadDate = null;
-            if (it.earlyReviewed == null) it.earlyReviewed = false;
-            if (it.stage == null) it.stage = 0;
-            if (it.mastered == null) it.mastered = false;
-            if (it.learnedDate == null) it.learnedDate = todayStr();
-          });
-          if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
-          if (!Array.isArray(p.units)) p.units = [];
-          // 老用户适配：单元数据加 children 字段（支持多级）
-          const ensureUnitChildren = arr => arr.forEach(u => { if (!Array.isArray(u.children)) u.children = []; if (u.children.length) ensureUnitChildren(u.children); });
-          ensureUnitChildren(p.units);
-          if (!Array.isArray(p.records)) p.records = [];
-          p.records.forEach(r => {
-            if (r.startPage == null && r.endPage == null && r.page != null) { r.endPage = r.page; delete r.page; }
-          });
-          if (!Array.isArray(p.items)) p.items = [];
-          if (!Array.isArray(p.intervals) || !p.intervals.length) p.intervals = [...DEFAULT_INTERVALS];
-          if (p.weakThreshold == null) p.weakThreshold = 0.4;
-          if (p.lapseRollback == null) p.lapseRollback = 2;
-          if (p.skipConfirmDismissed == null) p.skipConfirmDismissed = false;
-          if (p.reviewMode == null) p.reviewMode = 'classic'; // 'classic' | 'balanced'
-          if (p.dailyCapacity == null) p.dailyCapacity = null; // null=智能, 数字=固定
-          if (p.spreadThreshold == null) p.spreadThreshold = 5;
-          if (p.totalLocked == null) p.totalLocked = false;
-          if (p.bookStartPage == null) p.bookStartPage = null; // 整本书正文起始页（排除前面废话）
-          if (p.bookEndPage == null) p.bookEndPage = null; // 整本书正文结束页
-          if (!p.deadline) p.deadline = todayStr();
-          if (p.unitMode == null) p.unitMode = false;
-          if (p.startDate == null) p.startDate = '';
-          if (p.startPage == null) p.startPage = 0;
-          if (p.createdAt == null) p.createdAt = Date.now();
-          if (p.updatedAt == null) p.updatedAt = Date.now();
-          migrateProject(p);
-        });
-        // 老用户适配：把已有项目的单元/套卷数据自动存为模板
-        if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
-        if (!Array.isArray(store.paperTemplates)) store.paperTemplates = [];
-        Object.values(store.projects).forEach(p => {
-          if (p.unitMode && Array.isArray(p.units) && p.units.length > 0) {
-            const exists = store.unitTemplates.some(t => t.name === p.name);
-            if (!exists) {
-              store.unitTemplates.push({ id: genId(), name: p.name, units: JSON.parse(JSON.stringify(p.units)), createdAt: Date.now(), updatedAt: Date.now() });
-            }
-          }
-          if (p.type === 'exercise' && p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
-            const exists = store.paperTemplates.some(t => t.name === p.name);
-            if (!exists) {
-              store.paperTemplates.push({ id: genId(), name: p.name, sections: JSON.parse(JSON.stringify(p.paperSections)), createdAt: Date.now(), updatedAt: Date.now() });
-            }
-          }
-        });
-        // 只在有实际迁移时才保存，避免每次刷新都写 localStorage
-        if (JSON.stringify(store) !== beforeMigrate) saveStore();
+        lsValid = true;
+        _lastSaveSig = JSON.stringify(store);
       }
     }
-    // 预设单元模板：版本号控制，版本变化时强制更新（修复旧版本页码错误）
-    const PRESET_VERSION = 6;
-    const needPresetUpdate = !store.presetTemplatesLoaded || store.presetVersion !== PRESET_VERSION;
-    if (needPresetUpdate) {
-      if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
-      // 删除旧版本预设模板（id 以 preset_ 开头）
-      store.unitTemplates = store.unitTemplates.filter(t => !t.id.startsWith('preset_'));
-      const presets = getPresetUnitTemplates();
-      presets.forEach(p => store.unitTemplates.push(p));
-      store.presetTemplatesLoaded = true;
-      store.presetVersion = PRESET_VERSION;
-      saveStore();
+  } catch (e) {}
+
+  // ========== 关键：localStorage 无效时，先从 IndexedDB / Cache API 恢复，成功后再做任何写入 ==========
+  if (!lsValid) {
+    let backup = null;
+    let source = '';
+    // 先试 IndexedDB
+    try { backup = await idbRestoreLatest(); source = '备份'; } catch (e) {}
+    // IndexedDB 没有有效数据，再试 Cache API
+    if (!backup || !backup.projects || typeof backup.projects !== 'object' || Object.keys(backup.projects).length === 0) {
+      try {
+        const cacheStr = await cacheLoad();
+        if (cacheStr) {
+          const obj = JSON.parse(cacheStr);
+          if (obj && obj.projects && typeof obj.projects === 'object' && Object.keys(obj.projects).length > 0) {
+            backup = obj;
+            source = '离线缓存';
+          }
+        }
+      } catch (e) {}
     }
+    if (backup && backup.projects && Object.keys(backup.projects).length > 0) {
+      store = backup;
+      _lastSaveSig = JSON.stringify(store);
+      try { localStorage.setItem(STORE_KEY, _lastSaveSig); } catch (e) {}
+      // 恢复后同步写入其他后端
+      idbSaveSnapshot(_lastSaveSig);
+      cacheSave(_lastSaveSig);
+      // 只有 localStorage 本来有数据但损坏时才显示警告；本来就没数据则静默恢复
+      if (lsRaw) {
+        showStorageWarning('⚠️ 检测到本地数据异常，已从' + source + '自动恢复。建议立即到「设置 → 导出备份」保存一份 JSON 文件。');
+      }
+    } else {
+      // 真·全新用户：此时才初始化空 store
+      store = { currentId: null, projects: {}, unitTemplates: [], paperTemplates: [] };
+      _lastSaveSig = '';
+    }
+  }
+
+  // ========== 到这里 store 一定是"有效的"，再做迁移和预设写入 ==========
+  _booting = false; // 恢复完成，允许保存
+  const beforeMigrate = JSON.stringify(store);
+  if (store.mistakeGuided == null) store.mistakeGuided = false;
+  if (!store.uiFlags || typeof store.uiFlags !== 'object') store.uiFlags = {}; // UI 标记（弹窗是否已看过等），随 store 一起双写备份
+  if (!store.localData || typeof store.localData !== 'object') store.localData = {}; // 通用本地存储（主题、提醒设置等），随 store 一起双写备份
+  Object.values(store.projects || {}).forEach(p => {
+    (p.items || []).forEach(it => {
+      if (it.pageStart == null && it.page != null) {
+        it.pageStart = it.page;
+        it.pageEnd = it.page;
+      }
+      if (it.pageStart == null) it.pageStart = 0;
+      if (it.pageEnd == null) it.pageEnd = it.pageStart;
+      if (it.manualMastered == null) it.manualMastered = false;
+      if (it.wrongStreak == null) it.wrongStreak = 0;
+      if (it.customIntervals === undefined) it.customIntervals = null;
+      if (it.spreadCount == null) it.spreadCount = 0;
+      if (it.lastSpreadDate == null) it.lastSpreadDate = null;
+      if (it.earlyReviewed == null) it.earlyReviewed = false;
+      if (it.stage == null) it.stage = 0;
+      if (it.mastered == null) it.mastered = false;
+      if (it.learnedDate == null) it.learnedDate = todayStr();
+    });
+    if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
+    if (!Array.isArray(p.units)) p.units = [];
+    const ensureUnitChildren = arr => arr.forEach(u => { if (!Array.isArray(u.children)) u.children = []; if (u.children.length) ensureUnitChildren(u.children); });
+    ensureUnitChildren(p.units);
+    if (!Array.isArray(p.records)) p.records = [];
+    p.records.forEach(r => {
+      if (r.startPage == null && r.endPage == null && r.page != null) { r.endPage = r.page; delete r.page; }
+    });
+    if (!Array.isArray(p.items)) p.items = [];
+    if (!Array.isArray(p.intervals) || !p.intervals.length) p.intervals = [...DEFAULT_INTERVALS];
+    if (p.weakThreshold == null) p.weakThreshold = 0.4;
+    if (p.lapseRollback == null) p.lapseRollback = 2;
+    if (p.skipConfirmDismissed == null) p.skipConfirmDismissed = false;
+    if (p.reviewMode == null) p.reviewMode = 'classic';
+    if (p.dailyCapacity == null) p.dailyCapacity = null;
+    if (p.spreadThreshold == null) p.spreadThreshold = 5;
+    if (p.totalLocked == null) p.totalLocked = false;
+    if (p.bookStartPage == null) p.bookStartPage = null;
+    if (p.bookEndPage == null) p.bookEndPage = null;
+    if (!p.deadline) p.deadline = todayStr();
+    if (p.unitMode == null) p.unitMode = false;
+    if (p.startDate == null) p.startDate = '';
+    if (p.startPage == null) p.startPage = 0;
+    if (p.createdAt == null) p.createdAt = Date.now();
+    if (p.updatedAt == null) p.updatedAt = Date.now();
+    migrateProject(p);
+  });
+  // 老用户适配：把已有项目的单元/套卷数据自动存为模板
+  if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
+  if (!Array.isArray(store.paperTemplates)) store.paperTemplates = [];
+  Object.values(store.projects).forEach(p => {
+    if (p.unitMode && Array.isArray(p.units) && p.units.length > 0) {
+      const exists = store.unitTemplates.some(t => t.name === p.name);
+      if (!exists) {
+        store.unitTemplates.push({ id: genId(), name: p.name, units: JSON.parse(JSON.stringify(p.units)), createdAt: Date.now(), updatedAt: Date.now() });
+      }
+    }
+    if (p.type === 'exercise' && p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
+      const exists = store.paperTemplates.some(t => t.name === p.name);
+      if (!exists) {
+        store.paperTemplates.push({ id: genId(), name: p.name, sections: JSON.parse(JSON.stringify(p.paperSections)), createdAt: Date.now(), updatedAt: Date.now() });
+      }
+    }
+  });
+  if (JSON.stringify(store) !== beforeMigrate) saveStore();
+
+  // 预设单元模板（放在恢复成功之后，空库也不会覆盖备份）
+  const PRESET_VERSION = 6;
+  const needPresetUpdate = !store.presetTemplatesLoaded || store.presetVersion !== PRESET_VERSION;
+  if (needPresetUpdate) {
+    if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
+    store.unitTemplates = store.unitTemplates.filter(t => !t.id.startsWith('preset_'));
+    const presets = getPresetUnitTemplates();
+    presets.forEach(p => store.unitTemplates.push(p));
+    store.presetTemplatesLoaded = true;
+    store.presetVersion = PRESET_VERSION;
+    saveStore();
+  }
+}
+/* ============ 数据安全防护：双写存储 + IndexedDB 版本快照 + 持久化 + 自动保存 + 损坏恢复 ============ */
+
+// ---- IndexedDB 备份存储（保留最近 5 个版本快照，可回滚）----
+const IDB_NAME = 'study_tracker_safe';
+const IDB_STORE = 'snapshots';
+const IDB_VER = 1;
+const MAX_SNAPSHOTS = 5;
+let _idb = null;
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    if (_idb) return resolve(_idb);
+    try {
+      const req = indexedDB.open(IDB_NAME, IDB_VER);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          const os = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+          os.createIndex('time', 'time', { unique: false });
+        }
+      };
+      req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+      req.onerror = e => reject(e.target.error);
+    } catch (e) { reject(e); }
+  });
+}
+function idbPut(record) {
+  return idbOpen().then(db => new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = e => reject(e.target.error);
+    } catch (e) { reject(e); }
+  }));
+}
+function idbGetAll() {
+  return idbOpen().then(db => new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = e => reject(e.target.error);
+    } catch (e) { reject(e); }
+  }));
+}
+function idbDel(id) {
+  return idbOpen().then(db => new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = e => reject(e.target.error);
+    } catch (e) { reject(e); }
+  }));
+}
+// 写入快照并清理旧版本
+async function idbSaveSnapshot(dataStr) {
+  try {
+    const now = Date.now();
+    await idbPut({ id: 'snap_' + now, time: now, data: dataStr });
+    const all = await idbGetAll();
+    if (all.length > MAX_SNAPSHOTS) {
+      all.sort((a, b) => b.time - a.time);
+      for (let i = MAX_SNAPSHOTS; i < all.length; i++) {
+        try { await idbDel(all[i].id); } catch (e) {}
+      }
+    }
+    return true;
+  } catch (e) { return false; }
+}
+// 从 IndexedDB 恢复最近的有效快照
+async function idbRestoreLatest() {
+  try {
+    const all = await idbGetAll();
+    if (!all.length) return null;
+    all.sort((a, b) => b.time - a.time);
+    for (const snap of all) {
+      try {
+        const obj = JSON.parse(snap.data);
+        if (obj && obj.projects && typeof obj.projects === 'object') return obj;
+      } catch (e) { /* 损坏快照跳过 */ }
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
+/* ---- Cache API 第三存储后端（PWA 离线存储，比 localStorage 更持久）---- */
+const CACHE_NAME = 'study-tracker-data-v1';
+async function cacheSave(dataStr) {
+  try {
+    if (!('caches' in window)) return false;
+    const cache = await caches.open(CACHE_NAME);
+    const resp = new Response(dataStr, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+    await cache.put('store.json', resp);
+    return true;
+  } catch (e) { return false; }
+}
+async function cacheLoad() {
+  try {
+    if (!('caches' in window)) return null;
+    const cache = await caches.open(CACHE_NAME);
+    const resp = await cache.match('store.json');
+    if (resp) return await resp.text();
+    return null;
+  } catch (e) { return null; }
+}
+
+/* ---- 注册 Service Worker（PWA 持久化存储的关键，用 Blob URL 内联）---- */
+let _swRegistered = false;
+function registerServiceWorker() {
+  if (_swRegistered) return;
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const swCode = `
+      const CACHE = 'study-tracker-data-v1';
+      self.addEventListener('install', e => { self.skipWaiting(); });
+      self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+      // 拦截数据请求，确保离线可用
+      self.addEventListener('fetch', e => {
+        e.respondWith(
+          caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('/')))
+        );
+      });
+    `;
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl, { scope: './' }).then(reg => {
+      _swRegistered = true;
+    }).catch(e => {});
   } catch (e) {}
 }
-function saveStore() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
+async function requestPersistence() {
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      return await navigator.storage.persist();
+    }
+  } catch (e) {}
+  return false;
+}
+// ---- 存储配额检测 ----
+async function getStorageEstimate() {
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      return { usage: est.usage || 0, quota: est.quota || 0,
+               usagePct: est.quota ? Math.round(est.usage / est.quota * 100) : 0 };
+    }
+  } catch (e) {}
+  return null;
+}
+
+// ---- 保存：localStorage（主）+ IndexedDB（备）双写，带防抖 ----
+let _lastSaveSig = '';
+let _booting = true; // 启动恢复期间禁止写入，防止空数据覆盖备份
+function saveStore() {
+  if (_booting) return; // 恢复期间静默忽略，防止空 store 污染 IndexedDB 备份
+  const dataStr = JSON.stringify(store);
+  // PWA 独立模式下禁用防抖，强制每次写入（增加存储成功率）
+  if (!_isPWA && dataStr === _lastSaveSig) return; // 数据未变，跳过写入
+  // 主存储：localStorage
+  let lsOk = false;
+  try {
+    localStorage.setItem(STORE_KEY, dataStr);
+    lsOk = true;
+  } catch (e) {
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
+      showStorageWarning('⚠️ 浏览器存储空间不足，数据可能无法保存。请到「设置 → 导出备份」保存 JSON 文件，然后清理浏览器网站数据。');
+    }
+  }
+  // 只有写入成功才更新签名，失败时允许下次重试（避免一次失败后永久跳过）
+  if (lsOk) _lastSaveSig = dataStr;
+  // 备份存储：IndexedDB 快照（异步不阻塞）
+  idbSaveSnapshot(dataStr);
+  // 第三备份：Cache API（PWA 离线存储，异步不阻塞）
+  cacheSave(dataStr);
+}
+
+/* ---- UI 标记：双写 localStorage + store.uiFlags，任一为 true 即视为已设置 ----
+   iOS 会清 localStorage，但 store.uiFlags 会随 store 一起被 IndexedDB/Cache 恢复，
+   这样"只弹一次"的弹窗标记不会因为 iOS 清 localStorage 而丢失。 */
+function getUIFlag(name) {
+  try { if (localStorage.getItem(name) === '1') return true; } catch (e) {}
+  return !!(store && store.uiFlags && store.uiFlags[name] === true);
+}
+function setUIFlag(name) {
+  try { localStorage.setItem(name, '1'); } catch (e) {}
+  if (store) {
+    if (!store.uiFlags || typeof store.uiFlags !== 'object') store.uiFlags = {};
+    store.uiFlags[name] = true;
+    saveStore(); // 触发 IndexedDB + Cache 备份
+  }
+}
+
+/* ---- 通用本地存储：双写 localStorage + store.localData，任一有值即生效 ----
+   与 getUIFlag/setUIFlag 类似，但支持任意字符串值（不只是 '1'）。
+   iOS 清 localStorage 后，store.localData 会随 store 一起从 IndexedDB/Cache 恢复。 */
+function getLocalVal(key, defaultValue) {
+  try {
+    const v = localStorage.getItem(key);
+    if (v !== null) return v;
+  } catch (e) {}
+  if (store && store.localData && store.localData[key] !== undefined) return store.localData[key];
+  return defaultValue;
+}
+function setLocalVal(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) {}
+  if (store) {
+    if (!store.localData || typeof store.localData !== 'object') store.localData = {};
+    store.localData[key] = value;
+    saveStore(); // 触发 IndexedDB + Cache 备份
+  }
+}
+
+// ---- 顶部警告条 ----
+let _storageWarnShown = false;
+function showStorageWarning(html) {
+  if (_storageWarnShown) return;
+  _storageWarnShown = true;
+  const bar = document.createElement('div');
+  bar.id = 'storageWarnBar';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#c93038;color:#fff;padding:12px 44px 12px 16px;font-size:13px;line-height:1.55;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.25);max-height:40vh;overflow-y:auto';
+  bar.innerHTML = html + '<span id="storageWarnClose" style="position:absolute;top:8px;right:12px;font-size:22px;opacity:.8;cursor:pointer;line-height:1;padding:4px 8px">×</span>';
+  document.body.appendChild(bar);
+  document.body.style.paddingTop = '56px';
+  const closeIt = () => { bar.remove(); document.body.style.paddingTop = ''; _storageWarnShown = false; };
+  const closeBtn = document.getElementById('storageWarnClose');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeIt);
+    closeBtn.addEventListener('touchstart', e => { e.preventDefault(); closeIt(); }, { passive: false });
+  }
+}
+
+// ---- 存储可用性 & 浏览器检测 ----
+function isLocalStorageAvailable() {
+  try {
+    const k = '__st_ls_probe__';
+    localStorage.setItem(k, '1');
+    localStorage.removeItem(k);
+    return true;
+  } catch (e) { return false; }
+}
+function isSafariLike() {
+  return /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent) ||
+         (navigator.vendor && navigator.vendor.indexOf('Apple') > -1 && !/CriOS|FxiOS/.test(navigator.userAgent));
+}
+/* 检测是否为"添加到主屏幕"的独立模式（iOS PWA）——此模式下与 Safari 存储隔离且可能被清理 */
+let _isPWA = false;
+function isPWAMode() {
+  try {
+    if (window.navigator && window.navigator.standalone === true) return true;
+    if (window.matchMedia) {
+      if (window.matchMedia('(display-mode: standalone)').matches) return true;
+      if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+/* 动态注入 manifest，改善 iOS 独立模式下的存储和启动行为 */
+function ensurePWAManifest() {
+  try {
+    if (document.querySelector('link[rel="manifest"]')) return;
+    const manifest = {
+      name: 'Study Tracker 学习追踪',
+      short_name: '学习追踪',
+      start_url: location.pathname + location.search,
+      scope: location.pathname.replace(/[^/]+$/, ''),
+      display: 'standalone',
+      background_color: '#1a1a2e',
+      theme_color: '#5b6ef5'
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = url;
+    document.head.appendChild(link);
+  } catch (e) {}
+}
+
+/* ---- 动态生成 PNG 格式的 apple-touch-icon（SVG 图标在部分 iOS 版本不被识别）---- */
+function ensureAppleTouchIconPNG() {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 180;
+    canvas.height = 180;
+    const ctx = canvas.getContext('2d');
+    // 渐变背景
+    const grad = ctx.createLinearGradient(0, 0, 180, 180);
+    grad.addColorStop(0, '#5b6ef5');
+    grad.addColorStop(1, '#9333ea');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 180, 180);
+    // 圆角（iOS 会自动裁剪，但手动加更保险）
+    // 文字
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 105px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('学', 90, 96);
+    const pngUrl = canvas.toDataURL('image/png');
+    // 替换或添加 apple-touch-icon
+    let link = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'apple-touch-icon';
+      document.head.appendChild(link);
+    }
+    link.href = pngUrl;
+  } catch (e) {}
+}
+
+// ---- 初始化存储安全模块 ----
+function initStorageSafety() {
+  // 检测 PWA 独立模式（添加到桌面）
+  _isPWA = isPWAMode();
+  // 注入 manifest，改善 PWA 模式下的存储和启动行为
+  ensurePWAManifest();
+  if (!isLocalStorageAvailable()) {
+    // 无痕模式或存储空间不足：不显示横幅（无痕模式由 checkIncognito 弹窗提醒，存储不足由 saveStore 检测）
+    return;
+  }
+  // 请求持久化存储（浏览器不会自动清理本站数据，PWA 模式下尤其重要）
+  requestPersistence();
+  // 注册 Service Worker（PWA 持久化存储的关键）
+  registerServiceWorker();
+  // 延迟检测配额，超 80% 警告
+  setTimeout(() => {
+    getStorageEstimate().then(est => {
+      if (est && est.usagePct >= 80) {
+        showStorageWarning('⚠️ 浏览器存储空间已用 ' + est.usagePct + '%，快满了。建议尽快到「设置 → 导出备份」保存数据，并清理浏览器缓存。');
+      }
+    });
+  }, 3000);
+  // 页面切后台 / 关闭时强制保存（iOS Safari 上 pagehide 最可靠）
+  const flush = () => { try { saveStore(); } catch (e) {} };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+  window.addEventListener('beforeunload', flush);
+  // PWA 模式下每 10 秒自动保存（更频繁，增加存储成功率）；普通模式 20 秒
+  const saveInterval = _isPWA ? 10000 : 20000;
+  setInterval(() => { try { saveStore(); } catch (e) {} }, saveInterval);
+  // 生成 PNG 格式的应用图标（延迟到渲染之后，不阻塞首屏；head 中已有内联脚本提前生成）
+  setTimeout(ensureAppleTouchIconPNG, 1000);
+}
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function cur() { return store.currentId ? (store.projects[store.currentId] || null) : null; }
 let lastRenderedProjectId = null;
@@ -5352,7 +5829,7 @@ function isValidHHMM(t) { return typeof t === 'string' && /^([01]\d|2[0-3]):[0-5
 /* 读取提醒设置：支持多个提醒时间 times[]，并兼容旧版本的单个 time 字段 */
 function getReminder() {
   let r = {};
-  try { r = JSON.parse(localStorage.getItem(REMIND_KEY) || '{}'); } catch (e) { r = {}; }
+  try { r = JSON.parse(getLocalVal(REMIND_KEY, '{}')); } catch (e) { r = {}; }
   let times = [];
   if (Array.isArray(r.times)) times = r.times.filter(isValidHHMM);
   else if (isValidHHMM(r.time)) times = [r.time];
@@ -5363,23 +5840,22 @@ function getReminder() {
 function saveReminder(enabled, times) {
   const clean = [...new Set((times || []).filter(isValidHHMM))].sort();
   const t = clean.length ? clean : ['20:00'];
-  localStorage.setItem(REMIND_KEY, JSON.stringify({ enabled: !!enabled, times: t, time: t[0] }));
+  setLocalVal(REMIND_KEY, JSON.stringify({ enabled: !!enabled, times: t, time: t[0] }));
   return t;
 }
 /* 当天各时间点是否已弹过（防止同一分钟轮询重复弹、支持一天多个时间各弹一次） */
 function getFiredMark() {
-  try { const m = JSON.parse(localStorage.getItem(REMIND_FIRED_KEY) || '{}'); if (m && m.date === todayStr() && Array.isArray(m.times)) return m; } catch (e) {}
+  try { const m = JSON.parse(getLocalVal(REMIND_FIRED_KEY, '{}')); if (m && m.date === todayStr() && Array.isArray(m.times)) return m; } catch (e) {}
   return { date: todayStr(), times: [] };
 }
 /* ---- 备份提醒 ---- */
 const BACKUP_SNOOZE_KEY = 'study_tracker_backup_snooze'; // 值为日期字符串 或 'never'
 
 function getBackupSnooze() {
-  try { return localStorage.getItem(BACKUP_SNOOZE_KEY) || ''; }
-  catch (e) { return ''; }
+  return getLocalVal(BACKUP_SNOOZE_KEY, '');
 }
 function setBackupSnooze(val) {
-  try { localStorage.setItem(BACKUP_SNOOZE_KEY, val); } catch (e) {}
+  setLocalVal(BACKUP_SNOOZE_KEY, val);
 }
 // 检查是否需要提醒备份：返回 null 表示不需要
 function checkBackupReminder() {
@@ -5390,7 +5866,7 @@ function checkBackupReminder() {
   }
 
   let last = '';
-  try { last = localStorage.getItem('study_tracker_last_backup') || ''; } catch (e) {}
+  last = getLocalVal('study_tracker_last_backup', '');
 
   const today = todayStr();
 
@@ -5419,7 +5895,8 @@ function checkBackupReminder() {
   return { last, lastText, daysText };
 }
 function currentStreak(heat, today) {
-  let s = 0, d = today;
+  // 今天已打卡从今天算；今天还没打卡则从昨天往回算（不因今天尚未学就清零）
+  let s = 0, d = heat[today] ? today : addDays(today, -1);
   while (heat[d]) { s++; d = addDays(d, -1); }
   return s;
 }
@@ -5556,27 +6033,33 @@ function openDashboard() {
   if (plannedSetTotal > 0) planParts.push(fmtD(plannedSetTotal) + '套');
   const planNum = planParts.length ? planParts.join('+') : '—';
   let notifHtml;
-  if (!('Notification' in window)) {
-    notifHtml = '<div style="margin-top:16px;font-size:12.5px;color:var(--muted)">当前浏览器不支持桌面通知。</div>';
-  } else {
-    const timeRows = getReminder().times.map(t =>
-      `<div class="rt-row" style="display:flex;gap:6px;align-items:center">
+  // 始终显示提醒设置界面：系统通知不可用时自动降级为应用内提醒
+  const sysNotifOK = 'Notification' in window && Notification.permission === 'granted';
+  const sysNotifHint = !('Notification' in window)
+    ? '当前浏览器不支持系统通知，已自动使用应用内提醒（页面打开时顶部弹窗+提示音）'
+    : (Notification.permission === 'granted'
+        ? '系统通知已授权，将同时发送系统通知和应用内提醒'
+        : '系统通知未授权，已自动使用应用内提醒（页面打开时顶部弹窗+提示音）');
+  const timeRows = getReminder().times.map(t =>
+    `<div class="rt-row" style="display:flex;gap:6px;align-items:center">
         <input type="time" class="rt-time" value="${t}" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
         <button type="button" class="rt-del ghost-btn" title="删除这个时间" style="padding:6px 10px">×</button>
       </div>`).join('');
-    notifHtml = `<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+  notifHtml = `<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
       <div style="font-weight:600;font-size:14px;margin-bottom:8px">⏰ 每日提醒（可设多个时间）</div>
       <div id="remindTimes" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
         ${timeRows}
       </div>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px">
         <button type="button" class="ghost-btn" id="btnAddTime">＋ 添加时间</button>
-        <button class="ghost-btn" id="btnToggleRemind">${remind.enabled ? '✅ 已开启 · 点此关闭' : '开启桌面通知'}</button>
+        <button class="ghost-btn" id="btnToggleRemind">${remind.enabled ? '✅ 已开启 · 点此关闭' : '开启每日提醒'}</button>
         <button class="ghost-btn" id="btnPreviewRemind">预览效果</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.7">默认关闭；可添加多个时间（如 08:00 和 20:00），每个时间点当天各提醒一次，按刷题/背书/错题分别列出今天还差多少。网页需在浏览器中打开才会触发。</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7">
+        ${sysNotifHint}。<br>
+        可添加多个时间（如 08:00 和 20:00），每个时间点当天各提醒一次，按刷题/背书/错题分别列出今天还差多少。<b>手机/平板用户：保持页面在浏览器中打开（可后台挂着），到点会在页面顶部弹窗提醒；如果之前关闭了页面，下次打开时会自动补发错过的提醒。</b>
+      </div>
     </div>`;
-  }
 
    const backupRemind = checkBackupReminder();
   const backupHtml = backupRemind ? `
@@ -5650,9 +6133,13 @@ function openDashboard() {
     const curRem = getReminder();
     const times = collectTimes().length ? collectTimes() : curRem.times;
     if (!curRem.enabled) {
-      let perm = Notification.permission;
-      if (perm !== 'granted') perm = await Notification.requestPermission();
-      if (perm !== 'granted') { alert('需要浏览器通知权限才能提醒～'); return; }
+      // 尝试请求系统通知权限，但不强制——被拒绝或不支持时自动降级为应用内提醒
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        try { await Notification.requestPermission(); } catch (e) {}
+      }
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        alert('系统通知权限未授权，已为你开启应用内提醒（页面打开时顶部弹窗+提示音）。下次打开页面时也会补发错过的提醒。');
+      }
       saveReminder(true, times);
     } else {
       saveReminder(false, times);
@@ -5662,11 +6149,7 @@ function openDashboard() {
   const pv = $('#btnPreviewRemind');
   if (pv) pv.addEventListener('click', () => {
     const body = buildReminderBody();
-    if (Notification.permission === 'granted') {
-      try { new Notification('Study Tracker 学习提醒（预览）', { body }); } catch (e) { alert('通知标题：Study Tracker 学习提醒\n\n正文：\n' + body); }
-    } else {
-      alert('通知标题：Study Tracker 学习提醒\n\n正文示例：\n' + body);
-    }
+    fireReminder('Study Tracker 学习提醒（预览）', body);
   });
     const bn = $('#btnBackupNow');
   if (bn) bn.addEventListener('click', () => {
@@ -5765,9 +6248,68 @@ function buildReminderBody() {
   return body;
 }
 
-setInterval(() => {
+/* ---- 应用内提醒（移动端 Notification API 不可用时的兜底，桌面端也同时显示）---- */
+function ensureInAppReminderEl() {
+  let el = $('#inAppReminder');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'inAppReminder';
+    el.className = 'inapp-reminder';
+    el.innerHTML = '<span class="iar-close">×</span><div class="iar-title"></div><div class="iar-body"></div>';
+    document.body.appendChild(el);
+    const closeIt = () => el.classList.remove('show');
+    el.addEventListener('click', closeIt);
+    el.addEventListener('touchstart', e => { e.preventDefault(); closeIt(); }, { passive: false });
+  }
+  return el;
+}
+let _iarTimer = null;
+function showInAppReminder(title, body) {
+  const el = ensureInAppReminderEl();
+  el.querySelector('.iar-title').textContent = title;
+  el.querySelector('.iar-body').textContent = body;
+  el.classList.add('show');
+  if (_iarTimer) clearTimeout(_iarTimer);
+  _iarTimer = setTimeout(() => el.classList.remove('show'), 8000); // 8秒后自动关闭
+  try { playReminderBeep(); } catch (e) {}
+}
+/* 简单提示音（Web Audio API，无需音频文件） */
+function playReminderBeep() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    const ctx = new AC();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880; osc.type = 'sine';
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+    // 第二声
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2); gain2.connect(ctx.destination);
+    osc2.frequency.value = 1100; osc2.type = 'sine';
+    gain2.gain.setValueAtTime(0, ctx.currentTime + 0.25);
+    gain2.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.27);
+    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+    osc2.start(ctx.currentTime + 0.25); osc2.stop(ctx.currentTime + 0.65);
+    setTimeout(() => { try { ctx.close(); } catch (e) {} }, 800);
+  } catch (e) {}
+}
+/* 统一提醒触发：优先系统通知，同时显示应用内提醒（双保险） */
+function fireReminder(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification(title, { body }); } catch (e) {}
+  }
+  showInAppReminder(title, body);
+}
+/* 检查并触发到点的提醒（供轮询和页面打开补发共用） */
+function checkAndFireReminders() {
   const r = getReminder();
-  if (!r || !r.enabled || !('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!r || !r.enabled) return false;
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const mark = getFiredMark();
@@ -5781,11 +6323,15 @@ setInterval(() => {
       fired = true;
     }
   });
-  if (!fired) return;
-  try { localStorage.setItem(REMIND_FIRED_KEY, JSON.stringify(mark)); } catch (e) {}
-  const body = buildReminderBody();
-  try { new Notification('Study Tracker 学习提醒', { body }); } catch (e) {}
-}, 30000);
+  if (!fired) return false;
+  setLocalVal(REMIND_FIRED_KEY, JSON.stringify(mark));
+  fireReminder('Study Tracker 学习提醒', buildReminderBody());
+  return true;
+}
+// 每 30 秒轮询（页面打开状态下）
+setInterval(checkAndFireReminders, 30000);
+// 页面打开时补发今天错过的提醒（延迟 1.5 秒等页面渲染完成）
+setTimeout(checkAndFireReminders, 1500);
 
 function rangeText(a, b) { return a === b ? `${a}` : `${a}-${b}`; }
 // 获取"需要学习的页码范围"：启用单元模式时是所有单元范围的并集（自动排除习题等），未启用时是整本书正文范围
@@ -6174,7 +6720,7 @@ function syncFormUnit() {
     else recEl.innerHTML = '💡 系统推荐开启：习题册通常分章节/单元，单元模式可以清晰看到每个章节的完成进度，方便查漏补缺。';
   }
   const isPageExercise = isExercise && unit === 'page';
-  $('#fStartPageWrap').hidden = !isPageExercise;
+  $('#fStartPageWrap').hidden = true; // 有正文起始页，开始页码默认从正文起始页开始，无需单独填写
   // 套卷模式：显示总套数；练习册/背书：显示起始页/结束页（总页数自动计算）；错题本：都不显示
   const usePageRange = type !== 'mistake' && !isSet;
   $('#fTotalRow').hidden = !isSet;
@@ -7057,7 +7603,7 @@ function exportData() {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 500);
-      try { localStorage.setItem('study_tracker_last_backup', todayStr()); } catch (e) {}
+      setLocalVal('study_tracker_last_backup', todayStr());
     } finally { hideBusy(); }
   }, 60);
 }
@@ -8579,13 +9125,207 @@ const CHANGELOG_KEY = 'study_tracker_v2_guide_final_20260915';
 function closeChangelog() {
   $('#changelogMask').hidden = true;
   document.body.style.overflow='';
-  try { localStorage.setItem(CHANGELOG_KEY, '1'); } catch (e) {}
+  setUIFlag(CHANGELOG_KEY); // 双写 localStorage + store.uiFlags，iOS 清 localStorage 后仍可从 IndexedDB 恢复
+  // 欢迎指南关闭后，检查是否需要显示数据安全提示
+  checkDataSecurityOnStart();
+}
+function checkDataSecurityOnStart() {
+  if (getUIFlag(DATA_SECURITY_KEY)) return; // 双写检查：localStorage 或 store.uiFlags 任一为 true 即视为已看过
+  setTimeout(openDataSecurity, 350);
 }
 $('#changelogClose').addEventListener('click', closeChangelog);
 $('#changelogOk').addEventListener('click', closeChangelog);
 $('#changelogSkip').addEventListener('click', closeChangelog);
 $('#changelogMask').addEventListener('click', e => { if (e.target === $('#changelogMask')) closeChangelog(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#changelogMask').hidden) closeChangelog(); });
+
+/* ============ 数据安全提示弹窗（只弹一次，3秒后才能关闭） ============ */
+const DATA_SECURITY_KEY = 'study_tracker_data_security_v3';
+function isIOSDevice() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+         (/Macintosh/i.test(navigator.userAgent) && 'ontouchend' in document);
+}
+/* 平台检测：只分三类——iOS、鸿蒙、其他，用于数据安全弹窗的个性化文案 */
+function getPlatformInfo() {
+  const ua = navigator.userAgent;
+  // iOS（包括 iPadOS 13+ 伪装成 Macintosh）
+  if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && 'ontouchend' in document)) {
+    return { name: 'iOS', greeting: '亲爱的 iOS 用户', saveInterval: 10, isMobile: true };
+  }
+  // 鸿蒙 HarmonyOS / OpenHarmony
+  if (/HarmonyOS|OpenHarmony/i.test(ua)) {
+    return { name: 'HarmonyOS', greeting: '亲爱的 鸿蒙 用户', saveInterval: 20, isMobile: true };
+  }
+  // 其他（安卓、Windows、Mac、Linux 等）
+  return { name: 'Other', greeting: '同学你好', saveInterval: 20, isMobile: false };
+}
+function fillDataSecurityContent() {
+  const body = $('#dataSecurityBody');
+  const plat = getPlatformInfo();
+
+  // 通用：保护措施列表（定时保存秒数随平台变化）
+  const protectList = `
+    · <strong>双写备份</strong>：数据同时写入 localStorage 和 IndexedDB，互为备份<br>
+    · <strong>自动恢复</strong>：启动时检测数据异常，自动从 IndexedDB 备份恢复<br>
+    · <strong>定时保存</strong>：每 ${plat.saveInterval} 秒自动保存，页面关闭/切后台时强制保存<br>
+    · <strong>持久化请求</strong>：请求浏览器持久化存储，减少被自动清理的概率
+  `;
+
+  // 通用：数据丢失场景（移动端说"存储空间"，桌面端说"磁盘空间"）
+  const spaceWord = plat.isMobile ? '存储空间' : '磁盘空间';
+  const lossList = `
+    · 使用<strong>无痕/隐私浏览模式</strong>，关闭浏览器后数据会被清除<br>
+    · 手动<strong>清理浏览器缓存或网站数据</strong><br>
+    · 更换浏览器、更换设备或更换访问域名<br>
+    · 系统${spaceWord}长期极度紧张时，浏览器仍可能回收本地存储
+  `;
+
+  // 各平台保护措施卡片的结尾描述
+  const protectEnding = {
+    iOS: '正常使用下数据可以稳定保存。',
+    HarmonyOS: '鸿蒙系统对本地存储支持良好，正常使用下数据稳定可靠。',
+    Other: '当前平台对本地存储的保留稳定可靠，正常使用下数据不会丢失。'
+  };
+
+  // 各平台保护措施卡片标题
+  const protectTitle = {
+    iOS: '🛡️ 已针对 iOS 做了多重数据保护',
+    HarmonyOS: '🛡️ 已为你开启多重数据保护',
+    Other: '🛡️ 已为你开启多重数据保护'
+  };
+
+  const ending = protectEnding[plat.name] || protectEnding.Other;
+  const title = protectTitle[plat.name] || protectTitle.Other;
+  // "同学你好"本身就是问候，不需要再加"欢迎使用"
+  const greetLine = plat.name === 'Other' ? `${plat.greeting} 👋` : `${plat.greeting}，欢迎使用 Study Tracker 👋`;
+
+  if (plat.name === 'iOS') {
+    // iOS 版：暖黄色提醒卡片（柔和不刺眼）
+    body.innerHTML = `
+      <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">${greetLine}</p>
+      <p style="margin-bottom:14px">你的学习数据<strong>全部存储在浏览器本地</strong>，不会上传到任何服务器。</p>
+      <div style="background:#eef7ff;border:1px solid #b8d8f5;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <p style="font-weight:600;color:#2a6ab0;margin-bottom:8px">${title}</p>
+        <p style="color:#3a5a8a;font-size:13.5px;line-height:1.8">
+          ${protectList}
+          ${ending}
+        </p>
+      </div>
+      <div style="background:#fff8e6;border:1px solid #f5e4b8;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <p style="font-weight:600;color:#92600a;margin-bottom:6px">📌 由于 iOS 系统的数据安全机制，仍建议</p>
+        <p style="color:#7a5a10;font-size:13.5px;line-height:1.75">
+          · 定期到「设置 → 导出备份」保存 JSON 文件到 iCloud 云盘或「文件」App<br>
+          · 不要使用<strong>无痕/隐私浏览模式</strong>（关闭后数据会被清除）<br>
+          · 不要手动<strong>清理浏览器网站数据</strong><br>
+          · 设备存储空间不足时，iOS 可能自动清理网站数据，建议保持充足存储空间
+        </p>
+      </div>
+      <p style="color:var(--muted);font-size:13px">导出的备份文件可在换设备、换浏览器或数据异常时导入恢复。</p>
+      <p style="text-align:center;margin-top:16px;font-size:14px;color:var(--text)">祝你学习进步，每天都有新收获 🌟</p>
+    `;
+  } else {
+    // 非 iOS 版：浅蓝色丢失场景卡片（柔和好看）
+    body.innerHTML = `
+      <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">${greetLine}</p>
+      <p style="margin-bottom:14px">你的学习数据<strong>全部存储在浏览器本地</strong>，不会上传到任何服务器。</p>
+      <div style="background:#eef7ff;border:1px solid #b8d8f5;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <p style="font-weight:600;color:#2a6ab0;margin-bottom:8px">${title}</p>
+        <p style="color:#3a5a8a;font-size:13.5px;line-height:1.8">
+          ${protectList}
+          ${ending}
+        </p>
+      </div>
+      <div style="background:#f0f4ff;border:1px solid #d4ddf8;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <p style="font-weight:600;color:#3b4fb8;margin-bottom:6px">📌 以下情况仍会导致数据丢失，请注意</p>
+        <p style="color:#4a5a9e;font-size:13.5px;line-height:1.7">
+          ${lossList}
+        </p>
+      </div>
+      <p style="color:var(--muted);font-size:13px">建议定期到「设置 → 导出备份」保存一份 JSON 文件，换设备或清理缓存后可导入恢复。</p>
+      <p style="text-align:center;margin-top:16px;font-size:14px;color:var(--text)">祝你学习进步，每天都有新收获 🌟</p>
+    `;
+  }
+}
+let _dsTimer = null;
+function openDataSecurity() {
+  fillDataSecurityContent();
+  $('#dataSecurityMask').hidden = false;
+  modalTop($('#dataSecurityMask'));
+  document.body.style.overflow = 'hidden';
+  const btn = $('#dataSecurityOk');
+  btn.disabled = true;
+  btn.style.opacity = '.5';
+  btn.style.cursor = 'not-allowed';
+  let sec = 3;
+  btn.textContent = `我已知晓（${sec}s）`;
+  if (_dsTimer) clearInterval(_dsTimer);
+  _dsTimer = setInterval(() => {
+    sec--;
+    if (sec <= 0) {
+      clearInterval(_dsTimer);
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+      btn.textContent = '我已知晓';
+    } else {
+      btn.textContent = `我已知晓（${sec}s）`;
+    }
+  }, 1000);
+}
+function closeDataSecurity() {
+  if (_dsTimer) { clearInterval(_dsTimer); _dsTimer = null; }
+  $('#dataSecurityMask').hidden = true;
+  document.body.style.overflow = '';
+  setUIFlag(DATA_SECURITY_KEY); // 双写 localStorage + store.uiFlags，iOS 清 localStorage 后仍可从 IndexedDB 恢复
+}
+$('#dataSecurityOk').addEventListener('click', closeDataSecurity);
+// 数据安全弹窗不允许点击遮罩或 Esc 关闭（必须点按钮）
+
+/* ============ 无痕浏览模式检测 ============ */
+let _incognitoWarned = false;
+// 所有模态弹窗 ID，用于检测是否有其他弹窗打开（避免无痕弹窗与其他弹窗同时出现）
+const ALL_MODAL_IDS = ['changelogMask','dataSecurityMask','settingsMask','formMask','switchMask','dashMask','weaknessMask','progressMask','reasonKindMask','modeSwitchConfirmMask','randomReviewConfirmMask','genericConfirmMask','mistakeGuideMask','reviewModeHelpMask','importConfirmMask','confirmMasterMask','skipConfirmMask','tplManagerMask'];
+function anyModalOpen() {
+  for (const id of ALL_MODAL_IDS) {
+    const el = document.getElementById(id);
+    if (el && !el.hidden) return true;
+  }
+  return false;
+}
+function checkIncognito() {
+  if (_incognitoWarned) return;
+  // 有其他模态弹窗打开时，延迟 2 秒再检查，避免弹窗重叠
+  if (anyModalOpen()) { setTimeout(checkIncognito, 2000); return; }
+  let incognito = false;
+  try {
+    const k = '__incog_test__';
+    localStorage.setItem(k, '1');
+    localStorage.removeItem(k);
+  } catch (e) {
+    incognito = true;
+  }
+  // Safari 无痕模式下 localStorage 容量为 0，写入会抛 QuotaExceededError
+  if (!incognito) {
+    try {
+      if (window.webkitRequestFileSystem) {
+        window.webkitRequestFileSystem(0, 1, () => {}, () => { incognito = true; });
+      }
+    } catch (e) {}
+  }
+  if (incognito) {
+    _incognitoWarned = true;
+    $('#incognitoMask').hidden = false;
+    modalTop($('#incognitoMask'));
+    document.body.style.overflow = 'hidden';
+  }
+}
+function closeIncognito() {
+  $('#incognitoMask').hidden = true;
+  document.body.style.overflow = '';
+}
+$('#incognitoClose').addEventListener('click', closeIncognito);
+$('#incognitoOk').addEventListener('click', closeIncognito);
+$('#incognitoMask').addEventListener('click', e => { if (e.target === $('#incognitoMask')) closeIncognito(); });
 
 $('#ppBody').addEventListener('click', e => {
   const cell = e.target.closest('.pp-cell');
@@ -8639,6 +9379,9 @@ document.addEventListener('keydown', e => {
   else if (!$('#mistakeGuideMask').hidden) { $('#mistakeGuideClose').click(); }
   else if (!$('#reviewModeHelpMask').hidden) { $('#reviewModeHelpClose').click(); }
   else if (!$('#importConfirmMask').hidden) { $('#importConfirmCancel').click(); }
+  else if (!$('#tplManagerMask').hidden) { $('#tplManagerClose').click(); }
+  else if (!$('#incognitoMask').hidden) { closeIncognito(); }
+  // dataSecurityMask 不响应 ESC，必须等3秒后点击"我已知晓"
 });
 
 /* 复习列表键盘快捷键：1=记得/做对，2=模糊/看答案，3=忘记/又错 */
@@ -8653,7 +9396,9 @@ document.addEventListener('keydown', e => {
       !$('#reasonKindMask').hidden || !$('#changelogMask').hidden ||
       !$('#modeSwitchConfirmMask').hidden || !$('#randomReviewConfirmMask').hidden ||
       !$('#genericConfirmMask').hidden || !$('#mistakeGuideMask').hidden ||
-      !$('#reviewModeHelpMask').hidden || !$('#importConfirmMask').hidden) return;
+      !$('#reviewModeHelpMask').hidden || !$('#importConfirmMask').hidden ||
+      !$('#tplManagerMask').hidden ||
+      !$('#dataSecurityMask').hidden || !$('#incognitoMask').hidden) return;
   if ($('#reviewSection').hidden) return;
   const map = { '1': 'good', '2': 'fuzzy', '3': 'forgot' };
   const q = map[e.key];
@@ -8681,9 +9426,16 @@ window.addEventListener('resize', () => {
 });
 
 /* ============ 启动 ============ */
-(function boot() {
+(async function boot() {
   applyTheme();
-  loadStore();
+  initStorageSafety();
+  await loadStore(); // 等待数据恢复完成（防止空数据覆盖 IndexedDB 备份）
+  _booting = false;  // 恢复完成，允许保存
+  // 有学习数据的用户自动标记已看过欢迎引导（避免欢迎弹窗重复出现，有数据说明已开始使用）
+  // 注意：数据安全弹窗不自动跳过，大版本更新后所有用户都需要看一次（通过升级 DATA_SECURITY_KEY 版本号控制）
+  if (store.projects && Object.keys(store.projects).length > 0) {
+    if (!getUIFlag(CHANGELOG_KEY)) setUIFlag(CHANGELOG_KEY);
+  }
   if (store.currentId && !store.projects[store.currentId]) {
     const ids = Object.keys(store.projects);
     store.currentId = ids.length ? ids[0] : null;
@@ -8693,9 +9445,24 @@ window.addEventListener('resize', () => {
   $('#inSetDate').value = todayStr();
   $('#reciteDate').value = todayStr();
   render();
-  let seenChangelog = false;
-  try { seenChangelog = localStorage.getItem(CHANGELOG_KEY) === '1'; } catch (e) {}
-  if (!seenChangelog) { $('#changelogMask').hidden = false; modalTop($('#changelogMask')); }
+  // 主界面渲染完成后立即隐藏首屏加载界面（消除白屏）
+  const splash = document.getElementById('splashScreen');
+  if (splash) {
+    splash.classList.add('splash-hide');
+    setTimeout(() => { try { splash.remove(); } catch (e) {} }, 350);
+  }
+  // 弹窗逻辑延迟到下一帧，确保主界面先绘制完成
+  requestAnimationFrame(() => {
+    const seenChangelog = getUIFlag(CHANGELOG_KEY); // 双写检查：localStorage 或 store.uiFlags 任一为 true 即视为已看过
+    if (!seenChangelog) {
+      $('#changelogMask').hidden = false; modalTop($('#changelogMask'));
+    } else {
+      // 老用户：更新后第一次启动显示数据安全提示
+      checkDataSecurityOnStart();
+    }
+  });
+  // 检测无痕浏览模式
+  setTimeout(checkIncognito, 1500);
 })();
 </script>
 <div id="busyMask" hidden class="busy-mask">
