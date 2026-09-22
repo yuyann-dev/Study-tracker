@@ -48,7 +48,7 @@
   }
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    background:var(--bg); color:var(--text); min-height:100vh; min-height:100svh;
+    background:var(--bg); color:var(--text); min-height:100vh; min-height:100svh; overflow-x:hidden;
     padding:24px 16px 60px; -webkit-font-smoothing:antialiased;
     line-break:strict; hanging-punctuation:allow-end; overflow-wrap:break-word;
     /* PWA 全屏模式 safe-area 适配（不被状态栏/底部指示条遮挡） */
@@ -65,7 +65,7 @@
   .type-badge{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:#eef0fe;color:#5b6ef5;letter-spacing:0}
   .type-badge.recite{background:#e6f7ee;color:#0ea472}
   .type-badge.mistake{background:#fdf3e2;color:#e08a00}
-  .sub{font-size:13px;color:var(--muted);margin-top:5px;word-break:break-all}
+  .sub{font-size:13px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .head-actions{display:flex;gap:8px;flex:0 0 auto}
   .ghost-btn{
     background:#fff;border:1px solid var(--line);color:var(--muted);
@@ -302,12 +302,33 @@
   .ri-note:focus{color:var(--text)}
   .ri-lastnote{display:inline-block;background:#f4f3fb;border-radius:6px;padding:1px 7px;font-size:11.5px;color:#5b56c8}
   .backup-tip{display:flex;align-items:center;gap:14px;background:#fdf8ec;border:1px solid #f5e4b8;border-radius:14px;padding:14px 16px;margin-bottom:16px;flex-wrap:wrap}
-  .dash-hero{background:linear-gradient(135deg,#5b6ef5 0%,#9333ea 100%);border-radius:16px;padding:22px 24px;margin:0 0 16px;color:#fff;box-shadow:0 10px 26px -12px rgba(91,110,245,.6)}
+  .dash-hero{background:linear-gradient(135deg,#5b6ef5 0%,#9333ea 100%);border-radius:16px;padding:24px 26px;margin:0 0 16px;color:#fff;box-shadow:0 10px 26px -12px rgba(91,110,245,.6)}
   .dash-hero .greet-big{font-size:26px;font-weight:800;letter-spacing:1px;line-height:1.2}
   .dash-hero .greet-sub{font-size:12.5px;opacity:.9;margin-top:3px}
   .dash-hero .hero-status{font-size:15.5px;font-weight:600;line-height:1.6;margin-top:14px}
   .dash-hero .hero-enc{font-size:13.5px;opacity:.95;margin-top:6px;line-height:1.5}
   .dash-hero.urgent{background:linear-gradient(135deg,#f59e0b 0%,#e0484f 100%);box-shadow:0 10px 26px -12px rgba(224,72,79,.55)}
+  /* 考研倒计时 */
+  .kaoyan{margin:0 0 16px;background:
+    radial-gradient(circle at 20% 0%, rgba(120,90,220,.25) 0%, transparent 50%),
+    linear-gradient(100deg,#251d4e 0%,#432080 100%);
+    border-radius:18px;padding:26px 28px;color:#fff;
+    box-shadow:0 8px 24px -12px rgba(37,29,78,.6), inset 0 1px 0 rgba(255,255,255,.08)}
+  .kaoyan .ky-label{font-size:12.5px;color:rgba(255,255,255,.72);letter-spacing:3px;font-weight:600}
+  .kaoyan .ky-days{font-size:52px;font-weight:800;letter-spacing:-2px;line-height:1;margin:8px 0 20px;
+    color:#f0d890;
+    text-shadow:0 0 20px rgba(240,216,144,.35), 0 0 40px rgba(240,216,144,.15)}
+  .kaoyan .ky-days small{font-size:18px;font-weight:800;color:rgba(255,255,255,.9);margin-left:8px;letter-spacing:0;
+    text-shadow:none;position:relative;top:-4px}
+  .kaoyan .ky-divider{height:1px;background:rgba(255,255,255,.12);margin:0 12px 16px}
+  .kaoyan .ky-quote-tag{font-size:11px;color:rgba(255,255,255,.6);letter-spacing:4px;margin-bottom:8px;font-weight:600}
+  .kaoyan .ky-quote{font-size:16.5px;line-height:1.6;color:rgba(255,255,255,.95);max-width:80%;font-weight:400;overflow-wrap:break-word;word-break:normal;hyphens:auto}
+  .kaoyan.exam-day{background:
+    radial-gradient(circle at 20% 0%, rgba(255,180,80,.2) 0%, transparent 50%),
+    linear-gradient(100deg,#6e1a1a 0%,#a84a15 100%)}
+  .kaoyan.exam-done{background:
+    radial-gradient(circle at 20% 0%, rgba(80,220,160,.2) 0%, transparent 50%),
+    linear-gradient(100deg,#0d5538 0%,#188055 100%)}
   .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 4px}
   .dash-card{background:#fafafe;border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:center}
   .dash-num{font-size:28px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
@@ -367,6 +388,8 @@
     .recite-grid .field:nth-child(1){grid-column:span 2}
     .recite-grid-2{grid-template-columns:1fr 1fr}
     .recite-grid-2 .field:nth-child(1){grid-column:span 2}
+    .recite-grid .field,.recite-grid-2 .field{min-width:0}
+    .recite-grid input,.recite-grid-2 input{width:100%;min-width:0}
   }
 
   .review-list{list-style:none}
@@ -455,24 +478,90 @@
   .excess-banner .ob-btn{background:#fff;border:1px solid #c7d2fe;color:#4f46e5}
   .excess-banner .ob-btn:hover{background:#e0e7ff;border-color:#a5b4fc;color:#4338ca}
 
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
-  .stat{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);border:1px solid rgba(23,21,51,.03)}
-  .stat .label{font-size:12.5px;color:var(--muted)}
-  .stat .value{font-size:34px;font-weight:700;letter-spacing:-1.5px;margin:6px 0 2px;font-variant-numeric:tabular-nums;line-height:1.1}
-  .stat .foot{font-size:11.5px;color:var(--muted);line-height:1.5}
+  /* ===== 顶部两张统计卡：统一三行骨架（标题 / 数据 / 底部），任何状态下左右等高、中心线对齐 ===== */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+  .stat{
+    background:
+      radial-gradient(300px 210px at 50% 52%, rgba(91,110,245,.06), rgba(91,110,245,0) 72%),
+      var(--card);
+    border-radius:var(--radius);padding:24px;
+    box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.7);
+    border:1px solid rgba(91,110,245,.1);
+    display:flex;flex-direction:column;min-height:224px;min-width:0;
+    position:relative;overflow:hidden;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .stat:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover),inset 0 1px 0 rgba(255,255,255,.7);border-color:rgba(91,110,245,.2)}
+  .stat .label{font-size:13.5px;color:var(--muted);font-weight:500;margin-bottom:18px;flex-shrink:0}
+  /* 三行骨架：标题区固定 / 数据区弹性且垂直居中 / 底部区等高 */
+  .card-header{margin-bottom:18px;flex-shrink:0}
+  .card-data-area{flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:center}
+  .stat-merged .card-data-area{flex-direction:row;align-items:center;justify-content:flex-start;gap:18px}
+  .card-footer{margin-top:14px;flex-shrink:0;min-width:0}
+  .card-footer-placeholder{margin-top:14px;height:32px;flex-shrink:0}
+  /* 大数字（两卡共用 .stat-num，JS 按字符长度加 num-sm / num-xs 自动降档） */
+  .stat .value{margin:0}
+  .stat-num{font-size:44px;font-weight:800;letter-spacing:-1px;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .stat-num small{font-size:16px;font-weight:600;color:var(--muted);margin-left:4px;letter-spacing:0;white-space:nowrap}
+  .stat-num.num-sm{font-size:37px}
+  .stat-num.num-sm small{font-size:14px}
+  .stat-num.num-xs{font-size:30px;letter-spacing:-.5px}
+  .stat-num.num-xs small{font-size:13px}
+  /* 副文本固定预留两行，进度条位置不随文案长短跳动 */
+  .stat .foot{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:8px;min-height:38px;overflow-wrap:anywhere}
+  /* 合并卡片：环形进度 + 倒计时 */
+  .ring-wrap{position:relative;width:76px;height:76px;flex:0 0 76px}
+  .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .ring-bg{fill:none;stroke:rgba(128,128,128,.15);stroke-width:7}
+  .ring-fg{fill:none;stroke:url(#ringGrad);stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .5s}
+  .ring-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0}
+  .ring-pct{font-size:17px;font-weight:700;line-height:1}
+  .ring-lab{font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap}
+  .merged-right{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;justify-content:center}
+  .merged-summary{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.5;overflow-wrap:anywhere}
+  /* 今日目标进度条 + 状态化鼓励（全宽软横幅，长文案可优雅换两行） */
+  .daily-goal{width:100%;margin:14px 0 0;padding:0;border-top:none;min-width:0}
+  .dg-line{font-size:13px;font-weight:600;color:var(--text);line-height:1.4;font-variant-numeric:tabular-nums;margin-bottom:8px;min-height:18px;overflow-wrap:anywhere}
+  .dg-bar{height:8px;border-radius:999px;background:rgba(128,128,128,.12);overflow:hidden}
+  .dg-fill{height:100%;width:0;border-radius:999px;background:var(--brand);transition:width .45s ease, background .3s;box-shadow:0 0 8px rgba(91,110,245,.35)}
+  .dg-praise{display:block;width:100%;padding:7px 14px;border-radius:12px;background:rgba(91,110,245,.08);color:var(--brand);font-size:12.5px;font-weight:500;line-height:1.45;min-height:32px;text-align:left;word-break:break-word;overflow-wrap:anywhere}
+  /* 窄屏：两卡堆叠为单列，数字与环形图同步缩小 */
+  @media(max-width:600px){
+    .stats{grid-template-columns:1fr;gap:12px}
+    .stat{padding:20px;min-height:0}
+    .stat .label,.card-header{margin-bottom:14px}
+    .stat-num{font-size:38px}
+    .stat-num.num-sm{font-size:32px}
+    .stat-num.num-xs{font-size:27px}
+    .stat-num small{font-size:14px}
+    .stat .foot{min-height:0}
+    .ring-wrap{flex-basis:68px;width:68px;height:68px}
+    .stat-merged .card-data-area{gap:14px}
+    .card-footer,.card-footer-placeholder{margin-top:12px}
+  }
+  .daily-goal.dg-almost .dg-fill{background:var(--warn);box-shadow:0 0 8px rgba(224,138,0,.35)}
+  .dg-praise.dg-almost{background:rgba(224,138,0,.12);color:var(--warn)}
+  .daily-goal.dg-done .dg-fill{background:var(--ok);box-shadow:0 0 8px rgba(14,164,114,.35)}
+  .dg-praise.dg-done{background:rgba(14,164,114,.12);color:var(--ok)}
+  .daily-goal.dg-over .dg-fill{background:var(--warn);box-shadow:0 0 8px rgba(224,138,0,.35)}
+  .dg-praise.dg-over{background:rgba(224,138,0,.12);color:var(--warn)}
+  .daily-goal.dg-done-all .dg-fill{background:var(--ok);box-shadow:0 0 8px rgba(14,164,114,.35)}
+  .dg-praise.dg-done-all{background:rgba(14,164,114,.12);color:var(--ok)}
 
   .status{display:flex;gap:14px;align-items:flex-start}
   .status.ok{border-left:4px solid var(--ok)}
+  .status.info{border-left:4px solid var(--brand)}
   .status.warn{border-left:4px solid var(--warn)}
   .status.bad{border-left:4px solid var(--bad)}
   .status-icon{font-size:26px;line-height:1.2}
   .status-title{font-weight:650;margin-bottom:5px;font-size:15px}
   .status-desc{font-size:13px;color:var(--muted);line-height:1.7}
 
-  .bar-wrap{position:relative;padding:5px 0}
+  .bar-wrap{position:relative;padding:16px 0 5px}
   .bar{height:12px;background:#eeeefa;border-radius:999px;overflow:hidden}
   .bar-fill{height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));border-radius:999px;transition:width .5s cubic-bezier(.4,0,.2,1)}
-  .bar-time{position:absolute;top:0;width:2px;height:22px;background:#ffb020;border-radius:2px;transform:translateX(-1px)}
+  .bar-time{position:absolute;top:5px;width:2px;height:22px;background:#ffb020;border-radius:2px;transform:translateX(-1px)}
+  .bar-time::before{content:'今天';position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:9.5px;color:#e0a020;white-space:nowrap;line-height:1}
   .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 0 6px}
   .legend span{display:flex;align-items:center;gap:6px}
   .dot{width:9px;height:9px;border-radius:3px;display:inline-block}
@@ -563,6 +652,8 @@
     cursor:pointer;padding:2px 8px;border-radius:7px;font-family:inherit;transition:.15s;
   }
   .x-btn:hover{background:#f2f0fb;color:var(--text)}
+  html[data-theme="dark"] .x-btn{color:#8a8aa3}
+  html[data-theme="dark"] .x-btn:hover{background:#2a2a38;color:#e4e4ef}
   .modal-actions{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
   .modal-actions .spacer{flex:1}
   .sec-title{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:22px 0 10px;padding-top:16px;border-top:1px solid var(--line)}
@@ -869,8 +960,8 @@
 
   @media(max-width:520px){
     .r-date{width:auto;flex:0 0 auto}
+    .r-line{flex-wrap:wrap;row-gap:6px}
     h1{font-size:18px}
-    .stat .value{font-size:28px}
     .modal .two-col{grid-template-columns:1fr;gap:0}
     .modal .two-col label{margin-bottom:14px}
     .head{flex-direction:column;align-items:stretch;gap:10px}
@@ -878,8 +969,8 @@
     .head-actions .ghost-btn{flex:1 1 auto;padding:8px 10px;font-size:12px;justify-content:center}
     .type-picker{grid-template-columns:1fr}
     .review-item{flex-direction:column;align-items:stretch}
-    .ri-actions{justify-content:stretch}
-    .q-btn{flex:1;text-align:center}
+    .ri-actions{justify-content:flex-start}
+    .q-btn{flex:0 1 auto;text-align:center;white-space:nowrap;padding:8px 14px}
     .unit-edit-row{grid-template-columns:1fr 1fr 1fr auto;gap:5px}
     .toast{top:12px;padding:14px 18px}
     .toast-icon{font-size:28px}
@@ -900,6 +991,9 @@
     .dash-proj .dp-name{flex:0 0 90px;font-size:12.5px}
     .dash-hero{padding:18px 18px}
     .dash-hero .greet-big{font-size:22px}
+    .kaoyan{padding:22px 22px}
+    .kaoyan .ky-days{font-size:40px}
+    .kaoyan .ky-quote{max-width:100%;font-size:14.5px}
   }
 
   /* 深色模式：由 html[data-theme] 控制（JS 依用户选择 + 系统偏好决定） */
@@ -912,6 +1006,7 @@
     --border:#2c2c3a;
     --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 28px -16px rgba(0,0,0,.55);
     --shadow-hover:0 2px 4px rgba(0,0,0,.45), 0 14px 34px -16px rgba(0,0,0,.6);
+    --warn:#d4a24e;
   }
   html[data-theme="dark"] body{background:var(--bg);color:var(--text)}
   html[data-theme="dark"] input[type=number],
@@ -929,6 +1024,15 @@
   html[data-theme="dark"] .card,
   html[data-theme="dark"] .stat,
   html[data-theme="dark"] .modal{background:var(--card)}
+  /* 统计卡在深色下：描边与微光同步换色（覆盖上面的纯色 background） */
+  html[data-theme="dark"] .stat{
+    background:
+      radial-gradient(300px 210px at 50% 52%, rgba(123,135,255,.1), rgba(123,135,255,0) 72%),
+      var(--card);
+    border-color:rgba(123,135,255,.16);
+    box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  html[data-theme="dark"] .stat:hover{border-color:rgba(123,135,255,.3);box-shadow:var(--shadow-hover),inset 0 1px 0 rgba(255,255,255,.06)}
   html[data-theme="dark"] #settingsDirtyBar{background:#2a2315!important;border-color:#5c4a1e!important;color:#e0c070!important}
   html[data-theme="dark"] .backup-tip{background:#2a2315;border-color:#5c4a1e;color:#e0c070}
   html[data-theme="dark"] .pp-chip.ok{background:#1a2e22;color:#4ade80}
@@ -1390,20 +1494,49 @@
   </section>
 
   <section class="stats">
-    <div class="stat">
-      <div class="label" id="labelRemaining">剩余页数</div>
-      <div class="value" id="mRemaining">—</div>
-      <div class="foot" id="mRemainingFoot">—</div>
+    <div class="stat stat-merged" id="mergedStat">
+      <div class="card-header">
+        <div class="label" id="labelDays">可用天数</div>
+      </div>
+      <div class="card-data-area">
+        <div class="ring-wrap">
+          <svg width="76" height="76" viewBox="0 0 76 76">
+            <defs>
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#5b6ef5"/>
+                <stop offset="100%" stop-color="#9333ea"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="38" cy="38" r="32.5"/>
+            <circle class="ring-fg" id="ringFg" cx="38" cy="38" r="32.5" stroke-dasharray="204.2" stroke-dashoffset="204.2"/>
+          </svg>
+          <div class="ring-text">
+            <div class="ring-pct" id="ringPct">0%</div>
+            <div class="ring-lab" id="ringLab">已完成</div>
+          </div>
+        </div>
+        <div class="merged-right">
+          <div class="merged-days stat-num" id="mDays">—<small>天</small></div>
+          <div class="merged-summary" id="mergedSummary">—</div>
+        </div>
+      </div>
+      <div class="card-footer-placeholder"></div>
     </div>
     <div class="stat">
-      <div class="label">可用天数</div>
-      <div class="value" id="mDays">—</div>
-      <div class="foot" id="mDaysFoot">—</div>
-    </div>
-    <div class="stat">
-      <div class="label" id="labelNeed">每个学习日目标</div>
-      <div class="value" id="mNeed">—</div>
-      <div class="foot" id="mNeedFoot">—</div>
+      <div class="card-header">
+        <div class="label" id="labelNeed">每个学习日目标</div>
+      </div>
+      <div class="card-data-area">
+        <div class="value stat-num" id="mNeed">—</div>
+        <div class="foot" id="mNeedFoot">—</div>
+        <div class="daily-goal" id="dailyGoalBox">
+          <div class="dg-line" id="dgLine">—</div>
+          <div class="dg-bar"><div class="dg-fill" id="dgFill"></div></div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div class="dg-praise" id="dgPraise">—</div>
+      </div>
     </div>
   </section>
 
@@ -1430,7 +1563,7 @@
     </div>
     <div class="legend">
       <span><i class="dot" style="background:linear-gradient(135deg,#5b6ef5,#9333ea)"></i>实际进度</span>
-      <span><i class="dot" style="background:#d3d2e6"></i>理想进度</span>
+      <span><i class="dot" style="background:#b8b7cc"></i>计划线</span>
       <span><i class="dot" style="background:#ffb020"></i>今天</span>
     </div>
     <canvas id="chart" height="220"></canvas>
@@ -1782,6 +1915,7 @@
             <option value="fixed">固定数量</option>
           </select>
         </label>
+        <p class="hint" style="margin-top:6px;margin-bottom:0">均匀模式下每日安排的最大题量，与「每日舒适复习量」取较小值为实际每日排题量。智能模式根据近期复习节奏自动调整。</p>
         <div id="sCapacityFixedWrap" hidden style="margin-top:8px">
           <input id="sCapacityFixed" type="number" min="0" max="50" placeholder="如 5，填0表示不自动安排">
         </div>
@@ -1843,7 +1977,7 @@
       <label>每日舒适复习量
         <input id="sSpreadThreshold" type="number" min="1" max="50" placeholder="如 5">
       </label>
-      <p class="hint" style="margin-top:0;margin-bottom:8px">当天待复习超过这个数量时，会出现「分散到未来」的按钮；复习完这个数量后会提示你可以分散剩余任务。</p>
+      <p class="hint" style="margin-top:0;margin-bottom:8px">均匀模式下，每日实际排题量为「每日复习容量」与此处舒适量的较小值；当天待复习超过此数量时，系统会自动将超额部分安排到未来数日。经典模式下，当天待复习超过此数量时将显示「分散到未来」按钮供手动处理。复习达到此数量后会提示可分散剩余任务。</p>
       <div id="spreadPressureHint" class="hint" style="font-size:12px;padding:8px 10px;border-radius:8px;background:#f8f9fc"></div>
     </div>
 
@@ -2131,7 +2265,7 @@
     <div class="cm-body" id="confirmMasterText">—</div>
     <div class="cm-options" id="confirmMasterOptions"></div>
     <div class="cm-footer">
-      <button class="ghost-btn" id="cmCancel" style="flex:1;padding:10px">暂不处理</button>
+      <button class="ghost-btn" id="cmCancel" style="flex:1;padding:10px">取消</button>
     </div>
   </div>
 </div>
@@ -3382,6 +3516,8 @@ async function loadStore() {
       if (it.earlyReviewed == null) it.earlyReviewed = false;
       if (it.stage == null) it.stage = 0;
       if (it.mastered == null) it.mastered = false;
+      if (!Array.isArray(it.reviews)) it.reviews = [];
+      if (it.masteredDate === undefined) it.masteredDate = null;
       if (it.learnedDate == null) it.learnedDate = todayStr();
     });
     if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
@@ -3403,7 +3539,7 @@ async function loadStore() {
     if (p.totalLocked == null) p.totalLocked = false;
     if (p.bookStartPage == null) p.bookStartPage = null;
     if (p.bookEndPage == null) p.bookEndPage = null;
-    if (!p.deadline) p.deadline = todayStr();
+    if (!p.deadline && !(p.type === 'mistake' && (!p.mistakeMode || p.mistakeMode === 'free'))) p.deadline = todayStr();
     if (p.unitMode == null) p.unitMode = false;
     if (p.startDate == null) p.startDate = '';
     if (p.startPage == null) p.startPage = 0;
@@ -3845,6 +3981,19 @@ function mergeRanges(ranges) {
 function countMergedPages(merged) {
   return merged.reduce((sum, r) => sum + (r.end - r.start + 1), 0);
 }
+/* 把原始区间 merge 后裁剪到目标范围（单元范围/正文范围），再计页数。
+   所有"已完成页数"口径都应走这里，避免一个裁一个不裁导致 delta/今日新增/速度估计对不上。 */
+function countClippedRanges(ranges, p) {
+  const targets = getTargetPageRanges(p);
+  if (!targets.length) return 0; // 与 getBookDoneRanges 一致：无目标范围视为 0 页
+  const merged = mergeRanges(ranges);
+  const clipped = [];
+  merged.forEach(r => targets.forEach(t => {
+    const s = Math.max(t.start, r.start), e = Math.min(t.end, r.end);
+    if (e >= s) clipped.push({ start: s, end: e });
+  }));
+  return countMergedPages(mergeRanges(clipped));
+}
 function getRecordRange(r, p) {
   if (r.startPage != null) {
     const s = r.startPage;
@@ -3920,8 +4069,13 @@ function getCompletedPages(p) {
 function getCompletedPagesAtDate(p, targetDate) {
   if (isSetMode(p)) return getCompletedSets(p, targetDate);
   if (p.type === 'mistake') {
-    // 用 masteredDate 精确回溯：只有在目标日期或之前已攻克的才算
-    return (p.items || []).filter(it => it.masteredDate && it.masteredDate <= targetDate).length;
+    // 用 masteredDate 精确回溯：在目标日期或之前已攻克/熟知的才算；
+    // 极少数老数据没有 masteredDate 时退回 learnedDate，避免已攻克条目在历史曲线里"消失"。
+    return (p.items || []).filter(it => {
+      if (!(it.mastered || it.manualMastered)) return false;
+      const d = it.masteredDate || it.learnedDate;
+      return d && d <= targetDate;
+    }).length;
   }
   let ranges;
   if (p.type === 'exercise') {
@@ -3930,7 +4084,8 @@ function getCompletedPagesAtDate(p, targetDate) {
     ranges = (p.items || []).filter(it => it.learnedDate <= targetDate)
       .map(it => ({ start: getItemPageStart(it), end: getItemPageEnd(it) }));
   }
-  return countMergedPages(mergeRanges(ranges));
+  // 与 getBookDoneRanges 同口径：裁剪到目标范围，避免历史/当前累计一个裁一个不裁
+  return countClippedRanges(ranges, p);
 }
 
 /* ============ 节奏估计：活跃率 × 学习日产能 ============
@@ -4115,11 +4270,15 @@ function getMetrics(p) {
     }
   }
 
+  // ---- 有效开始日：填了 startDate 且不早于/等于最早打卡日时用它；否则用最早打卡日；全新项目无记录则为 null ----
+  const effStart = (p.startDate && (!allDates.length || p.startDate <= allDates[0]))
+    ? p.startDate : (allDates.length ? allDates[0] : null);
+
   // ---- 落后量（仅用于文案解释；不重复加进目标，因为 remaining 已含落后）----
   let behind = 0;
-  if (p.startDate && p.deadline && total > 0) {
-    const totalSpan = diffDays(p.startDate, p.deadline);
-    const elapsed = diffDays(p.startDate, t);
+  if (effStart && p.deadline && total > 0) {
+    const totalSpan = diffDays(effStart, p.deadline);
+    const elapsed = diffDays(effStart, t);
     if (totalSpan > 0) {
       const idealAtToday = total * Math.max(0, Math.min(1, elapsed / totalSpan));
       behind = Math.max(0, idealAtToday - currentPage);
@@ -4171,10 +4330,17 @@ function getMetrics(p) {
   let longestStreak = 0, runOn = 0, longestBreak = 0, runOff = 0;
   if (allDates.length) {
     const startAge = isActiveDay(t) ? 0 : 1; // 今天学了从今天算，没学从昨天算
+    // 当前这一段连续（从 startAge 起 streakNow 天）不计入"历史最长"，否则刷新纪录永远不成立
+    const currentRunEndAge = startAge + streakNow - 1;
     for (let age = windowDays - 1; age >= startAge; age--) {
       const d = addDays(t, -age);
-      if (isActiveDay(d)) { runOn++; longestStreak = Math.max(longestStreak, runOn); runOff = 0; }
-      else { runOff++; longestBreak = Math.max(longestBreak, runOff); runOn = 0; }
+      if (isActiveDay(d)) {
+        runOn++;
+        if (age > currentRunEndAge) longestStreak = Math.max(longestStreak, runOn);
+        runOff = 0;
+      } else {
+        runOff++; longestBreak = Math.max(longestBreak, runOff); runOn = 0;
+      }
     }
   }
   const lastStudyDate = allDates.length ? allDates[allDates.length - 1] : null;
@@ -4200,7 +4366,8 @@ function getMetrics(p) {
     feasibility, ratio, feasiblePerWeek, feasibleDays, needWkNormal, needWkBest, needMoreDays, needMoreActiveDays,
     sparseLogging, medianGap,
     todayDone, streakNow, longestStreak, longestBreak, lastStudyDate, prevStudyDate,
-    recentRate, prevRate, trendPct
+    recentRate, prevRate, trendPct,
+    effStart
   };
   _metricsCache[cacheKey] = { sig: dataSig, result };
   return result;
@@ -4217,101 +4384,120 @@ function getOverdueItems(p) {
   return (p.items || []).filter(it => !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate < today);
 }
 
-function spreadOverdueItems(p, days) {
-  return spreadItems(p, getOverdueItems(p), days);
+/* ============ 条目优先级（保留今天 / 先分散谁的统一口径） ============ */
+/* 高优先级 = 更该留在今天：逾期久 > 更薄弱 > 被分散次数多（防饥饿）> stage 低 */
+function compareItemPriority(a, b) {
+  const today = todayStr();
+  const oa = a.nextReviewDate < today ? diffDays(a.nextReviewDate, today) : 0;
+  const ob = b.nextReviewDate < today ? diffDays(b.nextReviewDate, today) : 0;
+  if (oa !== ob) return ob - oa;
+  const sa = getItemScore(a) ?? 0.5;
+  const sb = getItemScore(b) ?? 0.5;
+  if (sa !== sb) return sa - sb;
+  if ((a.spreadCount || 0) !== (b.spreadCount || 0)) return (b.spreadCount || 0) - (a.spreadCount || 0);
+  return (a.stage || 0) - (b.stage || 0);
 }
 
-/* 通用分散引擎：把一批条目分散到未来 days 天
-   优先级：逾期久 > 薄弱 > 被分散次数多（防饥饿）> stage高（快掌握的可推后）
-   防饥饿：spreadCount >= 3 或超过最大间隔2倍的条目不再分散
+/* 逾期分散：为今天原本排期的条目预留名额，只把"超出今日舒适量"的逾期条目摊到未来。
+   返回 { moved, blocked }：moved=改到未来的条数；blocked=被防饥饿锁死、强制移回今天的紧急条数。 */
+function spreadOverdueItems(p, days) {
+  const today = todayStr();
+  const cap = getComfortCap(p, today);
+  const onTimeToday = getDueItems(p).filter(it => it.nextReviewDate === today);
+  const reserve = onTimeToday.length;
+  const overdueSorted = getOverdueItems(p).slice().sort(compareItemPriority);
+  // 今天最该还的逾期 = 舒适量减去今天已有排期；防饥饿锁死的条目由 spreadItems 强制留在今天
+  const keepN = Math.max(0, cap - reserve);
+  const keepIds = new Set(overdueSorted.slice(0, keepN).map(it => it.id));
+  const overflow = overdueSorted.filter(it => !keepIds.has(it.id));
+  if (!overflow.length) return { moved: 0, blocked: 0 };
+  const blockedN = overflow.filter(it => !canBeSpread(it, p)).length;
+  const changed = spreadItems(p, overflow, days);
+  // spreadItems 的改动 = 锁死条目移回今天（blockedN）+ 可分散条目改到未来
+  return { moved: Math.max(0, changed - blockedN), blocked: Math.min(blockedN, changed) };
+}
+
+/* 通用分散引擎（v2：每日硬上限 + 全局最佳适配，绝不抬高本就忙的日子）
+   - 每日上限 = 舒适量 与 当日排期容量 的较小值（经典模式/容量0 时只看舒适量）
+   - 在 1..days 天窗口内，把每条放到"负载/容量比最低"的日子；并列取最近
+   - 窗口内全部满载时，仍放入最低负载日（有界超量，保证条目不会无限期滞留）
+   - 防饥饿：canBeSpread=false 的条目强制留在今天
 */
 function spreadItems(p, items, days) {
   const today = todayStr();
   days = Math.max(1, parseInt(days, 10) || 1);
   if (!items || !items.length) return 0;
 
-  // 过滤掉不能再分散的条目
-  const spreadable = items.filter(it => canBeSpread(it));
-  const blocked = items.filter(it => !canBeSpread(it));
-  // 不能分散的条目强制留在今天
-  blocked.forEach(it => { it.nextReviewDate = today; });
+  const spreadable = items.filter(it => canBeSpread(it, p));
+  const blocked = items.filter(it => !canBeSpread(it, p));
+  let changed = 0;
+  // 防饥饿锁死的逾期条目强制回到今天（已在今天的不算变更）
+  blocked.forEach(it => {
+    if (it.nextReviewDate !== today) { it.nextReviewDate = today; changed++; }
+  });
 
   if (!spreadable.length) {
-    p.updatedAt = Date.now();
-    saveStore();
-    return blocked.length; // 即使没有可分散的，blocked 也被改了日期
+    if (changed) { p.updatedAt = Date.now(); saveStore(); }
+    return changed;
   }
 
-  // 优先级排序（高→低，排在前面的优先保留在今天或安排在靠前的日子）
-  spreadable.sort((a, b) => {
-    // 1. 逾期天数多的优先
-    const oa = a.nextReviewDate < today ? diffDays(a.nextReviewDate, today) : 0;
-    const ob = b.nextReviewDate < today ? diffDays(b.nextReviewDate, today) : 0;
-    if (oa !== ob) return ob - oa;
-    // 2. score 低的优先（更薄弱）
-    const sa = getItemScore(a) ?? 0.5;
-    const sb = getItemScore(b) ?? 0.5;
-    if (sa !== sb) return sa - sb;
-    // 3. 被分散次数多的优先（防饥饿）
-    if ((a.spreadCount || 0) !== (b.spreadCount || 0)) return (b.spreadCount || 0) - (a.spreadCount || 0);
-    // 4. stage 高的往后排（快掌握的推后影响小）
-    return (b.stage || 0) - (a.stage || 0);
-  });
+  spreadable.sort(compareItemPriority);
 
-  // 计算未来 days 天的已有负载
-  const loads = [];
+  // 未来 days 天的逐日容量与已有负载（负载表随分配实时更新）
+  const days_ = [];
   for (let d = 1; d <= days; d++) {
-    loads.push({ day: d, date: addDays(today, d), load: getReviewLoadOnDate(p, addDays(today, d)) });
+    const date = addDays(today, d);
+    days_.push({ date, cap: getSpreadDayCap(p, date), load: getReviewLoadOnDate(p, date) });
   }
 
-  // 按优先级分配：优先级高的优先分到更近的日子
-  // 每天的目标容量 = max(已有负载, ceil(总条数/days)) + 1，避免某一天过载
-  const perDayCap = Math.max(...loads.map(l => l.load), Math.ceil(spreadable.length / days)) + 1;
   spreadable.forEach(it => {
-    // 从近到远找第一个未满的日子
-    let target = loads[loads.length - 1]; // 默认最远的那天
-    for (const l of loads) {
-      if (l.load < perDayCap) { target = l; break; }
+    const oldDate = it.nextReviewDate;
+    // 第一轮：只在未满的日子里选相对负载最低、并列最近的
+    let best = null;
+    for (const col of days_) {
+      if (col.load >= col.cap) continue;
+      const ratio = col.load / col.cap;
+      const dist = diffDays(today, col.date);
+      if (!best || ratio < best.ratio - 1e-9 || (Math.abs(ratio - best.ratio) < 1e-9 && dist < best.dist)) {
+        best = { col, ratio, dist };
+      }
     }
-    it.nextReviewDate = target.date;
+    // 第二轮：窗口全满 → 选绝对负载最低的，并列选最远（保护近期，把溢出推到远端）
+    if (!best) {
+      let col = days_[0];
+      for (const c of days_) {
+        if (c.load < col.load || (c.load === col.load && c.date > col.date)) col = c;
+      }
+      best = { col };
+    }
+    it.nextReviewDate = best.col.date;
     it.spreadCount = (it.spreadCount || 0) + 1;
     it.lastSpreadDate = today;
-    target.load++;
+    best.col.load++;
+    if (oldDate !== best.col.date) changed++;
   });
 
-  p.updatedAt = Date.now();
-  saveStore();
-  // 返回实际被改动的条目数（被分散的 + 被强制留在今天的），确保调用方触发 render
-  return spreadable.length + blocked.length;
+  if (changed) { p.updatedAt = Date.now(); saveStore(); }
+  return changed;
 }
 
-/* 当日超额分散：保留前 spreadThreshold 条在今天，其余分散到未来 days 天 */
+/* 当日超额分散：按优先级保留前"舒适量"条在今天，其余分散到未来 days 天。
+   返回实际改动条数；若超额条目全部被防饥饿锁死，返回 0（调用方应提示用户这些不能再推）。 */
 function spreadExcessToday(p, days) {
   const today = todayStr();
-  const due = getDueItems(p);
-  const cap = Math.max(1, p.spreadThreshold || 5); // 用舒适量，和横幅显示一致
+  const due = getDueItems(p).slice();
+  const cap = getComfortCap(p, today);
   if (due.length <= cap) return 0;
 
-  // 按优先级排序，前 cap 条保留今天，其余分散
-  due.sort((a, b) => {
-    const oa = a.nextReviewDate < today ? diffDays(a.nextReviewDate, today) : 0;
-    const ob = b.nextReviewDate < today ? diffDays(b.nextReviewDate, today) : 0;
-    if (oa !== ob) return ob - oa;
-    const sa = getItemScore(a) ?? 0.5;
-    const sb = getItemScore(b) ?? 0.5;
-    if (sa !== sb) return sa - sb;
-    if ((a.spreadCount || 0) !== (b.spreadCount || 0)) return (b.spreadCount || 0) - (a.spreadCount || 0);
-    return (b.stage || 0) - (a.stage || 0);
-  });
-
+  due.sort(compareItemPriority);
   const keep = due.slice(0, cap);
   const excess = due.slice(cap);
-  // 保留的条目确保在今天
-  keep.forEach(it => { it.nextReviewDate = today; });
-  return spreadItems(p, excess, days);
+  let changed = 0;
+  keep.forEach(it => { if (it.nextReviewDate !== today) { it.nextReviewDate = today; changed++; } });
+  return changed + spreadItems(p, excess, days);
 }
 
-/* 重新均匀排期所有未掌握的条目（切换到均匀模式时调用） */
+/* 重新均匀排期所有未掌握的条目（切换到均匀模式时调用，v2 双向最佳适配） */
 function rebalanceAllItems(p) {
   const today = todayStr();
   const items = (p.items || []).filter(it =>
@@ -4320,29 +4506,50 @@ function rebalanceAllItems(p) {
   if (!items.length) return;
 
   if (p.reviewMode === 'balanced') {
-    // 均匀分布：按优先级排序，在原计划日期附近找空位
-    items.sort((a, b) => {
-      const oa = a.nextReviewDate < today ? diffDays(a.nextReviewDate, today) : 0;
-      const ob = b.nextReviewDate < today ? diffDays(b.nextReviewDate, today) : 0;
-      if (oa !== ob) return ob - oa;
-      const sa = getItemScore(a) ?? 0.5;
-      const sb = getItemScore(b) ?? 0.5;
-      if (sa !== sb) return sa - sb;
-      return (b.spreadCount || 0) - (a.spreadCount || 0);
+    // 一次性建立未来 60 天的负载表，避免 O(n²) 全表扫描
+    const HORIZON = 60;
+    const loadMap = new Map();
+    const bump = (date, delta) => { if (date) loadMap.set(date, (loadMap.get(date) || 0) + delta); };
+    items.forEach(it => bump(it.nextReviewDate, 1));
+    const tomorrow = addDays(today, 1);
+
+    // 防饥饿：逾期已超过当前间隔 2 倍的条目不能再往后错峰，强制明天（容量让位于紧急度）。
+    // 注意：spreadCount≥3 的防饥饿规则只适用于"往后推"的手动分散，模式切换不据此提前未来条目。
+    const isStarving = it => {
+      if (!it.nextReviewDate || it.nextReviewDate >= today) return false;
+      const intervals = getItemIntervals(it, p);
+      const stage = Math.min(it.stage || 0, intervals.length - 1);
+      return diffDays(it.nextReviewDate, today) > (intervals[stage] || 1) * 2;
+    };
+    const blocked = items.filter(isStarving);
+    const normal = items.filter(it => !isStarving(it));
+    blocked.forEach(it => {
+      if (it.nextReviewDate !== tomorrow) {
+        bump(it.nextReviewDate, -1);
+        bump(tomorrow, 1);
+        it.nextReviewDate = tomorrow;
+      }
     });
-    const cap = getDailyCapacity(p);
-    items.forEach(it => {
+
+    normal.sort(compareItemPriority);
+    normal.forEach(it => {
       const intervals = getItemIntervals(it, p);
       const stage = Math.min(it.stage || 0, intervals.length - 1);
       const gap = intervals[stage] || 1;
-      const base = it.nextReviewDate < today ? addDays(today, 1) : it.nextReviewDate;
-      const maxOffset = Math.max(1, Math.round(gap * 0.5));
-      let target = base;
-      for (let offset = 0; offset <= maxOffset; offset++) {
-        const d = addDays(base, offset);
-        if (cap <= 0 || getReviewLoadOnDate(p, d) < cap) { target = d; break; }
+      const overdue = it.nextReviewDate < today;
+      const base = overdue ? tomorrow : it.nextReviewDate;
+      // 模式切换是一次性重排，给略宽的窗口（gap×0.5、绝对上限 21 天），但允许向前借位最多 2 天
+      const maxForward = Math.min(21, Math.max(3, Math.round(gap * 0.5)));
+      const maxBack = overdue ? 0 : Math.min(2, Math.floor(gap * 0.25));
+      const oldDate = it.nextReviewDate;
+      const target = findAvailableDate(p, base, {
+        maxForward, maxBack, minDate: tomorrow, gap, loadMap
+      });
+      if (target !== oldDate) {
+        bump(oldDate, -1);
+        bump(target, 1);
+        it.nextReviewDate = target;
       }
-      it.nextReviewDate = target;
     });
   } else {
     // 经典间隔：逾期的从明天开始，未到期的保持原计划日期（不人为提前，也不重新按间隔排期）
@@ -4350,36 +4557,101 @@ function rebalanceAllItems(p) {
       it.nextReviewDate = it.nextReviewDate < today ? addDays(today, 1) : it.nextReviewDate;
     });
   }
+  p.lastAutoBalanceDate = null; // 模式切换后允许今天再做一次启动自动均衡
   p.updatedAt = Date.now();
   saveStore();
 }
 
-/* ============ 智能排期引擎（均匀模式 + 分散功能共享） ============ */
+/* ============ 智能排期引擎 v2（EWMA 产能 + 星期画像 + 双向最佳适配） ============ */
 
-/* 获取每日复习容量：null=智能模式（按最近14天实际节奏），数字=固定容量（可为0） */
-function getDailyCapacity(p) {
-  if (p.dailyCapacity != null) return Math.max(0, Math.round(p.dailyCapacity));
-  // 智能模式：最近14天有复习记录的日子里，平均每天复习多少条
-  const items = p.items || [];
-  const dayCounts = {};
-  items.forEach(it => {
-    (it.reviews || []).forEach(r => {
-      if (r.date && r !== it.reviews[0]) { // 排除首次录入
-        dayCounts[r.date] = (dayCounts[r.date] || 0) + 1;
-      }
+/* 汇总每个自然日的"复习评价次数"（排除首次录入；用索引而非对象引用，导入/重算后依然稳健） */
+function getReviewCountsByDate(p) {
+  const counts = {};
+  (p.items || []).forEach(it => {
+    (it.reviews || []).forEach((r, i) => {
+      if (i > 0 && r.date) counts[r.date] = (counts[r.date] || 0) + 1;
     });
   });
-  const today = todayStr();
-  const recent = Object.entries(dayCounts)
-    .filter(([d]) => diffDays(d, today) <= 14 && diffDays(d, today) >= 0)
-    .map(([, c]) => c);
-  if (recent.length < 3) return 5; // 数据不足，默认5
-  const avg = recent.reduce((s, c) => s + c, 0) / recent.length;
-  return Math.max(0, Math.round(avg * 1.2)); // 留20%余量，不设强制下限
+  return counts;
 }
 
-/* 查询某一天已排的复习量（不含已掌握的） */
-function getReviewLoadOnDate(p, date) {
+/* 舒适量：用户希望每天最多面对多少条（默认 5） */
+function getComfortCap(p) {
+  return Math.max(1, Math.min(50, parseInt(p.spreadThreshold, 10) || 5));
+}
+
+/* 手动/自动分散时，未来某天的每日硬上限 = min(舒适量, 当日排期容量) */
+function getSpreadDayCap(p, date) {
+  const comfort = getComfortCap(p);
+  if (p.reviewMode !== 'balanced') return comfort;
+  const cap = getDailyCapacity(p, date);
+  if (cap <= 0) return comfort; // 固定容量 0 = 严格按间隔；手动分散仍按舒适量
+  return Math.max(1, Math.min(comfort, cap));
+}
+
+/* 获取某一天的排期容量（均匀模式每天最多安排多少条）
+   - 固定值：直接返回（0 = 严格按间隔，不自动错峰）
+   - 智能：近 28 个自然日复习速率的 EWMA（半衰期 14 天）× 0.9 留余量；
+     冷启动（活跃日 < 3）保守取 3，摆烂后容量随速率自然回落；
+     再叠加按星期几的隐式产能画像（周末党友好，样本不足自动向全局收缩）。 */
+function getDailyCapacity(p, date) {
+  if (p.dailyCapacity != null) return Math.max(0, Math.round(p.dailyCapacity));
+  const today = todayStr();
+  const counts = getReviewCountsByDate(p);
+
+  // 28 天 EWMA 速率（自然日口径）
+  const HALF = 14, WIN = 28;
+  let wSum = 0, cwSum = 0, activeDays = 0;
+  for (let age = 0; age < WIN; age++) {
+    const d = addDays(today, -age);
+    const c = counts[d] || 0;
+    const w = Math.pow(2, -age / HALF);
+    wSum += w; cwSum += c * w;
+    if (c > 0) activeDays++;
+  }
+  if (activeDays < 3) {
+    // 冷启动：保守容量，不做星期画像
+    return 3;
+  }
+  // 先验速率 3 条/天，强度 K 随活跃天数衰减，避免少量样本就剧烈跳变
+  const K = Math.max(0, 8 - Math.min(activeDays, 8));
+  const PRIOR = 3;
+  const baseRate = (cwSum + PRIOR * K) / (wSum + K);
+  if (!date) return Math.max(1, Math.min(30, Math.round(baseRate * 0.9)));
+  return getWeekdayAwareCap(p, date, counts, activeDays);
+}
+
+/* 指定日期的容量：在全局 EWMA 速率基础上，用"该星期几"的历史速率做收缩估计
+   （贝叶斯 shrinkage：样本越少越向全局靠拢），窗口 56 天、半衰期 28 天。 */
+function getWeekdayAwareCap(p, date, counts, activeDays) {
+  const dow = new Date(date + 'T00:00:00').getDay();
+  const HALF = 28, WIN = 56;
+  let gW = 0, gCW = 0;
+  const agg = { w: 0, cw: 0, n: 0 };
+  for (let age = 0; age < WIN; age++) {
+    const d = addDays(todayStr(), -age);
+    const c = counts[d] || 0;
+    const w = Math.pow(2, -age / HALF);
+    gW += w; gCW += c * w;
+    if (new Date(d + 'T00:00:00').getDay() === dow) {
+      agg.w += w; agg.cw += c * w;
+      if (c > 0) agg.n++;
+    }
+  }
+  if (agg.n < 2 || agg.w <= 0) {
+    // 该星期几样本不足：回退到全局 28 天口径（冷启动已在外层处理）
+    return Math.max(1, Math.round((gCW / gW) * 0.9));
+  }
+  const globalRate = gCW / gW;
+  const dowRate = agg.cw / agg.w;
+  const shrink = agg.n / (agg.n + 4); // n=2→0.33, n=4→0.5, n=8→0.67
+  const rate = shrink * dowRate + (1 - shrink) * globalRate;
+  return Math.max(1, Math.min(30, Math.round(rate * 0.9)));
+}
+
+/* 查询某一天已排的复习量（不含已掌握的）；可传负载表用于批量排期 */
+function getReviewLoadOnDate(p, date, loadMap) {
+  if (loadMap) return loadMap.get(date) || 0;
   return (p.items || []).filter(it =>
     !it.mastered && !it.manualMastered && it.nextReviewDate === date
   ).length;
@@ -4403,8 +4675,12 @@ function updatePressurePanel() {
   } else {
     scheduleCap = getDailyCapacity(p);
   }
-  // 系统推荐舒适量 = 近期平均复习量的80%
-  const recThreshold = Math.max(3, Math.round(getDailyCapacity(p) * 0.8));
+  // 系统推荐：容量是已留过 10% 余量的保守估计，舒适量再取其 80%
+  const capForRec = getDailyCapacity(p);
+  const recThreshold = Math.max(3, Math.round(capForRec * 0.8));
+  const recTxt = capForRec > 0
+    ? `每日复习容量当前约 ${capForRec} 道，与舒适量取较小值决定实际每日排题量；建议舒适量设为约 ${recThreshold} 道，与容量相近。`
+    : '';
 
   // 计算未来7天负载
   const today = todayStr();
@@ -4438,16 +4714,16 @@ function updatePressurePanel() {
   let level, levelCls, hint;
   if (overDays === 0 && avg <= threshold * 0.6) {
     level = '轻松'; levelCls = 'pressure-ok';
-    hint = `舒适量 ${threshold} 道/天，未来7天无超量，平均每天 ${avg.toFixed(1)} 道。系统推荐舒适量约 ${recThreshold} 道。`;
+    hint = `舒适量 ${threshold} 道/天，未来7天无超量，平均每天 ${avg.toFixed(1)} 道。${recTxt}`;
   } else if (overDays === 0) {
     level = '适中'; levelCls = 'pressure-ok';
-    hint = `舒适量 ${threshold} 道/天，未来7天无超量，平均每天 ${avg.toFixed(1)} 道。系统推荐舒适量约 ${recThreshold} 道。`;
+    hint = `舒适量 ${threshold} 道/天，未来7天无超量，平均每天 ${avg.toFixed(1)} 道。${recTxt}`;
   } else if (overDays <= 2) {
     level = '偏紧'; levelCls = 'pressure-high';
-    hint = `舒适量 ${threshold} 道/天，未来7天有 ${overDays} 天超量（红色柱），平均每天 ${avg.toFixed(1)} 道。建议提高舒适量或使用分散功能。系统推荐约 ${recThreshold} 道。`;
+    hint = `舒适量 ${threshold} 道/天，未来7天有 ${overDays} 天超量（红色柱），平均每天 ${avg.toFixed(1)} 道。可用复习区横幅的「分散到未来」把部分内容摊开；如果你每天确实能多做，也可调高舒适量。${recTxt}`;
   } else {
     level = '过载'; levelCls = 'pressure-over';
-    hint = `舒适量 ${threshold} 道/天，未来7天有 ${overDays} 天超量（红色柱），平均每天 ${avg.toFixed(1)} 道。建议大幅提高舒适量，或先分散逾期题目。系统推荐约 ${recThreshold} 道。`;
+    hint = `舒适量 ${threshold} 道/天，未来7天有 ${overDays} 天超量（红色柱），平均每天 ${avg.toFixed(1)} 道。建议先用「分散到未来」摊开逾期内容，再考虑调高每日容量；硬扛容易再次堆积。${recTxt}`;
   }
   if (scheduleCap === 0) {
     hint += ' 排期容量设为0：不自动错峰，严格按间隔提醒。';
@@ -4482,7 +4758,9 @@ function updateSpreadPressureHint() {
   // 系统推荐
   const cap = getDailyCapacity(p);
   const rec = Math.max(3, Math.round(cap * 0.8));
-  msg += ` 系统推荐舒适量约 ${rec} 道（你近期平均每天复习约 ${cap} 道的80%）。`;
+  if (cap > 0) {
+    msg += ` 每日复习容量当前约 ${cap} 道，与舒适量取较小值决定实际每日排题量；建议舒适量设为约 ${rec} 道，与容量相近。`;
+  }
 
   hintEl.textContent = msg;
 }
@@ -4511,43 +4789,114 @@ function getLazyInfo(p) {
   return { days: Math.max(0, days), lastReviewDate: last };
 }
 
-/* 从 baseDate 开始找第一个未满的日子，最多顺延 maxOffset 天
-   注意：这里用的是「排期容量」(dailyCapacity)，即均匀模式下每天最多安排多少条。
-   「舒适量」(spreadThreshold) 是另一个概念，用于触发超额分散横幅，两者不同。 */
-function findAvailableDate(p, baseDate, maxOffset) {
-  const cap = getDailyCapacity(p);
-  if (cap <= 0) return baseDate; // 容量为0时不找空位，直接用基础日期
-  for (let offset = 0; offset <= maxOffset; offset++) {
-    const d = addDays(baseDate, offset);
-    if (getReviewLoadOnDate(p, d) < cap) return d;
+/* 双向最佳适配找空位（v2）
+   在 [baseDate-maxBack, baseDate+maxForward]（且不早于 minDate）窗口内：
+   1) 优先选"负载/容量比 < 1"中相对最空的日子，并列取离 baseDate 最近、再并列取更早（记忆更安全）
+   2) 窗口全满时，继续向后逐日扩展搜索（最多再找 14 天），优先把批量录入摊到更远的空位
+   3) 扩展后仍全满，才在原窗口内选相对负载最低的日子（有界超量，保证不无限顺延）
+   opts: { maxForward, maxBack=0, minDate=null, gap, loadMap=null }
+   容量为 0（严格模式）时直接返回 baseDate。 */
+function findAvailableDate(p, baseDate, opts) {
+  if (typeof opts === 'number') opts = { maxForward: opts }; // 兼容旧签名 (p, base, maxOffset)
+  opts = opts || {};
+  const maxForward = Math.max(0, opts.maxForward != null ? opts.maxForward : 1);
+  const maxBack = Math.max(0, opts.maxBack || 0);
+  const minDate = opts.minDate;
+
+  let start = addDays(baseDate, -maxBack);
+  const end = addDays(baseDate, maxForward);
+  if (minDate && start < minDate) start = minDate;
+
+  const consider = (d, best) => {
+    const cap = getDailyCapacity(p, d);
+    if (cap <= 0) return { strict: true }; // 严格模式：不错峰
+    const load = getReviewLoadOnDate(p, d, opts.loadMap);
+    const ratio = load / cap;
+    const offset = diffDays(baseDate, d); // 负=提前，正=顺延
+    const absOff = Math.abs(offset);
+    if (ratio < 1) {
+      if (!best.found
+        || ratio < best.found.ratio - 1e-9
+        || (Math.abs(ratio - best.found.ratio) < 1e-9 && absOff < best.found.absOff)
+        || (Math.abs(ratio - best.found.ratio) < 1e-9 && absOff === best.found.absOff && offset < best.found.offset)) {
+        best.found = { d, ratio, absOff, offset };
+      }
+    }
+    if (!best.fallback
+      || ratio < best.fallback.ratio - 1e-9
+      || (Math.abs(ratio - best.fallback.ratio) < 1e-9 && offset > best.fallback.offset)) {
+      best.fallback = { d, ratio, offset };
+    }
+    return best;
+  };
+
+  const acc = { found: null, fallback: null };
+  for (let d = start; ; d = addDays(d, 1)) {
+    const r = consider(d, acc);
+    if (r && r.strict) return baseDate;
+    if (d >= end) break;
   }
-  // 都满了，返回 maxOffset 那天（可能超量，但保证不无限拖）
-  return addDays(baseDate, maxOffset);
+  if (acc.found) return acc.found.d;
+
+  // 窗口全满：向后扩展最多 14 天寻找真正的空位
+  const outerEnd = addDays(end, 14);
+  for (let d = addDays(end, 1); d <= outerEnd; d = addDays(d, 1)) {
+    const cap = getDailyCapacity(p, d);
+    if (cap <= 0) break;
+    const load = getReviewLoadOnDate(p, d, opts.loadMap);
+    if (load < cap) return d;
+  }
+  // 扩展仍满：在原窗口内有界超量
+  return (acc.fallback || { d: baseDate }).d;
 }
 
 /* 智能排期：根据模式计算下次复习日期
    - classic：严格按间隔
-   - balanced：间隔为基础，容量约束下找空位
-*/
-function scheduleNextReview(p, item, baseDate, stage) {
+   - balanced：以间隔为基础，在容量约束下双向错峰；顺延窗口随间隔收窄（后期不再被推 +50%） */
+function scheduleNextReview(p, item, baseDate, stage, gapOverride) {
   const intervals = getItemIntervals(item, p);
-  let gap = intervals[Math.min(stage, intervals.length - 1)] || intervals[0] || 1;
+  const st = Math.min(stage != null ? stage : (item.stage || 0), intervals.length - 1);
+  let gap = gapOverride || intervals[st] || intervals[0] || 1;
   // 提前复习过的条目，间隔缩短15%（主动提前复习说明需要多巩固）
   if (item.earlyReviewed) gap = Math.max(1, Math.round(gap * 0.85));
   const base = addDays(baseDate, gap);
   if (p.reviewMode === 'balanced' && p.type === 'mistake') {
-    // 均匀模式：最多顺延 gap 的 50%
-    const maxOffset = Math.max(1, Math.round(gap * 0.5));
-    return findAvailableDate(p, base, maxOffset);
+    const maxForward = Math.max(1, Math.round(gap * 0.25));
+    const maxBack = Math.min(2, Math.floor(gap * 0.25));
+    return findAvailableDate(p, base, {
+      maxForward, maxBack, minDate: addDays(baseDate, 1), gap
+    });
   }
   return base;
 }
 
-/* 防饥饿：判断这条是否还能被分散 */
-function canBeSpread(it) {
+/* 启动自动均衡：均匀模式下，今天待复习超过舒适量时，
+   自动把优先级最低的超额条目摊到未来 3 天（每个项目每天最多一次，严格容量0不触发）。
+   返回实际移动条数。 */
+function autoBalanceIfNeeded(p) {
+  if (!p || p.type === 'exercise') return 0;
+  if (p.reviewMode !== 'balanced') return 0;
+  if (p.dailyCapacity === 0) return 0;
+  const today = todayStr();
+  if (p.lastAutoBalanceDate === today) return 0;
+  p.lastAutoBalanceDate = today; // 先标记，保证幂等、防 render 重入
+  const cap = getComfortCap(p);
+  const due = getDueItems(p).slice().sort(compareItemPriority);
+  if (due.length <= cap) {
+    p.updatedAt = Date.now();
+    saveStore();
+    return 0;
+  }
+  due.slice(0, cap).forEach(it => { it.nextReviewDate = today; });
+  const excess = due.slice(cap);
+  return spreadItems(p, excess, 3);
+}
+
+/* 防饥饿：判断这条是否还能被分散（注意：调用方需保证能拿到项目配置） */
+function canBeSpread(it, p) {
   if (it.spreadCount >= 3) return false; // 被分散过3次，不能再推
   if (!it.nextReviewDate) return false;
-  const intervals = it.customIntervals || DEFAULT_INTERVALS;
+  const intervals = p ? getItemIntervals(it, p) : (it.customIntervals || DEFAULT_INTERVALS);
   const stage = it.stage || 0;
   const maxGap = (intervals[Math.min(stage, intervals.length - 1)] || 1) * 2;
   const overdue = diffDays(it.nextReviewDate, todayStr());
@@ -4559,9 +4908,46 @@ function canBeSpread(it) {
 let pendingConfirmItem = null;
 let pendingConfirmProject = null;
 let pendingConfirmFromSkip = false; // 标记确认弹窗是否来自"已熟知"按钮
+let __autoBalanceToastShown = {}; // 自动均衡 toast 当日去重（key: projectId:date）
 
 function getItemIntervals(item, p) {
   return (item.customIntervals && item.customIntervals.length) ? item.customIntervals : getIntervals(p);
+}
+
+/* 统一三档复习质量模型（错题本 / 背书本共用，Anki Again/Hard/Good 思路）
+   - good（做对/记得）：进入下一轮，间隔 = 下一轮标准间隔
+   - fuzzy（看答案/模糊）：也进轮，但新间隔 ≤ 当前间隔×1.3，薄弱内容不会被快速放到长间隔
+   - forgot（做错/忘记）：停留本轮、间隔回到首轮；连续 rollbackAfter 次 forgot 再退一轮
+   纯函数：传入当前 stage / wrongStreak，返回 { stage, gap, wrongStreak }。 */
+function transitionReview(intervals, s0, wrongStreak0, quality, isFirstLearn, rollbackAfter) {
+  rollbackAfter = rollbackAfter || 2;
+  const last = intervals.length - 1;
+  const firstGap = intervals[0] || 1;
+  if (isFirstLearn) {
+    let gap = firstGap;
+    if (quality === 'fuzzy') gap = Math.max(1, Math.round(firstGap / 2));
+    else if (quality === 'forgot') gap = 1;
+    return { stage: 0, gap, wrongStreak: quality === 'forgot' ? 1 : 0 };
+  }
+  const curGap = intervals[Math.min(s0, last)] || firstGap;
+  if (quality === 'good') {
+    const stage = Math.min(s0 + 1, last);
+    return { stage, gap: intervals[stage] || firstGap, wrongStreak: 0 };
+  }
+  if (quality === 'fuzzy') {
+    if (s0 >= last) {
+      // 已在最后一轮仍模糊：不毕业，间隔小幅拉长
+      return { stage: last, gap: Math.max(curGap + 1, Math.round(curGap * 1.3)), wrongStreak: 0 };
+    }
+    const stage = s0 + 1;
+    const nextGap = intervals[stage] || curGap;
+    const gap = Math.min(nextGap, Math.max(curGap + 1, Math.round(curGap * 1.3)));
+    return { stage, gap, wrongStreak: 0 };
+  }
+  // forgot
+  const wrongStreak = wrongStreak0 + 1;
+  const stage = wrongStreak >= rollbackAfter ? Math.max(0, s0 - 1) : s0;
+  return { stage, gap: firstGap, wrongStreak };
 }
 
 /* 根据 reviews 历史重算 stage / mastered / masteredDate（修改历史评价后调用） */
@@ -4576,27 +4962,27 @@ function recomputeItemMastery(item, p) {
     item.earlyReviewed = false;
     return;
   }
+  const intervals = getItemIntervals(item, p);
   let stage = 0; // 第一条 review 是首次学习，stage=0
   let wrongStreak = 0;
-  // 背书：无论评价都顺序推进 stage
-  // 错题：forgot 不推进 stage（保持当前间隔）；good/fuzzy 推进
+  let lastGap = intervals[0] || 1;
+  // 统一三档模型回放：good 进轮；fuzzy 进轮但间隔受限；forgot 停留（连续2次退一轮）；错题/背书一致
   for (let i = 1; i < reviews.length; i++) {
-    const q = reviews[i].quality;
-    if (!(p.type === 'mistake' && q === 'forgot')) {
-      stage += 1;
-    }
-    if (q === 'forgot') wrongStreak += 1; else wrongStreak = 0;
+    const t = transitionReview(intervals, stage, wrongStreak, reviews[i].quality, false, p.lapseRollback);
+    stage = t.stage;
+    wrongStreak = t.wrongStreak;
+    lastGap = t.gap;
   }
   item.stage = stage;
   item.wrongStreak = wrongStreak;
   item.spreadCount = 0; // 重算后清零分散次数
   item.earlyReviewed = false;
-  // 判断是否掌握：只有最后一轮 + 满3次 + 最近3次全对才直接标记（后台重算不弹窗）
-  const intervals = getItemIntervals(item, p);
+  // 判断是否掌握：最后一轮 + 满3次 + 最近3次全对（最后一次必须是 good）才直接标记（后台重算不弹窗）
   const isLastRound = stage >= intervals.length - 1;
   const recent = reviews.slice(-3);
   const allGood = recent.length >= 1 && recent.every(r => r.quality === 'good');
-  if (isLastRound && allGood && reviews.length >= 3) {
+  const lastQuality = reviews[reviews.length - 1].quality;
+  if (isLastRound && lastQuality === 'good' && allGood && reviews.length >= 3) {
     item.mastered = true;
     item.masteredDate = reviews[reviews.length - 1].date;
     item.nextReviewDate = null;
@@ -4605,7 +4991,7 @@ function recomputeItemMastery(item, p) {
     item.masteredDate = null;
     // 提前复习过的条目，临时设回 earlyReviewed 让 scheduleNextReview 能缩短间隔
     if (wasEarlyReviewed) item.earlyReviewed = true;
-    item.nextReviewDate = scheduleNextReview(p, item, reviews[reviews.length - 1].date, stage);
+    item.nextReviewDate = scheduleNextReview(p, item, reviews[reviews.length - 1].date, stage, lastGap);
     item.earlyReviewed = false; // 算完再重置
   }
 }
@@ -4617,21 +5003,10 @@ function applyReview(item, quality, p, note) {
   item.reviews = item.reviews || [];
   const isFirstLearn = item.reviews.length === 0;
 
-  let newStage;
-  if (isFirstLearn) {
-    newStage = 0;
-    if (quality === 'forgot') item.wrongStreak = 1; else item.wrongStreak = 0;
-  } else {
-    // 背书：无论评价都顺序推进 stage
-    // 错题：forgot 不推进 stage（保持当前间隔，做错了不该拉长间隔）；good/fuzzy 推进
-    if (p.type === 'mistake' && quality === 'forgot') {
-      newStage = item.stage || 0;
-    } else {
-      newStage = (item.stage || 0) + 1;
-    }
-    if (quality === 'forgot') item.wrongStreak = (item.wrongStreak || 0) + 1;
-    else item.wrongStreak = 0;
-  }
+  // 统一三档质量模型（错题/背书一致）：good 进轮；fuzzy 进轮但间隔受限；forgot 停留、连续2次退一轮
+  const tr = transitionReview(intervals, item.stage || 0, item.wrongStreak || 0, quality, isFirstLearn, p.lapseRollback);
+  const newStage = tr.stage;
+  item.wrongStreak = tr.wrongStreak;
 
   const review = { date: today, quality, stage: isFirstLearn ? 0 : newStage };
   if (note && note.trim()) review.note = note.trim().slice(0, 60);
@@ -4645,31 +5020,26 @@ function applyReview(item, quality, p, note) {
   saveStore(); // 立即存盘，避免弹出确认弹窗时刷新导致本次评价丢失
 
   if (isFirstLearn) {
-    const firstGap = intervals[0] || 1;
-    let gap = firstGap;
-    if (quality === 'fuzzy') gap = Math.max(1, Math.round(firstGap / 2));
-    else if (quality === 'forgot') gap = 1;
     item.mastered = false;
     item.masteredDate = null;
-    // 均匀模式下首次复习也智能排期（新录入不算当天任务量，但首次复习要错峰）
-    const base = addDays(today, gap);
-    item.nextReviewDate = (p.reviewMode === 'balanced' && p.type === 'mistake')
-      ? findAvailableDate(p, base, Math.max(1, Math.round(gap * 0.5)))
-      : base;
+    // 首次学习也走统一排期（均匀模式下自动错峰；新录入不计入当天任务量）
+    if (wasEarlyReviewed) item.earlyReviewed = true;
+    item.nextReviewDate = scheduleNextReview(p, item, today, 0, tr.gap);
+    item.earlyReviewed = false;
     p.updatedAt = Date.now();
     return;
   }
 
-  // 自然毕业逻辑：只有走到最后一轮才考虑毕业
-  // - 最后一轮且复习≥3次且最近3次全对 → 直接毕业（不弹窗）
-  // - 最后一轮但不满足上述条件 → 弹确认掌握弹窗
-  // - 未到最后一轮 → 正常排期，不弹窗
+  // 毕业逻辑：只有 good 走到最后一轮才考虑毕业（fuzzy/forgot 永不触发毕业）
+  // - 最后一轮 + 复习≥3次 + 最近3次全对 → 直接毕业（不弹窗）
+  // - 最后一轮 good 但不满足上述条件 → 弹确认掌握弹窗
+  // - 其他情况 → 按三档模型正常排期，不弹窗
   const recent = item.reviews.slice(-3);
   const allGood = recent.length >= 1 && recent.every(r => r.quality === 'good');
   const tooFew = item.reviews.length < 3;
   const isLastRound = newStage >= intervals.length - 1;
 
-  if (isLastRound) {
+  if (quality === 'good' && isLastRound) {
     if (allGood && !tooFew) {
       // 最后一轮 + 满3次 + 最近3次全对 → 直接毕业
       item.mastered = true;
@@ -4677,11 +5047,11 @@ function applyReview(item, quality, p, note) {
       item.nextReviewDate = null;
     } else {
       // 最后一轮但不满足直接毕业条件 → 弹窗确认
-      // 弹窗前先落一个默认的 nextReviewDate（最长间隔），避免用户杀进程/刷新后 stage 已推进但 nextReviewDate 还是旧值的不一致状态
+      // 弹窗前先落一个默认的下次复习日期（最长间隔），避免用户杀进程/刷新后 stage 已推进但 nextReviewDate 还是旧值的不一致状态
       const lastGap = intervals[intervals.length - 1] || 30;
       item.mastered = false;
       item.masteredDate = null;
-      item.nextReviewDate = addDays(today, lastGap);
+      item.nextReviewDate = scheduleNextReview(p, item, today, newStage, lastGap);
       p.updatedAt = Date.now();
       saveStore();
       pendingConfirmItem = item;
@@ -4692,11 +5062,11 @@ function applyReview(item, quality, p, note) {
       return;
     }
   } else {
-    // 未到最后一轮 → 不掌握，按正常间隔安排下次复习
+    // 未到最后一轮，或 fuzzy/forgot → 不掌握，按三档模型安排下次复习
     item.mastered = false;
     item.masteredDate = null;
     if (wasEarlyReviewed) item.earlyReviewed = true;
-    item.nextReviewDate = scheduleNextReview(p, item, today, newStage);
+    item.nextReviewDate = scheduleNextReview(p, item, today, newStage, tr.gap);
     item.earlyReviewed = false;
   }
   p.updatedAt = Date.now();
@@ -4854,7 +5224,7 @@ function confirmMasterItem(confirm, mode, customIntervals) {
     item.masteredDate = null;
     item.customIntervals = null;
     const intervals = getIntervals(p);
-    item.nextReviewDate = addDays(todayStr(), intervals[0]);
+    item.nextReviewDate = scheduleNextReview(p, item, todayStr(), 0, intervals[0]);
   } else if (mode === 'custom' && customIntervals && customIntervals.length) {
     item.stage = 0;
     item.reviews = [];
@@ -4862,7 +5232,7 @@ function confirmMasterItem(confirm, mode, customIntervals) {
     item.mastered = false;
     item.masteredDate = null;
     item.customIntervals = customIntervals;
-    item.nextReviewDate = addDays(todayStr(), customIntervals[0]);
+    item.nextReviewDate = scheduleNextReview(p, item, todayStr(), 0, customIntervals[0]);
   }
   p.updatedAt = Date.now();
   saveStore();
@@ -4882,15 +5252,20 @@ function closeConfirmMaster() {
     const lastGap = iv.length ? iv[iv.length - 1] : 30;
     item.mastered = false;
     item.masteredDate = null;
-    item.nextReviewDate = addDays(todayStr(), lastGap);
+    // 均匀模式下同样走智能错峰，避免最长一档直接压到已繁忙的日子
+    item.nextReviewDate = scheduleNextReview(p, item, todayStr(), item.stage || 0, lastGap);
     p.updatedAt = Date.now();
     saveStore();
     render();
   }
 }
-// 取消按钮：关闭弹窗，但评价已经落盘，需要重新排期 nextReviewDate
+// 取消按钮：单纯关闭弹窗，不做任何数据操作（评价已在弹窗前落盘）
 $('#cmCancel').addEventListener('click', () => {
-  closeConfirmMaster();
+  $('#confirmMasterMask').hidden = true;
+  unlockBodyScroll();
+  pendingConfirmItem = null;
+  pendingConfirmProject = null;
+  pendingConfirmFromSkip = false;
 });
 // 注意：不监听遮罩层点击关闭，必须主动选择一个选项或取消
 
@@ -5089,7 +5464,7 @@ function getStatusMessage(p, m) {
         if (daysLeft >= 0) {
           const weeksLeft = Math.max(0, daysLeft / 7);
           if (weeksNeeded > weeksLeft) {
-            deadlineWarn = `<br><br>⚠️ 按你近30天每周攻克约 ${perWeek.toFixed(1)} 道的速度，剩余 ${m.remaining} 道约需 ${weeksNeeded} 周，可能赶不上 ${fmtCN(p.deadline)}。想更快攻克：① 在学习记录里对到期题点「提前复习」；② 到设置里把间隔天数调短。`;
+            deadlineWarn = `<br><br>⚠️ 按你近30天每周攻克约 ${perWeek.toFixed(1)} 道的速度，剩余 ${m.remaining} 道约需 ${weeksNeeded} 周，到 ${fmtCN(p.deadline)} 有点紧。想快一点：① 在学习记录里对到期题点「提前复习」；② 到设置里把间隔天数调短。`;
           }
         } else {
           deadlineWarn = `<br><br>⛔ 已超过截止日 ${-daysLeft} 天，还有 ${m.remaining} 道待攻克。`;
@@ -5103,7 +5478,7 @@ function getStatusMessage(p, m) {
         desc:`今天共 ${due} 道待复习（含 ${over} 道逾期）。错题越拖越忘，先把逾期的处理掉。已攻克 ${curN} / 共收录 ${tot} 道。错题按间隔排期滚动，做完当轮会自动排下一轮。${deadlineWarn}` };
     }
     if (due > 0) {
-      return { icon:'📝', cls:'warn', title:`今天有 ${due} 道错题待复习`,
+      return { icon:'📋', cls:'info', title:`今天有 ${due} 道错题待复习`,
         desc:`按间隔复习，做对推进、做错可继续。已攻克 ${curN} / 共收录 ${tot} 道，待攻克 ${rem} 道。错题按排期滚动，做完当轮会自动排下一轮。${deadlineWarn}` };
     }
     if (m.remaining === 0 && m.currentPage > 0) {
@@ -5117,15 +5492,15 @@ function getStatusMessage(p, m) {
   // 3. 数据不足：精简文案，明确粗略目标口径
   if (!m.enoughData || !m.etaDate) {
     if (m.needMoreActiveDays > 0) {
-      return { icon:'📝', cls:'warn', title:'打卡数据还少，预测仅供参考',
+      return { icon:'📊', cls:'info', title:'打卡数据还少，预测仅供参考',
         desc:`已积累 ${m.activeDays} 个学习日，再打约 ${m.needMoreActiveDays} 次卡就能给出可信估算。当前目标是按"每天都学"粗算的，仅供参考。` };
     }
-    return { icon:'📝', cls:'warn', title:'数据还不够，暂时无法预测',
+    return { icon:'📊', cls:'info', title:'数据还不够，暂时无法预测',
       desc:'再积累几个学习日，系统会结合你的真实节奏估算完成时间。' };
   }
 
   const verb = p.type === 'recite' ? '新学' : '做';
-  const paceBits = `按你每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${m.perStudyDayRaw.toFixed(1)} ${u} 的节奏`;
+  const paceBits = `按你每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${(Math.round(m.perStudyDayRaw * 10) / 10).toFixed(1)} ${u} 的节奏`;
   const confTxt = m.confidence === 'medium' ? '（样本还少，范围偏宽）' : '';
   const sparseNote = m.sparseLogging
     ? `（提示：你最近打卡间隔中位数约 ${m.medianGap} 天，产能估计可能有偏差，建议每天记录一次。）`
@@ -5134,15 +5509,15 @@ function getStatusMessage(p, m) {
   if (m.etaEarlyDate && m.etaLateDate && m.etaEarlyDate !== m.etaLateDate) {
     rangeTxt = `预计 ${fmtCN(m.etaEarlyDate)}～${fmtCN(m.etaLateDate)} 之间完成`;
   }
-  // 落后/超前量
+  // 落后/超前量（与 getMetrics 同口径：填了 startDate 用它，否则用最早打卡日）
   let behindTxt = '';
-  if (p.startDate && p.deadline && m.total > 0) {
-    const totalSpan = diffDays(p.startDate, p.deadline);
-    const elapsed = diffDays(p.startDate, m.t);
+  if (m.effStart && p.deadline && m.total > 0) {
+    const totalSpan = diffDays(m.effStart, p.deadline);
+    const elapsed = diffDays(m.effStart, m.t);
     if (totalSpan > 0) {
       const ideal = m.total * Math.max(0, Math.min(1, elapsed / totalSpan));
       const gap = Math.round(m.currentPage - ideal);
-      if (gap < -1) behindTxt = `目前相对理想进度落后 ${-gap} ${u}。`;
+      if (gap < -1) behindTxt = `比理想进度慢了 ${-gap} ${u}。`;
       else if (gap > 1) behindTxt = `目前相对理想进度超前 ${gap} ${u}。`;
     }
   }
@@ -5213,8 +5588,8 @@ function getStatusMessage(p, m) {
     const overdue = m.daysLeft < 0;
     const lateDays = overdue ? -m.daysLeft : (m.etaDate ? diffDays(p.deadline, m.etaDate) : 0);
     const statusLine = overdue
-      ? `已超过目标日期 ${lateDays} 天，还剩 ${rem} ${u}。按现在节奏（每周约 ${Math.round(m.activityPerWeek)} 天 × 每次约 ${m.perStudyDayRaw.toFixed(1)} ${u}）预计 ${fmtCN(m.etaDate)} 完成。`
-      : `还剩 ${rem} ${u}，按现在节奏预计 ${fmtCN(m.etaDate)} 完成${lateDays > 0 ? `，比目标晚 ${lateDays} 天` : ''}。${behindTxt}`;
+      ? `过了 ${lateDays} 天，还剩 ${rem} ${u}，预计 ${fmtCN(m.etaDate)} 完成。`
+      : `还剩 ${rem} ${u}，预计 ${fmtCN(m.etaDate)} 完成${lateDays > 0 ? `，比原定晚 ${lateDays} 天` : ''}。${behindTxt}`;
     let body = statusLine + '<br><br>';
     if (onTimePlans.length) {
       body += `<b>想赶上 ${fmtCN(p.deadline)}，可以选：</b><br>`;
@@ -5227,7 +5602,7 @@ function getStatusMessage(p, m) {
       body += '<br>';
     }
     body += `截止日期只是规划目标，节奏一变完成时间就会变，可随时在设置里调整。${sparseNote}${confTxt}`;
-    return { icon: overdue ? '⛔' : '🚧', cls:'bad', title: overdue ? `已超过目标日期 ${lateDays} 天` : `按当前节奏，赶不上 ${fmtCN(p.deadline)}`, desc: body };
+    return { icon: overdue ? '⛔' : '🚧', cls:'bad', title: overdue ? `已过目标日 ${lateDays} 天` : `时间紧，预计 ${fmtCN(m.etaDate)} 完成`, desc: body };
   }
 
   // 6. stretch：按 ratio 分轻/重两档，补出口
@@ -5248,21 +5623,21 @@ function getStatusMessage(p, m) {
     body += isHeavy
       ? `需要认真调整节奏，加把劲才能赶上。${confTxt}${sparseNote}`
       : `比平时多投入一点就来得及，不用太焦虑。${confTxt}${sparseNote}`;
-    return { icon:'⚠️', cls:'warn', title: isHeavy ? '需要明显加力才能赶上' : '加把劲，可以按时完成', desc: body };
+    return { icon: isHeavy ? '🚧' : '💪', cls: 'warn', title: isHeavy ? '需要明显加力才能赶上' : '加把劲，可以按时完成', desc: body };
   }
 
   // 7. easy：按富余天数分真轻松/刚好卡线
   const gapLate = m.etaLateDate ? diffDays(m.etaLateDate, p.deadline) : diffDays(m.etaDate, p.deadline);
   const isTight = gapLate <= 3;
   const safeTxt = m.rateLow != null
-    ? `即使按你状态较差时的节奏（每次约 ${m.rateLow.toFixed(1)} ${u}），预计 ${fmtCN(m.etaLateDate || m.etaDate)} 也能完成`
+    ? `即使按你状态较差时的节奏（每次约 ${(Math.round(m.rateLow * 10) / 10).toFixed(1)} ${u}），预计 ${fmtCN(m.etaLateDate || m.etaDate)} 也能完成`
     : `${rangeTxt}`;
   const aheadTxt = gapLate > 0 ? `，比目标最晚还提前 ${gapLate} 天` : (gapLate === 0 ? '，最晚也刚好赶上' : '');
   let body;
   if (isTight) {
-    body = `${paceBits}，${safeTxt}${aheadTxt}。<br><br>当前节奏刚好能赶上，但容错不多——最好偶尔多学一点，给后面留缓冲。每个学习日${verb} ${m.perStudyDay.toFixed(1)} ${u} 即可。${sparseNote}`;
+    body = `${paceBits}，${safeTxt}${aheadTxt}。<br><br>当前节奏刚好能赶上，不过余量不多——偶尔多学一点，后面更稳。每个学习日${verb} ${(Math.round(m.perStudyDay * 10) / 10).toFixed(1)} ${u} 即可。${sparseNote}`;
   } else {
-    body = `${paceBits}，${safeTxt}${aheadTxt}。<br><br>时间比较充裕，保持现在的节奏就好。如果哪天状态好，可以往前赶一点，给自己多留缓冲。每个学习日${verb} ${m.perStudyDay.toFixed(1)} ${u} 即可。${sparseNote}`;
+    body = `${paceBits}，${safeTxt}${aheadTxt}。<br><br>时间比较充裕，保持现在的节奏就好。如果哪天状态好，可以往前赶一点，给自己多留缓冲。每个学习日${verb} ${(Math.round(m.perStudyDay * 10) / 10).toFixed(1)} ${u} 即可。${sparseNote}`;
   }
   return { icon:'✅', cls:'ok', title: isTight ? '节奏刚好，别松懈' : '按当前节奏，可以按时完成', desc: body };
 }
@@ -5299,14 +5674,23 @@ function checkProgressPraise(p, m) {
   const streakTargets = [3, 5, 7, 14, 30];
   if (m.streakNow >= 3) {
     const hitTarget = streakTargets.find(t => m.streakNow === t);
-    const isRecord = m.streakNow > (m.longestStreak || 0);
+    // 已宣告过的纪录值也参与比较，避免刷新纪录只弹一次、之后再破纪录不再提示
+    const announcedRecord = p.shownPraises.streak_record_n || 0;
+    const histBest = Math.max(m.longestStreak || 0, announcedRecord);
+    const isRecord = m.streakNow > histBest;
     if (hitTarget || isRecord) {
       const key = isRecord ? 'streak_record' : `streak_${hitTarget}`;
-      if (!p.shownPraises[key]) {
+      const alreadyMilestone = !isRecord && p.shownPraises[key];
+      const alreadyRecord = isRecord && announcedRecord >= m.streakNow;
+      if (!alreadyMilestone && !alreadyRecord) {
+        const recordDesc = histBest > 0
+          ? `已经连续 ${m.streakNow} 天，超过了你之前的最长纪录 ${histBest} 天`
+          : `已经连续 ${m.streakNow} 天，这是你目前最长的一次连续打卡`;
         praises.push({
           priority: isRecord ? 2 : 3, key,
+          recordN: isRecord ? m.streakNow : 0,
           icon: '🔥', title: isRecord ? '连续打卡刷新纪录' : `连续打卡 ${m.streakNow} 天`,
-          desc: isRecord ? `已经连续 ${m.streakNow} 天，超过了你之前的最长纪录 ${m.longestStreak} 天` : `已经连续 ${m.streakNow} 天了，继续保持`
+          desc: isRecord ? recordDesc : `已经连续 ${m.streakNow} 天了，继续保持`
         });
       }
     }
@@ -5332,6 +5716,7 @@ function checkProgressPraise(p, m) {
   praises.sort((a, b) => a.priority - b.priority);
   const best = praises[0];
   p.shownPraises[best.key] = today;
+  if (best.recordN) p.shownPraises.streak_record_n = best.recordN;
   p.shownPraises._lastDate = today;
   p.updatedAt = Date.now();
   saveStore();
@@ -5476,6 +5861,150 @@ function updateRecitePreview() {
   }
 }
 
+/* ============ 大数字渲染：按字符长度自动降档字号，极端数值也不会撑破卡片 ============ */
+function _setBigNum(el, num, unit) {
+  if (num === null || num === undefined || num === '—' || num === '') {
+    el.textContent = '—';
+    el.classList.remove('num-sm', 'num-xs');
+    return;
+  }
+  el.innerHTML = `${num}<small>${unit}</small>`;
+  const len = String(num).replace(/[.,\s]/g, '').length;
+  el.classList.toggle('num-sm', len >= 5 && len < 7);
+  el.classList.toggle('num-xs', len >= 7);
+}
+
+/* ============ 今日目标：进度条 + 状态化鼓励 ============ */
+function _dgShow(box, fill, line, praise, mood, pct, l, pr) {
+  box.hidden = false;
+  box.className = 'daily-goal dg-' + mood;
+  praise.className = 'dg-praise dg-' + mood;
+  fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  line.textContent = l;
+  praise.textContent = pr;
+}
+
+/* 在第三张"目标"卡片内，显示今天已做多少 / 还差多少 / 超额多少，并按状态给不同鼓励 */
+function renderDailyGoal(p, m) {
+  const box = document.getElementById('dailyGoalBox');
+  const fill = document.getElementById('dgFill');
+  const line = document.getElementById('dgLine');
+  const praise = document.getElementById('dgPraise');
+  if (!box) return;
+  const u = unitName(p);
+  const today = todayStr();
+  const doneAll = m.currentPage > 0 && m.remaining === 0;
+
+  /* ---- 错题本：按"今日待解决条数"统计，不看累计页数 ---- */
+  if (p.type === 'mistake') {
+    const due = getDueItems(p).length;
+    let reviewedToday = 0;
+    (p.items || []).forEach(it => {
+      const revs = it.reviews || [];
+      if (revs.length >= 2 && revs[revs.length - 1].date === today) reviewedToday++;
+    });
+    if (doneAll) {
+      _dgShow(box, fill, line, praise, 'done-all', 100, '都完成了', '恭喜拿下整个目标，好好犒劳一下自己~');
+      return;
+    }
+    // 今天清完了但 due=0（最后一条刚做完），也展示一下清零鼓励
+    if (due <= 0 && reviewedToday > 0) {
+      _dgShow(box, fill, line, praise, 'done', 100, `今天复习了 ${reviewedToday} 条`, '今日错题已全部过完，可以收了~');
+      return;
+    }
+    if (due <= 0) {
+      _dgShow(box, fill, line, praise, 'idle', 0, '今天没有到期错题', '📝 暂无到期错题，遇到新错题随时收录~');
+      return;
+    }
+    // 注意：due 是"此刻仍待复习"的条数，已复习的会因 nextReviewDate 被推到未来而离开 due，
+    // 所以今日总量 = 剩余 due + 今天已复习，不能直接拿 due 当分母（否则越复习进度越"虚高"）。
+    const totalDueToday = due + reviewedToday;
+    const pct = totalDueToday > 0 ? Math.min(100, reviewedToday / totalDueToday * 100) : 0;
+    if (reviewedToday === 0) {
+      const tip = (m.streakNow >= 2)
+        ? `🔥 连续 ${m.streakNow} 天了，先从最久没复习的那条开始！`
+        : '📖 从最久没复习的那条开始，5 分钟进入状态~';
+      _dgShow(box, fill, line, praise, 'idle', 0, `今天还有 ${due} 条错题待复习`, tip);
+    } else {
+      const left = due;
+      const ratio = totalDueToday > 0 ? reviewedToday / totalDueToday : 0;
+      let mood, tip;
+      if (ratio < 0.34) {
+        mood = 'progress'; tip = `🌱 开了个好头，还剩 ${left} 条待复习~`;
+      } else if (ratio < 0.5) {
+        mood = 'progress'; tip = `🚶 稳步推进，还剩 ${left} 条~`;
+      } else if (ratio < 0.7) {
+        mood = 'progress'; tip = `🚶 已经过半，还剩 ${left} 条~`;
+      } else {
+        mood = 'almost'; tip = `🏃 只剩 ${left} 条，一鼓作气清完！`;
+      }
+      _dgShow(box, fill, line, praise, mood, pct, `已清 ${reviewedToday} / ${totalDueToday} 条`, tip);
+    }
+    return;
+  }
+
+  /* ---- 刷题 / 背书：按今日累计增量 todayDone 对今日目标 ---- */
+  const target = (m.perStudyDay != null) ? m.perStudyDay
+              : (isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay
+              : null;
+  if (doneAll) {
+    _dgShow(box, fill, line, praise, 'done-all', 100, '全部完成', '恭喜你拿下整个目标，好好犒劳一下自己~');
+    return;
+  }
+  if (target == null || target <= 0) {
+    _dgShow(box, fill, line, praise, 'idle', 0, '当前未设置每日目标', '💡 先做几天，系统会按你的节奏自动计算目标~');
+    return;
+  }
+
+  const done = m.todayDone || 0;
+  const targetR = Math.round(target * 10) / 10;
+  const doneR = Math.round(done * 10) / 10;
+  const ratio = target > 0 ? done / target : 0;
+  const pct = Math.min(100, ratio * 100);
+
+  let mood, l, pr;
+  if (done <= 0) {
+    mood = 'idle';
+    l = `今天目标 ${fmtUnitNum(targetR)} ${u} · 还没动`;
+    if (m.streakNow >= 3) {
+      pr = `🔥 已经连续 ${m.streakNow} 天了，今天别断，先从 ${Math.max(1, Math.round(targetR*0.3))} ${u}开始！`;
+    } else if (m.prevStudyDate) {
+      const gap = Math.max(0, diffDays(m.prevStudyDate, today) - 1);
+      if (gap >= 2) pr = `👋 歇了 ${gap} 天，今天先捡 ${Math.max(1, Math.round(targetR*0.3))} ${u}找找状态~`;
+      else if (m.feasibility === 'impossible') pr = `💪 今天 ${fmtUnitNum(targetR)} ${u}量不小，拆成几次完成~`;
+      else if (m.feasibility === 'stretch') pr = `💪 比平时多 ${Math.round((m.ratio - 1) * 100)}%，挑状态好的时候做~`;
+      else pr = `🎯 今天目标 ${fmtUnitNum(targetR)} ${u}，按节奏推进就好~`;
+    } else {
+      pr = `🎯 今天目标 ${fmtUnitNum(targetR)} ${u}，按节奏推进就好~`;
+    }
+  } else if (ratio < 1) {
+    const left = Math.max(0, Math.round((target - done) * 10 + 1e-9) / 10);
+    l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
+    if (ratio < 0.34) {
+      mood = 'progress'; pr = `🌱 开了个好头，再做 ${fmtUnitNum(left)} ${u}就到了~`;
+    } else if (ratio < 0.5) {
+      mood = 'progress'; pr = `🚶 稳步推进，再坚持一下就过半啦~`;
+    } else if (ratio < 0.7) {
+      mood = 'progress'; pr = `🚶 已经过半，保持节奏就好~`;
+    } else {
+      mood = 'almost'; pr = `🏃 就差 ${fmtUnitNum(left)} ${u}，一鼓作气完成！`;
+    }
+  } else if (Math.abs(ratio - 1) < 1e-9) {
+    mood = 'done';
+    l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
+    pr = '✅ 今日目标达成，剩下时间自由安排~';
+  } else {
+    const over = Math.max(0, Math.round((done - target) * 10 + 1e-9) / 10);
+    const overPct = Math.round((ratio - 1) * 100);
+    mood = 'over';
+    l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}（超 ${fmtUnitNum(over)}）`;
+    if (overPct < 20) pr = `🎉 小超额，今天状态不错~`;
+    else if (overPct < 50) pr = `🥳 比平时多做了不少，明天可以轻松些~`;
+    else pr = `🏅 超额 ${overPct}%，效率很高，明天可以少安排点！`;
+  }
+  _dgShow(box, fill, line, praise, mood, pct, l, pr);
+}
+
 /* ============ 主渲染 ============ */
 function render() {
   const p = cur();
@@ -5486,6 +6015,17 @@ function render() {
     lastRenderedProjectId = null;
     return;
   }
+  // 自动均衡：均匀模式下今日待复习超过舒适量时，自动把超额条目摊到未来 3 天（每项目每天最多一次）
+  try {
+    const _moved = autoBalanceIfNeeded(p);
+    if (_moved > 0) {
+      const _abKey = p.id + ':' + todayStr();
+      if (!__autoBalanceToastShown[_abKey]) {
+        __autoBalanceToastShown[_abKey] = true;
+        setTimeout(() => showToast('⚖️', '已自动均衡今日复习', `检测到今天待复习超过舒适量，已把 ${_moved} 条摊到未来 3 天；也可以在复习区横幅手动分散。`, 5200), 450);
+      }
+    }
+  } catch (e) {}
   // 任务切换时的轻微淡入反馈
   if (lastRenderedProjectId !== p.id) {
     const app = $('#app');
@@ -5544,6 +6084,24 @@ function render() {
   $('#welcome').hidden = true;
   $('#app').hidden = false;
 
+  // 每天第一次打开自动弹出今日总览（老用户，新用户不弹）
+  try {
+    const projectCount = Object.keys(store.projects || {}).length;
+    const lastDash = getLocalVal('dash_auto_date', '');
+    if (projectCount > 0 && lastDash !== todayStr()) {
+      setLocalVal('dash_auto_date', todayStr());
+      // 等首屏其他弹窗（changelog/备份/数据安全等）关掉后再弹
+      const tryShow = (attempt) => {
+        if (typeof anyModalOpen === 'function' && anyModalOpen()) {
+          if (attempt < 20) setTimeout(() => tryShow(attempt + 1), 300); // 最多等6秒
+          return;
+        }
+        if ($('#dashMask').hidden) openDashboard();
+      };
+      setTimeout(() => tryShow(0), 800);
+    }
+  } catch (e) {}
+
   const m = getMetrics(p);
   lastMetrics = { m, p };
   const type = TYPES[p.type] || TYPES.exercise;
@@ -5555,6 +6113,8 @@ function render() {
     else dlText += ` · 已过期 ${-m.daysLeft} 天`;
   }
   $('#deadlineLabel').textContent = p.deadline ? `目标：${p.deadline}（${dlText}）` : '目标：未设置';
+  // 自由出处错题本没有"截止日"概念，未设置时直接隐藏目标行，避免显示无意义的"未设置"
+  $('#deadlineLabel').style.display = (!p.deadline && p.type === 'mistake' && (!p.mistakeMode || p.mistakeMode === 'free')) ? 'none' : '';
 
   const isExercise = p.type === 'exercise';
   const setMode = isSetMode(p);
@@ -5651,97 +6211,110 @@ function render() {
   }
 
   if (isExercise) {
-    $('#labelRemaining').textContent = setMode ? '剩余套数' : '剩余页数';
-    $('#mRemaining').textContent = fmtUnitNum(m.remaining);
-    $('#mRemainingFoot').textContent = `共 ${fmtUnitNum(m.total)} ${u} · 已完成 ${fmtUnitNum(m.currentPage)} ${u}`;
+    // 环形进度图
+    const pct = m.total > 0 ? Math.min(100, m.currentPage / m.total * 100) : 0;
+    const circumference = 2 * Math.PI * 32.5; // r=32.5
+    $('#ringPct').textContent = Math.round(pct) + '%';
+    $('#ringLab').textContent = '已完成';
+    $('#ringFg').style.strokeDashoffset = circumference * (1 - pct / 100);
+    // 右侧剩余信息
+    $('#mergedSummary').textContent = `共 ${fmtUnitNum(m.total)} ${u} · 剩 ${fmtUnitNum(m.remaining)} ${u}`;
     if (m.remaining === 0 && m.currentPage > 0) {
       $('#labelNeed').textContent = '需平均每天做';
-      $('#mNeed').textContent = '0'; $('#mNeedFoot').textContent = '已经完成啦';
+      _setBigNum($('#mNeed'), '0', u); $('#mNeedFoot').textContent = '已经完成啦';
     } else if (!isFinite(m.needPerDay) || m.daysAvailable <= 0) {
       $('#labelNeed').textContent = '每个学习日目标';
-      $('#mNeed').textContent = '—';
+      _setBigNum($('#mNeed'), null);
       $('#mNeedFoot').textContent = m.daysAvailable == null
         ? (m.etaDate ? `未设截止日，按当前节奏预计 ${fmtCN(m.etaDate)} 完成` : '未设截止日，可在设置中添加')
         : '今天就是截止日';
     } else if (m.perStudyDay != null) {
       $('#labelNeed').textContent = '每个学习日需做';
-      $('#mNeed').textContent = m.perStudyDay >= 10 ? Math.round(m.perStudyDay) : m.perStudyDay.toFixed(1);
+      _setBigNum($('#mNeed'), m.perStudyDay >= 10 ? String(Math.round(m.perStudyDay)) : (Math.round(m.perStudyDay * 10) / 10).toFixed(1), u);
       const bits = [];
-      if (m.todayDone > 0) {
-        bits.push(m.todayDone >= m.perStudyDay
-          ? `今天已做 ${fmtUnitNum(m.todayDone)}，达标`
-          : `今天已做 ${fmtUnitNum(m.todayDone)} / ${m.perStudyDay >= 10 ? Math.round(m.perStudyDay) : m.perStudyDay.toFixed(1)}`);
-      }
       if (m.feasibility === 'stretch') bits.push(`比平时多 ${((m.ratio-1)*100).toFixed(0)}%`);
-      else if (m.feasibility === 'impossible' || m.daysLeft < 0) bits.push('当前节奏赶不上，可调整学习计划');
+      else if (m.feasibility === 'impossible' || m.daysLeft < 0) bits.push('时间紧，可微调');
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天做';
-      $('#mNeed').textContent = m.needPerDay.toFixed(1);
+      _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
       $('#mNeedFoot').textContent = m.needMoreDays > 0 ? `粗估（剩余÷剩余自然日）· 再积累约 ${m.needMoreDays} 个学习日后会更准` : '再积累几个学习日，将按你的真实节奏给出学习日目标';
     }
   } else {
     const isMistake = p.type === 'mistake';
     const ru = unitName(p); // 错题=条，背书=页
     const due = getDueItems(p).length;
-    $('#labelRemaining').textContent = isMistake ? '待攻克' : '剩余页数';
-    $('#mRemaining').textContent = m.remaining;
-    $('#mRemainingFoot').textContent = isMistake
+    // 环形进度图
+    const pct = m.total > 0 ? Math.min(100, m.currentPage / m.total * 100) : 0;
+    const circumference = 2 * Math.PI * 32.5; // 与 SVG 圆环 r=32.5 保持一致
+    $('#ringPct').textContent = Math.round(pct) + '%';
+    $('#ringLab').textContent = isMistake ? '已攻克' : '已完成';
+    $('#ringFg').style.strokeDashoffset = circumference * (1 - pct / 100);
+    // 底部总结
+    $('#mergedSummary').textContent = isMistake
       ? `已收录 ${m.total} 条 · 已攻克 ${m.currentPage} 条`
       : `共 ${m.total} 页 · 已完成 ${m.currentPage} 页`;
     if (isMistake) {
       // 错题本：只列今天要解决的复习条目，不预估"每天订正多少"
       if (due > 0) {
         $('#labelNeed').textContent = '今日待解决';
-        $('#mNeed').textContent = due;
-        $('#mNeedFoot').textContent = '道错题（复习优先，按排期滚动）';
+        _setBigNum($('#mNeed'), due, '条');
+        $('#mNeedFoot').textContent = '错题（复习优先，按排期滚动）';
       } else {
         $('#labelNeed').textContent = '今日待解决';
-        $('#mNeed').textContent = '0';
+        _setBigNum($('#mNeed'), '0', '条');
         $('#mNeedFoot').textContent = m.remaining === 0 && m.currentPage > 0
           ? '已全部攻克，遇到新错题随时收录'
           : '暂无到期错题 · 已攻克 ' + m.currentPage + ' / 共收录 ' + m.total + ' 道';
       }
     } else if (due > 0) {
       $('#labelNeed').textContent = '今日待复习';
-      $('#mNeed').textContent = due;
-      $('#mNeedFoot').textContent = '条内容（复习优先，按间隔推进）';
+      _setBigNum($('#mNeed'), due, '条');
+      $('#mNeedFoot').textContent = '内容（复习优先，按间隔推进）';
     } else if (m.remaining === 0 && m.currentPage > 0) {
       $('#labelNeed').textContent = '每个学习日目标';
-      $('#mNeed').textContent = '0'; $('#mNeedFoot').textContent = '已经完成啦';
+      _setBigNum($('#mNeed'), '0', u); $('#mNeedFoot').textContent = '已经完成啦';
     } else if (!isFinite(m.needPerDay) || m.daysAvailable <= 0) {
       $('#labelNeed').textContent = '每个学习日目标';
-      $('#mNeed').textContent = '—';
+      _setBigNum($('#mNeed'), null);
       $('#mNeedFoot').textContent = m.daysAvailable == null
         ? (m.etaDate ? `未设截止日，按当前节奏预计 ${fmtCN(m.etaDate)} 完成` : '未设截止日，可在设置中添加')
         : '今天就是截止日';
     } else if (m.perStudyDay != null) {
       $('#labelNeed').textContent = '每个学习日新学';
-      $('#mNeed').textContent = m.perStudyDay.toFixed(1);
+      _setBigNum($('#mNeed'), (Math.round(m.perStudyDay * 10) / 10).toFixed(1), ru);
       const bits = [];
-      if (m.todayDone > 0) {
-        bits.push(m.todayDone >= m.perStudyDay
-          ? `今天已学 ${fmtUnitNum(m.todayDone)} ${ru}，达标`
-          : `今天已学 ${fmtUnitNum(m.todayDone)} / ${m.perStudyDay.toFixed(1)} ${ru}`);
-      }
       bits.push(`约每周 ${Math.round(m.activityPerWeek)} 个学习日`);
       if (m.feasibility === 'stretch') bits.push(`比平时多 ${((m.ratio-1)*100).toFixed(0)}%`);
-      else if (m.feasibility === 'impossible') bits.push('当前节奏赶不上，可调整学习计划');
+      else if (m.feasibility === 'impossible') bits.push('时间紧，可微调');
       else bits.push('按平时节奏即可');
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天学';
-      $('#mNeed').textContent = m.needPerDay.toFixed(1);
+      _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
       $('#mNeedFoot').textContent = m.needMoreDays > 0 ? `粗估（剩余÷剩余自然日）· 再积累约 ${m.needMoreDays} 个学习日后会更准` : `${ru} / 天`;
     }
   }
 
+  // 第三张卡片内：今日进度条 + 状态化鼓励（覆盖刷题/背书/错题三种类型）
+  renderDailyGoal(p, m);
+
   if (m.daysAvailable == null) {
-    $('#mDays').textContent = '—';
-    $('#mDaysFoot').textContent = '未设截止日';
+    if (p.type === 'mistake' && (!p.mistakeMode || p.mistakeMode === 'free')) {
+      // 自由出处错题本无截止日：左卡改展示"待攻克错题"，比"可用天数 —"更有意义
+      $('#labelDays').textContent = '待攻克错题';
+      _setBigNum($('#mDays'), String(m.remaining), '条');
+    } else {
+      $('#labelDays').textContent = '可用天数';
+      _setBigNum($('#mDays'), null, '天');
+    }
+    // mergedSummary 已在上方按类型生成（共/剩、收录/攻克），这里不再覆盖成"未设截止日"
   } else {
-    $('#mDays').textContent = Math.max(0, m.daysAvailable);
-    $('#mDaysFoot').textContent = '含今天';
+    $('#labelDays').textContent = '可用天数';
+    _setBigNum($('#mDays'), String(Math.max(0, m.daysAvailable)), '天');
+    // 底部一句话总结：剩余 X 页 / 已积累 Y 个学习日
+    const remText = isExercise ? `剩 ${fmtUnitNum(m.remaining)} ${u}` : `剩 ${m.remaining} 条`;
+    $('#mergedSummary').textContent = `${remText} · 已积累 ${m.activeDays || 0} 个学习日`;
   }
 
   const status = getStatusMessage(p, m);
@@ -5757,7 +6330,7 @@ function render() {
     if (!m.enoughData) {
       algoNote = `怎么算的：系统统计你最近每个“真正学习的日子”推进了多少${u}、每周大约学几天，据此折算预计完成时间。累计约 2 周、满 7 个学习日后才会给出可靠范围；现在数据少，请先按粗略目标推进。`;
     } else {
-      algoNote = `怎么算的：按你最近的真实节奏（每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${m.perStudyDayRaw.toFixed(1)} ${u}）估算，完成日期给的是“顺利～慢一点”的范围而非死线；休息日不摊任务，只要在学习日做到目标量即可。节奏一变，范围会自动更新，截止日也可随时在设置里调整。`;
+      algoNote = `怎么算的：按你最近的真实节奏（每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${(Math.round(m.perStudyDayRaw * 10) / 10).toFixed(1)} ${u}）估算，完成日期给的是“顺利～慢一点”的范围而非死线；休息日不摊任务，只要在学习日做到目标量即可。节奏一变，范围会自动更新，截止日也可随时在设置里调整。`;
     }
   }
   $('#statusAlgoNote').textContent = algoNote;
@@ -5787,9 +6360,9 @@ function render() {
   $('#progressText').textContent = `${fmtUnitNum(m.currentPage)} / ${fmtUnitNum(m.total)} ${u} · ${pct.toFixed(1)}%`;
 
   const barTime = $('#barTime');
-  if (p.startDate) {
-    const totalSpan = diffDays(p.startDate, p.deadline);
-    const elapsed = diffDays(p.startDate, m.t);
+  if (m.effStart && p.deadline) {
+    const totalSpan = diffDays(m.effStart, p.deadline);
+    const elapsed = diffDays(m.effStart, m.t);
     if (totalSpan > 0) {
       const tp = Math.max(0, Math.min(100, elapsed / totalSpan * 100));
       barTime.style.left = tp + '%';
@@ -5983,6 +6556,9 @@ function renderUnits(p, m) {
   $('#unitSection').hidden = false;
   const list = $('#unitList');
   const isEx = p.type === 'exercise';
+  // 练习册：用"已完成页码区间"与单元范围求交集来算进度。
+  // 顺序录入下等价于旧公式（currentPage 当作"做到第几页"），但按区间/跳着录入时也正确。
+  const doneRanges = isEx ? getBookDoneRanges(p) : [];
 
   // 递归收集单元的所有页码范围（含子单元）
   function collectPages(unit) {
@@ -6093,13 +6669,17 @@ function renderUnits(p, m) {
       return html;
     }
 
-    // 刷题练习册：按页码推进
+    // 刷题练习册：按"已完成区间 ∩ 本单元范围"算进度（顺序/区间录入均正确）
     const len = Math.max(1, ue - us + 1);
-    const current = m.currentPage;
-    const done = Math.max(0, Math.min(len, current - us + 1));
+    let done = 0;
+    for (const dr of doneRanges) {
+      const s = Math.max(us, dr.start), e = Math.min(ue, dr.end);
+      if (e >= s) done += e - s + 1;
+    }
+    done = Math.min(len, Math.max(0, done));
     const pct = len > 0 ? done / len * 100 : 0;
-    const isCurrent = current >= us && current <= ue;
-    const isDone = current > ue;
+    const isDone = done >= len;
+    const isCurrent = !isDone && done > 0;
     const childInfo = hasChildren ? ` · ${u.children.length}个子单元` : '';
     let html = `<li class="unit-item" style="padding-left:${indent}px">
       <div class="unit-head">
@@ -6191,13 +6771,14 @@ function renderExerciseRecords(p) {
   }
 
   // 先按日期正序累积算 delta（和套卷模式一致），再按倒序显示
+  // 用 countClippedRanges 与顶部总进度同口径裁剪，避免录了单元外页时 delta 虚高
   let accRanges = [];
   const deltaByIdx = {};
   const ascRecs = [...recs].reverse();
   ascRecs.forEach((r, i) => {
-    const before = countMergedPages(mergeRanges(accRanges));
+    const before = countClippedRanges(accRanges, p);
     accRanges = mergeRanges(accRanges.concat([getRecordRange(r, p)]));
-    const after = countMergedPages(accRanges);
+    const after = countClippedRanges(accRanges, p);
     deltaByIdx[i] = after - before;
   });
   ascRecs.forEach((r, i) => {
@@ -6302,7 +6883,7 @@ function renderReciteRecords(p) {
     const li = document.createElement('li');
     li.className = mastery.cls;
     li.innerHTML =
-      `<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">` +
+      `<div class="r-line" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">` +
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日</span>` +
       `<span class="r-content" title="${esc(it.content)}">${esc(it.content)}</span>` +
       ((loc => loc ? `<span class="r-page">${esc(loc)}</span>` : '')(fmtItemLocator(p, it))) +
@@ -6389,13 +6970,16 @@ function drawChart(m, p) {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  // 深色模式下图表文字/网格用更亮的颜色，保证对比度
+
   const _isDark = document.documentElement.dataset.theme === 'dark';
-  const cc = (a) => _isDark ? `rgba(180,180,200,${a})` : `rgba(127,127,151,${a})`;
+  const tickCol  = _isDark ? 'rgba(190,190,210,.8)'  : 'rgba(110,108,140,.85)';
+  const gridCol  = _isDark ? 'rgba(190,190,210,.13)' : 'rgba(110,108,140,.13)';
+  const planCol  = _isDark ? 'rgba(190,190,210,.4)'  : 'rgba(150,149,170,.45)';
+  const todayCol = '#e0a020';
 
   // total 为 0 时画空图，避免除零
   if (!m.total || m.total <= 0) {
-    ctx.fillStyle = cc(.5);
+    ctx.fillStyle = tickCol;
     ctx.font = '13px -apple-system,sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -6403,10 +6987,9 @@ function drawChart(m, p) {
     return;
   }
 
-  const pad = { l: 38, r: 14, t: 14, b: 28 };
-  const cw = W - pad.l - pad.r;
-  const ch = H - pad.t - pad.b;
+  const u = unitName(p);
 
+  // 收集实际进度点（三种模式统一：exercise→records；recite/mistake→learnedDate+masteredDate）
   let pts = [];
   if (p.type === 'exercise') {
     const dates = [...new Set((p.records || []).map(r => r.date))].sort();
@@ -6422,55 +7005,121 @@ function drawChart(m, p) {
   }
   pts.sort((a, b) => a.date < b.date ? -1 : 1);
 
-  const idealStart = (p.startDate && (!pts.length || p.startDate < pts[0].date))
-    ? p.startDate : (pts.length ? pts[0].date : m.t);
-  const idealStartPage = (p.startDate && idealStart === p.startDate) ? 0 : (pts.length ? pts[0].page : 0);
+  // 右边留出数字标注空间；下边留两行刻度空间（第一行月/起止日期，第二行"今天"）
+  const pad = { l: 40, r: 64, t: 20, b: 42 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
 
-  let startD = idealStart;
-  let endD = p.deadline > m.t ? p.deadline : m.t;
-  if (m.etaDate && m.etaDate > endD) endD = m.etaDate;
+  // 起点：优先 startDate，否则第一个点
+  const startD = (p.startDate && (!pts.length || p.startDate <= pts[0].date))
+    ? p.startDate : (pts.length ? pts[0].date : m.t);
+
+  // 终点：有未到期 deadline 用 deadline（不再延伸到 ETA，ETA 在上方卡片已说明）
+  let endD;
+  if (p.deadline && p.deadline > m.t) {
+    endD = p.deadline;
+  } else {
+    endD = m.t;
+    if (m.etaDate && m.etaDate > endD) endD = m.etaDate;
+  }
 
   const spanDays = Math.max(1, diffDays(startD, endD));
   const X = d => pad.l + (diffDays(startD, d) / spanDays) * cw;
   const Y = pg => pad.t + ch - (Math.min(Math.max(pg, 0), m.total) / m.total) * ch;
 
+  // ---- 水平网格 + Y 轴刻度 ----
   ctx.font = '11px -apple-system,sans-serif';
   ctx.textBaseline = 'middle';
   for (let i = 0; i <= 4; i++) {
     const val = m.total * i / 4;
     const y = Y(val);
-      ctx.strokeStyle = cc(.18);
+    ctx.strokeStyle = gridCol;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(pad.l, y);
     ctx.lineTo(pad.l + cw, y);
     ctx.stroke();
-    ctx.fillStyle = cc(.85);
+    ctx.fillStyle = tickCol;
     ctx.textAlign = 'right';
     ctx.fillText(Math.round(val), pad.l - 6, y);
   }
+  // Y 轴单位（放在最上方刻度右侧，与刻度数字水平错开）
+  ctx.font = '10.5px -apple-system,sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(u, pad.l + 4, Y(m.total));
 
-  if (p.deadline) {
-    ctx.strokeStyle = cc(.5);
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    ctx.moveTo(X(idealStart), Y(idealStartPage));
-    ctx.lineTo(X(p.deadline), Y(m.total));
-    ctx.stroke();
-    ctx.setLineDash([]);
+  // ---- X 轴中间月刻度 ----
+  const todayX = X(m.t);
+  ctx.font = '10.5px -apple-system,sans-serif';
+  ctx.textBaseline = 'top';
+  {
+    const ticks = [];
+    const d = new Date(startD + 'T00:00:00');
+    d.setDate(1);
+    d.setMonth(d.getMonth() + 1);
+    for (;;) {
+      const ds = d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-01';
+      if (ds >= endD) break;
+      ticks.push(ds);
+      d.setMonth(d.getMonth() + 1);
+    }
+    let showTicks = ticks;
+    if (ticks.length > 5) {
+      const step = Math.ceil(ticks.length / 5);
+      showTicks = ticks.filter((_, i) => i % step === 0);
+    }
+    showTicks.forEach(ds => {
+      const x = X(ds);
+      if (x < pad.l + 24 || x > pad.l + cw - 24) return;
+      if (Math.abs(x - todayX) < 28) return; // 避开"今天"
+      ctx.strokeStyle = gridCol;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, pad.t + ch);
+      ctx.lineTo(x, pad.t + ch + 4);
+      ctx.stroke();
+      ctx.fillStyle = tickCol;
+      ctx.textAlign = 'center';
+      const dt = new Date(ds + 'T00:00:00');
+      ctx.fillText((dt.getMonth() + 1) + '月', x, pad.t + ch + 7);
+    });
   }
 
-  const xt = X(m.t);
-  ctx.strokeStyle = '#ffb020';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(xt, pad.t);
-  ctx.lineTo(xt, pad.t + ch);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  // ---- 计划线（startD → deadline 的匀速线；startD 已在上面按"填了 startDate 用它，否则用最早打卡日"算好）----
+  let idealAtToday = null;
+  if (startD && p.deadline && p.deadline > m.t) {
+    const totalSpan = diffDays(startD, p.deadline);
+    if (totalSpan > 0) {
+      ctx.strokeStyle = planCol;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(X(startD), Y(0));
+      ctx.lineTo(X(p.deadline), Y(m.total));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const elapsed = diffDays(startD, m.t);
+      idealAtToday = m.total * Math.max(0, Math.min(1, elapsed / totalSpan));
+    }
+  }
 
+  // ---- 今天竖线 ----
+  const xt = X(m.t);
+  if (xt >= pad.l && xt <= pad.l + cw) {
+    ctx.strokeStyle = todayCol;
+    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xt, pad.t);
+    ctx.lineTo(xt, pad.t + ch);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- 实际进度线 + 面积填充 ----
   const linePts = [];
   if (p.startDate && (!pts.length || p.startDate < pts[0].date)) {
     linePts.push({ date: p.startDate, page: 0 });
@@ -6478,10 +7127,26 @@ function drawChart(m, p) {
   pts.forEach(pt => linePts.push(pt));
 
   if (linePts.length) {
-    const grad = ctx.createLinearGradient(pad.l, 0, pad.l + cw, 0);
-    grad.addColorStop(0, '#5b6ef5');
-    grad.addColorStop(1, '#9333ea');
-    ctx.strokeStyle = grad;
+    // 面积填充（至少两个点才有意义）
+    if (linePts.length > 1) {
+      const ag = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch);
+      ag.addColorStop(0, _isDark ? 'rgba(123,141,247,.22)' : 'rgba(91,110,245,.14)');
+      ag.addColorStop(1, 'rgba(91,110,245,0)');
+      ctx.beginPath();
+      ctx.moveTo(X(linePts[0].date), Y(linePts[0].page));
+      linePts.forEach(pt => ctx.lineTo(X(pt.date), Y(pt.page)));
+      const lastX = X(linePts[linePts.length - 1].date);
+      ctx.lineTo(lastX, pad.t + ch);
+      ctx.lineTo(X(linePts[0].date), pad.t + ch);
+      ctx.closePath();
+      ctx.fillStyle = ag;
+      ctx.fill();
+    }
+    // 折线
+    const lg = ctx.createLinearGradient(pad.l, 0, pad.l + cw, 0);
+    lg.addColorStop(0, '#5b6ef5');
+    lg.addColorStop(1, '#9333ea');
+    ctx.strokeStyle = lg;
     ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -6490,36 +7155,50 @@ function drawChart(m, p) {
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
     ctx.stroke();
-
+    // 历史数据点
     ctx.fillStyle = '#5b6ef5';
     linePts.forEach(pt => {
       ctx.beginPath();
-      ctx.arc(X(pt.date), Y(pt.page), 3.2, 0, Math.PI * 2);
+      ctx.arc(X(pt.date), Y(pt.page), 3, 0, Math.PI * 2);
       ctx.fill();
     });
-
-    const last = linePts[linePts.length - 1];
-    ctx.beginPath();
-    ctx.arc(X(last.date), Y(last.page), 5.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#5b6ef5';
-    ctx.stroke();
   }
 
-  ctx.fillStyle = cc(.85);
+  // ---- 当前位置（折线末端即当前位置，不额外画大圈）----
+  const lastPt = linePts[linePts.length - 1];
+
+  // ---- "应到 X" 标注（今天竖线与计划线交点）----
+  if (idealAtToday != null && xt >= pad.l && xt <= pad.l + cw && lastPt) {
+    const iy = Y(idealAtToday);
+    ctx.beginPath();
+    ctx.arc(xt, iy, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = planCol;
+    ctx.fill();
+    ctx.font = '11px -apple-system,sans-serif';
+    ctx.fillStyle = tickCol;
+    ctx.textBaseline = 'middle';
+    let ix = xt + 8, ialign = 'left';
+    if (xt > pad.l + cw - 70) { ix = xt - 8; ialign = 'right'; }
+    ctx.textAlign = ialign;
+    // 点太靠下时文字放上方，避免和 X 轴标签重叠
+    const below = iy < pad.t + ch - 20;
+    ctx.fillText(`应到 ${fmtUnitNum(idealAtToday)} ${u}`, ix, below ? iy + 13 : iy - 13);
+  }
+
+  // ---- X 轴两端日期 ----
   ctx.font = '11px -apple-system,sans-serif';
   ctx.textBaseline = 'top';
+  ctx.fillStyle = tickCol;
   ctx.textAlign = 'left';
-  ctx.fillText(fmtCN(startD), pad.l, pad.t + ch + 8);
+  ctx.fillText(fmtCN(startD), pad.l, pad.t + ch + 7);
   ctx.textAlign = 'right';
-  ctx.fillText(fmtCN(endD), pad.l + cw, pad.t + ch + 8);
+  ctx.fillText(fmtCN(endD), pad.l + cw, pad.t + ch + 7);
 
-  if (xt > pad.l + 46 && xt < pad.l + cw - 46) {
+  // X 轴下方第二行标"今天"（与第一行起止/月刻度垂直错开，避免压住日期）
+  if (xt > pad.l + 24 && xt < pad.l + cw - 24) {
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#e0a020';
-    ctx.fillText('今天', xt, pad.t + ch + 8);
+    ctx.fillStyle = todayCol;
+    ctx.fillText('今天', xt, pad.t + ch + 24);
   }
 }
 
@@ -6805,6 +7484,166 @@ function timeGreeting() {
   if (h >= 18 && h < 23) return '晚上好';
   return '夜深了';
 }
+/* ============ 27考研倒计时 + 每日一句 ============ */
+const KY_EXAM_DAY = '2026-12-19';   // 考试第一天
+const KY_EXAM_END = '2026-12-20';   // 考试第二天
+const KY_START    = '2026-09-19';   // 句子库起点（今天）
+
+// 93句，按时间顺序：前期(31) + 中期(31) + 冲刺(29) + 考试当天(1) + 考试结束(1)
+const KY_QUOTES = [
+  // ===== 前期 9.19-10.19（慢慢来，扎根）=====
+  '因为我有能力跨越，这个考验才会降临。',
+  '我知道的，你做什么都会成功。',
+  '灵魂的渴望是命运的先知，敢于梦想，甘于孤独。',
+  '渴望，那就全力以赴。',
+  '大胆去做，你远比想象中的厉害！',
+  '你终究会成为你正在成为的人。',
+  '你笔下的每一道题，都在铺就上岸的路。',
+  '命运反复考验，只为看到一颗坚定自信的心。',
+  '前途是光明的，道路是曲折的，只要不放弃，事物总在变得更好。',
+  '人只有在进步的时候才会觉得累，别把疲惫当成失败的信号。',
+  '你可以一边害怕，一边勇敢。',
+  '愿你有前进一寸的勇气，亦有后退一尺的从容。',
+  '如果运气不好，那就试试勇气。',
+  '勇敢的人，不是不流泪的人，而是流着泪，仍然坚持奔跑的人。',
+  '别让困难定义你，你要定义困难。',
+  '且视他人疑目如萤火，大胆奔赴自己的前路。',
+  '迎万难，赢万难。',
+  '纵有狂风拔地起，我亦乘风破万里，不惧前路风浪。',
+  '千磨万击还坚劲，任尔东西南北风。',
+  '心有鸿鹄凌云志，不惧人间行路难。',
+  '去经历，去后悔，去做你想做的。',
+  '宁愿被绊倒无数次，也不要规规矩矩的走一辈子。',
+  '别在该奋斗的年纪选择安逸，你的努力配得上所有期待。',
+  '虽然辛苦，我还是会选择那种滚烫的人生。',
+  '这一次我一定要拼尽全力，不为谁，只为给自己一个交代。',
+  '看不清未来时，那就坚持得久一点。',
+  '慢也好，步子小也好，是在往前走就好。',
+  '三十年河东，三十年河西，莫欺少年穷。',
+  '看似不起眼的日复一日，会在将来的某一天，突然让你看到坚持的意义。',
+  '不是看见希望才坚持，是坚持过后，才会撞见希望。',
+  '成功是由日复一日的点滴努力汇聚而成的。',
+  // ===== 中期 10.20-11.19（坚持，自律）=====
+  '那些日复一日无人看见的努力，终会在某天兑现全部惊喜。',
+  '没有白熬的夜，没有白走的路，每一份付出都算数。',
+  '每一滴汗水都是浇灌成功的种子。',
+  '你的坚持，终将美好。',
+  '关关难过关关过，前路漫漫亦灿灿。',
+  '半山腰永远拥挤，坚持向上，去山顶独享风景。',
+  '追风赶月莫停留，平芜尽处是春山。',
+  '路虽远，行则将至；事虽难，做则必成。',
+  '知不足而奋进，望远山而力行。',
+  '无人问津的日子，都在悄悄扎根，花期未到，只管沉淀自己。',
+  '没有一朵花从一开始就是花，你也在慢慢扎根。',
+  '当你坚持不下去的时候，困难也快要坚持不住了。',
+  '且听风吟，静待花开。',
+  '好运藏在努力里。',
+  '理想与现实差了十万八千里，我鞭长莫及，却也马不停蹄。',
+  '所有的负担都会变成礼物，现在所受的苦，都会照亮未来迷茫的路。',
+  '生活先苦，而后回甘。',
+  '苦尽甘来终有时，一路向阳待花期。',
+  '所谓无底深渊，下去，也是前程万里。',
+  '命运给你一个低谷，是为了让你写出绝地反击的故事。',
+  '万物皆有裂痕，那是光照进来的地方。',
+  '夜色难免黑凉，前行必有曙光。',
+  '在隆冬，我终于知道，我身上有一个不可战胜的夏天。',
+  '不要慌，不要慌，太阳下山有月光，月亮西沉有朝阳。',
+  '请你务必，千次万次，救自己于水火。',
+  '失败和失望绝大部分是懒惰的错，成功和成就永远都是坚持拼搏的成果。',
+  '别辜负了你受的苦难，又对不起你的野心。',
+  '自律和不自律都会吃苦，不同的是，自律的苦会让人生越来越甜。',
+  '用行动打败焦虑，用坚持战胜迷茫。',
+  '情绪解决不了难题，落地行动，才是治愈焦虑最好的方式。',
+  '把行动交给现在，把结果交给时间。',
+  // ===== 冲刺期 11.20-12.18（最后一个月）=====
+  '没有人可以回到过去，但谁都可以从现在开始。',
+  '当你觉得晚了的时候，恰恰是最早的时候。',
+  '所有的为时已晚，其实是恰逢其时。',
+  '生活原本沉闷，但跑起来就有风，不必困住当下的情绪。',
+  '最完美的状态不是你不失误，而是你从没放弃成长。',
+  '人生最大的贵人，是努力向上的自己。',
+  '把自己活成一束光，自信坦荡，光芒万丈。',
+  '发光不是太阳的权利，你也可以。',
+  '我自己就是最好的，无需向他人证明。',
+  '自己这一页，应是明媚自由，步履生花。',
+  '自洽而内求，达观而内醒。',
+  '向外求求而不得，向内求生生不息。',
+  '人生是旷野，不是轨道，不必被世俗标准困住人生选择。',
+  '不用和任何人攀比，你有自己的节奏，有专属的花期。',
+  '人生是马拉松，不是短跑，不必因为暂时落后自我否定。',
+  '允许偶尔疲惫低落，但是不要停下向前的脚步。',
+  '爬到山顶，不是为了被世界看见，而是为了看见全世界。',
+  '你踮起脚尖靠近太阳，全世界都挡不住你的光。',
+  '满怀希望就会所向披靡。',
+  '最好的状态是未来可期。',
+  '向前看，轻舟已过万重山。',
+  '我们终将上岸，且阳光万里。',
+  '人生虽曲折，记得活出精彩。',
+  '哪怕身处沟渠，也要仰望星空。',
+  '愿你以渺小启程，以伟大结束。',
+  '少年不惧岁月长，彼方尚有荣光在。',
+  '凡是过往，皆为序章，所有将来，皆是可盼。',
+  '与其抱怨黑暗，不如点亮蜡烛。',
+  '能坚持到现在，你真的很棒！最后再看看错题翻翻书，早点休息~',
+  // ===== 考试当天 12.19 =====
+  '风雨兼程终有归期，提笔从容自信，合笔如愿以偿。',
+  // ===== 考试结束 12.20 =====
+  '一研为定，定为研一。'
+];
+
+function getKaoyanInfo() {
+  const today = todayStr();
+  const now = new Date();
+  const todayDate = new Date(today + 'T00:00:00');
+  const examDate = new Date(KY_EXAM_DAY + 'T00:00:00');
+  const endDate = new Date(KY_EXAM_END + 'T00:00:00');
+  const startDate = new Date(KY_START + 'T00:00:00');
+
+  const toExam = Math.ceil((examDate - todayDate) / 86400000);
+  const toEnd = Math.ceil((endDate - todayDate) / 86400000);
+  const dayIdx = Math.floor((todayDate - startDate) / 86400000);
+
+  let state = 'countdown'; // countdown / exam1 / exam2 / exam2-done / hidden
+  if (today > KY_EXAM_END) state = 'hidden';
+  else if (today === KY_EXAM_END) {
+    // 下午5点后才算考试结束
+    state = (now.getHours() >= 17) ? 'exam2-done' : 'exam2';
+  }
+  else if (today === KY_EXAM_DAY) state = 'exam1';
+
+  const quote = (dayIdx >= 0 && dayIdx < KY_QUOTES.length) ? KY_QUOTES[dayIdx] : '';
+  return { days: toExam, daysToEnd: toEnd, state, quote, dayIdx };
+}
+
+function getKaoyanHTML() {
+  const ky = getKaoyanInfo();
+  if (ky.state === 'hidden') return ''; // 12.21 起撤掉
+  let cls = '', emoji = '📚', title = '距离27考研还有';
+  let daysText = ky.days;
+  if (ky.state === 'exam1') {
+    cls = ' exam-day';
+    emoji = '✍️';
+    title = '今天是考研第一天';
+    daysText = '上考场';
+  } else if (ky.state === 'exam2') {
+    cls = ' exam-day';
+    emoji = '📝';
+    title = '今天是考研第二天';
+    daysText = '继续加油';
+  } else if (ky.state === 'exam2-done') {
+    cls = ' exam-done';
+    emoji = '🎉';
+    title = '考研结束啦';
+    daysText = '好好休息';
+  }
+  return `
+    <div class="kaoyan${cls}">
+      <div class="ky-label">${title}</div>
+      <div class="ky-days">${daysText}<small>${ky.state === 'countdown' ? '天' : ''}</small></div>
+      ${ky.quote ? `<div class="ky-divider"></div><div class="ky-quote-tag">每 日 一 句</div><div class="ky-quote">${ky.quote}</div>` : ''}
+    </div>`;
+}
+
 function openDashboard() {
   const ps = Object.values(store.projects);
   const today = todayStr();
@@ -6979,6 +7818,7 @@ function openDashboard() {
 
   $('#dashBody').innerHTML = `
     ${backupHtml}
+    ${getKaoyanHTML()}
     <div class="dash-hero ${urgent ? 'urgent' : ''}">
       <div class="greet-big">${g}</div>
       <div class="greet-sub">这是你今天的学习看板</div>
@@ -7132,7 +7972,7 @@ function buildReminderBody() {
       let need = 0, paceNote = '';
       if (m) {
         if (m.feasibility === 'impossible') {
-          lines.push(`${p.name}按当前节奏可能赶不上截止日，打开看看调整建议`);
+          lines.push(`${p.name}截止日有点紧，看看调整建议`);
         } else if (m.perStudyDay != null) { need = m.perStudyDay; paceNote = `（每周约${Math.round(m.activityPerWeek)}个学习日）`; }
         else if (isFinite(m.needPerDay) && m.needPerDay > 0) need = m.needPerDay;
       }
@@ -7155,7 +7995,7 @@ function buildReminderBody() {
       } else if (m) {
         // 背书：复习之外，同样提醒推进新进度
         if (m.feasibility === 'impossible') {
-          lines.push(`${p.name}按当前节奏可能赶不上截止日，打开看看调整建议`);
+          lines.push(`${p.name}截止日有点紧，看看调整建议`);
         } else if (m.remaining > 0) {
           let need = 0, approx = '';
           if (m.perStudyDay != null) { need = m.perStudyDay; approx = `（每周约${Math.round(m.activityPerWeek)}个学习日）`; }
@@ -7430,17 +8270,17 @@ function renderProgressInsights(p, m) {
     etaLines = `按你最近每周约 <b>${num(m.activityPerWeek)}</b> 个学习日、每次约 <b>${num(m.perStudyDayRaw)}</b> ${u} 的节奏：<br>预计在 <b>${fmtCN(m.etaEarlyDate)} ～ ${fmtCN(m.etaLateDate)}</b> 之间完成，基准约 <b>${fmtCN(m.etaDate)}</b>。`;
     if (m.feasibility === 'easy') etaLines += `<br><span style="color:var(--ok)">✅ 按当前节奏即可按时完成，保持就好。</span>`;
     else if (m.feasibility === 'stretch') etaLines += `<br><span style="color:#c07800">⚠️ 需要比平时略多投入（约多 ${Math.round((m.ratio - 1) * 100)}%），或在设置里把截止日延后到 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))} 更稳妥。</span>`;
-    else if (m.feasibility === 'impossible') etaLines += `<br><span style="color:var(--bad)">🚧 按当前节奏难以赶上截止日：建议增加每周学习天数，或把截止日延后到约 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))}。</span>`;
-    // 相对理想进度
-    if (p.startDate && p.deadline && p.total > 0) {
-      const span = diffDays(p.startDate, p.deadline);
-      const elapsed = diffDays(p.startDate, m.t);
+    else if (m.feasibility === 'impossible') etaLines += `<br><span style="color:var(--bad)">🚧 按现在节奏有点紧，建议增加每周学习天数，或把截止日延后到约 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))}。</span>`;
+    // 相对理想进度（与 getMetrics 同口径：填了 startDate 用它，否则用最早打卡日）
+    if (m.effStart && p.deadline && m.total > 0) {
+      const span = diffDays(m.effStart, p.deadline);
+      const elapsed = diffDays(m.effStart, m.t);
       if (span > 0) {
-        const ideal = p.total * Math.max(0, Math.min(1, elapsed / span));
+        const ideal = m.total * Math.max(0, Math.min(1, elapsed / span));
         const g = Math.round(m.currentPage - ideal);
         if (Math.abs(g) >= 1) etaLines += g > 0
-          ? `<br>📈 相对“${p.startDate}→${p.deadline} 匀速”的理想进度，<b style="color:var(--ok)">超前约 ${g} ${u}</b>。`
-          : `<br>📉 相对理想进度，<b style="color:var(--bad)">落后约 ${-g} ${u}</b>（落后量已计入每个学习日目标，不用额外补）。`;
+          ? `<br>📈 相对“${m.effStart}→${p.deadline} 匀速”的理想进度，<b style="color:var(--ok)">超前约 ${g} ${u}</b>。`
+          : `<br>📉 相对理想进度，<b style="color:var(--bad)">慢了约 ${-g} ${u}</b>（这部分已经算进每天目标里，不用额外补）。`;
         else etaLines += `<br>➖ 与理想进度基本同步。`;
       }
     }
@@ -8770,6 +9610,8 @@ function doImport(imported, mode) {
           if (it.earlyReviewed == null) it.earlyReviewed = false;
           if (it.stage == null) it.stage = 0;
           if (it.mastered == null) it.mastered = false;
+          if (!Array.isArray(it.reviews)) it.reviews = [];
+          if (it.masteredDate === undefined) it.masteredDate = null;
           if (it.learnedDate == null) it.learnedDate = todayStr();
         });
         if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
@@ -8787,7 +9629,7 @@ function doImport(imported, mode) {
         if (p.dailyCapacity == null) p.dailyCapacity = null;
         if (p.spreadThreshold == null) p.spreadThreshold = 5;
         if (p.totalLocked == null) p.totalLocked = false;
-        if (!p.deadline) p.deadline = todayStr();
+        if (!p.deadline && !(p.type === 'mistake' && (!p.mistakeMode || p.mistakeMode === 'free'))) p.deadline = todayStr();
         if (p.unitMode == null) p.unitMode = false;
         if (p.startDate == null) p.startDate = '';
         if (p.startPage == null) p.startPage = 0;
@@ -10117,11 +10959,15 @@ $('#btnReciteAdd').addEventListener('click', () => {
   }
   p.items.push(newItem);
   // 错题本均匀模式下，录入时走智能排期（必须在 push 之后，否则批量录入会全排到同一天）
+  const firstBase = addDays(date, gap);
   if (isMistake && p.reviewMode === 'balanced') {
-    const base = addDays(date, gap);
-    newItem.nextReviewDate = findAvailableDate(p, base, Math.max(1, Math.round(gap * 0.5)));
+    newItem.nextReviewDate = findAvailableDate(p, firstBase, {
+      maxForward: Math.max(1, Math.round(gap * 0.25)),
+      maxBack: Math.min(2, Math.floor(gap * 0.25)),
+      minDate: addDays(date, 1)
+    });
   } else {
-    newItem.nextReviewDate = addDays(date, gap);
+    newItem.nextReviewDate = firstBase;
   }
   p.updatedAt = Date.now();
   saveStore();
@@ -10224,7 +11070,7 @@ $('#reviewList').addEventListener('click', e => {
     if (!item) return;
 
     const reviewCount = (item.reviews || []).length;
-    const recent = item.reviews.slice(-3);
+    const recent = (item.reviews || []).slice(-3);
     const allGood = recent.length >= 1 && recent.every(r => r.quality === 'good');
     const tooFew = reviewCount < 3;
 
@@ -10320,7 +11166,14 @@ function checkReviewMilestone(p) {
   const remaining = getDueItems(p).length;
   if (reviewedToday >= threshold && remaining > 0) {
     milestoneFiredToday[key] = true;
-    showToast('🎉', `今天已经复习 ${reviewedToday} 条，辛苦了！`, `还有 ${remaining} 条，可以分散到未来减轻压力。`, 5000);
+    // 均匀模式下每日自动均衡已把今天控制在舒适量内，不再提示手动分散
+    let tip;
+    if (p.reviewMode === 'balanced' && remaining <= threshold) {
+      tip = `今天还剩 ${remaining} 条，在舒适量内，量力而行就好。`;
+    } else {
+      tip = `还有 ${remaining} 条，可以分散到未来减轻压力。`;
+    }
+    showToast('🎉', `今天已经复习 ${reviewedToday} 条，辛苦了！`, tip, 5000);
   }
 }
 
@@ -10331,10 +11184,25 @@ $('#overdueBanner').addEventListener('click', e => {
   if (!days || days < 1) return;
   const p = cur();
   if (!p) return;
-  const count = spreadOverdueItems(p, days);
-  if (count > 0) {
+  const r = spreadOverdueItems(p, days);
+  if (r.moved > 0 || r.blocked > 0) {
     render();
-    showToast('📅', `已分散 ${count} 条内容`, `未来 ${days} 天均匀安排，今天不再堆积。`);
+    if (r.moved > 0 && r.blocked > 0) {
+      showToast('📅', `已分散 ${r.moved} 条，${r.blocked} 条紧急逾期移回今天`, `可推迟的已均匀安排到未来 ${days} 天；逾期太久或多次推迟的不能再推，建议今天优先完成。`, 5200);
+    } else if (r.moved > 0) {
+      showToast('📅', `已分散 ${r.moved} 条内容`, `未来 ${days} 天均匀安排，今天不再堆积。`);
+    } else {
+      showToast('⚠️', `${r.blocked} 条逾期内容不能再推迟了`, '它们逾期太久或已多次推迟，再推会真的忘掉，已移到今天，建议优先清掉。', 4200);
+    }
+  } else {
+    const cap = getComfortCap(p, todayStr());
+    const dueN = getDueItems(p).length;
+    if (dueN > cap) {
+      // 还超舒适量却一条没动：全部被防饥饿锁死（逾期太久），不能再往后推
+      showToast('⚠️', '逾期内容不能再推迟了', '这些题逾期太久或已多次推迟，再推会真的忘掉，建议今天先清最上面的几条。', 4200);
+    } else {
+      showToast('✅', '今天的量在舒适范围内', `共 ${dueN} 条（舒适量 ${cap}），逾期的几条建议今天直接清掉，不必再往后分散。`, 4200);
+    }
   }
 });
 
@@ -10346,10 +11214,15 @@ $('#overdueBanner').addEventListener('click', e => {
     const days = parseInt(id.replace('excessSpread', ''), 10);
     const p = cur();
     if (!p) return;
+    const cap = getComfortCap(p, todayStr());
+    const due = getDueItems(p);
     const count = spreadExcessToday(p, days);
     if (count > 0) {
       render();
       showToast('📋', `已分散 ${count} 条到未来`, `优先保留最该复习的，其余 ${days} 天内均匀安排。`);
+    } else if (due.length > cap) {
+      // 超额但一条都没动：全部被防饥饿锁死（已推迟 3 次或逾期太久），不能再往后推
+      showToast('⚠️', '这些内容不能再推迟了', '它们已经被推迟多次，或逾期超过当前间隔的 2 倍，再推会真的忘掉，建议今天优先完成最上面的几条。', 4200);
     } else {
       showToast('✅', '今天的量刚好', '不需要分散，直接做完就好。');
     }
