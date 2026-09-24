@@ -76,7 +76,7 @@
   .ghost-btn:active{transform:scale(.98)}
 
   .card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid rgba(23,21,51,.03)}
-  h2{font-size:15px;font-weight:650;margin-bottom:14px}
+  h2{font-size:15px;font-weight:600;margin-bottom:14px}
   .muted{color:var(--muted);font-weight:400;font-size:13px}
   .hint{font-size:12.5px;color:var(--muted);line-height:1.7;margin-top:12px}
   .row-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
@@ -183,7 +183,7 @@
   .checkin input[type=date]{width:auto;flex:0 0 auto}
   .page-input{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);padding-bottom:9px}
   .page-input input{width:104px;text-align:center;font-size:15px;font-weight:600;color:var(--text);padding:9px 6px}
-  .page-input input.page-opt{width:96px;font-weight:550;color:var(--muted)}
+  .page-input input.page-opt{width:96px;font-weight:500;color:var(--muted)}
   .page-input .page-dash{color:#c5c4d8}
   .page-input input::-webkit-outer-spin-button,.page-input input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .page-input input{appearance:textfield;-moz-appearance:textfield}
@@ -192,7 +192,7 @@
   .date-quick{display:inline-flex;gap:2px;padding-bottom:9px}
   .date-quick .mode-mini{padding:6px 8px}
   .set-part{display:inline-flex;align-items:center;gap:6px;margin-left:6px;padding-left:10px;border-left:1px dashed var(--line,#e8e7f2);color:var(--muted);font-size:13px}
-  .set-part input{width:64px;font-size:14px;font-weight:550;padding:8px 4px}
+  .set-part input{width:64px;font-size:14px;font-weight:500;padding:8px 4px}
   .checkin-block{display:flex;flex-direction:column;gap:2px}
   .checkin-sub{font-size:12px;color:var(--muted);padding:0 2px}
 
@@ -278,7 +278,7 @@
   .pp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:9px}
   .pp-cell{border:1.5px solid var(--line);border-radius:11px;padding:9px 6px;text-align:center;cursor:pointer;background:#fff;transition:.12s;user-select:none}
   .pp-cell:hover{border-color:#c4c9f5;transform:translateY(-1px)}
-  .pp-cell .c-no{font-size:13px;font-weight:650;color:var(--text)}
+  .pp-cell .c-no{font-size:13px;font-weight:600;color:var(--text)}
   .pp-cell .c-pct{font-size:11px;margin-top:3px;color:var(--muted)}
   .pp-cell.done{background:#e8f7f0;border-color:#9fdcc2}
   .pp-cell.done .c-no,.pp-cell.done .c-pct{color:var(--ok)}
@@ -288,7 +288,7 @@
   .pp-cell-detail.open{display:block}
   .pp-sec-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:13px}
   .pp-sec-row:last-child{margin-bottom:0}
-  .pp-sec-name{flex:0 0 96px;color:var(--text);font-weight:550}
+  .pp-sec-name{flex:0 0 96px;color:var(--text);font-weight:500}
   .pp-sec-track{flex:1;height:8px;background:#ecebf5;border-radius:6px;overflow:hidden;display:flex;align-items:center}
   .pp-sec-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#5b6ef5,#9333ea)}
   .pp-sec-val{flex:0 0 46px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -329,6 +329,19 @@
   .kaoyan.exam-done{background:
     radial-gradient(circle at 20% 0%, rgba(80,220,160,.2) 0%, transparent 50%),
     linear-gradient(100deg,#0d5538 0%,#188055 100%)}
+  /* 每周小结卡片（温暖琥珀色，区别于紫色考研卡） */
+  .weekly-review{margin:0 0 16px;border-radius:18px;padding:20px 24px;
+    background:linear-gradient(120deg,#fff8ed 0%,#fff3e0 100%);
+    border:1px solid #ffe0b2;box-shadow:0 6px 20px -14px rgba(212,162,78,.4)}
+  .weekly-review .wr-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .weekly-review .wr-title{font-size:15px;font-weight:700;color:#9a6a17}
+  .weekly-review .wr-date{font-size:12px;color:#b08a4a}
+  .weekly-review .wr-stats{display:flex;gap:10px;margin-bottom:14px}
+  .weekly-review .wr-stat{flex:1;background:rgba(255,255,255,.65);border-radius:12px;padding:10px 6px;text-align:center}
+  .weekly-review .wr-num{font-size:21px;font-weight:800;color:#c77f1a;line-height:1.1;word-break:keep-all}
+  .weekly-review .wr-lab{font-size:11px;color:#a07a40;margin-top:4px}
+  .weekly-review .wr-msg{font-size:14px;font-weight:600;color:#5c4419;line-height:1.55;margin-bottom:9px}
+  .weekly-review .wr-tip{font-size:12.5px;color:#7a5a28;line-height:1.55;background:rgba(255,255,255,.55);border-radius:10px;padding:9px 12px}
   .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 4px}
   .dash-card{background:#fafafe;border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:center}
   .dash-num{font-size:28px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
@@ -378,12 +391,12 @@
     margin-top:12px;padding:10px 14px;background:#f5f4fc;
     border-radius:10px;font-size:12.5px;color:var(--muted);line-height:1.55;
   }
-  .recite-preview strong{color:var(--brand);font-weight:650}
+  .recite-preview strong{color:var(--brand);font-weight:600}
   .recite-preview.overdue{background:#fdf3e2;color:#a57010}
   .recite-preview.overdue strong{color:#c07800}
   .recite-preview.mastered{background:#e6f7ee;color:#0a7f59}
   .recite-preview.mastered strong{color:#0ea472}
-  @media(max-width:640px){
+  @media(max-width:768px){
     .recite-grid{grid-template-columns:1fr 1fr}
     .recite-grid .field:nth-child(1){grid-column:span 2}
     .recite-grid-2{grid-template-columns:1fr 1fr}
@@ -427,6 +440,21 @@
   .q-forgot:hover{background:#fbdfe2}
   .review-count{font-size:12px;font-weight:600;background:#5b6ef5;color:#fff;padding:2px 9px;border-radius:999px;min-width:22px;text-align:center}
   .review-count.overdue{background:#e08a00}
+  /* 保持期复习（已掌握内容的定期巩固） */
+  .retention-count{font-size:11.5px;font-weight:600;background:#e6faf5;color:#0d9488;padding:2px 9px;border-radius:999px;cursor:default}
+  .retention-divider{list-style:none;margin:14px 0 8px;padding:0}
+  .retention-divider span{display:block;font-size:12px;font-weight:600;color:#0d9488;background:#f0fbf8;border:1px dashed #99e6d8;border-radius:8px;padding:7px 12px;text-align:center}
+  .review-item.retention-item{background:#f6fdfb;border-left-color:#14b8a6}
+  .review-item.retention-item:hover{border-color:#9ee0d5;box-shadow:0 4px 14px -10px rgba(20,184,166,.3)}
+  .retention-tag{font-size:10.5px;font-weight:600;color:#0d9488;background:#ccfbf1;padding:1px 7px;border-radius:6px}
+  .ri-meta .retention-overdue-tag{color:#c07800;font-weight:600}
+  .q-retention-pass{background:#e6faf5;color:#0d9488}
+  .q-retention-pass:hover{background:#d2f4ec}
+  .q-retention-fail{background:#fdf3e2;color:#c07800}
+  .q-retention-fail:hover{background:#f9e8c8}
+  .retention-expand{list-style:none;margin:2px 0 0;padding:0;text-align:center;cursor:pointer}
+  .retention-expand span{display:inline-block;font-size:12px;font-weight:600;color:#0d9488;background:#f0fbf8;border:1px solid #99e6d8;border-radius:999px;padding:7px 16px;transition:.15s}
+  .retention-expand:hover span{background:#dcf5ee;border-color:#5fd4c2}
   .mode-tag{font-size:11.5px;font-weight:500;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;padding:2px 10px;border-radius:999px;cursor:pointer;transition:all .15s}
   .mode-tag:hover{background:#e0e7ff;border-color:#a5b4fc}
   .mode-tag.classic{background:#f0f0f5;color:#666;border-color:#c8c8d0}
@@ -554,7 +582,7 @@
   .status.warn{border-left:4px solid var(--warn)}
   .status.bad{border-left:4px solid var(--bad)}
   .status-icon{font-size:26px;line-height:1.2}
-  .status-title{font-weight:650;margin-bottom:5px;font-size:15px}
+  .status-title{font-weight:600;margin-bottom:5px;font-size:15px}
   .status-desc{font-size:13px;color:var(--muted);line-height:1.7}
 
   .bar-wrap{position:relative;padding:16px 0 5px}
@@ -579,7 +607,7 @@
   .unit-progress{font-size:11.5px;color:var(--muted);margin-top:5px}
 
   .m-badge{
-    font-size:11.5px;font-weight:650;
+    font-size:11.5px;font-weight:600;
     padding:2px 9px;border-radius:999px;
     display:inline-flex;align-items:center;gap:4px;
     letter-spacing:0;
@@ -609,7 +637,7 @@
   .r-date{color:var(--muted);width:110px;flex:0 0 auto;font-size:13px}
   .r-page{font-weight:600;flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
   .r-content{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .r-delta{color:var(--ok);font-weight:650;font-size:12.5px;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .r-delta{color:var(--ok);font-weight:600;font-size:12.5px;font-variant-numeric:tabular-nums;flex:0 0 auto}
   .r-delta.zero{color:#c3cbd9}
   .r-del{background:none;border:none;color:#c9d1de;cursor:pointer;font-size:19px;line-height:1;padding:2px 7px;border-radius:7px;font-family:inherit;flex:0 0 auto;transition:.15s}
   .r-del:hover{color:var(--bad);background:#fdeef0}
@@ -686,7 +714,7 @@
   .type-opt:hover .type-opt-inner{border-color:#ccd2fa}
   .type-opt input:checked + .type-opt-inner{border-color:var(--brand);background:#f0eeff}
   .type-opt .type-icon{font-size:22px;line-height:1}
-  .type-opt .type-name{font-size:13px;font-weight:650;color:var(--text)}
+  .type-opt .type-name{font-size:13px;font-weight:600;color:var(--text)}
   .type-opt .type-desc{font-size:10.5px;color:var(--muted);line-height:1.3}
 
   .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -725,7 +753,7 @@
   .pi-meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
 
   .type-tag{
-    font-size:10.5px;font-weight:650;
+    font-size:10.5px;font-weight:600;
     padding:2px 8px;border-radius:999px;
     flex:0 0 auto;letter-spacing:.2px;
     background:#eef0fe;color:#5b6ef5;
@@ -984,7 +1012,7 @@
     .welcome-feats{gap:8px;margin-bottom:24px}
     .welcome-types{grid-template-columns:1fr;gap:10px;margin-top:24px}
     .wb-stats{grid-template-columns:repeat(2,1fr)}
-    .dash-grid{gap:8px}
+    .dash-grid{grid-template-columns:repeat(2,1fr);gap:8px}
     .dash-num{font-size:22px}
     .dash-card{padding:12px 8px}
     .dash-lab{font-size:11px}
@@ -994,6 +1022,26 @@
     .kaoyan{padding:22px 22px}
     .kaoyan .ky-days{font-size:40px}
     .kaoyan .ky-quote{max-width:100%;font-size:14.5px}
+    .weekly-review{padding:16px 16px}
+    .weekly-review .wr-stats{gap:6px}
+    .weekly-review .wr-stat{padding:8px 2px}
+    .weekly-review .wr-num{font-size:17px}
+    .weekly-review .wr-lab{font-size:10px}
+    .weekly-review .wr-msg{font-size:13px}
+    .weekly-review .wr-tip{font-size:12px}
+    .retention-count{font-size:10.5px;padding:2px 7px}
+    /* 小屏 modal 内边距收紧，避免两侧留白挤压内容 */
+    .modal{padding:18px 16px;max-height:calc(var(--vvh) * 0.94)}
+    /* 触控目标 ≥44px（WCAG / iOS HIG），避免误触 */
+    .q-btn,.ob-btn,.pct-chip,.early-review-btn,.x-btn,.r-del{min-height:44px;min-width:44px}
+    .r-del{padding:0 14px}
+    /* 移动端输入框 ≥16px，防止 iOS Safari 聚焦自动缩放页面 */
+    input,textarea,select{font-size:16px !important}
+    .page-input input,.pct-wrap input,.set-part input{font-size:16px !important}
+  }
+  /* 360px 及以下：dash-grid 单列，数字不换行 */
+  @media(max-width:360px){
+    .dash-grid{grid-template-columns:1fr}
   }
 
   /* 深色模式：由 html[data-theme] 控制（JS 依用户选择 + 系统偏好决定） */
@@ -1039,6 +1087,7 @@
   html[data-theme="dark"] #lazyWarning{background:#2a2315!important;border-color:#5c4a1e!important;color:#e0c070!important}
   html[data-theme="dark"] #pressurePanel{background:#1e1e2a!important;border-color:var(--border)!important}
   html[data-theme="dark"] #spreadPressureHint{background:#1e1e2a!important;color:var(--muted)!important}
+  html[data-theme="dark"] #comfortAdvice{background:#1a2540!important;border-color:#2a3a5e!important;color:#a8b8e0!important}
   html[data-theme="dark"] #randomReviewConfirmWarn{background:#2a2315!important;color:#e0c070!important}
   html[data-theme="dark"] .ghost-btn,
   html[data-theme="dark"] .soft-btn{background:#23232f;color:var(--muted);border-color:var(--line)}
@@ -1154,6 +1203,28 @@
   html[data-theme="dark"] .q-fuzzy:hover{background:#332b1c}
   html[data-theme="dark"] .q-forgot{background:#3a1f24;color:#f87171}
   html[data-theme="dark"] .q-forgot:hover{background:#4a252b}
+  /* 保持期复习深色模式 */
+  html[data-theme="dark"] .retention-count{background:#133a36;color:#5eead4}
+  html[data-theme="dark"] .retention-divider span{color:#5eead4;background:#132b28;border-color:#1f5249}
+  html[data-theme="dark"] .review-item.retention-item{background:#152824;border-left-color:#2dd4bf}
+  html[data-theme="dark"] .review-item.retention-item:hover{border-color:#2a5a52}
+  html[data-theme="dark"] .retention-tag{color:#5eead4;background:#13403a}
+  html[data-theme="dark"] .ri-meta .retention-overdue-tag{color:#fbbf24}
+  html[data-theme="dark"] .q-retention-pass{background:#133a36;color:#5eead4}
+  html[data-theme="dark"] .q-retention-pass:hover{background:#1a4a44}
+  html[data-theme="dark"] .q-retention-fail{background:#2a2418;color:#fbbf24}
+  html[data-theme="dark"] .q-retention-fail:hover{background:#332b1c}
+  html[data-theme="dark"] .retention-expand span{color:#5eead4;background:#132b28;border-color:#1f5249}
+  html[data-theme="dark"] .retention-expand:hover span{background:#1a3a35;border-color:#2a6a5e}
+  /* 每周小结卡片深色模式 */
+  html[data-theme="dark"] .weekly-review{background:linear-gradient(120deg,#2a2318 0%,#2e2515 100%);border-color:#4a3a1f;box-shadow:none}
+  html[data-theme="dark"] .weekly-review .wr-title{color:#e8b860}
+  html[data-theme="dark"] .weekly-review .wr-date{color:#b89146}
+  html[data-theme="dark"] .weekly-review .wr-stat{background:rgba(255,255,255,.05)}
+  html[data-theme="dark"] .weekly-review .wr-num{color:#f0c070}
+  html[data-theme="dark"] .weekly-review .wr-lab{color:#b89146}
+  html[data-theme="dark"] .weekly-review .wr-msg{color:#e8d4a8}
+  html[data-theme="dark"] .weekly-review .wr-tip{color:#c9ad78;background:rgba(255,255,255,.05)}
   html[data-theme="dark"] .mode-badge{background:#23232f;color:#8a8aa3}
   html[data-theme="dark"] .mode-badge.set{background:#3a1f30;color:#e879b0}
   html[data-theme="dark"] .mode-badge.mistake-free{background:#1f2a1f;color:#7ab87a}
@@ -1246,10 +1317,44 @@
   html[data-theme="dark"] .mode-help-card.mode-common div[style*="color:#8a6a12"]{color:#d4a24e!important}
   html[data-theme="dark"] #randomReviewConfirmWarn{background:#2a2418;color:#d4a24e}
 
-  /* iOS Safari：聚焦 font-size<16px 的输入框会自动缩放页面，移动端强制 16px */
-  @media (max-width: 768px) {
+  /* 第7轮补全：8 个浅色背景类在深色下的覆盖，避免白亮刺眼 */
+  html[data-theme="dark"] .g-callout.warm{background:#2a2418;border-color:#5c4a1e}
+  html[data-theme="dark"] .ps-add{border-color:#3d3d55;color:#9aa6ff}
+  html[data-theme="dark"] .ps-add:hover{background:#26263a}
+  html[data-theme="dark"] .sec-multi-act{background:#26263a;color:#9aa6ff}
+  html[data-theme="dark"] .sec-multi-act:hover{background:#2f2f48}
+  html[data-theme="dark"] .add-row-btn{background:#26263a;border-color:#3d3d55;color:#9aa6ff}
+  html[data-theme="dark"] .add-row-btn:hover{background:#2f2f48}
+  html[data-theme="dark"] .reason-dd-add{background:#26263a;color:#9aa6ff}
+  html[data-theme="dark"] .early-review-btn{background:#2a2a44;border-color:#3d3d55;color:#9aa6ff}
+  html[data-theme="dark"] .early-review-btn:hover{background:#32324e}
+  html[data-theme="dark"] .wb-filter-btn{background:#26263a;color:var(--muted)}
+  html[data-theme="dark"] .wb-filter-btn:hover{background:#2f2f48}
+  html[data-theme="dark"] .skip-btn:hover{background:#2f2f48;color:var(--text)}
+  html[data-theme="dark"] .lock-hint{background:#1e1e2a;color:var(--muted)}
+  html[data-theme="dark"] .wb-notepad{background:#1e1e2a;color:var(--text)}
+  html[data-theme="dark"] .wb-unit-bar,html[data-theme="dark"] .wb-unit-group-bar,
+  html[data-theme="dark"] .wb-dist-bar{background:#2c2c3a}
+
+  /* iOS Safari：聚焦 font-size<16px 的输入框会自动缩放页面，手机（≤640px）强制 16px；
+     iPad 竖屏 768px 不强制，保持紧凑排版（iOS 仅在 <16px 时才缩放，iPad 可接受原值） */
+  @media (max-width: 640px) {
     input, select, textarea { font-size: 16px !important; }
   }
+
+  /* 键盘导航可见焦点环（鼠标点击不显示，Tab 键才显示） */
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+  button:focus:not(:focus-visible),[tabindex]:focus:not(:focus-visible){outline:none}
+
+  /* 减弱动效偏好：尊重系统"减少动态效果"设置，关闭浮动/淡入动画 */
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+    .welcome-badge{animation:none}
+  }
+
+  /* 按钮 disabled 统一视觉反馈：半透明 + 禁点 + 禁手型 */
+  button:disabled,.btn:disabled,.soft-btn:disabled,.primary:disabled,.danger-btn:disabled,
+  .q-btn:disabled,.ob-btn:disabled,.pct-chip:disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
 </style>
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
@@ -1336,6 +1441,7 @@
         <button type="button" id="modeSwitchBtn" class="mode-tag" title="点击切换复习模式" hidden>⚖️ 均匀分布</button>
       </div>
       <span class="review-count" id="reviewCount">0</span>
+      <span class="retention-count" id="retentionCount" hidden></span>
     </div>
 
     <div class="overdue-banner" id="overdueBanner" hidden>
@@ -1357,7 +1463,7 @@
       <div class="ob-text">
         <span class="ob-icon">📋</span>
         <span class="ob-main">今天有 <strong id="excessCount">0</strong> 条待复习，超过舒适量</span>
-        <span class="ob-sub">可以先做一部分，剩余分散到未来减轻压力</span>
+        <span class="ob-sub" id="excessSub">可以先做一部分，剩余分散到未来减轻压力</span>
       </div>
       <div class="ob-actions">
         <span class="ob-hint">分散剩余到</span>
@@ -1461,8 +1567,8 @@
           </label>
           <span class="page-range-sep">–</span>
           <label class="field" id="recitePageEndWrap">
-            <span>结束页（可选）</span>
-            <input id="recitePageEnd" type="number" min="0" placeholder="同起始页">
+            <span>结束页（选填）</span>
+            <input id="recitePageEnd" type="number" min="0" placeholder="只填一个=单页">
           </label>
         </div>
         <label class="field" id="reciteSourceWrap" hidden>
@@ -1606,7 +1712,7 @@
     </div>
 
     <label>任务名称
-      <input id="fName" type="text" maxlength="40" placeholder="例：数学真题分类习题册">
+      <input id="fName" type="text" maxlength="30" placeholder="例：数学真题分类习题册">
     </label>
 
     <div id="typeRow" style="margin-bottom:14px">
@@ -1759,10 +1865,10 @@
       <input id="fTotal" type="number" min="1" placeholder="例：236">
     </label>
     <div id="fBookRangeRow" class="two-col" style="display:none">
-      <label><span>正文起始页</span>
-        <input id="fBookStart" type="number" min="1" placeholder="例：17">
+      <label><span>正文起始页（选填）</span>
+        <input id="fBookStart" type="number" min="1" placeholder="不填默认第 1 页">
       </label>
-      <label><span>正文结束页</span>
+      <label><span>正文结束页（必填）</span>
         <input id="fBookEnd" type="number" min="1" placeholder="例：177">
       </label>
     </div>
@@ -1810,7 +1916,7 @@
 
     <div class="sec-title">基本信息</div>
     <label>任务名称
-      <input id="sName" type="text" maxlength="40">
+      <input id="sName" type="text" maxlength="30">
     </label>
     <div class="two-col">
       <label id="sTotalRow"><span id="sTotalLabel">总页数</span>
@@ -1821,11 +1927,11 @@
       </label>
     </div>
     <div id="sBookRangeRow" class="two-col" style="display:none">
-      <label><span>正文起始页</span>
-        <input id="sBookStart" type="number" min="1">
+      <label><span>正文起始页（选填）</span>
+        <input id="sBookStart" type="number" min="1" placeholder="不填默认第 1 页">
       </label>
-      <label><span>正文结束页</span>
-        <input id="sBookEnd" type="number" min="1">
+      <label><span>正文结束页（必填）</span>
+        <input id="sBookEnd" type="number" min="1" placeholder="例：177">
       </label>
     </div>
     <p id="sBookRangeHint" style="font-size:12px;color:var(--muted);margin:-6px 0 8px;display:none">
@@ -1975,10 +2081,11 @@
     <div class="sec-title" id="spreadSectionTitle" hidden>复习压力</div>
     <div id="spreadSection" hidden>
       <label>每日舒适复习量
-        <input id="sSpreadThreshold" type="number" min="1" max="50" placeholder="如 5">
+        <input id="sSpreadThreshold" type="number" min="1" max="50" placeholder="如 10">
       </label>
       <p class="hint" style="margin-top:0;margin-bottom:8px">均匀模式下，每日实际排题量为「每日复习容量」与此处舒适量的较小值；当天待复习超过此数量时，系统会自动将超额部分安排到未来数日。经典模式下，当天待复习超过此数量时将显示「分散到未来」按钮供手动处理。复习达到此数量后会提示可分散剩余任务。</p>
       <div id="spreadPressureHint" class="hint" style="font-size:12px;padding:8px 10px;border-radius:8px;background:#f8f9fc"></div>
+      <div id="comfortAdvice" class="hint" style="display:none;margin-top:8px;padding:10px 12px;border-radius:10px;background:#f0f7ff;border:1px solid #d0e4ff;font-size:12.5px;line-height:1.6"></div>
     </div>
 
     <div class="sec-title">数据备份</div>
@@ -1988,6 +2095,12 @@
       <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
     <p class="hint" style="margin-top:10px">导出后会下载一个 JSON 文件。换了浏览器或设备后，导入这个文件即可恢复全部数据。<br><b>iPhone/iPad 用户注意</b>：如果要把本页「添加到主屏幕」，请先在这里导出备份，然后从桌面图标打开后再导入备份（Safari 和桌面版数据不互通）。</p>
+
+    <div class="sec-title" style="color:#dc2626;margin-top:18px">危险操作</div>
+    <div class="data-actions">
+      <button class="danger-btn" id="btnWipeAll" type="button">🗑️ 彻底清除全部数据</button>
+    </div>
+    <p class="hint" style="margin-top:8px">会删除<b>所有项目、记录、设置</b>（localStorage + IndexedDB + Cache），<b>不可恢复</b>。建议先「导出备份」。</p>
 
     <div class="sec-title">外观</div>
     <label style="margin-bottom:12px">主题
@@ -2009,7 +2122,6 @@
 
     <div class="sec-title">其他</div>
     <div class="data-actions">
-      <button class="soft-btn" id="btnShowGuide" type="button">📖 使用指南（再看一次）</button>
       <button class="soft-btn" id="btnCreateLinkedMistake" type="button" hidden>📝 创建关联错题本</button>
     </div>
 
@@ -2112,117 +2224,6 @@
   </div>
 </div>
 
-<!-- ============ 新手使用指南（重写版） ============ -->
-<div class="mask" id="changelogMask" hidden>
-  <div class="modal" style="max-width:600px">
-    <div class="modal-head">
-      <h2>👋 欢迎使用 Study Tracker</h2>
-      <button class="x-btn" id="changelogClose">×</button>
-    </div>
-    <div class="kinsoku" style="font-size:14px;line-height:1.8;color:var(--text);max-height:58vh;overflow-y:auto;padding:0 8px 0 4px">
-      <p style="color:var(--muted);font-size:13px;margin-bottom:22px">
-        一个帮你把学习进度管起来的工具。<br>
-        刷题、背书、错题都能记，数据只保存在你自己的浏览器里。
-      </p>
-
-      <!-- 1 -->
-      <div class="g-section">
-        <div class="g-head">
-          <span class="g-num">1</span>
-          <span class="g-title">先建一个任务</span>
-        </div>
-        <div class="g-content">
-          <p>点右上角「＋ 新建任务」，按你要学的内容选类型：</p>
-          <div class="g-callout">
-            <b>✏️ 刷题</b> —— 做习题册、真题卷，按「页」或「套」记进度<br>
-            <b>📖 背书</b> —— 单词、政治大题这类需要反复记的内容<br>
-            <b>📝 错题</b> —— 做错的题，过几天再做一遍
-          </div>
-          <p>然后填任务名、总量、打算什么时候看完，就建好了。</p>
-          <p class="g-note" style="margin-top:8px">
-            例如：数学真题 30 套，想 11 月底做完 → 选「刷题」，计量方式选「按套卷」，总套数填 30，截止日期选 11 月 30 日。
-          </p>
-        </div>
-      </div>
-
-      <!-- 2 -->
-      <div class="g-section">
-        <div class="g-head">
-          <span class="g-num">2</span>
-          <span class="g-title">每天打卡，10 秒搞定</span>
-        </div>
-        <div class="g-content">
-          <p><b>刷题</b>：今天学到第几页，直接填数字。</p>
-          <p class="g-note" style="padding-left:14px;margin-top:2px;margin-bottom:10px">
-            跳着刷（比如先做后面的章节）就点「按区间录入」，填「第 X 页 – 第 Y 页」。同一天分几次学也没关系，会自动累加。
-          </p>
-          <p><b>背书</b>：把今天新背的内容录进去，点一下「记得 / 模糊 / 忘记」。</p>
-          <p class="g-note" style="padding-left:14px;margin-top:2px;margin-bottom:10px">
-            进度按填写的页码范围统计（一条跨多页算多页，同一页建多条只算一页）；系统按你点的效果安排下次复习时间。
-          </p>
-          <p><b>错题</b>：每道错题记一条，有三种模式可选——自由出处（来源自由填写）、习题册（按页码，支持单元模式）、套卷（按套卷号）。按钮是「做对了 / 看答案 / 错了」。进度按「已攻克 / 已收录」统计。</p>
-        </div>
-      </div>
-
-      <!-- 3 -->
-      <div class="g-section">
-        <div class="g-head">
-          <span class="g-num">3</span>
-          <span class="g-title">到日子就复习</span>
-        </div>
-        <div class="g-content">
-          <p>你不用记哪天该复习什么。</p>
-          <p>到了日子，内容会自动出现在最上面「今日复习」，逐条点掌握程度就行。</p>
-          <p class="g-note" style="margin-top:6px">
-            间隔大致是 1天 → 2天 → 4天 → 7天 → 15天 → 30天（可在设置里改）。
-          </p>
-          <div class="g-callout warm" style="margin:10px 0">
-            <b>攒了几天没打开？</b>顶部会有黄色横幅，点一下可以把逾期内容分散到未来 1/3/5/7 天，最弱的先安排，不用一天硬扛。
-          </div>
-          <p style="margin-top:8px">一条内容走完全部复习轮次后，会问你：</p>
-          <div style="padding-left:14px;margin-top:6px;font-size:13px;line-height:1.9">
-            ✓ 真的会了 → 毕业，不再出现<br>
-            🔄 从头再来一遍<br>
-            ⚙️ 自定义这一条的复习节奏<br>
-            ⏸ 先放一放（按最长间隔顺延）
-          </div>
-        </div>
-      </div>
-
-      <!-- 4 -->
-      <div class="g-section">
-        <div class="g-head">
-          <span class="g-num">4</span>
-          <span class="g-title">随时看进度</span>
-        </div>
-        <div class="g-content">
-          <div style="font-size:13.5px;line-height:2">
-            <b>🏠 今日总览</b> —— 今天该新学多少、复习多少、连续打了几天卡<br>
-            <b>🎯 薄弱点</b> —— 背书/错题的复习作战中心：按紧急度排序、掌握度分布；错题还有错因画像<br>
-            <b>📊 完成情况</b> —— 刷题的节奏与坚持统计、完成时间预测、漏做页码定位、套号明细
-          </div>
-        </div>
-      </div>
-
-      <div style="border-top:1px solid var(--line);margin:20px 0 14px"></div>
-
-      <div class="g-note" style="line-height:1.9">
-        <b style="color:var(--text);font-size:13px">几个小提示</b><br>
-        · 评价点错了？在「学习记录」里点「历史」就能改<br>
-        · 按 Esc 关闭任何弹窗<br>
-        · 设置里可以开每日桌面提醒<br>
-        · 换设备前记得「设置 → 导出备份」带走数据
-      </div>
-    </div>
-
-    <div style="margin-top:22px;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap">
-      <button class="ghost-btn" id="changelogSkip" type="button">跳过</button>
-      <button class="primary" id="changelogOk" style="min-width:180px;padding:12px 32px;font-size:15px">开始使用</button>
-    </div>
-    <div style="text-align:center;color:var(--muted);font-size:11.5px;margin-top:10px">本指南只自动弹出一次，之后可在「⚙️ 设置 → 使用指南」随时回看</div>
-  </div>
-</div>
-
 <!-- ============ 数据安全提示弹窗（只弹一次，3秒后才能关闭） ============ -->
 <div class="mask" id="dataSecurityMask" hidden>
   <div class="modal" style="max-width:560px">
@@ -2288,57 +2289,6 @@
     <div class="modal-actions" style="justify-content:center">
       <button class="ghost-btn" id="skipCancel">取消</button>
       <button class="danger-btn" id="skipConfirmYes">确认</button>
-    </div>
-  </div>
-</div>
-
-<!-- 9.18 更新日志弹窗 -->
-<div class="mask" id="updateLogMask" hidden>
-  <div class="modal" style="max-width:560px">
-    <div class="modal-head">
-      <h2>🎉 9.18 更新</h2>
-      <button class="x-btn" id="updateLogClose">×</button>
-    </div>
-    <div class="kinsoku" style="font-size:13.5px;line-height:1.8;color:var(--text);max-height:55vh;overflow-y:auto;padding:0 8px 0 4px">
-      <div class="g-section">
-        <div class="g-head">
-          <span class="g-num">1</span>
-          <span class="g-title">错题本 ↔ 刷题本关联</span>
-        </div>
-        <div class="g-content">
-          <p>错题本现在可以关联对应的刷题本，单元卡会显示刷题进度，区分「尚未学到」和「学完暂无错题」：</p>
-          <div class="g-callout">
-            <b>尚未学到</b> —— 该章节还没开始学，没有错题很正常<br>
-            <b>暂无错题</b> —— 学完了但没错题，说明掌握得好<br>
-            <b>错题攻克中</b> —— 有错题正在攻克
-          </div>
-          <p class="g-note" style="margin-top:8px">
-            入口：错题本设置页 → 关联刷题本（仅习题册/套卷模式支持，自由出处模式不支持）。也可以从刷题本设置页 → 创建关联错题本。
-          </p>
-        </div>
-      </div>
-
-      <div class="g-section">
-        <div class="g-head">
-          <span class="g-num">2</span>
-          <span class="g-title">错题本三模式 + 其他优化</span>
-        </div>
-        <div class="g-content">
-          <ul style="margin:0;padding-left:20px">
-            <li>错题本支持自由出处/习题册/套卷三种模式，自由出处可单向转换</li>
-            <li>任务列表按刷题/背书/错题分组，一目了然</li>
-            <li>模式标签在主页和任务列表都显示，样式统一</li>
-            <li>修复多处bug：设置页报错、最长停摆逻辑、补页码按钮不显示等</li>
-          </ul>
-        </div>
-      </div>
-
-      <div style="margin-top:18px;padding:12px 14px;border-radius:10px;background:#f0f9ff;border:1px solid #bae6fd;font-size:13px;color:#075985;line-height:1.7">
-        <b>📌 后续计划：</b>本次更新后，如无重大bug，27年一月前不再推送功能更新，专注稳定性。祝大家学习顺利，一路生花！
-      </div>
-    </div>
-    <div class="modal-actions" style="justify-content:center;margin-top:16px">
-      <button class="primary" id="updateLogOk" style="min-width:160px;padding:10px 28px">我知道了</button>
     </div>
   </div>
 </div>
@@ -2514,7 +2464,7 @@
       </div>
       <div style="background:#f0fdf4;border-radius:12px;padding:14px;margin-bottom:10px">
         <div style="font-weight:700;margin-bottom:4px;color:#166534">📋 超额分散</div>
-        <div style="color:var(--muted);font-size:13px">当天待复习超过舒适量（默认5道）时，会出现蓝色「分散到未来」横幅，一键把剩余题目均匀安排到未来几天。复习完5道后也会弹窗提示。</div>
+        <div style="color:var(--muted);font-size:13px">当天待复习超过舒适量（默认10道）时，会出现蓝色「分散到未来」横幅，一键把剩余题目均匀安排到未来几天。复习完10道后也会弹窗提示。</div>
       </div>
       <div style="background:#fefce8;border-radius:12px;padding:14px;margin-bottom:10px">
         <div style="font-weight:700;margin-bottom:4px;color:#854d0e">⏩ 提前复习</div>
@@ -2564,7 +2514,7 @@ const diffDays = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 86400000);
 const addDays = (s, n) => { const d = parseDate(s); d.setDate(d.getDate() + n); return fmtDate(d); };
 const fmtCN = s => { if (!s) return '未设置'; const d = parseDate(s); return `${d.getMonth() + 1}月${d.getDate()}日`; };
 const WEEK = ['周日','周一','周二','周三','周四','周五','周六'];
-const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'&#92;' }[c]));
 
 /* ============ 主题管理 ============ */
 const THEME_KEY = 'study_tracker_theme';
@@ -2577,7 +2527,11 @@ function resolveTheme(pref) {
 }
 function applyTheme() {
   const pref = getThemePref();
-  document.documentElement.setAttribute('data-theme', resolveTheme(pref));
+  const resolved = resolveTheme(pref);
+  document.documentElement.setAttribute('data-theme', resolved);
+  // theme-color 随主题切换：深色用深色背景色，浅色用品牌紫，避免浏览器状态栏与页面割裂
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#12121a' : '#5b6ef5');
   const radio = document.querySelector(`input[name="theme"][value="${pref}"]`);
   if (radio) radio.checked = true;
 }
@@ -2639,7 +2593,10 @@ function deleteReasonByName(p, name) {
 function reasonPill(name) {
   if (!name) return '';
   const [bg, fg] = reasonColor(name);
-  return `<span class="reason-pill" style="background:${bg};color:${fg}">${esc(name)}</span>`;
+  // 深色模式下浅底白亮刺眼：把浅底降到 ~18% 透明度，文字色保持（深色卡上呈淡色晕）
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const bgCss = dark ? bg + '2e' : bg;
+  return `<span class="reason-pill" style="background:${bgCss};color:${fg}">${esc(name)}</span>`;
 }
 function reasonOptionList(p) {
   if (!p || typeof p !== 'object') return [];
@@ -2879,8 +2836,24 @@ function migrateProject(p) {
       if ((it.mastered || it.manualMastered) && !it.masteredDate) {
         it.masteredDate = it.learnedDate || '';
       }
+      // 保持期复习迁移：已掌握（非手动熟知）但没有 retentionDate 的老数据，补设保持复习
+      if (it.retentionDate === undefined) {
+        if (p.type !== 'exercise' && it.mastered && !it.manualMastered && it.masteredDate) {
+          it.retentionPass = 0;
+          const firstRetention = addDays(it.masteredDate, 30);
+          // 已超过首次保持复习日的从今天起补排；无论哪种，都走统一错峰，避免批量老数据同一天扎堆
+          const target = firstRetention < todayStr() ? todayStr() : firstRetention;
+          it.retentionDate = staggerRetentionDate(p, target, it.id);
+        } else {
+          it.retentionDate = null;
+          it.retentionPass = 0;
+        }
+      }
+      if (it.retentionReviews === undefined) it.retentionReviews = [];
     });
   }
+  // 舒适量默认值按项目类型区分（背书6/错题10），已手动设置的保留
+  if (p.spreadThreshold == null) p.spreadThreshold = defaultComfortCap(p);
 }
 
 /* ============ 预设单元模板 ============ */
@@ -3426,6 +3399,39 @@ function getPresetUnitTemplates() {
   return templates;
 }
 
+// 全局数据净化：任何来源（localStorage / IndexedDB / Cache / 导入文件）的损坏数据都不应导致白屏。
+// 过滤非对象项目、null/非数组容器、脏条目。返回净化后的 store；无法净化则返回 null。
+function sanitizeProjectData(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+  ['records', 'items', 'units', 'shownMilestones', 'intervals'].forEach(k => {
+    if (p[k] != null && !Array.isArray(p[k])) p[k] = [];
+  });
+  if (Array.isArray(p.records)) p.records = p.records.filter(r => r && typeof r === 'object');
+  if (Array.isArray(p.items)) p.items = p.items.filter(it => it && typeof it === 'object');
+  if (Array.isArray(p.units)) {
+    const cleanUnits = arr => arr.filter(u => u && typeof u === 'object').map(u => {
+      if (Array.isArray(u.children)) u.children = cleanUnits(u.children);
+      else u.children = [];
+      return u;
+    });
+    p.units = cleanUnits(p.units);
+  }
+  return p;
+}
+function sanitizeStoreData(s) {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return null;
+  if (!s.projects || typeof s.projects !== 'object' || Array.isArray(s.projects)) {
+    s.projects = {};
+  }
+  const cleanProjects = {};
+  Object.keys(s.projects).forEach(pid => {
+    const cp = sanitizeProjectData(s.projects[pid]);
+    if (cp) cleanProjects[pid] = cp;
+  });
+  s.projects = cleanProjects;
+  return s;
+}
+
 async function loadStore() {
   let lsValid = false;
   let lsRaw = null;
@@ -3433,7 +3439,9 @@ async function loadStore() {
     lsRaw = localStorage.getItem(STORE_KEY);
     if (lsRaw) {
       const obj = JSON.parse(lsRaw);
-      if (obj && typeof obj === 'object' && obj.projects && typeof obj.projects === 'object') {
+      // 必须要求 projects 为非空对象：空 projects 会被当作"有效"，阻断 IndexedDB 恢复，
+      // 进而用空数据覆盖真实备份，造成不可逆数据丢失
+      if (obj && typeof obj === 'object' && obj.projects && typeof obj.projects === 'object' && Object.keys(obj.projects).length > 0) {
         store = obj;
         lsValid = true;
         _lastSaveSig = JSON.stringify(store);
@@ -3495,13 +3503,17 @@ async function loadStore() {
   }
 
   // ========== 到这里 store 一定是"有效的"，再做迁移和预设写入 ==========
+  // 统一净化：任何存储层损坏（null 项目、脏条目、容器类型错误）都在迁移前剔除，杜绝 boot 白屏
+  sanitizeStoreData(store);
   _booting = false; // 恢复完成，允许保存
   const beforeMigrate = JSON.stringify(store);
   if (store.mistakeGuided == null) store.mistakeGuided = false;
   if (!store.uiFlags || typeof store.uiFlags !== 'object') store.uiFlags = {}; // UI 标记（弹窗是否已看过等），随 store 一起双写备份
   if (!store.localData || typeof store.localData !== 'object') store.localData = {}; // 通用本地存储（主题、提醒设置等），随 store 一起双写备份
   Object.values(store.projects || {}).forEach(p => {
+    if (!p || typeof p !== 'object') return;
     (p.items || []).forEach(it => {
+      if (!it || typeof it !== 'object') return;
       if (it.pageStart == null && it.page != null) {
         it.pageStart = it.page;
         it.pageEnd = it.page;
@@ -3522,10 +3534,11 @@ async function loadStore() {
     });
     if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
     if (!Array.isArray(p.units)) p.units = [];
-    const ensureUnitChildren = arr => arr.forEach(u => { if (!Array.isArray(u.children)) u.children = []; if (u.children.length) ensureUnitChildren(u.children); });
+    const ensureUnitChildren = arr => arr.forEach(u => { if (!u || typeof u !== 'object') return; if (!Array.isArray(u.children)) u.children = []; if (u.children.length) ensureUnitChildren(u.children); });
     ensureUnitChildren(p.units);
     if (!Array.isArray(p.records)) p.records = [];
     p.records.forEach(r => {
+      if (!r || typeof r !== 'object') return;
       if (r.startPage == null && r.endPage == null && r.page != null) { r.endPage = r.page; delete r.page; }
     });
     if (!Array.isArray(p.items)) p.items = [];
@@ -3535,7 +3548,7 @@ async function loadStore() {
     if (p.skipConfirmDismissed == null) p.skipConfirmDismissed = false;
     if (p.reviewMode == null) p.reviewMode = 'classic';
     if (p.dailyCapacity == null) p.dailyCapacity = null;
-    if (p.spreadThreshold == null) p.spreadThreshold = 5;
+    if (p.spreadThreshold == null) p.spreadThreshold = defaultComfortCap(p);
     if (p.totalLocked == null) p.totalLocked = false;
     if (p.bookStartPage == null) p.bookStartPage = null;
     if (p.bookEndPage == null) p.bookEndPage = null;
@@ -3551,6 +3564,7 @@ async function loadStore() {
   if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
   if (!Array.isArray(store.paperTemplates)) store.paperTemplates = [];
   Object.values(store.projects).forEach(p => {
+    if (!p || typeof p !== 'object') return;
     if (p.unitMode && Array.isArray(p.units) && p.units.length > 0) {
       const exists = store.unitTemplates.some(t => t.name === p.name);
       if (!exists) {
@@ -3599,7 +3613,16 @@ function idbOpen() {
           os.createIndex('time', 'time', { unique: false });
         }
       };
-      req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
+      req.onsuccess = e => {
+        const db = e.target.result;
+        _idb = db;
+        // 连接被关闭（浏览器清存储/磁盘回收）或版本变更时，把缓存句柄置空，下次自动重开，避免死连接导致 IDB 备份永久失效
+        try {
+          db.onclose = () => { _idb = null; };
+          db.onversionchange = () => { try { db.close(); } catch (e) {} _idb = null; };
+        } catch (err) {}
+        resolve(_idb);
+      };
       req.onerror = e => reject(e.target.error);
     } catch (e) { reject(e); }
   });
@@ -3658,7 +3681,8 @@ async function idbRestoreLatest() {
     for (const snap of all) {
       try {
         const obj = JSON.parse(snap.data);
-        if (obj && obj.projects && typeof obj.projects === 'object') return obj;
+        // 空 projects 快照不算有效恢复源，继续找下一个
+        if (obj && obj.projects && typeof obj.projects === 'object' && Object.keys(obj.projects).length > 0) return obj;
       } catch (e) { /* 损坏快照跳过 */ }
     }
     return null;
@@ -3796,7 +3820,12 @@ function isLocalStorageAvailable() {
     localStorage.setItem(k, '1');
     localStorage.removeItem(k);
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    // 配额已满（QuotaExceededError）仍视为"可用但写不下"：返回 true，让自动保存继续尝试
+    // （写不进会被 saveStore 内部 catch 掉）；只有真正禁用 localStorage（SecurityError / 无痕模式）才返回 false
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22 || /quota/i.test(e.name || ''))) return true;
+    return false;
+  }
 }
 function isSafariLike() {
   return /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent) ||
@@ -3880,6 +3909,61 @@ function initStorageSafety() {
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function cur() { return store.currentId ? (store.projects[store.currentId] || null) : null; }
 let lastRenderedProjectId = null;
+
+/* ============ 回车自动跳转下一个输入框（统一表单键盘流） ============
+ * 在文本/数字/日期等输入框按 Enter，自动聚焦到容器内下一个"当前可见且可填"的框；
+ * 在最后一个框按 Enter 触发该表单提交。桌面 Enter 与移动端虚拟键盘"下一步/完成"均生效。
+ * 字段在每次按键时实时计算，自动适配各模式下输入框的显示/隐藏。 */
+function _navFieldVisible(el) {
+  if (!el || el.disabled || el.readOnly) return false;
+  const t = ((el.type || el.tagName || '') + '').toLowerCase();
+  if (['hidden','checkbox','radio','button','submit','reset','file','range','color','image'].includes(t)) return false;
+  if (el.hidden) return false;
+  let node = el;
+  while (node && node !== document.body) {
+    if (node.hidden) return false;
+    const cs = getComputedStyle(node);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    node = node.parentElement;
+  }
+  if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+  return true;
+}
+function getNavFields(container) {
+  if (!container) return [];
+  return [...container.querySelectorAll('input, textarea, select')].filter(_navFieldVisible);
+}
+function setupEnterNav(container, submitBtn) {
+  if (!container) return;
+  container.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    // 中文/日文输入法组词中（含 keyCode 229），回车是确认候选词，不跳转
+    if (e.isComposing || e.keyCode === 229) return;
+    const t = e.target;
+    if (!t || !t.closest || !t.matches('input, textarea, select')) return;
+    // 原生下拉框：保留 Enter 展开/选择选项的原生行为，不拦截跳转
+    if (t.tagName === 'SELECT') return;
+    const tt = ((t.type || '') + '').toLowerCase();
+    if (['button','submit','checkbox','radio','file','hidden','range','color','image'].includes(tt)) return;
+    // textarea 默认 Enter 换行，需 Ctrl/Cmd+Enter 才跳转（本应用暂无多行框，预留）
+    if (t.tagName === 'TEXTAREA' && !e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const fields = getNavFields(container);
+    const idx = fields.indexOf(t);
+    if (idx === -1) return;
+    if (idx < fields.length - 1) {
+      const next = fields[idx + 1];
+      next.focus();
+      const nt = ((next.type || '') + '').toLowerCase();
+      if (['text','number','search','tel','url','email','password'].includes(nt)) {
+        try { next.select(); } catch (_) {}
+      }
+    } else if (submitBtn) {
+      const btn = typeof submitBtn === 'function' ? submitBtn() : submitBtn;
+      if (btn && !btn.disabled) btn.click();
+    }
+  });
+}
 
 /* ============ 页码辅助 ============ */
 function getItemPageStart(it) {
@@ -4027,6 +4111,9 @@ function getSetState(p, targetDate) {
   const secs = getNormalizedSections(p);
   const state = {};
   const recs = (p.records || []).slice().sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+  // 追踪每个 (套号, 板块) 最近一次录入的日期与 pct：
+  // 同一天重复录入同板块 = 覆盖（后填替换先填），跨天录入才累加，避免 50%+80%=130% 被 cap 到 100%
+  const lastSetSec = {};
   recs.forEach(r => {
     if (r.set == null) return;
     if (targetDate && r.date > targetDate) return;
@@ -4034,7 +4121,17 @@ function getSetState(p, targetDate) {
     if (!state[no]) state[no] = { secs: {}, legacy: 0 };
     const st = state[no];
     if (r.secId != null && r.pct != null) {
-      st.secs[r.secId] = Math.max(0, Math.min(100, (st.secs[r.secId] || 0) + Number(r.pct)));
+      const key = no + '|' + r.secId;
+      const pct = Number(r.pct);
+      const prev = lastSetSec[key];
+      if (prev && prev.date === r.date) {
+        // 同一天重复：用新 pct 替换旧 pct（先减旧再加新）
+        st.secs[r.secId] = Math.max(0, Math.min(100, (st.secs[r.secId] || 0) - prev.pct + pct));
+        prev.pct = pct;
+      } else {
+        st.secs[r.secId] = Math.max(0, Math.min(100, (st.secs[r.secId] || 0) + pct));
+        lastSetSec[key] = { date: r.date, pct: pct };
+      }
     } else if (r.all === true || (r.done == null && r.q == null)) {
       if (secs.length) secs.forEach(s => { st.secs[s.id] = 100; });
       st.legacy = 1;
@@ -4173,10 +4270,11 @@ function getMetrics(p) {
   // ---- 活跃率：对窗口内每个自然日的 0/1 学习指示做 EWMA（半衰期10天），再向先验收缩 ----
   // v3.1：先验强度随观察到的学习日数自适应衰减。
   // 原固定 PRIOR_K=10 会让“每天都学”的重度用户被永久低估（上限约 0.884）。
-  // 现在：activeDays 越少越依赖先验（每周约 5 天）；累积到 10 个学习日后完全相信历史数据。
+  // 现在：activeDays 越少越依赖先验（每周约 5 天）；累积到 7 个学习日后完全相信历史数据。
+  // v8.1：收敛上限从 10 调整为 7，经模拟验证：全职用户首周误差减半，在职用户提前约1周收敛，小样本仍有先验保护。
   const ACT_HALF = 10;
   const PRIOR_RATE = 5 / 7;
-  const PRIOR_K = Math.max(0, 10 - Math.min(activeDays, 10));
+  const PRIOR_K = Math.max(0, 7 - Math.min(activeDays, 7));
 
   let wAll = 0, wActive = 0;
   for (let age = 0; age < windowDays; age++) {
@@ -4384,6 +4482,104 @@ function getOverdueItems(p) {
   return (p.items || []).filter(it => !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate < today);
 }
 
+/* ============ 保持期复习（已掌握内容的定期唤醒，防止遗忘） ============ */
+// 保持间隔：前2次30天，第3次45天，之后60天（逐渐拉长，符合记忆曲线）
+function getRetentionGap(passCount) {
+  if (passCount <= 0) return 30;
+  if (passCount === 1) return 30;
+  if (passCount === 2) return 45;
+  return 60;
+}
+// 每日保持复习软上限：同一天掌握的内容，到期日自动摊到多天，避免几十条扎堆
+const RETENTION_DAILY_CAP = 5;
+const RETENTION_STAGGER_WINDOW = 21; // 最多向后顺延的天数
+// 复习列表中保持复习默认展示条数（超出折叠，避免长期未处理时列表冗长）
+const RETENTION_SHOWN_CAP = 5;
+const _retentionExpanded = new Set(); // 已展开全部保持复习的项目 id
+/* 在目标日期当天及之后找一个"已排保持复习最少"的日子（只顺延、不提前）。
+   逐条掌握时反复调用：前面刚排的条目会被计入，于是同日掌握的一批自然均匀摊开。 */
+function staggerRetentionDate(p, target, excludeId) {
+  if (!p || !Array.isArray(p.items)) return target;
+  const counts = {};
+  p.items.forEach(it => {
+    if (it.id === excludeId) return;
+    if (it.mastered && !it.manualMastered && it.retentionDate) {
+      counts[it.retentionDate] = (counts[it.retentionDate] || 0) + 1;
+    }
+  });
+  // 叠加当天正常复习负载（未掌握条目的排期）：保持复习错峰要避开已被正常复习占满的日子，
+  // 用项目舒适量作总容量上限，避免某天总负载远超舒适量
+  const cap = getComfortCap(p);
+  p.items.forEach(it => {
+    if (it.mastered) return; // 已掌握条目不进正常复习排期
+    if (it.nextReviewDate) {
+      counts[it.nextReviewDate] = (counts[it.nextReviewDate] || 0) + 1;
+    }
+  });
+  // 优先：目标日期起，找到第一个"总负载未达舒适量上限"的日子
+  for (let i = 0; i <= RETENTION_STAGGER_WINDOW; i++) {
+    const d = addDays(target, i);
+    if ((counts[d] || 0) < cap) return d;
+  }
+  // 兜底：窗口内都满了，选总负载最少的一天
+  let best = target, bestN = Infinity;
+  for (let i = 0; i <= RETENTION_STAGGER_WINDOW; i++) {
+    const d = addDays(target, i);
+    const n = counts[d] || 0;
+    if (n < bestN) { bestN = n; best = d; }
+  }
+  return best;
+}
+// 安排下一次保持复习（掌握时调用，或保持复习通过后调用）。传入 p 以启用自动错峰。
+function scheduleRetention(item, baseDate, passCount, p) {
+  item.retentionPass = passCount;
+  const target = addDays(baseDate, getRetentionGap(passCount));
+  item.retentionDate = p ? staggerRetentionDate(p, target, item.id) : target;
+}
+// 清除保持复习安排（取消掌握/手动熟知时调用）
+function clearRetention(item) {
+  item.retentionDate = null;
+  item.retentionPass = 0;
+}
+// 今日到期的保持复习条目（已掌握、非手动熟知、retentionDate <= 今天）
+function getRetentionDueItems(p) {
+  if (p.type === 'exercise') return [];
+  const today = todayStr();
+  return (p.items || []).filter(it =>
+    it.mastered && !it.manualMastered && it.retentionDate && it.retentionDate <= today
+  );
+}
+// 保持复习逾期条目
+function getRetentionOverdueItems(p) {
+  if (p.type === 'exercise') return [];
+  const today = todayStr();
+  return (p.items || []).filter(it =>
+    it.mastered && !it.manualMastered && it.retentionDate && it.retentionDate < today
+  );
+}
+/* 保持复习评价：pass=还记得（继续保持，间隔拉长）；fail=模糊了（退出掌握，回到正常复习） */
+function applyRetentionReview(item, result, p) {
+  const today = todayStr();
+  item.retentionReviews = item.retentionReviews || [];
+  item.retentionReviews.push({ date: today, result });
+  if (result === 'pass') {
+    // 还记得：继续保持，安排下一次（间隔逐渐拉长，同日批量通过时自动错峰）
+    const nextPass = (item.retentionPass || 0) + 1;
+    scheduleRetention(item, today, nextPass, p);
+  } else {
+    // 模糊了：退出保持期，追加一条 forgot 评价后重算，让正常复习流程接管
+    item.mastered = false;
+    item.masteredDate = null;
+    item.retentionDate = null;
+    item.retentionPass = 0;
+    item.reviews = item.reviews || [];
+    item.reviews.push({ date: today, quality: 'forgot' });
+    recomputeItemMastery(item, p);
+  }
+  p.updatedAt = Date.now();
+  saveStore();
+}
+
 /* ============ 条目优先级（保留今天 / 先分散谁的统一口径） ============ */
 /* 高优先级 = 更该留在今天：逾期久 > 更薄弱 > 被分散次数多（防饥饿）> stage 低 */
 function compareItemPriority(a, b) {
@@ -4552,9 +4748,14 @@ function rebalanceAllItems(p) {
       }
     });
   } else {
-    // 经典间隔：逾期的从明天开始，未到期的保持原计划日期（不人为提前，也不重新按间隔排期）
-    items.forEach(it => {
-      it.nextReviewDate = it.nextReviewDate < today ? addDays(today, 1) : it.nextReviewDate;
+    // 经典间隔：未到期的保持原计划；逾期的按优先级均匀摊到未来几天，避免几十条逾期全堆到明天
+    const overdue = items.filter(it => it.nextReviewDate < today);
+    overdue.sort(compareItemPriority);
+    const spreadDays = Math.min(overdue.length, 5); // 最多摊到未来 5 天
+    overdue.forEach((it, idx) => {
+      // 最弱/逾期最久的（排序最前）排明天，其余轮流均匀摊开
+      const d = spreadDays > 0 ? (1 + (idx % spreadDays)) : 1;
+      it.nextReviewDate = addDays(today, d);
     });
   }
   p.lastAutoBalanceDate = null; // 模式切换后允许今天再做一次启动自动均衡
@@ -4575,9 +4776,79 @@ function getReviewCountsByDate(p) {
   return counts;
 }
 
-/* 舒适量：用户希望每天最多面对多少条（默认 5） */
+/* 舒适量默认值按项目类型区分：背书单条内容量大（十几页），默认6；错题单条是一道题，默认10 */
+function defaultComfortCap(p) {
+  return p && p.type === 'recite' ? 6 : 10;
+}
+
+/* 舒适量：用户希望每天最多面对多少条（背书默认6，错题默认10） */
 function getComfortCap(p) {
-  return Math.max(1, Math.min(50, parseInt(p.spreadThreshold, 10) || 5));
+  return Math.max(1, Math.min(50, parseInt(p.spreadThreshold, 10) || defaultComfortCap(p)));
+}
+
+/* 舒适量智能建议：基于最近14天日均实际完成复习条数，给出推荐值
+   数据不足（<2个活跃日）返回 null；建议值 clamp 在 3~15 */
+function getComfortAdvice(p) {
+  if (!p || p.type === 'exercise') return null;
+  const counts = getReviewCountsByDate(p);
+  const today = todayStr();
+  let total = 0, activeDays = 0;
+  for (let age = 0; age < 14; age++) {
+    const c = counts[addDays(today, -age)] || 0;
+    if (c > 0) { total += c; activeDays++; }
+  }
+  if (activeDays < 2) return null;
+  const avg = total / activeDays;
+  const suggested = Math.max(3, Math.min(15, Math.round(avg * 1.2)));
+  return { avg: Math.round(avg * 10) / 10, suggested, current: getComfortCap(p), activeDays };
+}
+
+/* 渲染设置页舒适量建议区域（容量透明化 + 智能建议 + 一键应用） */
+function renderComfortAdvice(p) {
+  const el = document.getElementById('comfortAdvice');
+  if (!el || !p || p.type === 'exercise') { if (el) el.style.display = 'none'; return; }
+  // 当前舒适量优先读输入框（用户可能刚改了还没保存），其次读项目配置
+  const inputEl = document.getElementById('sSpreadThreshold');
+  const inputVal = inputEl ? parseInt(inputEl.value, 10) : NaN;
+  const currentComfort = !isNaN(inputVal) && inputVal >= 1 ? inputVal : getComfortCap(p);
+  const parts = [];
+  // 容量透明化：均匀模式下显示当前智能容量估算
+  if (p.reviewMode === 'balanced') {
+    const cap = getDailyCapacity(p);
+    const bottleneck = currentComfort < cap ? '舒适量是当前瓶颈' : '容量在控制排题，舒适量是安全上限';
+    parts.push(`<div style="margin-bottom:6px">📊 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort})，${bottleneck}。</div>`);
+  }
+  // 智能建议
+  const advice = getComfortAdvice(p);
+  if (advice) {
+    advice.current = currentComfort;
+    const diff = advice.suggested - advice.current;
+    let tag = '';
+    if (Math.abs(diff) <= 1) tag = '<span style="color:#16a34a">当前设置合理</span>';
+    else if (diff > 0) tag = `<span style="color:#d97706">建议上调</span>`;
+    else tag = `<span style="color:#dc2626">建议下调</span>`;
+    parts.push(`<div style="margin-bottom:6px">💡 你最近14天（${advice.activeDays}个学习日）日均完成 <b>${advice.avg}</b> 条复习，建议舒适量设为 <b>${advice.suggested}</b> 条。${tag}</div>`);
+    if (Math.abs(diff) > 1) {
+      parts.push(`<button type="button" class="ghost-btn" id="btnApplyComfortAdvice" style="padding:5px 12px;font-size:12px;margin-top:2px">一键应用建议（${advice.suggested}条）</button>`);
+    }
+  } else {
+    parts.push(`<div style="color:var(--muted)">💡 再积累几天复习数据后，这里会根据你的实际节奏给出舒适量建议。</div>`);
+  }
+  el.innerHTML = parts.join('');
+  el.style.display = 'block';
+  const btn = document.getElementById('btnApplyComfortAdvice');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const advice = getComfortAdvice(p);
+      if (advice) {
+        document.getElementById('sSpreadThreshold').value = advice.suggested;
+        updateSpreadPressureHint();
+        updatePressurePanel();
+        renderComfortAdvice(p);
+        showToast('✅', '已应用建议', `舒适量已设为 ${advice.suggested} 条，保存后生效。`, 3000);
+      }
+    });
+  }
 }
 
 /* 手动/自动分散时，未来某天的每日硬上限 = min(舒适量, 当日排期容量) */
@@ -4613,9 +4884,9 @@ function getDailyCapacity(p, date) {
     // 冷启动：保守容量，不做星期画像
     return 3;
   }
-  // 先验速率 3 条/天，强度 K 随活跃天数衰减，避免少量样本就剧烈跳变
+  // 先验速率按类型区分：背书单条内容量大，先验3条/天保持保守；错题单题量小，先验6条/天更快收敛
   const K = Math.max(0, 8 - Math.min(activeDays, 8));
-  const PRIOR = 3;
+  const PRIOR = p.type === 'recite' ? 3 : 6;
   const baseRate = (cwSum + PRIOR * K) / (wSum + K);
   if (!date) return Math.max(1, Math.min(30, Math.round(baseRate * 0.9)));
   return getWeekdayAwareCap(p, date, counts, activeDays);
@@ -4666,7 +4937,7 @@ function updatePressurePanel() {
 
   // 用舒适量（spreadThreshold）判断超量，和复习区横幅一致
   const thVal = parseInt($('#sSpreadThreshold').value, 10);
-  const threshold = isNaN(thVal) ? 5 : Math.max(1, Math.min(50, thVal));
+  const threshold = isNaN(thVal) ? 10 : Math.max(1, Math.min(50, thVal));
   // 排期容量（仅均匀模式下有意义，用于自动错峰）
   let scheduleCap;
   if ($('#sCapacityMode').value === 'fixed') {
@@ -4887,8 +5158,14 @@ function autoBalanceIfNeeded(p) {
     saveStore();
     return 0;
   }
-  due.slice(0, cap).forEach(it => { it.nextReviewDate = today; });
-  const excess = due.slice(cap);
+  // 先把锁死条目（canBeSpread=false，逾期太久不能再推）强制归入 keep 留今天，
+  // 不进 excess；否则切到 excess 后又被 spreadItems 强制放回今天，造成今日实际负载虚高、重复处理
+  const blocked = due.filter(it => !canBeSpread(it, p));
+  const spreadable = due.filter(it => canBeSpread(it, p));
+  const keepN = Math.max(0, cap - blocked.length);
+  const keep = blocked.concat(spreadable.slice(0, keepN));
+  const excess = spreadable.slice(keepN);
+  keep.forEach(it => { it.nextReviewDate = today; });
   return spreadItems(p, excess, 3);
 }
 
@@ -4925,8 +5202,10 @@ function transitionReview(intervals, s0, wrongStreak0, quality, isFirstLearn, ro
   const firstGap = intervals[0] || 1;
   if (isFirstLearn) {
     let gap = firstGap;
-    if (quality === 'fuzzy') gap = Math.max(1, Math.round(firstGap / 2));
-    else if (quality === 'forgot') gap = 1;
+    // 首次学习三档按首间隔比例缩放，避免默认 firstGap=1 时 good/fuzzy/forgot 都排 1 天无区分度；
+    // fuzzy≈0.5×、forgot≈0.3×（天粒度最小 1 天，间隔调大后梯度自然拉开）
+    if (quality === 'fuzzy') gap = Math.max(1, Math.round(firstGap * 0.5));
+    else if (quality === 'forgot') gap = Math.max(1, Math.round(firstGap * 0.3));
     return { stage: 0, gap, wrongStreak: quality === 'forgot' ? 1 : 0 };
   }
   const curGap = intervals[Math.min(s0, last)] || firstGap;
@@ -4960,12 +5239,16 @@ function recomputeItemMastery(item, p) {
     item.masteredDate = null;
     item.spreadCount = 0;
     item.earlyReviewed = false;
+    clearRetention(item);
     return;
   }
   const intervals = getItemIntervals(item, p);
-  let stage = 0; // 第一条 review 是首次学习，stage=0
-  let wrongStreak = 0;
-  let lastGap = intervals[0] || 1;
+  // 回放首次学习：第一条 review 的 quality 决定首个 gap（good/fuzzy/forgot 按比例缩放首间隔），
+  // 否则重算后 lastGap 永远退回首间隔，丢失首次学习质量带来的排期差异
+  const firstT = transitionReview(intervals, 0, 0, reviews[0].quality, true, p.lapseRollback);
+  let stage = firstT.stage;
+  let wrongStreak = firstT.wrongStreak;
+  let lastGap = firstT.gap;
   // 统一三档模型回放：good 进轮；fuzzy 进轮但间隔受限；forgot 停留（连续2次退一轮）；错题/背书一致
   for (let i = 1; i < reviews.length; i++) {
     const t = transitionReview(intervals, stage, wrongStreak, reviews[i].quality, false, p.lapseRollback);
@@ -4986,9 +5269,13 @@ function recomputeItemMastery(item, p) {
     item.mastered = true;
     item.masteredDate = reviews[reviews.length - 1].date;
     item.nextReviewDate = null;
+    // 进入保持期（手动熟知的条目不安排）
+    if (!item.manualMastered) scheduleRetention(item, item.masteredDate, item.retentionPass || 0, p);
+    else clearRetention(item);
   } else {
     item.mastered = false;
     item.masteredDate = null;
+    clearRetention(item);
     // 提前复习过的条目，临时设回 earlyReviewed 让 scheduleNextReview 能缩短间隔
     if (wasEarlyReviewed) item.earlyReviewed = true;
     item.nextReviewDate = scheduleNextReview(p, item, reviews[reviews.length - 1].date, stage, lastGap);
@@ -5041,10 +5328,11 @@ function applyReview(item, quality, p, note) {
 
   if (quality === 'good' && isLastRound) {
     if (allGood && !tooFew) {
-      // 最后一轮 + 满3次 + 最近3次全对 → 直接毕业
+      // 最后一轮 + 满3次 + 最近3次全对 → 直接毕业，进入保持期
       item.mastered = true;
       item.masteredDate = today;
       item.nextReviewDate = null;
+      scheduleRetention(item, today, 0, p);
     } else {
       // 最后一轮但不满足直接毕业条件 → 弹窗确认
       // 弹窗前先落一个默认的下次复习日期（最长间隔），避免用户杀进程/刷新后 stage 已推进但 nextReviewDate 还是旧值的不一致状态
@@ -5065,6 +5353,7 @@ function applyReview(item, quality, p, note) {
     // 未到最后一轮，或 fuzzy/forgot → 不掌握，按三档模型安排下次复习
     item.mastered = false;
     item.masteredDate = null;
+    clearRetention(item);
     if (wasEarlyReviewed) item.earlyReviewed = true;
     item.nextReviewDate = scheduleNextReview(p, item, today, newStage, tr.gap);
     item.earlyReviewed = false;
@@ -5210,9 +5499,11 @@ function confirmMasterItem(confirm, mode, customIntervals) {
 
   if (confirm) {
     if (fromSkip) {
-      item.manualMastered = true; // 来自"已熟知"按钮，标记为已熟知
+      item.manualMastered = true; // 来自"已熟知"按钮，标记为已熟知（不安排保持复习）
+      clearRetention(item);
     } else {
-      item.mastered = true; // 来自复习评价，标记为已掌握
+      item.mastered = true; // 来自复习评价，标记为已掌握，进入保持期
+      scheduleRetention(item, todayStr(), 0, p);
     }
     item.masteredDate = todayStr();
     item.nextReviewDate = null;
@@ -5223,6 +5514,7 @@ function confirmMasterItem(confirm, mode, customIntervals) {
     item.mastered = false;
     item.masteredDate = null;
     item.customIntervals = null;
+    clearRetention(item);
     const intervals = getIntervals(p);
     item.nextReviewDate = scheduleNextReview(p, item, todayStr(), 0, intervals[0]);
   } else if (mode === 'custom' && customIntervals && customIntervals.length) {
@@ -5232,6 +5524,7 @@ function confirmMasterItem(confirm, mode, customIntervals) {
     item.mastered = false;
     item.masteredDate = null;
     item.customIntervals = customIntervals;
+    clearRetention(item);
     item.nextReviewDate = scheduleNextReview(p, item, todayStr(), 0, customIntervals[0]);
   }
   p.updatedAt = Date.now();
@@ -5240,9 +5533,11 @@ function confirmMasterItem(confirm, mode, customIntervals) {
 }
 
 function closeConfirmMaster() {
+  const mask = $('#confirmMasterMask');
+  if (mask.hidden) return;
   const item = pendingConfirmItem;
   const p = pendingConfirmProject;
-  $('#confirmMasterMask').hidden = true;
+  mask.hidden = true;
   unlockBodyScroll();
   pendingConfirmItem = null;
   pendingConfirmProject = null;
@@ -6090,7 +6385,7 @@ function render() {
     const lastDash = getLocalVal('dash_auto_date', '');
     if (projectCount > 0 && lastDash !== todayStr()) {
       setLocalVal('dash_auto_date', todayStr());
-      // 等首屏其他弹窗（changelog/备份/数据安全等）关掉后再弹
+      // 等首屏其他弹窗（备份/数据安全等）关掉后再弹
       const tryShow = (attempt) => {
         if (typeof anyModalOpen === 'function' && anyModalOpen()) {
           if (attempt < 20) setTimeout(() => tryShow(attempt + 1), 300); // 最多等6秒
@@ -6230,7 +6525,7 @@ function render() {
         : '今天就是截止日';
     } else if (m.perStudyDay != null) {
       $('#labelNeed').textContent = '每个学习日需做';
-      _setBigNum($('#mNeed'), m.perStudyDay >= 10 ? String(Math.round(m.perStudyDay)) : (Math.round(m.perStudyDay * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), (Math.round(m.perStudyDay * 10) / 10).toFixed(1), u);
       const bits = [];
       if (m.feasibility === 'stretch') bits.push(`比平时多 ${((m.ratio-1)*100).toFixed(0)}%`);
       else if (m.feasibility === 'impossible' || m.daysLeft < 0) bits.push('时间紧，可微调');
@@ -6440,11 +6735,23 @@ function renderReview(p) {
   const list = $('#reviewList');
   const due = getDueItems(p);
   const overdue = getOverdueItems(p);
+  const retentionDue = getRetentionDueItems(p);
+  const retentionOverdue = getRetentionOverdueItems(p);
 
   $('#reviewSection').hidden = false;
   const countEl = $('#reviewCount');
   countEl.textContent = due.length;
   countEl.classList.toggle('overdue', overdue.length > 0);
+
+  // 保持复习计数（独立显示，不计入正常复习数/舒适量）
+  const retCountEl = $('#retentionCount');
+  if (retCountEl) {
+    if (retentionDue.length > 0) {
+      retCountEl.hidden = false;
+      retCountEl.textContent = `+${retentionDue.length} 保持复习`;
+      retCountEl.title = '已掌握内容的定期巩固，快速确认"还记得吗"即可';
+    } else retCountEl.hidden = true;
+  }
 
   // 模式切换标签（仅错题本显示）
   const modeBtn = $('#modeSwitchBtn');
@@ -6474,17 +6781,24 @@ function renderReview(p) {
     $('#overdueSub').textContent = `最早逾期 ${maxDays} 天 · 可一键分散避免今天堆积`;
   } else banner.hidden = true;
 
-  // 超额分散横幅：待复习量超过阈值时显示
-  const threshold = p.spreadThreshold || 5;
+  // 超额分散横幅：待复习量超过阈值时显示（只统计正常复习，不含保持复习）
+  const threshold = p.spreadThreshold || defaultComfortCap(p);
   const excessBanner = $('#excessBanner');
   if (excessBanner) {
     if (due.length > threshold) {
       excessBanner.hidden = false;
       $('#excessCount').textContent = due.length;
+      // 远超舒适量时，提示可在设置中调高（避免用户被迫频繁分散）
+      const excessSub = $('#excessSub');
+      if (excessSub) {
+        excessSub.textContent = due.length > threshold * 1.5
+          ? `远超舒适量（${threshold}条），如果每天确实能做这么多，可在设置中调高；也可以分散到未来`
+          : '可以先做一部分，剩余分散到未来减轻压力';
+      }
     } else excessBanner.hidden = true;
   }
 
-  if (!due.length) {
+  if (!due.length && !retentionDue.length) {
     list.innerHTML = '';
     $('#noReviewHint').hidden = false;
     return;
@@ -6499,7 +6813,8 @@ function renderReview(p) {
     return a.nextReviewDate.localeCompare(b.nextReviewDate);
   });
 
-  list.innerHTML = due.map(it => {
+  // 正常复习条目
+  const normalHtml = due.map(it => {
     const mastery = getMasteryInfo(it, p);
     const stage = (it.stage || 0) + 1;
     const totalRounds = getItemIntervals(it, p).length;
@@ -6526,7 +6841,7 @@ function renderReview(p) {
       ? { good: '✓ 做对了', fuzzy: '~ 看答案', forgot: '✗ 又错了' }
       : { good: '✓ 记得', fuzzy: '~ 模糊', forgot: '✗ 忘记' };
 
-    return `<li class="review-item ${mastery.cls}${isOverdue ? ' overdue-item' : ''}" data-id="${it.id}">
+    return `<li class="review-item ${mastery.cls}${isOverdue ? ' overdue-item' : ''}" data-id="${esc(it.id)}">
       <div class="ri-main">
         <div class="ri-content">${esc(it.content)}</div>
         <div class="ri-meta">
@@ -6550,6 +6865,44 @@ function renderReview(p) {
       </div>
     </li>`;
   }).join('');
+
+  // 保持复习条目（已掌握内容的定期巩固，排在正常复习之后）
+  let retentionHtml = '';
+  if (retentionDue.length) {
+    // 逾期的保持复习排前面
+    retentionDue.sort((a, b) => (a.retentionDate || '').localeCompare(b.retentionDate || ''));
+    const totalRet = retentionDue.length;
+    const retExpanded = _retentionExpanded.has(p.id);
+    // 默认只展示最早的几条，避免长期未处理时列表冗长造成压力
+    const shownRet = retExpanded ? retentionDue : retentionDue.slice(0, RETENTION_SHOWN_CAP);
+    const retBtnLabels = { pass: '✓ 还记得', fail: '~ 模糊了' };
+    const itemsHtml = shownRet.map(it => {
+      const isRetOverdue = it.retentionDate < today;
+      const retOverdueHtml = isRetOverdue
+        ? `<span class="retention-overdue-tag">巩固逾期 ${diffDays(it.retentionDate, today)} 天</span>` : '';
+      const passCount = it.retentionPass || 0;
+      const passInfo = passCount > 0 ? `已巩固 ${passCount} 次 · ` : '';
+      return `<li class="review-item retention-item" data-id="${esc(it.id)}">
+        <div class="ri-main">
+          <div class="ri-content">${esc(it.content)}</div>
+          <div class="ri-meta">
+            <span class="retention-tag">🔖 保持复习</span>
+            <span>${passInfo}掌握于 ${fmtCN(it.masteredDate)}</span>
+            ${retOverdueHtml}
+          </div>
+        </div>
+        <div class="ri-actions">
+          <button class="q-btn q-retention-pass" data-retention="pass">${retBtnLabels.pass}</button>
+          <button class="q-btn q-retention-fail" data-retention="fail">${retBtnLabels.fail}</button>
+        </div>
+      </li>`;
+    }).join('');
+    const expandHtml = (!retExpanded && totalRet > RETENTION_SHOWN_CAP)
+      ? `<li class="retention-expand" data-retention-expand="${p.id}"><span>展开其余 ${totalRet - RETENTION_SHOWN_CAP} 条保持复习</span></li>` : '';
+    retentionHtml = `<li class="retention-divider"><span>🔖 保持复习 · 已掌握内容的快速巩固（${totalRet}）</span></li>${itemsHtml}${expandHtml}`;
+  }
+
+  list.innerHTML = normalHtml + retentionHtml;
 }
 
 function renderUnits(p, m) {
@@ -6714,7 +7067,7 @@ function renderExerciseRecords(p) {
   $('#recCount').textContent = recs.length ? `共 ${recs.length} 条` : '';
 
   if (!recs.length) {
-    list.innerHTML = '<li class="empty">还没有记录，先打个卡吧。</li>';
+    list.innerHTML = '<li class="empty">📊<br>还没有记录，先打个卡吧。</li>';
     return;
   }
 
@@ -6764,7 +7117,7 @@ function renderExerciseRecords(p) {
         `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
         `<span class="r-page">${textOf[i]}</span>` +
         `<span class="r-delta${dl > 0 ? '' : ' zero'}" style="margin-left:auto">${dlStr}</span>` +
-        `<button class="r-del" data-rid="${r.rid || ''}" data-date="${r.date}" data-set="${r.set}" title="删除">×</button>`;
+        `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" data-set="${esc(r.set)}" title="删除">×</button>`;
       list.insertBefore(li, list.firstChild);
     });
     return;
@@ -6795,7 +7148,7 @@ function renderExerciseRecords(p) {
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
       `<span class="r-page">${rangeStr}</span>` +
       `<span class="r-delta${delta > 0 ? '' : ' zero'}" style="margin-left:auto">${deltaStr}</span>` +
-      `<button class="r-del" data-rid="${r.rid || ''}" data-date="${r.date}" title="删除">×</button>`;
+      `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" title="删除">×</button>`;
     list.insertBefore(li, list.firstChild);
   });
 }
@@ -6819,7 +7172,7 @@ function renderReciteRecords(p) {
   $('#recCount').textContent = items.length ? `共 ${items.length} 条` : '';
 
   if (!items.length) {
-    list.innerHTML = '<li class="empty">还没有学习记录，先添加一条吧。</li>';
+    list.innerHTML = '<li class="empty">📝<br>还没有学习记录，先添加一条吧。</li>';
     return;
   }
 
@@ -6870,6 +7223,12 @@ function renderReciteRecords(p) {
       ? `<button class="early-review-btn" data-early="${it.id}" title="提前复习这条">⏩ 提前复习</button>`
       : '';
 
+    // 新录入条目（尚未复习过）加「新」标签，与已有复习历史的条目区分
+    const isFreshNew = (!it.reviews || it.reviews.length === 0) && !it.mastered && !it.manualMastered;
+    const newTag = isFreshNew
+      ? '<span class="m-badge" style="background:#eef2ff;color:#4338ca;font-size:10.5px">🆕 新</span>'
+      : '';
+
     // 错题本：补页码/补套号入口（转换后旧条目无定位字段时显示）
     let fillLocBtn = '';
     if (p.type === 'mistake') {
@@ -6888,13 +7247,14 @@ function renderReciteRecords(p) {
       `<span class="r-content" title="${esc(it.content)}">${esc(it.content)}</span>` +
       ((loc => loc ? `<span class="r-page">${esc(loc)}</span>` : '')(fmtItemLocator(p, it))) +
       ((it.errTags || []).map(reasonPill).join('')) +
+      newTag +
       `<span class="m-badge ${mastery.cls}" style="font-size:10.5px"><span class="dot-sm"></span>${mastery.label}</span>` +
       rightBadge +
       earlyBtn +
       fillLocBtn +
       (it.reviews && it.reviews.length ? '<button class="hist-toggle">历史</button>' : '') +
       `</div>` +
-      `<button class="r-del" data-item="${it.id}" title="删除">×</button>` +
+      `<button class="r-del" data-item="${esc(it.id)}" title="删除">×</button>` +
       histHtml;
     return li;
   };
@@ -7204,13 +7564,13 @@ function drawChart(m, p) {
 
 /* ============ 项目切换 ============ */
 function openSwitch() { renderProjectList(); $('#switchMask').hidden = false; modalTop($('#switchMask')); }
-function closeSwitch() { $('#switchMask').hidden = true; unlockBodyScroll(); }
+function closeSwitch() { const m=$('#switchMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
 
 function renderProjectList() {
   const list = $('#projectList');
   const ids = Object.keys(store.projects);
   if (!ids.length) {
-    list.innerHTML = '<li class="empty" style="padding:20px 8px;text-align:center">还没有任务，点下面新建一个吧。</li>';
+    list.innerHTML = '<li class="empty" style="padding:24px 8px;text-align:center">📚<br>还没有任务，点下面「＋新建」开始吧。</li>';
     return;
   }
   const all = ids.map(id => store.projects[id]);
@@ -7266,7 +7626,7 @@ function renderProjectList() {
       if (linkedCount > 0) linkInfo = ` · 🔗 ${linkedCount}个关联错题本`;
     }
 
-    return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}" data-id="${p.id}">
+    return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}" data-id="${esc(p.id)}">
       <span class="pi-icon">${type.icon}</span>
       <div class="pi-main">
         <div class="pi-name">
@@ -7297,7 +7657,7 @@ function openProgressBoard() {
   $('#progressMask').hidden = false;
   modalTop($('#progressMask'));
 }
-function closeProgressBoard() { $('#progressMask').hidden = true; unlockBodyScroll(); }
+function closeProgressBoard() { const m=$('#progressMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
 
 /* ============ 今日总览 ============ */
 const REMIND_KEY = 'study_tracker_remind';
@@ -7440,7 +7800,8 @@ function showBackupModal() {
 }
 function closeBackupModal() {
   const mask = $('#backupRemindMask');
-  if (mask) mask.hidden = true;
+  if (!mask || mask.hidden) return;
+  mask.hidden = true;
   unlockBodyScroll();
 }
 /* 用户处理弹窗后标记为已完成首次提醒（确认或取消都算） */
@@ -7644,10 +8005,270 @@ function getKaoyanHTML() {
     </div>`;
 }
 
+/* ============ 每周小结（本周首次打开看板时回顾上周，被动出现、不新增操作） ============ */
+function getMondayOf(s) {
+  const d = parseDate(s);
+  const dow = d.getDay(); // 0=周日
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return fmtDate(d);
+}
+const _pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+/* 每周小结统计：分项目类型统计上周数据 */
+function buildWeeklyStats(today) {
+  const todayD = parseDate(today);
+  const isMonday = todayD.getDay() === 1; // 周一=1
+  const thisMon = getMondayOf(today);
+  const lastMon = addDays(thisMon, -7);
+  const lastSun = addDays(thisMon, -1);
+  const beforeWeek = addDays(lastMon, -1);  // 上周开始前一天（用于算进度差）
+  const inWeek = d => d && d >= lastMon && d <= lastSun;
+  const heat = {};
+  let earliest = null;
+
+  // 分类型统计
+  let exercisePages = 0, exerciseSets = 0;   // 刷题：页/套
+  let reciteNew = 0, reciteReviews = 0;       // 背书：新学条/复习次
+  let mistakeNew = 0, mistakeMastered = 0, mistakeReviews = 0; // 错题：新增/攻克/复习
+
+  Object.values(store.projects).forEach(p => {
+    /* ===== 刷题本：用"上周结束进度 - 上周开始进度"的差值，天然去重、正确处理板块卷 ===== */
+    if (p.type === 'exercise' && Array.isArray(p.records)) {
+      p.records.forEach(r => {
+        heat[r.date] = (heat[r.date] || 0) + 1;
+        if (!earliest || r.date < earliest) earliest = r.date;
+      });
+      if (isSetMode(p)) {
+        // 套卷模式：getCompletedSets 按完成比例返回（板块加权），差值即上周实际完成套数
+        exerciseSets += getCompletedSets(p, lastSun) - getCompletedSets(p, beforeWeek);
+      } else {
+        // 习题册模式：按合并后的页码区间算，差值即上周实际刷的页数
+        exercisePages += getCompletedPagesAtDate(p, lastSun) - getCompletedPagesAtDate(p, beforeWeek);
+      }
+    }
+
+    /* ===== 背书卡 & 错题本：items 结构 ===== */
+    (p.items || []).forEach(it => {
+      if (it.learnedDate) {
+        heat[it.learnedDate] = (heat[it.learnedDate] || 0) + 1;
+        if (!earliest || it.learnedDate < earliest) earliest = it.learnedDate;
+        if (inWeek(it.learnedDate)) {
+          if (p.type === 'recite') reciteNew++;
+          else if (p.type === 'mistake') mistakeNew++;
+        }
+      }
+      // reviews[0] 是首次学习，idx>0 才是真正的复习
+      (it.reviews || []).forEach((rv, idx) => {
+        if (!rv || !rv.date) return;
+        heat[rv.date] = (heat[rv.date] || 0) + 1;
+        if (!earliest || rv.date < earliest) earliest = rv.date;
+        if (idx > 0 && inWeek(rv.date)) {
+          if (p.type === 'recite') reciteReviews++;
+          else if (p.type === 'mistake') mistakeReviews++;
+        }
+      });
+      // 保持复习评价（已掌握条目的定期回顾）也计入复习次数
+      (it.retentionReviews || []).forEach(rv => {
+        if (!rv || !rv.date) return;
+        heat[rv.date] = (heat[rv.date] || 0) + 1;
+        if (!earliest || rv.date < earliest) earliest = rv.date;
+        if (inWeek(rv.date)) {
+          if (p.type === 'recite') reciteReviews++;
+          else if (p.type === 'mistake') mistakeReviews++;
+        }
+      });
+      // 上周攻克的错题
+      if (p.type === 'mistake' && (it.mastered || it.manualMastered) && inWeek(it.masteredDate)) {
+        mistakeMastered++;
+      }
+    });
+  });
+
+  let activeDays = 0;
+  for (let i = 0; i < 7; i++) { if (heat[addDays(lastMon, i)]) activeDays++; }
+  const streak = currentStreak(heat, today);
+  const ageDays = earliest ? diffDays(earliest, today) + 1 : 0;
+  // 汇总（套数/页数统一在累加后取整，避免多个项目各自四舍五入导致虚高）
+  exerciseSets = Math.max(0, Math.round(exerciseSets));
+  exercisePages = Math.max(0, Math.round(exercisePages));
+  const totalReviews = reciteReviews + mistakeReviews;
+  const totalNew = reciteNew + mistakeNew;
+
+  return { isMonday, lastMon, lastSun, activeDays, streak, ageDays,
+    exercisePages, exerciseSets,
+    reciteNew, reciteReviews,
+    mistakeNew, mistakeMastered, mistakeReviews,
+    totalReviews, totalNew };
+}
+
+function getWeeklyReviewHTML() {
+  const today = todayStr();
+  if (!Object.keys(store.projects || {}).length) return '';
+  const s = buildWeeklyStats(today);
+  // 只在周一显示上周小结，周一全天展示
+  if (!s.isMonday) return '';
+  // 完全没有任何学习数据时不显示
+  if (s.ageDays <= 0) return '';
+  // 上周完全没活动也不显示（没什么可总结的）
+  if (s.activeDays === 0 && s.totalReviews === 0 && s.totalNew === 0
+      && s.exercisePages === 0 && s.exerciseSets === 0 && s.mistakeMastered === 0) return '';
+
+  // 构建数据描述文本（用于文案填充）：只描述该用户实际做过的事
+  const parts = [];
+  if (s.exercisePages > 0) parts.push(`刷了 ${s.exercisePages} 页题`);
+  if (s.exerciseSets > 0) parts.push(`刷了 ${s.exerciseSets} 套卷`);
+  if (s.reciteNew > 0) parts.push(`新背 ${s.reciteNew} 条`);
+  if (s.reciteReviews > 0) parts.push(`复习背书 ${s.reciteReviews} 次`);
+  if (s.mistakeNew > 0) parts.push(`收录 ${s.mistakeNew} 道错题`);
+  if (s.mistakeMastered > 0) parts.push(`攻克错题 ${s.mistakeMastered} 道`);
+  if (s.mistakeReviews > 0) parts.push(`复习错题 ${s.mistakeReviews} 次`);
+  const whatYouDid = parts.length ? parts.join('、') : '完成了日常复习';
+
+  const fill = t => t
+    .replace(/\{days\}/g, s.activeDays)
+    .replace(/\{streak\}/g, s.streak)
+    .replace(/\{rest\}/g, 7 - s.activeDays)
+    .replace(/\{reviews\}/g, s.totalReviews)
+    .replace(/\{new\}/g, s.totalNew)
+    .replace(/\{what(YouDid)?\}/g, whatYouDid);
+
+  // 冲刺期建议池
+  const sprintTips = [
+    '进入冲刺阶段，优先保住高频考点和错题本，这是性价比最高的提分点。',
+    '最后阶段别再大面积铺新内容，把学过的稳住、错题清零，比什么都强。',
+    '越临近考试越要守住睡眠，清醒的头脑比熬夜多背的那点内容值钱得多。',
+    '保持手感最重要：每天做点题、过一遍错题，让状态在考试当天到顶点。',
+    '冲刺期复习讲究"回炉"，之前标记模糊、错过的内容，这阶段值得多看两遍。'
+  ];
+
+  let emoji, title, msgs, tips;
+  const isNew = s.ageDays < 7;
+  const ky = getKaoyanInfo();
+  const isSprint = ky.state === 'countdown' && ky.days >= 0 && ky.days <= 30;
+
+  if (isNew) {
+    emoji = '🌱'; title = '第一周 · 起步';
+    msgs = [
+      '欢迎开始记录！第一步往往最难，你已经迈出来了。',
+      '把学习提上日程的这一刻，你就已经和昨天的自己不一样了。',
+      '万事开头难，你已经在路上了。先别急着追求完美，把"每天记一点"养起来。'
+    ];
+    tips = [
+      '这周不用追求量，先熟悉"学习→复习→掌握"的流程，节奏会自己长出来。',
+      '可以先从一个科目跑通完整流程，再慢慢加量，比一上来就铺满更稳。',
+      '把每天的目标定得轻松一点，连续几天都能完成，比一次猛学有用得多。'
+    ];
+  } else if (s.activeDays === 0) {
+    emoji = '🍃'; title = '上周 · 暂停了一下';
+    msgs = [
+      '上周暂时没有学习记录，没关系，节奏断了随时能接上。',
+      '休息本来就是备考的一部分。重要的不是从没停下，而是停下后还愿意回来。',
+      '上周留白了，不代表前面的努力白费——学过的还在，捡起来比从零开始快得多。',
+      '停了一周？完全来得及。今天打开这个看板，就已经是重新开始了。'
+    ];
+    tips = [
+      '别想着一天补回一周的量，今天先学十几分钟、做几条复习，把状态找回来。',
+      '把门槛降到最低：哪怕只复习3条、只看1页，先让"今天学过"这件事发生。',
+      '如果确实太累，就允许自己再缓一天，但定一个具体的重启时间，别让暂停变放弃。'
+    ];
+  } else if (s.activeDays === 7) {
+    emoji = '🔥'; title = '上周 · 全勤';
+    msgs = [
+      `上周7天全勤！${whatYouDid}，这份自律已经超过绝大多数人了。`,
+      `一周七天一天不落，${whatYouDid}，你的稳定本身就是最强的竞争力。`,
+      `全勤达成！${whatYouDid}，能每天坐下来学，本身就是很了不起的事。`,
+      `连续一周都在线——${whatYouDid}，你正在用行动告诉自己"我是能坚持的人"。`
+    ];
+    tips = [
+      '状态正好，也留意疲劳信号，睡够比多刷几道题更影响长期效率。',
+      '全勤很燃，记得留一点喘息时间——能稳稳走到12月的节奏才是好节奏。',
+      '天数已经拉满，接下来可以把注意力放到薄弱环节的质量上。'
+    ];
+  } else if (s.streak >= 7 && s.activeDays >= 5) {
+    emoji = '💪'; title = '上周 · 稳定输出';
+    msgs = [
+      `已经连续打卡 {streak} 天，上周{whatYouDid}，坚持正在变成你的习惯。`,
+      `连续学了 {streak} 天，上周{whatYouDid}，这种细水长流的稳定最难得。`,
+      `{streak} 天的连续记录背后，上周{whatYouDid}，都是一天天攒下来的硬功夫。`
+    ];
+    tips = [
+      '惯性已经建立，继续保持就好，周末也可以心安理得地放松半天。',
+      '趁状态稳定，定期回看一眼整体进度，确认方向没有跑偏。',
+      '稳定是你的优势，接下来可以在每天的内容质量上再抠细一点。'
+    ];
+  } else if (s.activeDays >= 5) {
+    emoji = '📈'; title = '上周 · 节奏不错';
+    msgs = [
+      `上周学了 {days} 天，{whatYouDid}，这个节奏相当扎实。`,
+      `一周 {days} 天在学习，{whatYouDid}，已经跑赢了大多数人的状态。`,
+      `{days} 天的投入——{whatYouDid}——正在悄悄把你和目标的距离一点点缩短。`
+    ];
+    tips = [
+      '离全勤只差一两天，回想那天被什么占住了，能提前安排就更好。',
+      '节奏很好，别让偶尔的一两天中断，悄悄连成更长的松懈。',
+      '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
+    ];
+  } else if (s.activeDays >= 3) {
+    emoji = '🌤️'; title = '上周 · 张弛有度';
+    msgs = [
+      `上周学了 {days} 天，{whatYouDid}，已经有了一个不错的基本盘。`,
+      `{days} 天学习、{rest} 天休整，{whatYouDid}，张弛之间再加一点点就很理想。`,
+      `上周有 {days} 天在推进——{whatYouDid}——节奏在线，还有往上走的空间。`
+    ];
+    tips = [
+      '试着把学习固定在每天同一时段，变成像吃饭一样的动作，天数会自然上来。',
+      '从最容易上手的科目开始，先坐下、先学十分钟，往往就停不下来了。',
+      '一周三到四天是不错的底子，把目标定在五天，踮踮脚就能够到。'
+    ];
+  } else {
+    emoji = '🌦️'; title = '上周 · 刚起步';
+    msgs = [
+      `上周学了 {days} 天，{whatYouDid}，虽然不多，但至少没有完全空白。`,
+      `上周只记录了 {days} 天，{whatYouDid}，没关系，这周从一个小目标重新起步就好。`,
+      `有 {days} 天的开始就不算晚，{whatYouDid}，真正可惜的是一直不开始。`
+    ];
+    tips = [
+      '先别定大计划，这周争取比上周多一天，这就是实打实的进步。',
+      '把学习材料放到最顺手的地方，减少"开始"那一下的阻力。',
+      '哪怕每天只学二十分钟，一周也能攒出两个多小时，关键是先让频率上来。'
+    ];
+  }
+  if (isSprint) tips = sprintTips;
+
+  // 数据格：根据用户实际使用的模式动态显示，没有数据的指标不出现
+  const stat = (num, lab) => `<div class="wr-stat"><div class="wr-num">${num}</div><div class="wr-lab">${lab}</div></div>`;
+  // 复习卡片：只有一种模式时显示具体名称，两种都有则显示汇总
+  let reviewCard = null;
+  if (s.reciteReviews > 0 && s.mistakeReviews > 0) reviewCard = stat(s.totalReviews, '复习总次数');
+  else if (s.reciteReviews > 0) reviewCard = stat(s.reciteReviews, '复习背书');
+  else if (s.mistakeReviews > 0) reviewCard = stat(s.mistakeReviews, '复习错题');
+  const statsHtml = [
+    stat(s.activeDays + ' / 7', '学习天数'),
+    s.exercisePages > 0 ? stat(s.exercisePages, '刷题页数') : null,
+    s.exerciseSets > 0 ? stat(s.exerciseSets, '刷题套数') : null,
+    s.reciteNew > 0 ? stat(s.reciteNew, '新背内容') : null,
+    s.mistakeNew > 0 ? stat(s.mistakeNew, '新增错题') : null,
+    reviewCard,
+    s.mistakeMastered > 0 ? stat(s.mistakeMastered, '攻克错题') : null,
+    stat(s.streak, '连续打卡')
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="weekly-review">
+      <div class="wr-head">
+        <span class="wr-title">${emoji} ${title} · 学习小结</span>
+        <span class="wr-date">${fmtCN(s.lastMon)} - ${fmtCN(s.lastSun)}</span>
+      </div>
+      <div class="wr-stats">${statsHtml}</div>
+      <div class="wr-msg">${fill(_pick(msgs))}</div>
+      <div class="wr-tip">💡 ${fill(_pick(tips))}</div>
+    </div>`;
+}
+
 function openDashboard() {
   const ps = Object.values(store.projects);
   const today = todayStr();
-  let dueTotal = 0, overdueTotal = 0;
+  let dueTotal = 0, overdueTotal = 0, retentionTotal = 0;
   const heat = {};
   const exRows = [], reRows = [], miRows = [];
   let plannedPageTotal = 0, plannedSetTotal = 0;
@@ -7680,6 +8301,7 @@ function openDashboard() {
       const due = getDueItems(p).length;
       const over = getOverdueItems(p).length;
       dueTotal += due; overdueTotal += over;
+      retentionTotal += getRetentionDueItems(p).length;
       // 进度口径与主页一致：背书按已背页数 / 总页数；错题按已攻克 / 已收录条数
       if (p.type === 'recite') {
         total = (p.unitMode && Array.isArray(p.units) && p.units.length)
@@ -7726,6 +8348,9 @@ function openDashboard() {
   } else if (dueTotal > 0) {
     msg = `📌 今天有 <b>${dueTotal}</b> 条待复习，按间隔过一遍`;
     enc = '状态正佳，一鼓作气！';
+  } else if (retentionTotal > 0) {
+    msg = `🔖 常规复习已清完，还有 <b>${retentionTotal}</b> 条已掌握内容可快速巩固`;
+    enc = '花几分钟确认一下还记得，记忆会更牢～';
   } else if (hasPlan) {
     msg = `✅ 复习已清完，${plannedSummary.replace('学习日刷题建议：', '下次学习建议：').replace('（休息日不摊任务）', '')}`;
     enc = '按节奏推进，每天进步一点点～';
@@ -7819,6 +8444,7 @@ function openDashboard() {
   $('#dashBody').innerHTML = `
     ${backupHtml}
     ${getKaoyanHTML()}
+    ${getWeeklyReviewHTML()}
     <div class="dash-hero ${urgent ? 'urgent' : ''}">
       <div class="greet-big">${g}</div>
       <div class="greet-sub">这是你今天的学习看板</div>
@@ -7826,7 +8452,7 @@ function openDashboard() {
       <div class="hero-enc">${enc}</div>
     </div>
     <div class="dash-grid">
-      <div class="dash-card"><div class="dash-num" style="color:${overdueTotal > 0 ? '#c93038' : 'inherit'}">${reviewTotal}</div><div class="dash-lab">今日待复习（背书+错题）${overdueTotal > 0 ? ' · 含' + overdueTotal + '条逾期' : ''}</div></div>
+      <div class="dash-card"><div class="dash-num" style="color:${overdueTotal > 0 ? '#c93038' : 'inherit'}">${reviewTotal}</div><div class="dash-lab">今日待复习（背书+错题）${overdueTotal > 0 ? ' · 含' + overdueTotal + '条逾期' : ''}${retentionTotal > 0 ? ' · 另' + retentionTotal + '条保持复习' : ''}</div></div>
       <div class="dash-card"><div class="dash-num">${planNum}</div><div class="dash-lab">刷题 · 每个学习日目标（页/套）</div></div>
       <div class="dash-card"><div class="dash-num">${streak}</div><div class="dash-lab">连续打卡（天）</div></div>
     </div>
@@ -7944,11 +8570,32 @@ function unlockBodyScroll() {
     window.scrollTo(0, _bodyScrollY);
   }
 }
-function closeDashboard() { $('#dashMask').hidden = true; unlockBodyScroll(); }
+function closeDashboard() { const m=$('#dashMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
 function modalTop(maskEl){
   lockBodyScroll(); // 同步锁定，避免 unlock 先于 lock 执行导致 body 永久锁死
+  // 安卓/微信返回键支持：打开弹窗时压入历史栈，按返回键会触发 popstate 关闭弹窗（见下方监听）
+  try { history.pushState({ __stModal: true }, ''); } catch (e) {}
   requestAnimationFrame(()=>{ const m=maskEl.querySelector('.modal'); if(m) m.scrollTop=0; });
 }
+
+/* 安卓/微信返回键：关闭最上层弹窗（dataSecurityMask 必须点按钮，返回键不关闭） */
+window.addEventListener('popstate', () => {
+  const openIds = ALL_MODAL_IDS.filter(id => {
+    const el = document.getElementById(id);
+    return el && !el.hidden;
+  });
+  if (!openIds.length) return;
+  const topId = openIds[openIds.length - 1];
+  if (topId === 'dataSecurityMask') {
+    // 数据安全提示必须点按钮：返回键不关闭，但要重新压栈补偿，保持弹窗与历史栈对齐
+    try { history.pushState({ __stModal: true }, ''); } catch (e) {}
+    return;
+  }
+  const el = document.getElementById(topId);
+  if (!el) return;
+  el.hidden = true;
+  unlockBodyScroll();
+});
 
 /* iOS 键盘弹起时，100vh/90svh 不会随键盘变化，用 visualViewport 动态更新 --vvh CSS 变量（避免遍历所有 .modal 设置内联样式） */
 if (window.visualViewport) {
@@ -8054,6 +8701,8 @@ function playReminderBeep() {
   if (!AC) return;
   try {
     const ctx = new AC();
+    // iOS Safari / 微信 X5：AudioContext 创建后默认 suspended，不 resume 就无声
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
@@ -8577,7 +9226,7 @@ function openFormCreate() {
   modalTop($('#formMask'));
   setTimeout(() => $('#fName').focus(), 50);
 }
-function closeForm() { $('#formMask').hidden = true; unlockBodyScroll(); document.querySelectorAll('input[name="ptype"]').forEach(r => { r.disabled = false; }); const fLinkRef = $('#fLinkRef'); if (fLinkRef) fLinkRef.disabled = false; }
+function closeForm() { const m=$('#formMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); document.querySelectorAll('input[name="ptype"]').forEach(r => { r.disabled = false; }); const fLinkRef = $('#fLinkRef'); if (fLinkRef) fLinkRef.disabled = false; }
 document.querySelectorAll('input[name="ptype"]').forEach(r => r.addEventListener('change', syncFormUnit));
 document.querySelectorAll('input[name="punit"]').forEach(r => r.addEventListener('change', syncFormUnit));
 document.querySelectorAll('input[name="pmistakemode"]').forEach(r => r.addEventListener('change', syncFormUnit));
@@ -8608,7 +9257,8 @@ function openSettings() {
     const el = document.getElementById(id);
     if (el) el.hidden = true;
   });
-  unlockBodyScroll();
+  // 暴力重置前可能叠开了多个弹窗，锁计数被多次 +1；这里把残留计数清零，避免只 unlock 一次造成 body 永久 fixed
+  while (_bodyLockCount > 0) unlockBodyScroll();
   // 先强制显示设置窗口
   const sm = $('#settingsMask');
   sm.hidden = false;
@@ -8618,8 +9268,8 @@ function openSettings() {
 
   try {
   $('#sName').value = p.name;
-  $('#sTotal').value = p.total;
-  $('#sDeadline').value = p.deadline;
+  $('#sTotal').value = p.total || '';
+  $('#sDeadline').value = p.deadline || '';
   $('#sStartDate').value = p.startDate || '';
   $('#sStartPage').value = p.startPage || 0;
   $('#sBookStart').value = p.bookStartPage || '';
@@ -8704,7 +9354,11 @@ function openSettings() {
   // 分散阈值（背书+错题）
   $('#spreadSectionTitle').hidden = !isRecite;
   $('#spreadSection').hidden = !isRecite;
-  if (isRecite) $('#sSpreadThreshold').value = p.spreadThreshold || 5;
+  if (isRecite) {
+    $('#sSpreadThreshold').value = p.spreadThreshold || defaultComfortCap(p);
+    $('#sSpreadThreshold').placeholder = '如 ' + defaultComfortCap(p);
+    renderComfortAdvice(p);
+  }
 
   // 套卷：总套数；练习册/背书：用起始/结束页；错题本习题册/自由出处总量动态，不显示总套数；错题本套卷显示总套数
   const usePageRange = !setMode && (p.type !== 'mistake' || isMistakePageMode(p));
@@ -8822,7 +9476,9 @@ function closeSettings() {
   doCloseSettings();
 }
 function doCloseSettings() {
-  $('#settingsMask').hidden = true;
+  const mask = $('#settingsMask');
+  if (mask.hidden) return;
+  mask.hidden = true;
   unlockBodyScroll();
   settingsInitialSnapshot = null;
 }
@@ -9002,6 +9658,19 @@ function readUnitRowsFromList(listEl) {
   if (fixedCount > 0) {
     showToast('⚠️', '页码已自动修正', `${fixedCount}个单元的结束页小于起始页，已自动调整为与起始页相同`, 3000);
   }
+  // 单元页码重叠检测：同父级（level 相同）的相邻单元间页码范围重叠时警告
+  const overlaps = [];
+  for (let i = 0; i < flat.length - 1; i++) {
+    const a = flat[i], b = flat[i + 1];
+    if (a.level !== b.level) continue;
+    if (a.startPage == null || a.endPage == null || b.startPage == null || b.endPage == null) continue;
+    if (b.startPage <= a.endPage && a.startPage <= b.endPage) {
+      overlaps.push(`${a.name}(~${a.endPage}页)与${b.name}(${b.startPage}~页)`);
+    }
+  }
+  if (overlaps.length) {
+    showToast('⚠️', '单元页码有重叠', overlaps.slice(0, 3).join('；'), 4500);
+  }
   // 构建嵌套树
   const tree = [];
   const stack = []; // 栈中存 {level, node}
@@ -9110,7 +9779,7 @@ function openWeaknessBoard() {
   $('#weaknessMask').hidden = false;
   modalTop($('#weaknessMask'));
 }
-function closeWeaknessBoard() { $('#weaknessMask').hidden = true; unlockBodyScroll(); }
+function closeWeaknessBoard() { const m=$('#weaknessMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
 
 function renderWeaknessBoard(p) {
   const items = p.items || [];
@@ -9185,7 +9854,7 @@ function renderWeaknessBoard(p) {
     const tagHtml = isMistake && (it.errTags || []).length
       ? `<span style="color:#8a6a12">${it.errTags.slice(0, 2).map(esc).join('/')}${it.errTags.length > 2 ? '…' : ''}</span><span>·</span>` : '';
     const locHtml = loc ? `<span>${esc(loc)}</span><span>·</span>` : '';
-    return `<li class="wb-item ${mastery.cls}" data-id="${it.id}">
+    return `<li class="wb-item ${mastery.cls}" data-id="${esc(it.id)}">
       <div class="wb-item-main">
         <div class="wb-item-content">${esc(it.content)}</div>
         <div class="wb-item-meta">
@@ -9532,6 +10201,12 @@ function importData(file) {
       if (obj && obj.store && obj.store.projects) imported = obj.store;
       else if (obj && obj.projects) imported = obj;
       if (!imported || typeof imported.projects !== 'object') throw new Error('文件格式不正确');
+      // 过滤掉非对象的项目值，防止恶意 JSON 注入脏数据导致渲染崩溃
+      Object.keys(imported.projects).forEach(pid => {
+        const v = imported.projects[pid];
+        if (!v || typeof v !== 'object' || Array.isArray(v)) { try { delete imported.projects[pid]; } catch (e) {} }
+      });
+      if (!Object.keys(imported.projects).length) throw new Error('备份文件里没有有效项目');
 
       hideBusy();
       // 显示导入确认弹窗
@@ -9562,12 +10237,29 @@ function importData(file) {
 function doImport(imported, mode) {
   showBusy('正在写入数据…');
 
+  // 导入数据净化（复用全局 sanitizeStoreData）：任意损坏/被篡改的备份都不应导致白屏崩溃。
+  // 合并模式下先净化当前库（防御历史脏数据），再净化导入数据
   if (mode === 'overwrite') {
-    store = imported;
+    const clean = sanitizeStoreData(imported);
+    if (!clean || !Object.keys(clean.projects).length) {
+      hideBusy();
+      alert('导入失败：备份文件里没有有效项目');
+      return;
+    }
+    store = clean;
   } else {
+    sanitizeStoreData(store);
+    const cleanImported = sanitizeStoreData(imported);
+    if (!cleanImported || !Object.keys(cleanImported.projects).length) {
+      hideBusy();
+      alert('导入失败：备份文件里没有有效项目');
+      return;
+    }
+    imported = cleanImported;
     // 合并模式：保留现有项目，把备份里的 records / items 追加进来（按 id/rid 去重）
     Object.keys(imported.projects || {}).forEach(pid => {
       const inc = imported.projects[pid];
+      if (!inc) return;
       if (!store.projects[pid]) {
         store.projects[pid] = inc;
         return;
@@ -9595,7 +10287,9 @@ function doImport(imported, mode) {
 
   // ===== 数据迁移 / 补默认字段 =====
   Object.values(store.projects).forEach(p => {
+        if (!p || typeof p !== 'object') return;
         (p.items || []).forEach(it => {
+          if (!it || typeof it !== 'object') return;
           if (it.pageStart == null && it.page != null) {
             it.pageStart = it.page;
             it.pageEnd = it.page;
@@ -9616,8 +10310,12 @@ function doImport(imported, mode) {
         });
         if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
         if (!Array.isArray(p.units)) p.units = [];
+        // 递归补全单元 children 字段（旧版备份可能缺失，否则渲染单元编辑器会崩）
+        const _ensureImportChildren = arr => (arr || []).forEach(u => { if (!u || typeof u !== 'object') return; if (!Array.isArray(u.children)) u.children = []; if (u.children.length) _ensureImportChildren(u.children); });
+        _ensureImportChildren(p.units);
         if (!Array.isArray(p.records)) p.records = [];
         p.records.forEach(r => {
+          if (!r || typeof r !== 'object') return;
           if (r.startPage == null && r.endPage == null && r.page != null) { r.endPage = r.page; delete r.page; }
         });
         if (!Array.isArray(p.items)) p.items = [];
@@ -9627,7 +10325,7 @@ function doImport(imported, mode) {
         if (p.skipConfirmDismissed == null) p.skipConfirmDismissed = false;
         if (p.reviewMode == null) p.reviewMode = 'classic';
         if (p.dailyCapacity == null) p.dailyCapacity = null;
-        if (p.spreadThreshold == null) p.spreadThreshold = 5;
+        if (p.spreadThreshold == null) p.spreadThreshold = defaultComfortCap(p);
         if (p.totalLocked == null) p.totalLocked = false;
         if (!p.deadline && !(p.type === 'mistake' && (!p.mistakeMode || p.mistakeMode === 'free'))) p.deadline = todayStr();
         if (p.unitMode == null) p.unitMode = false;
@@ -9641,6 +10339,7 @@ function doImport(imported, mode) {
   // 导入后清理指向不存在项目的 refProjectId
   const validIds = new Set(Object.keys(store.projects));
   Object.values(store.projects).forEach(p => {
+    if (!p || typeof p !== 'object') return;
     if (p.refProjectId && !validIds.has(p.refProjectId)) p.refProjectId = null;
   });
 
@@ -9796,12 +10495,6 @@ $('#btnCreateLinkedFromList').addEventListener('click', () => {
   if (p.unit === 'set') $('#fTotal').value = p.total || '';
   showToast('📝', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
 });
-$('#btnShowGuide').addEventListener('click', () => {
-  $('#settingsMask').hidden = true;
-  unlockBodyScroll();
-  $('#changelogMask').hidden = false;
-  modalTop($('#changelogMask'));
-});
 
 $('#formClose').addEventListener('click', closeForm);
 $('#formCancel').addEventListener('click', closeForm);
@@ -9829,12 +10522,17 @@ function submitFormCreate() {
   const usePageRange = (type !== 'mistake' && !isSet) || isMistakePage;
 
   if (!name) return alert('请填写任务名称～');
+  // 同名查重
+  if (Object.values(store.projects).some(p => p.name === name)) return alert('已存在同名任务「' + name + '」，换个名字吧～');
   if (isSet && (!total || total < 1)) return alert('请填写有效的总套数～');
   if (isMistakeSet && (!total || total < 1)) return alert('请填写有效的总套数～');
-  if (usePageRange && (isNaN(bookEnd) || bookEnd < 1)) return alert('请填写有效的结束页～');
+  if (usePageRange && (isNaN(bookEnd) || bookEnd < 1)) return alert('请填写正文结束页（资料的最后一页）；起始页可不填，默认第 1 页～');
+  if (usePageRange && bookStartRaw && (isNaN(bookStart) || bookStart < 1)) return alert('正文起始页必须 ≥ 1～');
   if (usePageRange && bookStart > bookEnd) return alert('起始页不能大于结束页～');
   if (!deadline) return alert('请选择计划完成日期～');
+  if (deadline && diffDays(todayStr(), deadline) < 0) return alert('计划完成日期不能早于今天～');
   if (startDate && diffDays(startDate, deadline) < 0) return alert('开始日期不能晚于截止日期～');
+  if (startDate && diffDays(startDate, todayStr()) < 0) return alert('开始日期不能晚于今天～');
 
   // 错题套卷也要存总套数；错题习题册/自由出处才是动态总量
   const effectiveTotal = usePageRange ? (bookEnd - bookStart + 1) : (isMistakeSet ? (total || 0) : (type === 'mistake' ? 0 : total));
@@ -9844,6 +10542,13 @@ function submitFormCreate() {
   let paperYearStart = null;
   if (isSet || isMistakeSet) {
     if (isSet) paperSections = readPaperSecRows($('#fPaperSecList'));
+    // 权重和校验：≠100% 时提示将按比例归一化（不阻断，给用户确认机会）
+    if (isSet && paperSections.length) {
+      const wSum = paperSections.reduce((s, x) => s + (Number(x.weight) || 0), 0);
+      if (Math.abs(wSum - 100) > 0.5) {
+        if (!confirm(`板块权重和为 ${Math.round(wSum)}%，不是 100%。\n\n提交后会自动按当前比例归一化（各板块权重 ÷ 权重和 × 100%）。\n\n确定继续吗？`)) return;
+      }
+    }
     paperLabelMode = (document.querySelector('input[name="ppaperlabel"]:checked') || {}).value || 'index';
     if (paperLabelMode === 'year') {
       paperYearStart = parseInt($('#fPaperYear').value, 10);
@@ -9862,15 +10567,15 @@ function submitFormCreate() {
     const maxPage = usePageRange ? bookEnd : Infinity;
     let minStart = Infinity, maxEnd = -Infinity;
     function validateUnit(u) {
-      if (!u.name) return alert('请填写单元名称～');
-      if (u.startPage == null || u.endPage == null) return alert(`单元「${u.name}」的页码不完整～`);
-      if (u.startPage > u.endPage) return alert(`单元「${u.name}」起始页不能大于结束页～`);
+      if (!u.name) return '请填写单元名称～';
+      if (u.startPage == null || u.endPage == null) return `单元「${u.name}」的页码不完整～`;
+      if (u.startPage > u.endPage) return `单元「${u.name}」起始页不能大于结束页～`;
       minStart = Math.min(minStart, u.startPage);
       maxEnd = Math.max(maxEnd, u.endPage);
       for (const c of (u.children || [])) { const err = validateUnit(c); if (err) return err; }
       return null;
     }
-    for (const u of units) { if (validateUnit(u)) return; }
+    for (const u of units) { const err = validateUnit(u); if (err) return alert(err); }
     if (minStart < minPage) return alert(`单元起始页最小为第 ${minStart} 页，超出正文范围（正文从第 ${minPage} 页开始）～`);
     if (maxEnd > maxPage) return alert(`单元结束页最大为第 ${maxEnd} 页，超出正文范围（正文到第 ${maxPage} 页结束）～`);
   }
@@ -9894,7 +10599,7 @@ function submitFormCreate() {
       ? ((document.querySelector('input[name="freviewmode"]:checked') || {}).value || 'balanced')
       : 'classic',
     dailyCapacity: null,
-    spreadThreshold: 5,
+    spreadThreshold: type === 'recite' ? 6 : 10,
     totalLocked: false,
     bookStartPage: usePageRange ? (bookStart > 1 ? bookStart : null) : null,
     bookEndPage: usePageRange ? bookEnd : null,
@@ -9943,11 +10648,7 @@ function submitFormCreate() {
 }
 $('#formSave').addEventListener('click', submitFormCreate);
 
-['fName', 'fTotal', 'fDeadline', 'fStartDate', 'fStartPage'].forEach(id => {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') submitFormCreate(); });
-});
+// 新建向导：回车自动跳到下一个输入框，最后一个回车保存（统一导航，见 setupEnterNav）
 
 $('#formImport').addEventListener('click', () => $('#importFile').click());
 
@@ -9982,7 +10683,7 @@ $('#sCapacityMode').addEventListener('change', e => {
   updatePressurePanel();
 });
 $('#sCapacityFixed').addEventListener('input', () => updatePressurePanel());
-$('#sSpreadThreshold').addEventListener('input', () => { updateSpreadPressureHint(); updatePressurePanel(); });
+$('#sSpreadThreshold').addEventListener('input', () => { updateSpreadPressureHint(); updatePressurePanel(); const _p=store.projects[store.currentId]; if(_p) renderComfortAdvice(_p); });
 $('#btnReviewModeHelp').addEventListener('click', () => {
   $('#reviewModeHelpMask').hidden = false;
   modalTop($('#reviewModeHelpMask'));
@@ -10325,6 +11026,29 @@ $('#importFile').addEventListener('change', e => {
   e.target.value = '';
 });
 
+/* 彻底清除全部数据：localStorage + IndexedDB + Cache 三层全清，二次确认后 reload */
+$('#btnWipeAll').addEventListener('click', async () => {
+  if (!confirm('彻底清除全部数据？\n\n会删除所有项目、记录、设置，不可恢复。\n建议先「导出备份」。\n\n确定继续吗？')) return;
+  if (!confirm('再次确认：真的要清空全部数据并重启页面吗？此操作不可逆。')) return;
+  try { Object.keys(localStorage).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try {
+    const dbs = await indexedDB.databases();
+    for (const d of dbs) {
+      await new Promise(res => {
+        const req = indexedDB.deleteDatabase(d.name);
+        req.onsuccess = req.onerror = req.onblocked = () => res();
+      });
+    }
+  } catch (e) {}
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      for (const k of keys) await caches.delete(k);
+    }
+  } catch (e) {}
+  location.reload();
+});
+
 function submitSettings() {
   const p = store.projects[editingProjectId];
   if (!p) return;
@@ -10344,7 +11068,7 @@ function submitSettings() {
 
   if (!name) return alert('请填写任务名称～');
   if ((setMode || isMistakeSet) && (!total || total < 1)) return alert('请填写有效的总套数～');
-  if (usePageRange && (isNaN(bookEnd) || bookEnd < 1)) return alert('请填写有效的结束页～');
+  if (usePageRange && (isNaN(bookEnd) || bookEnd < 1)) return alert('请填写正文结束页（资料的最后一页）；起始页可不填，默认第 1 页～');
   if (usePageRange && bookStart > bookEnd) return alert('起始页不能大于结束页～');
   if (!deadline) return alert('请选择计划完成日期～');
   if (startDate && diffDays(startDate, deadline) < 0) return alert('开始日期不能晚于截止日期～');
@@ -10362,9 +11086,9 @@ function submitSettings() {
     let minStart = Infinity, maxEnd = -Infinity;
     // 校验：每个单元（含子单元）必须有名称和完整页码；边界只检查最小起始页和最大结束页
     function validateUnit(u) {
-      if (!u.name) return alert('请填写单元名称～');
-      if (u.startPage == null || u.endPage == null) return alert(`单元「${u.name}」的页码不完整～`);
-      if (u.startPage > u.endPage) return alert(`单元「${u.name}」起始页不能大于结束页～`);
+      if (!u.name) return '请填写单元名称～';
+      if (u.startPage == null || u.endPage == null) return `单元「${u.name}」的页码不完整～`;
+      if (u.startPage > u.endPage) return `单元「${u.name}」起始页不能大于结束页～`;
       minStart = Math.min(minStart, u.startPage);
       maxEnd = Math.max(maxEnd, u.endPage);
       for (const c of (u.children || [])) {
@@ -10375,7 +11099,7 @@ function submitSettings() {
     }
     for (const u of units) {
       const err = validateUnit(u);
-      if (err) return;
+      if (err) return alert(err);
     }
     if (minStart < minPage) return alert(`单元起始页最小为第 ${minStart} 页，超出正文范围（正文从第 ${minPage} 页开始）～`);
     if (maxEnd > maxPage) return alert(`单元结束页最大为第 ${maxEnd} 页，超出正文范围（正文到第 ${maxPage} 页结束）～`);
@@ -10423,7 +11147,7 @@ function submitSettings() {
   // 分散阈值（背书+错题）
   if (p.type !== 'exercise') {
     const th = parseInt($('#sSpreadThreshold').value, 10);
-    p.spreadThreshold = isNaN(th) || th < 1 ? 5 : Math.min(50, th);
+    p.spreadThreshold = isNaN(th) || th < 1 ? defaultComfortCap(p) : Math.min(50, th);
   }
 
   if (isSetMode(p) || isMistakeSetMode(p)) {
@@ -10456,11 +11180,7 @@ function submitSettings() {
 }
 $('#settingsSave').addEventListener('click', submitSettings);
 
-['sName', 'sTotal', 'sDeadline', 'sStartDate', 'sStartPage', 'sIntervals'].forEach(id => {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') submitSettings(); });
-});
+// 设置页：回车自动跳到下一个输入框，最后一个回车保存（统一导航，见 setupEnterNav）
 
 /* 清理指向已删除项目的 refProjectId */
 function clearRefsTo(deletedId) {
@@ -10488,7 +11208,9 @@ function structuresMatch(p, ref) {
     if (p.paperLabelMode !== ref.paperLabelMode) return false;
     return true;
   }
-  // 页码模式：递归比对 units
+  // 页码模式：比对正文范围 + 递归比对 units
+  if (p.bookStartPage !== ref.bookStartPage) return false;
+  if (p.bookEndPage !== ref.bookEndPage) return false;
   function cmpUnits(a, b) {
     if (!a && !b) return true;
     if (!a || !b) return false;
@@ -10527,6 +11249,11 @@ $('#btnReset').addEventListener('click', () => {
   if (!confirm(`确定要删除任务「${p.name}」吗？\n任务及其全部打卡/复习记录都会被移除（删除后 5 秒内可撤销）。`)) return;
   const removedProject = p;
   const wasCurrent = store.currentId === p.id;
+  // 快照所有指向该项目的 refProjectId，删除时清空、撤销时写回，避免关联丢失
+  const refsToRestore = [];
+  Object.values(store.projects).forEach(other => {
+    if (other.refProjectId === p.id) refsToRestore.push(other.id);
+  });
   delete store.projects[p.id];
   clearRefsTo(p.id);
   delete ppExpandedSet[p.id]; // 清理进度看板的展开状态缓存
@@ -10538,6 +11265,7 @@ $('#btnReset').addEventListener('click', () => {
   render();
   showUndo(`已删除任务「${removedProject.name}」`, () => {
     store.projects[removedProject.id] = removedProject;
+    refsToRestore.forEach(oid => { if (store.projects[oid]) store.projects[oid].refProjectId = removedProject.id; });
     if (wasCurrent) store.currentId = removedProject.id;
     saveStore();
     render();
@@ -10558,6 +11286,11 @@ $('#projectList').addEventListener('click', e => {
         if (confirm(`确定要删除「${p.name}」吗？\n该任务的全部记录都会被移除（删除后 5 秒内可撤销）。`)) {
       const removedProject = store.projects[id];
       const wasCurrent = store.currentId === id;
+      // 快照所有指向该项目的 refProjectId，删除时清空、撤销时写回
+      const refsToRestore = [];
+      Object.values(store.projects).forEach(other => {
+        if (other.refProjectId === id) refsToRestore.push(other.id);
+      });
       delete store.projects[id];
       clearRefsTo(id);
       delete ppExpandedSet[id]; // 清理进度看板的展开状态缓存
@@ -10571,6 +11304,7 @@ $('#projectList').addEventListener('click', e => {
       render();
       showUndo(`已删除任务「${removedProject.name}」`, () => {
         store.projects[id] = removedProject;
+        refsToRestore.forEach(oid => { if (store.projects[oid]) store.projects[oid].refProjectId = id; });
         if (wasCurrent) store.currentId = id;
         saveStore();
         render();
@@ -10780,13 +11514,16 @@ $('#btnSetCheckin').addEventListener('click', () => {
   const setNo = parseInt($('#inSetNo').value, 10);
   if (isNaN(setNo) || setNo < 1) return alert('请输入第几套（套号）～');
   if (setNo > p.total) {
-    if (!confirm(`第 ${setNo} 套超过了总套数 ${p.total} 套，确定要记录吗？`)) return;
+    return alert(`第 ${setNo} 套超过了总套数 ${p.total} 套，不予记录。\n\n请先在「设置 → 总套数」里修改，或记录第 1 ~ ${p.total} 套之间的套号～`);
   }
   if (!Array.isArray(p.records)) p.records = [];
 
   const secs = getPaperSections(p);
   if (secs.length) {
     if (!setSelectedSecIds.length) {
+      // 整套打卡：若该套今天已有分板块记录，静默删除会丢失分板块进度，先确认
+      const hasSecRec = p.records.some(r => r.set === setNo && r.date === date && r.secId != null);
+      if (hasSecRec && !confirm('这套今天已经分板块记录过了。\n按「整套」打卡会清除这些分板块进度，确定吗？')) return;
       p.records = p.records.filter(r => !(r.set === setNo && r.date === date));
       p.records.push({ date, set: setNo, all: true, rid: genId() });
     } else {
@@ -10814,10 +11551,8 @@ $('#btnSetCheckin').addEventListener('click', () => {
         }
       });
       if (overs.length) {
-        const msg = overs.map(o =>
-          `· ${o.name}：已累计 ${o.existing}%，本次 +${o.pct}% = ${o.total}%，超出部分不计`
-        ).join('\n');
-        alert(`以下板块累加后超过 100%，已按 100% 封顶计算：\n\n${msg}`);
+        // 超 100% 不阻断保存，用 toast 非阻断提示 + 自动封顶（getSetState 已 cap 100%）
+        window.__lastSetCapWarn = overs.map(o => o.name).join('、');
       }
       entries.forEach(en => {
         p.records.push({ date, set: setNo, secId: en.sid, pct: en.pct, rid: genId() });
@@ -10845,15 +11580,18 @@ $('#btnSetCheckin').addEventListener('click', () => {
 
   p.updatedAt = Date.now();
   saveStore();
-  showToast('✅', '已记录', `第 ${setNo} 套`);
+  if (window.__lastSetCapWarn) {
+    showToast('⚠️', '部分板块已达100%封顶', window.__lastSetCapWarn);
+    window.__lastSetCapWarn = null;
+  } else {
+    showToast('✅', '已记录', `第 ${setNo} 套`);
+  }
   $('#inSetDone').value = '';
   $('#inSetTotalQ').value = '';
   render();
   maybeShowProgressPraise(p);
 });
-['inSetNo', 'inSetDone', 'inSetTotalQ'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnSetCheckin').click(); });
-});
+// 套卷打卡：回车在 日期→套号→完成题数→总题数 间跳转，最后一个回车记录（统一导航接管）
 
 /* 刷题打卡（按页） */
 $('#btnCheckin').addEventListener('click', () => {
@@ -10861,15 +11599,26 @@ $('#btnCheckin').addEventListener('click', () => {
   if (!p || p.type !== 'exercise' || isSetMode(p)) return;
 
   const date = $('#inDate').value || todayStr();
-  const startRaw = parseInt($('#inPageStart').value, 10);
-  const endPage = parseInt($('#inPageEnd').value, 10);
-  const hasStart = !isNaN(startRaw) && $('#inPageStart').value.trim() !== '';
-  if (isNaN(endPage) || endPage < 0) return alert('请输入「学到第几页」的页码～');
-  let startPage = null;
-  if (hasStart) {
-    startPage = startRaw;
-    if (startPage < 0) return alert('起始页不能小于 0～');
+  const startStr = $('#inPageStart').value.trim();
+  const endStr = $('#inPageEnd').value.trim();
+  const startRaw = startStr !== '' ? parseInt(startStr, 10) : NaN;
+  const endRaw = endStr !== '' ? parseInt(endStr, 10) : NaN;
+  const hasStart = !isNaN(startRaw);
+  const hasEnd = !isNaN(endRaw);
+
+  let startPage = null, endPage = null;
+  if (pageRangeMode) {
+    // 区间模式：起始页–结束页，与其它页码输入统一——只填一个=单页，两个都填=范围，都不填才提示
+    if (!hasStart && !hasEnd) return alert('请填写页码（只填一个表示单页，两个都填表示从起始页到结束页的范围）～');
+    if (hasStart && startRaw < 0) return alert('起始页不能小于 0～');
+    if (hasEnd && endRaw < 0) return alert('结束页不能小于 0～');
+    startPage = hasStart ? startRaw : endRaw;
+    endPage = hasEnd ? endRaw : startRaw;
     if (endPage < startPage) return alert('结束页不能小于起始页～');
+  } else {
+    // 顺序模式：只填「学到第几页」
+    if (!hasEnd || endRaw < 0) return alert('请输入「学到第几页」的页码～');
+    endPage = endRaw;
   }
   const effectiveTotal = (p.bookEndPage != null) ? p.bookEndPage : p.total;
   if (endPage > effectiveTotal) {
@@ -10881,6 +11630,10 @@ $('#btnCheckin').addEventListener('click', () => {
   if (!Array.isArray(p.records)) p.records = [];
   if (startPage == null) {
     const cp = p.records.find(r => r.date === date && r.startPage == null);
+    // 顺序打卡回退：新 endPage < 旧 endPage 会回退进度，先确认
+    if (cp && cp.endPage != null && endPage < cp.endPage) {
+      if (!confirm(`今天已经学到第 ${cp.endPage} 页，现在改成第 ${endPage} 页会回退进度。\n\n确定要回退吗？`)) return;
+    }
     if (cp) cp.endPage = endPage;
     else p.records.push({ rid: genId(), date, endPage });
   } else {
@@ -10889,16 +11642,16 @@ $('#btnCheckin').addEventListener('click', () => {
   }
   p.updatedAt = Date.now();
   saveStore();
+  const isSinglePage = startPage != null && startPage === endPage;
   showToast('✅', '已记录', startPage != null
-    ? `第 ${startPage}-${endPage} 页`
+    ? (isSinglePage ? `第 ${endPage} 页` : `第 ${startPage}-${endPage} 页`)
     : `学到第 ${endPage} 页`);
   $('#inPageStart').value = '';
   $('#inPageEnd').value = '';
   render();
   maybeShowProgressPraise(p);
 });
-$('#inPageEnd').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnCheckin').click(); });
-$('#inPageStart').addEventListener('keydown', e => { if (e.key === 'Enter') { $('#inPageEnd').focus(); } });
+// 刷题打卡：回车在 日期→起始页→结束页 间跳转，最后一个回车记录（统一导航接管）
 
 /* 背书 / 错题添加 */
 $('#btnReciteAdd').addEventListener('click', () => {
@@ -10914,11 +11667,17 @@ $('#btnReciteAdd').addEventListener('click', () => {
 
   let pageStart = 0, pageEnd = 0, setNo = null;
   if (!isMistake || isMistakePageMode(p)) {
-    // 背书 + 错题本习题册模式：页码
-    pageStart = parseInt($('#recitePageStart').value, 10);
-    const pageEndRaw = parseInt($('#recitePageEnd').value, 10);
-    if (isNaN(pageStart) || pageStart < 0) return alert('请输入有效的起始页～');
-    pageEnd = isNaN(pageEndRaw) ? pageStart : pageEndRaw;
+    // 背书 + 错题本习题册模式：页码定位。起始页/结束页规则全局统一——
+    // 只填任意一个 = 单页（两页相同）；两个都填 = 起止范围；都不填才提示。
+    const startRaw = $('#recitePageStart').value.trim();
+    const endRaw = $('#recitePageEnd').value.trim();
+    if (!startRaw && !endRaw) return alert('请填写页码（只填一个表示单页，两个都填表示从起始页到结束页的范围）～');
+    const sVal = startRaw ? parseInt(startRaw, 10) : NaN;
+    const eVal = endRaw ? parseInt(endRaw, 10) : NaN;
+    if (startRaw && (isNaN(sVal) || sVal < 0)) return alert('请输入有效的起始页～');
+    if (endRaw && (isNaN(eVal) || eVal < 0)) return alert('请输入有效的结束页～');
+    pageStart = startRaw ? sVal : eVal;
+    pageEnd = endRaw ? eVal : sVal;
     if (pageEnd < pageStart) return alert('结束页不能小于起始页～');
   }
   if (isMistakeSetMode(p)) {
@@ -10988,16 +11747,7 @@ $('#btnReciteAdd').addEventListener('click', () => {
   maybeShowProgressPraise(p);
 });
 
-$('#reciteContent').addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  const p = cur();
-  if (p && p.type === 'mistake') { if ($('#reciteSource')) $('#reciteSource').focus(); }
-  else $('#recitePageStart').focus();
-});
-$('#recitePageStart').addEventListener('keydown', e => { if (e.key === 'Enter') $('#recitePageEnd').focus(); });
-$('#recitePageEnd').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnReciteAdd').click(); });
-$('#reciteSource').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#reciteDate').focus(); } });
+// 背书/错题录入：回车按"当前模式下实际可见的框"顺序跳转，最后一个（学习日期）回车提交（统一导航接管）
 $('#reciteDate').addEventListener('change', updateRecitePreview);
 
 /* 新错因：永久/临时按钮选择 */
@@ -11061,6 +11811,16 @@ let pendingSkipItem = null;
 let pendingSkipProject = null;
 
 $('#reviewList').addEventListener('click', e => {
+  // 展开折叠的保持复习条目
+  const expandBtn = e.target.closest('[data-retention-expand]');
+  if (expandBtn) {
+    const p = cur();
+    if (!p) return;
+    _retentionExpanded.add(p.id);
+    render();
+    return;
+  }
+
   const skipBtn = e.target.closest('[data-skip]');
   if (skipBtn) {
     const itemId = skipBtn.dataset.skip;
@@ -11079,6 +11839,7 @@ $('#reviewList').addEventListener('click', e => {
       item.manualMastered = true;
       item.masteredDate = todayStr();
       item.nextReviewDate = null;
+      clearRetention(item);
       p.updatedAt = Date.now();
       saveStore();
       render();
@@ -11124,15 +11885,22 @@ $('#reviewList').addEventListener('click', e => {
   const itemEl = btn.closest('.review-item');
   if (!itemEl) return;
   const itemId = itemEl.dataset.id;
-  const quality = btn.dataset.quality;
   const p = cur();
   if (!p) return;
   const item = (p.items || []).find(it => it.id === itemId);
   if (!item) return;
 
+  // 保持复习条目：只有"还记得/模糊了"两个选项，走独立逻辑
+  if (btn.dataset.retention) {
+    applyRetentionReview(item, btn.dataset.retention, p);
+    saveStore();
+    render();
+    return;
+  }
+
   const noteInput = itemEl.querySelector('.ri-note');
   const note = noteInput ? noteInput.value : '';
-  applyReview(item, quality, p, note);
+  applyReview(item, btn.dataset.quality, p, note);
   if ($('#confirmMasterMask').hidden) {
     saveStore();
     render();
@@ -11156,7 +11924,7 @@ function checkReviewMilestone(p) {
   }
   const key = p.id + ':' + today;
   if (milestoneFiredToday[key]) return; // 这个项目今天已经弹过了
-  const threshold = p.spreadThreshold || 5;
+  const threshold = p.spreadThreshold || defaultComfortCap(p);
   // 今天复习了多少条（排除首次录入）
   let reviewedToday = 0;
   (p.items || []).forEach(it => {
@@ -11518,6 +12286,7 @@ $('#randomReviewConfirmOk').addEventListener('click', () => {
     it.nextReviewDate = today;
     it.spreadCount = 0;
     it.stage = 0; // 抽查当作没攻克过重新过一遍，避免做错后排到30天
+    clearRetention(it);
     // 不往 reviews 里塞假记录，避免污染掌握判定、掌握度分数和历史面板
   });
   p.updatedAt = Date.now();
@@ -11538,45 +12307,10 @@ $('#btnDashboard').addEventListener('click', openDashboard);
 $('#dashClose').addEventListener('click', closeDashboard);
 $('#dashMask').addEventListener('click', e => { if (e.target === $('#dashMask')) closeDashboard(); });
 
-/* 新手指南：只自动弹一次 */
-const CHANGELOG_KEY = 'study_tracker_v2_guide_final_20260915';
-function closeChangelog() {
-  $('#changelogMask').hidden = true;
-  unlockBodyScroll();
-  setUIFlag(CHANGELOG_KEY); // 双写 localStorage + store.uiFlags，iOS 清 localStorage 后仍可从 IndexedDB 恢复
-  // 欢迎指南关闭后，检查是否需要显示数据安全提示
-  checkDataSecurityOnStart();
-  // 新用户关闭欢迎指南后，再显示更新日志（延迟到数据安全弹窗之后）
-  setTimeout(checkUpdateLogOnStart, 800);
-}
+/* 数据安全提示：新用户首次进入只弹这一次，关闭后停留在全屏欢迎页 #welcome */
 function checkDataSecurityOnStart() {
   if (getUIFlag(DATA_SECURITY_KEY)) return; // 双写检查：localStorage 或 store.uiFlags 任一为 true 即视为已看过
   setTimeout(openDataSecurity, 350);
-}
-$('#changelogClose').addEventListener('click', closeChangelog);
-$('#changelogOk').addEventListener('click', closeChangelog);
-$('#changelogSkip').addEventListener('click', closeChangelog);
-$('#changelogMask').addEventListener('click', e => { if (e.target === $('#changelogMask')) closeChangelog(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#changelogMask').hidden) closeChangelog(); });
-
-/* 9.18 更新日志弹窗 */
-const UPDATE_LOG_KEY = 'update_log_918';
-function showUpdateLog() {
-  $('#updateLogMask').hidden = false;
-  modalTop($('#updateLogMask'));
-}
-function closeUpdateLog() {
-  $('#updateLogMask').hidden = true;
-  unlockBodyScroll();
-  setUIFlag(UPDATE_LOG_KEY);
-}
-$('#updateLogClose').addEventListener('click', closeUpdateLog);
-$('#updateLogOk').addEventListener('click', closeUpdateLog);
-$('#updateLogMask').addEventListener('click', e => { if (e.target === $('#updateLogMask')) closeUpdateLog(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#updateLogMask').hidden) closeUpdateLog(); });
-function checkUpdateLogOnStart() {
-  if (getUIFlag(UPDATE_LOG_KEY)) return;
-  showUpdateLog();
 }
 
 /* 定期备份提醒弹窗事件绑定 */
@@ -11720,8 +12454,10 @@ function openDataSecurity() {
   }, 1000);
 }
 function closeDataSecurity() {
+  const mask = $('#dataSecurityMask');
+  if (mask.hidden) return;
   if (_dsTimer) { clearInterval(_dsTimer); _dsTimer = null; }
-  $('#dataSecurityMask').hidden = true;
+  mask.hidden = true;
   unlockBodyScroll();
   setUIFlag(DATA_SECURITY_KEY); // 双写 localStorage + store.uiFlags，iOS 清 localStorage 后仍可从 IndexedDB 恢复
 }
@@ -11731,7 +12467,7 @@ $('#dataSecurityOk').addEventListener('click', closeDataSecurity);
 /* ============ 无痕浏览模式检测 ============ */
 let _incognitoWarned = false;
 // 所有模态弹窗 ID，用于检测是否有其他弹窗打开（避免无痕弹窗与其他弹窗同时出现）
-const ALL_MODAL_IDS = ['changelogMask','dataSecurityMask','settingsMask','formMask','switchMask','dashMask','weaknessMask','progressMask','reasonKindMask','modeSwitchConfirmMask','randomReviewConfirmMask','genericConfirmMask','mistakeGuideMask','reviewModeHelpMask','importConfirmMask','confirmMasterMask','skipConfirmMask','tplManagerMask','backupRemindMask','updateLogMask','linkedMistakesMask'];
+const ALL_MODAL_IDS = ['dataSecurityMask','settingsMask','formMask','switchMask','dashMask','weaknessMask','progressMask','reasonKindMask','modeSwitchConfirmMask','randomReviewConfirmMask','genericConfirmMask','mistakeGuideMask','reviewModeHelpMask','importConfirmMask','confirmMasterMask','skipConfirmMask','tplManagerMask','backupRemindMask','linkedMistakesMask'];
 function anyModalOpen() {
   for (const id of ALL_MODAL_IDS) {
     const el = document.getElementById(id);
@@ -11759,7 +12495,9 @@ function checkIncognito() {
   }
 }
 function closeIncognito() {
-  $('#incognitoMask').hidden = true;
+  const mask = $('#incognitoMask');
+  if (mask.hidden) return;
+  mask.hidden = true;
   unlockBodyScroll();
 }
 $('#incognitoClose').addEventListener('click', closeIncognito);
@@ -11826,6 +12564,13 @@ document.addEventListener('keydown', e => {
   // dataSecurityMask 不响应 ESC，必须等3秒后点击"我已知晓"
 });
 
+/* 统一表单回车导航：回车跳到下一个可见输入框，最后一个回车提交 */
+setupEnterNav($('#exerciseForm'), $('#btnCheckin'));
+setupEnterNav($('#setForm'), $('#btnSetCheckin'));
+setupEnterNav($('#reciteForm'), $('#btnReciteAdd'));
+setupEnterNav($('#formMask'), $('#formSave'));
+setupEnterNav($('#settingsMask'), $('#settingsSave'));
+
 /* 复习列表键盘快捷键：1=记得/做对，2=模糊/看答案，3=忘记/又错 */
 document.addEventListener('keydown', e => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
@@ -11835,7 +12580,7 @@ document.addEventListener('keydown', e => {
       !$('#settingsMask').hidden || !$('#formMask').hidden ||
       !$('#switchMask').hidden || !$('#dashMask').hidden ||
       !$('#weaknessMask').hidden || !$('#progressMask').hidden ||
-      !$('#reasonKindMask').hidden || !$('#changelogMask').hidden ||
+      !$('#reasonKindMask').hidden ||
       !$('#modeSwitchConfirmMask').hidden || !$('#randomReviewConfirmMask').hidden ||
       !$('#genericConfirmMask').hidden || !$('#mistakeGuideMask').hidden ||
       !$('#reviewModeHelpMask').hidden || !$('#importConfirmMask').hidden ||
@@ -11863,22 +12608,22 @@ try {
   else if (mq.addListener) mq.addListener(handler);
 } catch (e) {}
 
+/* resize 重绘图表加 debounce，避免拖动窗口时高频重绘卡顿 */
+let _resizeT = null;
 window.addEventListener('resize', () => {
-  if (lastMetrics) drawChart(lastMetrics.m, lastMetrics.p);
+  if (_resizeT) clearTimeout(_resizeT);
+  _resizeT = setTimeout(() => { if (lastMetrics) drawChart(lastMetrics.m, lastMetrics.p); }, 150);
 });
 
 /* ============ 启动 ============ */
 (async function boot() {
+  try {
   applyTheme();
   initStorageSafety();
   await loadStore(); // 等待数据恢复完成（防止空数据覆盖 IndexedDB 备份）
   applyTheme(); // 数据恢复后重新应用主题：iOS 清 localStorage 后，store.localData 里的主题偏好从 IndexedDB 恢复，需要重新应用
   _booting = false;  // 恢复完成，允许保存
-  // 有学习数据的用户自动标记已看过欢迎引导（避免欢迎弹窗重复出现，有数据说明已开始使用）
-  // 注意：数据安全弹窗不自动跳过，大版本更新后所有用户都需要看一次（通过升级 DATA_SECURITY_KEY 版本号控制）
-  if (store.projects && Object.keys(store.projects).length > 0) {
-    if (!getUIFlag(CHANGELOG_KEY)) setUIFlag(CHANGELOG_KEY);
-  }
+  // 数据安全提示不自动跳过：新用户首次进入会在下面弹一次（由 checkDataSecurityOnStart 按 DATA_SECURITY_KEY 控制）
   if (store.currentId && !store.projects[store.currentId]) {
     const ids = Object.keys(store.projects);
     store.currentId = ids.length ? ids[0] : null;
@@ -11897,17 +12642,10 @@ window.addEventListener('resize', () => {
     setTimeout(() => { try { splash.remove(); } catch (e) {} }, 350);
   }
   // 弹窗逻辑延迟到下一帧，确保主界面先绘制完成
+  // 新用户（无任何项目）：只弹数据安全提示，关闭后停留在全屏欢迎页 #welcome
+  // 老用户（有项目）：直接进入主界面 #app，不弹任何启动/引导/更新弹窗
   requestAnimationFrame(() => {
-    const seenChangelog = getUIFlag(CHANGELOG_KEY); // 双写检查：localStorage 或 store.uiFlags 任一为 true 即视为已看过
-    if (!seenChangelog) {
-      $('#changelogMask').hidden = false; modalTop($('#changelogMask'));
-      // 新用户：关闭欢迎指南后再弹更新日志（在 closeChangelog 里处理）
-    } else {
-      // 老用户：更新后第一次启动显示数据安全提示
-      checkDataSecurityOnStart();
-      // 老用户：延迟弹更新日志（在数据安全弹窗之后）
-      setTimeout(checkUpdateLogOnStart, 1200);
-    }
+    checkDataSecurityOnStart();
   });
   // 定期备份提醒弹窗（iOS 每3天，其他端每15天）
   // 首次打开且无任何项目数据 → 标记为新用户，等打卡满3天后再第一次提醒
@@ -11933,6 +12671,7 @@ window.addEventListener('resize', () => {
   setTimeout(_tryBackupModal, 800);
   // 检测无痕浏览模式
   setTimeout(checkIncognito, 1500);
+  } catch (e) { console.error('boot 启动失败:', e); }
 })();
 </script>
 <div id="busyMask" hidden class="busy-mask">
