@@ -28,6 +28,7 @@
 <meta name="format-detection" content="telephone=no">
 <!-- manifest 已移除：iOS Safari 不支持 data: URL / Blob URL 形式的 manifest，依赖 meta 标签即可 -->
 <title>Study-tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   [hidden]{display:none!important}
@@ -79,6 +80,15 @@
   h2{font-size:15px;font-weight:600;margin-bottom:14px}
   .muted{color:var(--muted);font-weight:400;font-size:13px}
   .hint{font-size:12.5px;color:var(--muted);line-height:1.7;margin-top:12px}
+  /* 评价真实性永久提醒：常驻、低打扰、不指责 */
+  .honest-hint{
+    font-size:12px;line-height:1.65;color:#6d5a36;
+    background:fdf6e3;border:1px solid #f0e2b8;border-radius:10px;
+    padding:8px 12px;margin:10px 0 0;
+  }
+  html[data-theme="dark"] .honest-hint{
+    color:#d8c79a;background:#2c2718;border-color:#4a3f22;
+  }
   .row-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
 
   /* ============ 欢迎页 ============ */
@@ -448,6 +458,8 @@
   .review-item.retention-item:hover{border-color:#9ee0d5;box-shadow:0 4px 14px -10px rgba(20,184,166,.3)}
   .retention-tag{font-size:10.5px;font-weight:600;color:#0d9488;background:#ccfbf1;padding:1px 7px;border-radius:6px}
   .ri-meta .retention-overdue-tag{color:#c07800;font-weight:600}
+  /* 关键薄弱点：反复错的题，考前最该拿下的点（正向"重点"标记，而非红色告警） */
+  .ri-meta .weak-key-tag{font-size:10.5px;font-weight:700;color:#6d28d9;background:#f1ebfe;padding:1px 7px;border-radius:6px;white-space:nowrap}
   .q-retention-pass{background:#e6faf5;color:#0d9488}
   .q-retention-pass:hover{background:#d2f4ec}
   .q-retention-fail{background:#fdf3e2;color:#c07800}
@@ -1210,6 +1222,7 @@
   html[data-theme="dark"] .review-item.retention-item:hover{border-color:#2a5a52}
   html[data-theme="dark"] .retention-tag{color:#5eead4;background:#13403a}
   html[data-theme="dark"] .ri-meta .retention-overdue-tag{color:#fbbf24}
+  html[data-theme="dark"] .ri-meta .weak-key-tag{color:#c4b5fd;background:#2e2547}
   html[data-theme="dark"] .q-retention-pass{background:#133a36;color:#5eead4}
   html[data-theme="dark"] .q-retention-pass:hover{background:#1a4a44}
   html[data-theme="dark"] .q-retention-fail{background:#2a2418;color:#fbbf24}
@@ -1475,6 +1488,7 @@
     </div>
 
     <ul class="review-list" id="reviewList"></ul>
+    <p class="honest-hint" id="honestHint" hidden></p>
     <p class="hint" id="noReviewHint" hidden style="margin-top:0">今天没有需要复习的内容，轻松一下～</p>
   </section>
 
@@ -1651,7 +1665,10 @@
     <div class="status-body">
       <div class="status-title" id="statusTitle">—</div>
       <div class="status-desc" id="statusDesc">—</div>
-      <div class="status-desc" id="statusAlgoNote" style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;opacity:.85"></div>
+      <details class="algo-details" style="margin-top:8px">
+        <summary style="font-size:12px;color:var(--muted);cursor:pointer;opacity:.8;user-select:none;list-style:revert">怎么算的？</summary>
+        <div class="status-desc" id="statusAlgoNote" style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.7;opacity:.9"></div>
+      </details>
       <div id="lazyWarning" hidden style="margin-top:10px;padding:10px 12px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a;font-size:12.5px;color:#92400e;line-height:1.6">
         <span id="lazyWarningText"></span>
       </div>
@@ -1855,7 +1872,7 @@
           <span>⚖️ 均匀分布（推荐）</span>
         </label>
       </div>
-      <p class="hint" style="margin-top:6px;margin-bottom:0">
+      <p class="hint" id="fReviewModeHint" style="margin-top:6px;margin-bottom:0">
         <b>均匀分布</b>：自动把复习错峰到每天，避免某天突然爆量，适合经常批量录入错题。<br>
         <b>经典间隔</b>：严格按间隔天数提醒，适合量少、能跟上节奏的情况。
       </p>
@@ -1875,9 +1892,10 @@
     <p id="fBookRangeHint" style="font-size:12px;color:var(--muted);margin:-6px 0 8px;display:none">
       结束页必填，起始页不填默认第 1 页；总页数自动计算，可排除前面的目录、前言等页面。
     </p>
-    <label>计划完成日期
+    <label>计划完成日期（目标日）
       <input id="fDeadline" type="date">
     </label>
+    <p style="font-size:12px;color:var(--muted);margin:-6px 0 8px">目标日是你希望完成的日子，可以早于实际考试，给自己留出缓冲。</p>
     <div class="two-col">
       <label>开始日期（可选）
         <input id="fStartDate" type="date">
@@ -1922,10 +1940,11 @@
       <label id="sTotalRow"><span id="sTotalLabel">总页数</span>
         <input id="sTotal" type="number" min="1">
       </label>
-      <label>计划完成日期
+      <label>计划完成日期（目标日）
         <input id="sDeadline" type="date">
       </label>
     </div>
+    <p style="font-size:12px;color:var(--muted);margin:-6px 0 8px">目标日是你希望完成的日子，可早于实际考试、留出缓冲。</p>
     <div id="sBookRangeRow" class="two-col" style="display:none">
       <label><span>正文起始页（选填）</span>
         <input id="sBookStart" type="number" min="1" placeholder="不填默认第 1 页">
@@ -3531,6 +3550,7 @@ async function loadStore() {
       if (!Array.isArray(it.reviews)) it.reviews = [];
       if (it.masteredDate === undefined) it.masteredDate = null;
       if (it.learnedDate == null) it.learnedDate = todayStr();
+      if (it.finalReviewDate === undefined) it.finalReviewDate = null;
     });
     if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
     if (!Array.isArray(p.units)) p.units = [];
@@ -4022,6 +4042,16 @@ function getIntervals(p) {
   return (p.intervals && p.intervals.length) ? p.intervals : DEFAULT_INTERVALS;
 }
 
+/* 一条内容从首次学习到"走完最后一轮、毕业"所需的累计天数 = 各档间隔之和。
+   默认 [1,2,4,7,15,30] → 59 天。背书要保证所有内容在考试前毕业，
+   最后一批新内容最晚必须在 deadline - cycleDays 天学完，之后只复习不学新。 */
+function getReviewCycleDays(p) {
+  const iv = getIntervals(p);
+  let sum = 0;
+  for (let i = 0; i < iv.length; i++) sum += Math.max(1, parseInt(iv[i], 10) || 1);
+  return sum;
+}
+
 function calcNextReviewDateFromLearn(learnDate, completedReviews, intervals) {
   if (completedReviews >= intervals.length) return null;
   let total = 0;
@@ -4277,7 +4307,10 @@ function getMetrics(p) {
   const PRIOR_K = Math.max(0, 7 - Math.min(activeDays, 7));
 
   let wAll = 0, wActive = 0;
-  for (let age = 0; age < windowDays; age++) {
+  // 全新项目（无任何学习记录）不虚构"过去 60 个自然日都没学"，否则会把先验（每周约 5 天）
+  // 错误稀释成每周约 2 天。只有真正存在过记录（哪怕在 60 天前）时，才用窗口内的空白天数反映"最近没学"。
+  const ewmaDays = allDates.length ? windowDays : 0;
+  for (let age = 0; age < ewmaDays; age++) {
     const d = addDays(t, -age);
     const w = Math.pow(0.5, age / ACT_HALF);
     wAll += w;
@@ -4302,9 +4335,12 @@ function getMetrics(p) {
   const naturalDailyRate = activityPerDay * perStudyDayRaw;
 
   // ---- 置信度 ----
+  // medium：累计 3 个学习日即启动个性化（不再要求窗口跨满 7 天，否则天天学的积极用户前 6 天都被当"样本不足"，
+  // 与容量冷启动"3 个学习日就个性化"的门槛保持一致）；早期 medium 文案会标"范围偏宽、会随你修正"。
+  // high：需 7 个学习日且跨满 2 周，才有稳定的活跃率/星期画像。
   let confidence = 'low';
   if (activeDays >= 7 && windowDays >= 14) confidence = 'high';
-  else if (activeDays >= 3 && windowDays >= 7) confidence = 'medium';
+  else if (activeDays >= 3) confidence = 'medium';
   const enoughData = confidence !== 'low';
 
     // ---- 稀疏打卡检测：记录间隔越长，产能归因越不精确 ----
@@ -4384,32 +4420,92 @@ function getMetrics(p) {
   }
   // 剩余预期学习日数（含今天）；无截止日时不存在"追赶目标"，下面不计算每学习日目标
   const hasDeadline = daysAvailable != null && daysAvailable > 0;
-  const studyDaysRemaining = hasDeadline ? Math.max(0.5, daysAvailable * activityPerDay) : null;
+  // ===== 背书本：要保证"所有内容在考试前走完所有复习轮次并毕业"，
+  // 新学必须提前一个完整复习周期（默认约59天）结束，之后只滚动复习。据此计算新学有效窗口。 =====
+  let cycleDays = 0, newLearnEnd = null, sprint = false, cycleTight = false;
+  let planDaysAvailable = daysAvailable; // 新学进度/可行性使用的有效天数（背书=到新学截止日，其余=到考试日）
+  if (p.type === 'recite' && hasDeadline) {
+    cycleDays = getReviewCycleDays(p);
+    newLearnEnd = addDays(p.deadline, -cycleDays);
+    const daysToNewLearnEnd = diffDays(t, newLearnEnd) + 1;
+    if (daysToNewLearnEnd < 1) {
+      // 剩余时间已放不下一个完整复习周期：进入冲刺，新学目标按考试日算（至少把要考的过一遍），由状态卡给冲刺策略
+      sprint = true;
+      planDaysAvailable = daysAvailable;
+    } else {
+      planDaysAvailable = daysToNewLearnEnd;
+    }
+  }
+  const studyDaysRemaining = hasDeadline ? Math.max(0.5, planDaysAvailable * activityPerDay) : null;
   // 每个学习日该做多少 = 剩余 / 剩余学习日（落后已体现在 remaining 里，不再叠加，否则会堆到做不到）
   let perStudyDay = null;
   // 可行性分级：把"目标负荷"和"历史产能"对比，做不到时给出路而不是硬塞数字
   let feasibility = null, ratio = null, feasiblePerWeek = null, feasibleDays = null;
   let needWkNormal = null, needWkBest = null; // 按平时节奏 / 拼尽全力，每周需学几天
+  // 近 7 天「势头」：产能用半衰期 14 天的 EWMA，用户刚提速时反应偏慢，会让"来不及"提示挂很久。
+  // 额外统计最近 7 天的自然日产能作为乐观信号（至少 3 个学习日才采信，避免一两天的异常误导），
+  // 让"刚开始努力"能在几天内被看见；这是只上抬、不压低的信号。
+  let momentumNatRate = null, momentumDays = 0;
+  if (remaining > 0) {
+    const deltaByDate = {};
+    dailyDelta.forEach(x => { deltaByDate[x.date] = x.delta; });
+    let mActive = 0, mTotal = 0;
+    for (let o = 0; o < 7; o++) {
+      const dl = deltaByDate[addDays(t, -o)] || 0;
+      if (dl > 0) { mActive++; mTotal += dl; }
+    }
+    momentumDays = mActive;
+    if (mActive >= 3) momentumNatRate = (mActive / 7) * (mTotal / mActive);
+  }
   if (enoughData && remaining > 0 && hasDeadline) {
     perStudyDay = remaining / studyDaysRemaining;
     if (perStudyDayRaw > 0) {
       ratio = perStudyDay / perStudyDayRaw;
+      // 乐观边界 = 长期最好状态 与 最近 7 天势头 取较高者；保守边界仍用长期低值，不轻易承诺"轻松"
+      const effectiveHigh = momentumNatRate != null
+        ? Math.max(natRateHigh || 0, momentumNatRate) : natRateHigh;
       // 用"最快/最慢"完成所需自然日数与可用天数比较来分档，比单点均值更稳健、更好解释
-      const daysNeededEarly = natRateHigh > 0 ? remaining / natRateHigh : Infinity; // 状态最好时
+      const daysNeededEarly = effectiveHigh > 0 ? remaining / effectiveHigh : Infinity; // 状态最好/最近势头
       const daysNeededLate  = natRateLow  > 0 ? remaining / natRateLow  : Infinity; // 状态较差时
-      if (daysNeededLate <= daysAvailable) feasibility = 'easy';         // 即使慢一点也来得及
-      else if (daysNeededEarly > daysAvailable) feasibility = 'impossible'; // 按当前频率拼尽全力仍赶不上
+      // 背书本按"新学窗口"判断能否在留出完整复习周期的前提下学完；其余类型按考试日总天数
+      if (daysNeededLate <= planDaysAvailable) feasibility = 'easy';  // 即使慢一点也来得及
+      else if (daysNeededEarly > planDaysAvailable) {
+        if (p.type === 'recite' && !sprint && daysNeededEarly <= daysAvailable) {
+          // 新学窗口（考试日-复习周期）赶不上，但在考试前还能学完：复习周期会被压缩，
+          // 最后一批内容只能做短期冲刺。标记 cycleTight，由状态卡给出"加量/提前"建议，而不是简单判来不及。
+          cycleTight = true;
+          feasibility = 'stretch';
+        } else if (sprint) {
+          // 已进入冲刺期（完整周期放不下）：新学目标按考试日算，不再判 impossible，交由冲刺文案
+          feasibility = 'stretch';
+        } else {
+          // 数据有限（medium，通常是刚用 1~2 周）时不轻易判"无法完成"：样本噪声大、用户正在适应，
+          // 太早挂"来不及"会很打击人；降级为 stretch，攒满约 2 周数据后再如实判断。
+          feasibility = confidence === 'high' ? 'impossible' : 'stretch';
+        }
+      }
       else feasibility = 'stretch';                                      // 正常发挥有风险、加把劲可赶上
-      // 每周需学几天：主指标用平时产能（用户最可能达到的水平）
-      needWkNormal = remaining / perStudyDayRaw / (daysAvailable / 7);
+      // 每周需学几天：主指标用平时产能（用户最可能达到的水平）；分母用新学窗口天数
+      needWkNormal = remaining / perStudyDayRaw / (planDaysAvailable / 7);
       // 拼尽全力（每次都达到最好状态）时每周需学几天，用于判断"学满7天到底行不行"
-      needWkBest = rateHigh ? remaining / rateHigh / (daysAvailable / 7) : needWkNormal;
+      needWkBest = rateHigh ? remaining / rateHigh / (planDaysAvailable / 7) : needWkNormal;
       feasiblePerWeek = needWkNormal;
-      if (naturalDailyRate > 0) feasibleDays = remaining / naturalDailyRate;
+      // 预计完成所需自然日：若近期势头明显更快，按势头给一个更贴近当下的口径（状态卡展示"最近势头"）
+      const effectiveNat = momentumNatRate != null ? Math.max(naturalDailyRate, momentumNatRate) : naturalDailyRate;
+      if (effectiveNat > 0) feasibleDays = remaining / effectiveNat;
     }
+  }
+  // 冷启动（尚无个人节奏）：仍给一个粗略"每学习日目标"，让看板大字、今日目标横幅、状态卡三处口径一致，
+  // 避免新用户前几天看板是空目标或用错口径。按固定先验"每周约 5 个学习日"；planDaysAvailable 对背书
+  // 已自动用"新学窗口（目标日−完整复习周期）"、其余模式用目标日。攒满 3 个学习日进入 medium 后，
+  // 由上面的真实节奏 perStudyDay 覆盖。
+  if (perStudyDay == null && remaining > 0 && hasDeadline) {
+    perStudyDay = remaining / Math.max(0.5, planDaysAvailable * (5 / 7));
   }
   // 数据不足时，告诉用户再补多少天打卡预测才稳
   // “再积累多少学习日”，而不是“再连续打卡多少天”——后者对低频用户不准确
+  // 两阶段：累计 3 个学习日即开始个性化（宽范围），7 个学习日且跨 2 周后范围稳定（high）。
+  const daysToMedium = confidence === 'low' ? Math.max(0, 3 - activeDays) : 0;
   const needMoreActiveDays = confidence === 'high' ? 0 : Math.max(0, 7 - activeDays);
   const needMoreDays = needMoreActiveDays; // 兼容旧调用点
 
@@ -4456,15 +4552,36 @@ function getMetrics(p) {
   let trendPct = null;
   if (recentRate != null && prevRate != null && prevRate > 0) trendPct = (recentRate - prevRate) / prevRate;
 
+  // 按最近 7 天势头的预计完成日（比长期 EWMA 更贴近"现在的你"，用于鼓励刚提速的用户）
+  let momentumEtaDate = null;
+  if (remaining > 0 && momentumNatRate != null && momentumNatRate > 0) {
+    momentumEtaDate = addDays(t, Math.ceil(remaining / momentumNatRate));
+  }
+  // 最近势头是否足以在截止日前完成（状态卡据此及时给出"按这个势头能赶上"）
+  let momentumOnTime = false;
+  if (hasDeadline && momentumEtaDate) {
+    // 背书正常窗口下按"新学截止日"判断（赶上新学截止才留得出完整复习周期）；冲刺/其余按考试日
+    const onTimeTarget = (p.type === 'recite' && newLearnEnd && !sprint) ? newLearnEnd : p.deadline;
+    momentumOnTime = momentumEtaDate <= onTimeTarget;
+  }
+  // 近期势头改善：最近 7 天自然日产能比长期均值高出 ≥25%，但还没高到能按期。
+  // 用于在"暂时落后"时也及时把进步反馈出来（缺口在缩小），而不是让红灯一直挂着。只上抬、不压低。
+  let momentumImproving = false;
+  if (!momentumOnTime && momentumDays >= 3 && momentumNatRate != null && naturalDailyRate > 0 && remaining > 0) {
+    momentumImproving = momentumNatRate >= naturalDailyRate * 1.25;
+  }
+
   const result = {
     t, total, currentPage, remaining, daysLeft, daysAvailable,
     needPerDay, speed, speedLabel, etaDate, etaEarlyDate, etaLateDate,
     activeDays, windowDays, activityPerWeek, perStudyDayRaw, rateHigh, rateLow,
     perStudyDay, studyDaysRemaining, behind, confidence, enoughData,
-    feasibility, ratio, feasiblePerWeek, feasibleDays, needWkNormal, needWkBest, needMoreDays, needMoreActiveDays,
+    feasibility, ratio, feasiblePerWeek, feasibleDays, needWkNormal, needWkBest, needMoreDays, needMoreActiveDays, daysToMedium,
     sparseLogging, medianGap,
     todayDone, streakNow, longestStreak, longestBreak, lastStudyDate, prevStudyDate,
     recentRate, prevRate, trendPct,
+    momentumNatRate, momentumDays, momentumEtaDate, momentumOnTime, momentumImproving,
+    cycleDays, newLearnEnd, sprint, cycleTight, planDaysAvailable,
     effStart
   };
   _metricsCache[cacheKey] = { sig: dataSig, result };
@@ -4637,11 +4754,24 @@ function spreadItems(p, items, days) {
     return changed;
   }
 
+  // 背书本冲刺期：摊派窗口不得越过考试日（把复习排到考试之后没有意义）。
+  // 考试就在今天/已到期时，无可摊派的日子，全部留在今天（考前能过多少过多少）。
+  let windowDays = days;
+  if (p.type === 'recite' && p.deadline) {
+    const toDeadline = diffDays(today, p.deadline);
+    if (toDeadline < windowDays) windowDays = Math.max(0, toDeadline);
+  }
+  if (windowDays <= 0) {
+    spreadable.forEach(it => { if (it.nextReviewDate !== today) { it.nextReviewDate = today; changed++; } });
+    if (changed) { p.updatedAt = Date.now(); saveStore(); }
+    return changed;
+  }
+
   spreadable.sort(compareItemPriority);
 
   // 未来 days 天的逐日容量与已有负载（负载表随分配实时更新）
   const days_ = [];
-  for (let d = 1; d <= days; d++) {
+  for (let d = 1; d <= windowDays; d++) {
     const date = addDays(today, d);
     days_.push({ date, cap: getSpreadDayCap(p, date), load: getReviewLoadOnDate(p, date) });
   }
@@ -4709,36 +4839,31 @@ function rebalanceAllItems(p) {
     items.forEach(it => bump(it.nextReviewDate, 1));
     const tomorrow = addDays(today, 1);
 
-    // 防饥饿：逾期已超过当前间隔 2 倍的条目不能再往后错峰，强制明天（容量让位于紧急度）。
-    // 注意：spreadCount≥3 的防饥饿规则只适用于"往后推"的手动分散，模式切换不据此提前未来条目。
-    const isStarving = it => {
-      if (!it.nextReviewDate || it.nextReviewDate >= today) return false;
-      const intervals = getItemIntervals(it, p);
-      const stage = Math.min(it.stage || 0, intervals.length - 1);
-      return diffDays(it.nextReviewDate, today) > (intervals[stage] || 1) * 2;
-    };
-    const blocked = items.filter(isStarving);
-    const normal = items.filter(it => !isStarving(it));
-    blocked.forEach(it => {
-      if (it.nextReviewDate !== tomorrow) {
+    // 关键修复：模式切换绝不能把"今天到期 / 已逾期"的复习推到明天，否则用户切换当天会看到
+    // "没有任何复习任务"，记忆上也不安全。做法：把这些条目一律锚定到今天；若超出当日容量，
+    // 交给 render 时的 autoBalanceIfNeeded（按容量+防饥饿规则）自动摊派——该留今天的（逾期太久）
+    // 会被强制留下，其余均匀摊到未来。未来才到期的条目才参与错峰。
+    const dueItems = items.filter(it => it.nextReviewDate <= today);
+    const futureItems = items.filter(it => it.nextReviewDate > today);
+    dueItems.forEach(it => {
+      if (it.nextReviewDate !== today) {
         bump(it.nextReviewDate, -1);
-        bump(tomorrow, 1);
-        it.nextReviewDate = tomorrow;
+        bump(today, 1);
+        it.nextReviewDate = today;
       }
     });
 
-    normal.sort(compareItemPriority);
-    normal.forEach(it => {
+    // 未来条目：一次性重排，给略宽的窗口（gap×0.5、绝对上限 21 天），允许向前借位最多 2 天，
+    // 但 minDate=tomorrow，绝不把未来内容提前到今天（避免切换当天额外增加负担）
+    futureItems.sort(compareItemPriority);
+    futureItems.forEach(it => {
       const intervals = getItemIntervals(it, p);
       const stage = Math.min(it.stage || 0, intervals.length - 1);
       const gap = intervals[stage] || 1;
-      const overdue = it.nextReviewDate < today;
-      const base = overdue ? tomorrow : it.nextReviewDate;
-      // 模式切换是一次性重排，给略宽的窗口（gap×0.5、绝对上限 21 天），但允许向前借位最多 2 天
       const maxForward = Math.min(21, Math.max(3, Math.round(gap * 0.5)));
-      const maxBack = overdue ? 0 : Math.min(2, Math.floor(gap * 0.25));
+      const maxBack = Math.min(2, Math.floor(gap * 0.25));
       const oldDate = it.nextReviewDate;
-      const target = findAvailableDate(p, base, {
+      const target = findAvailableDate(p, oldDate, {
         maxForward, maxBack, minDate: tomorrow, gap, loadMap
       });
       if (target !== oldDate) {
@@ -4748,15 +4873,9 @@ function rebalanceAllItems(p) {
       }
     });
   } else {
-    // 经典间隔：未到期的保持原计划；逾期的按优先级均匀摊到未来几天，避免几十条逾期全堆到明天
-    const overdue = items.filter(it => it.nextReviewDate < today);
-    overdue.sort(compareItemPriority);
-    const spreadDays = Math.min(overdue.length, 5); // 最多摊到未来 5 天
-    overdue.forEach((it, idx) => {
-      // 最弱/逾期最久的（排序最前）排明天，其余轮流均匀摊开
-      const d = spreadDays > 0 ? (1 + (idx % spreadDays)) : 1;
-      it.nextReviewDate = addDays(today, d);
-    });
+    // 经典间隔：未到期的保持原计划；已逾期的也保持其逾期日期（经典模式下它们本来就在今日清单里，
+    // 切模式不应把欠账"推到明天再补"，也不应让用户切换当天看不到任何复习任务）。
+    // 经典模式不做自动摊派，逾期多少就如实显示多少，由用户按优先级尽快清。
   }
   p.lastAutoBalanceDate = null; // 模式切换后允许今天再做一次启动自动均衡
   p.updatedAt = Date.now();
@@ -4774,6 +4893,91 @@ function getReviewCountsByDate(p) {
     });
   });
   return counts;
+}
+
+/* 汇总每个自然日的"学习动作条数"：新学（learnedDate 每条 1 次）+ 复习评价（reviews i>0）。
+   只统计复习会陷入冷启动死锁——系统每天只排几条、用户只能做几条、容量就永远停在几条；
+   新学动作同样反映"你每天能处理多少条"，必须计入产能。 */
+function getActivityCountsByDate(p) {
+  const counts = {};
+  (p.items || []).forEach(it => {
+    if (it.learnedDate) counts[it.learnedDate] = (counts[it.learnedDate] || 0) + 1;
+    (it.reviews || []).forEach((r, i) => {
+      if (i > 0 && r.date) counts[r.date] = (counts[r.date] || 0) + 1;
+    });
+  });
+  return counts;
+}
+
+/* 学习日比例：近 28 个自然日里有学习动作的天数占比（clamp 到 0.35~1）。
+   冷启动（不足 3 个学习日）按"天天可学"=1 处理，宁可任务略多也不把进度拖到最后。 */
+function getStudyDayRatio(p, counts) {
+  counts = counts || getActivityCountsByDate(p);
+  const today = todayStr();
+  let active = 0;
+  for (let age = 0; age < 28; age++) {
+    if ((counts[addDays(today, -age)] || 0) > 0) active++;
+  }
+  if (active < 3) return 1;
+  return Math.max(0.35, Math.min(1, active / 28));
+}
+
+/* 按期均摊下限（deadline-aware leveling）：为了让"已学但未毕业"的内容都在目标日前走完，
+   从今天起每个学习日至少要处理的复习条数。
+   - 这是排期容量的硬下限，防止智能容量被"低速率历史"锁死后，任务被一路摊到最后一天集中爆发；
+   - 只统计已学内容的剩余复习（确定的硬需求）；未学内容由新学目标（perStudyDay）单独驱动；
+   - 已在最后一轮但因模糊未毕业的，保守按"再复习 1 次"计；
+   - 目标日 120 天以外不启用（远期不制造数字压力）。
+   返回 { cap, need, studyDaysLeft }；无目标日或无需求时 cap=0。 */
+function getDeadlineLevelCap(p, date) {
+  // 仅背书（封闭总量、有硬截止）做"目标日前走完"的均摊；
+  // 错题是开放系统（新错题持续收录，目标日前不可能也不应该全攻克），不做 deadline 均摊，
+  // 由积压追赶 + 速率容量保持每日平稳，考前通过"高频薄弱点优先"策略突出重点。
+  if (!p || p.type !== 'recite' || !p.deadline) return { cap: 0, need: 0, studyDaysLeft: 0 };
+  const today = date || todayStr();
+  const daysLeft = diffDays(today, p.deadline) + 1; // 含今天
+  if (daysLeft <= 0 || daysLeft > 120) return { cap: 0, need: 0, studyDaysLeft: 0 };
+  const intervals = getIntervals(p);
+  const totalStages = intervals.length;
+  const ratio = getStudyDayRatio(p);
+  const studyDaysLeft = Math.max(1, daysLeft * ratio);
+  // ① 复习需求：已学未毕业内容的剩余复习轮次（均摊到目标日前的学习日）
+  let reviewNeed = 0;
+  let learnedItems = 0, learnedItemPages = 0;
+  (p.items || []).forEach(it => {
+    if (it.mastered || it.manualMastered || it.finalReviewDate || !it.learnedDate) return;
+    learnedItems++;
+    if (it.pageStart != null && it.pageEnd != null) learnedItemPages += Math.max(0, it.pageEnd - it.pageStart + 1);
+    const stage = Math.min(it.stage || 0, totalStages - 1);
+    let remain = totalStages - stage;
+    if (remain < 1) remain = 1;
+    reviewNeed += remain;
+  });
+  const reviewCap = reviewNeed / studyDaysLeft;
+  // ② 新学需求：仅在新学窗口内（目标日 - 一个完整复习周期之前），把未学内容均摊到剩余新学学习日
+  let newCap = 0;
+  const cycleDays = getReviewCycleDays(p);
+  const newLearnEnd = addDays(p.deadline, -cycleDays);
+  if (!p.deadline || today <= newLearnEnd) {
+    // 总页 / 已学页（与 getMetrics 同口径）
+    let totalPages;
+    if (p.unitMode && Array.isArray(p.units) && p.units.length) totalPages = countRanges(getTargetPageRanges(p));
+    else if (p.bookStartPage != null && p.bookEndPage != null) totalPages = Math.max(0, p.bookEndPage - p.bookStartPage + 1);
+    else totalPages = p.total;
+    const learnedPages = getCompletedPages(p) || 0;
+    const unlearnedPages = Math.max(0, (totalPages || 0) - learnedPages);
+    if (unlearnedPages > 0) {
+      // 用已学条目估算"平均每条多少页"，把未学页换算成条；无数据时按 1 条=1 页（保守偏小，容量不足再由复习级量兜底）
+      const avgPages = learnedItems > 0 ? Math.max(0.5, learnedItemPages / learnedItems) : 1;
+      const unlearnedItems = unlearnedPages / avgPages;
+      const newWindowDays = Math.max(1, diffDays(today, newLearnEnd) + 1);
+      const newStudyDays = Math.max(1, newWindowDays * ratio);
+      newCap = unlearnedItems / newStudyDays;
+    }
+  }
+  const need = reviewNeed;
+  const cap = Math.ceil(reviewCap + newCap);
+  return { cap, need, studyDaysLeft, newCap: Math.round(newCap * 10) / 10, reviewCap: Math.round(reviewCap * 10) / 10 };
 }
 
 /* 舒适量默认值按项目类型区分：背书单条内容量大（十几页），默认6；错题单条是一道题，默认10 */
@@ -4813,14 +5017,25 @@ function renderComfortAdvice(p) {
   const currentComfort = !isNaN(inputVal) && inputVal >= 1 ? inputVal : getComfortCap(p);
   const parts = [];
   // 容量透明化：均匀模式下显示当前智能容量估算
+  // 容量透明化（仅均匀模式）：区分"积压追赶"与"日常节奏"两种状态
+  const cu = getBacklogCatchUp(p);
+  const backlogHeavy = p.reviewMode === 'balanced' && cu.backlog > currentComfort;
   if (p.reviewMode === 'balanced') {
     const cap = getDailyCapacity(p);
-    const bottleneck = currentComfort < cap ? '舒适量是当前瓶颈' : '容量在控制排题，舒适量是安全上限';
-    parts.push(`<div style="margin-bottom:6px">📊 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort})，${bottleneck}。</div>`);
+    const daily = Math.min(cap, currentComfort);
+    if (backlogHeavy) {
+      const clearDays = Math.ceil(cu.backlog / Math.max(1, daily));
+      parts.push(`<div style="margin-bottom:6px">📊 当前有 <b>${cu.backlog}</b> 条到期/逾期，系统正按每天 <b>${daily}</b> 条安排，约 <b>${clearDays}</b> 天清完；每天的量不会超过你的舒适量，不会被一次性压垮。</div>`);
+    } else {
+      const bottleneck = currentComfort < cap ? '舒适量是当前瓶颈' : '容量在控制排题，舒适量是安全上限';
+      parts.push(`<div style="margin-bottom:6px">📊 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort})，${bottleneck}。</div>`);
+    }
   }
-  // 智能建议
+  // 智能建议：积压较重时不再按"近期完成量"建议下调（越积压越压容量会形成死循环），改为提速引导
   const advice = getComfortAdvice(p);
-  if (advice) {
+  if (backlogHeavy) {
+    parts.push(`<div style="color:#d97706">💡 有较多积压时，系统已在你的舒适量范围内自动提速。保持当前舒适量即可，每天完成一点就能稳步清完；若想更快，可把舒适量小幅上调 1~2 条试试。</div>`);
+  } else if (advice) {
     advice.current = currentComfort;
     const diff = advice.suggested - advice.current;
     let tag = '';
@@ -4851,26 +5066,53 @@ function renderComfortAdvice(p) {
   }
 }
 
-/* 手动/自动分散时，未来某天的每日硬上限 = min(舒适量, 当日排期容量) */
+/* 手动/自动分散时，未来某天的每日排期上限
+   - 经典间隔/严格容量：只看舒适量
+   - 固定容量（用户显式设了每天 N 条）：尊重用户，min(舒适量, N)
+   - 智能容量：按期均摊主导，允许抬到"为在目标日前完成所需"的量（可能高于默认舒适量），
+     这样任务会被均匀摊开，而不是被舒适量锁死、最后一天集中爆发；
+     当所需量明显高于舒适量时，由状态卡给出"一键后移目标/缩小范围"的温和选项，不强迫用户改设置。 */
 function getSpreadDayCap(p, date) {
   const comfort = getComfortCap(p);
   if (p.reviewMode !== 'balanced') return comfort;
+  if (p.dailyCapacity === 0) return comfort;
+  if (p.dailyCapacity != null) return Math.max(1, Math.min(comfort, Math.round(p.dailyCapacity)));
   const cap = getDailyCapacity(p, date);
-  if (cap <= 0) return comfort; // 固定容量 0 = 严格按间隔；手动分散仍按舒适量
-  return Math.max(1, Math.min(comfort, cap));
+  if (cap <= 0) return comfort;
+  // 错题：开放系统（新错题持续收录），以舒适量封顶，超出的自然顺延、靠防饥饿锁定期回收，
+  //   不为"赶在目标日前全做完"而把单日量顶到很高（那是制造焦虑）；考前另走高频薄弱点优先策略。
+  // 背书：封闭总量、有硬截止，为按期完成允许抬到所需量（可能高于默认舒适量），可行性在状态卡单独提示。
+  if (p.type === 'mistake') return Math.max(1, Math.min(comfort, cap));
+  return Math.max(1, Math.min(50, cap));
+}
+
+/* 积压追赶信息：今天及以前到期、尚未掌握的内容量（backlog），
+   以及"按约一周清完"所需的每日下限（need）、理论消化天数（catchDays）。
+   背书单条耗时长，给 10 天；错题单题量小，给 7 天。供容量算法与设置页文案共用同一口径。 */
+function getBacklogCatchUp(p) {
+  if (!p || p.type === 'exercise') return { backlog: 0, catchDays: 0, need: 0, days: null };
+  const backlog = getDueItems(p).length;
+  const catchDays = p.type === 'recite' ? 10 : 7;
+  const need = backlog > 0 ? Math.ceil(backlog / catchDays) : 0;
+  return { backlog, catchDays, need, days: need > 0 ? catchDays : null };
 }
 
 /* 获取某一天的排期容量（均匀模式每天最多安排多少条）
    - 固定值：直接返回（0 = 严格按间隔，不自动错峰）
-   - 智能：近 28 个自然日复习速率的 EWMA（半衰期 14 天）× 0.9 留余量；
-     冷启动（活跃日 < 3）保守取 3，摆烂后容量随速率自然回落；
-     再叠加按星期几的隐式产能画像（周末党友好，样本不足自动向全局收缩）。 */
+   - 智能：取三者的较大者——「节奏容量」「积压追赶」「按期均摊」，再用星期画像只上抬：
+     · 节奏容量 = 近 28 天"新学+复习"动作速率的 EWMA（半衰期 14 天）×0.9；
+       计入新学动作是关键，否则会陷入"系统每天只排几条→只能做几条→容量永远停在低位"的死锁。
+     · 冷启动（活跃日<3）给适中值（背书4、错题5），不再低到2/3；能学多的人很快被抬升，
+       一条很重的人由真实速率回落。
+     · 按期均摊 = 已学内容为在目标日前走完所需的每日下限，这是硬约束，绝不被舒适量锁死。
+   智能模式不用舒适量硬封顶（否则按期所需一旦超过舒适量，任务会被压到最后一天集中爆发）；
+   是否"超出舒适量、需要调整范围或目标日"由状态卡的可行性判断单独、温和地提示。 */
 function getDailyCapacity(p, date) {
   if (p.dailyCapacity != null) return Math.max(0, Math.round(p.dailyCapacity));
   const today = todayStr();
-  const counts = getReviewCountsByDate(p);
+  const counts = getActivityCountsByDate(p);
 
-  // 28 天 EWMA 速率（自然日口径）
+  // 28 天 EWMA 速率（自然日口径，含新学与复习）
   const HALF = 14, WIN = 28;
   let wSum = 0, cwSum = 0, activeDays = 0;
   for (let age = 0; age < WIN; age++) {
@@ -4880,17 +5122,42 @@ function getDailyCapacity(p, date) {
     wSum += w; cwSum += c * w;
     if (c > 0) activeDays++;
   }
+  let rateCap;
   if (activeDays < 3) {
-    // 冷启动：保守容量，不做星期画像
-    return 3;
+    // 冷启动：适中节奏，不做星期画像。
+    rateCap = p.type === 'recite' ? 4 : 5;
+  } else {
+    // 先验速率按类型区分，随学习日数快速让位于个人真实节奏（能学多的人约 5 个学习日后就按其速率）。
+    const K0 = p.type === 'recite' ? 5 : 8;
+    const K = Math.max(0, K0 - Math.min(activeDays, K0));
+    const PRIOR = p.type === 'recite' ? 4 : 6;
+    const baseRate = (cwSum + PRIOR * K) / (wSum + K);
+    rateCap = Math.max(1, Math.round(baseRate * 0.9));
   }
-  // 先验速率按类型区分：背书单条内容量大，先验3条/天保持保守；错题单题量小，先验6条/天更快收敛
-  const K = Math.max(0, 8 - Math.min(activeDays, 8));
-  const PRIOR = p.type === 'recite' ? 3 : 6;
-  const baseRate = (cwSum + PRIOR * K) / (wSum + K);
-  if (!date) return Math.max(1, Math.min(30, Math.round(baseRate * 0.9)));
-  return getWeekdayAwareCap(p, date, counts, activeDays);
+  let cap = rateCap;
+
+  // 积压追赶：今天及以前到期的未掌握内容，需要在约一周内清完的每日下限。
+  if (p.type !== 'exercise') {
+    const cu = getBacklogCatchUp(p);
+    if (cu.need > cap) cap = cu.need;
+  }
+
+  // 按期均摊硬下限：已学内容必须在目标日前走完（不被低速率锁死后摊到最后）。
+  if (p.type !== 'exercise') {
+    const lv = getDeadlineLevelCap(p, date || today);
+    if (lv.cap > cap) cap = lv.cap;
+  }
+
+  // 星期画像只用于"抬高"符合你习惯的日子（如周末更有空）
+  if (date && activeDays >= 3) {
+    const dowCap = getWeekdayAwareCap(p, date, counts, activeDays);
+    if (dowCap > cap) cap = dowCap;
+  }
+
+  // 下限至少 1，绝对硬顶 50（防异常数据）；智能模式不以舒适量硬封顶。
+  return Math.max(1, Math.min(50, Math.round(cap)));
 }
+
 
 /* 指定日期的容量：在全局 EWMA 速率基础上，用"该星期几"的历史速率做收缩估计
    （贝叶斯 shrinkage：样本越少越向全局靠拢），窗口 56 天、半衰期 28 天。 */
@@ -4946,12 +5213,18 @@ function updatePressurePanel() {
   } else {
     scheduleCap = getDailyCapacity(p);
   }
-  // 系统推荐：容量是已留过 10% 余量的保守估计，舒适量再取其 80%
+  // 系统推荐：容量是已留过 10% 余量的保守估计，舒适量再取其 80%；积压重时不建议下调
   const capForRec = getDailyCapacity(p);
-  const recThreshold = Math.max(3, Math.round(capForRec * 0.8));
-  const recTxt = capForRec > 0
-    ? `每日复习容量当前约 ${capForRec} 道，与舒适量取较小值决定实际每日排题量；建议舒适量设为约 ${recThreshold} 道，与容量相近。`
-    : '';
+  const backlogHeavyRec = getBacklogCatchUp(p).backlog > threshold;
+  let recTxt = '';
+  if (capForRec > 0) {
+    if (backlogHeavyRec) {
+      recTxt = `当前有较多到期/逾期内容，系统正以你的舒适量满负荷安排（每天约 ${Math.min(capForRec, threshold)} 道、不会超出 ${threshold}）。保持现状即可稳步清完，若想更快可小幅上调舒适量，不建议下调。`;
+    } else {
+      const recThreshold = Math.max(3, Math.round(capForRec * 0.8));
+      recTxt = `每日复习容量当前约 ${capForRec} 道，与舒适量取较小值决定实际每日排题量；建议舒适量设为约 ${recThreshold} 道，与容量相近。`;
+    }
+  }
 
   // 计算未来7天负载
   const today = todayStr();
@@ -5026,31 +5299,63 @@ function updateSpreadPressureHint() {
     msg = `今天暂无待复习。设为 ${threshold} 意味着超过 ${threshold} 道时会提示你分散。`;
   }
 
-  // 系统推荐
+  // 系统推荐：积压重时以舒适量满负荷消化、不建议下调；平时按容量的 80% 建议
   const cap = getDailyCapacity(p);
-  const rec = Math.max(3, Math.round(cap * 0.8));
   if (cap > 0) {
-    msg += ` 每日复习容量当前约 ${cap} 道，与舒适量取较小值决定实际每日排题量；建议舒适量设为约 ${rec} 道，与容量相近。`;
+    if (due > threshold) {
+      msg += ` 当前有较多到期/逾期内容，系统正按每天最多 ${Math.min(cap, threshold)} 道（不超过舒适量）安排，稳步清完即可；想更快可小幅上调舒适量，不建议下调。`;
+    } else {
+      const rec = Math.max(3, Math.round(cap * 0.8));
+      msg += ` 每日复习容量当前约 ${cap} 道，与舒适量取较小值决定实际每日排题量；建议舒适量设为约 ${rec} 道，与容量相近。`;
+    }
   }
 
   hintEl.textContent = msg;
 }
 
-/* 摆烂检测：计算连续未复习天数（不含今天），返回 {days, lastReviewDate} */
-function getLazyInfo(p) {
-  const items = p.items || [];
-  const activeDates = new Set();
-  items.forEach(it => {
-    // 复习记录（排除首次录入）
+/* 活动日集合（比"完成日"更宽：收录、复习、攻克、刷题打卡都算"今天学了"）。
+   专用于连续打卡、启动鼓励、中断检测这类"有没有在学"的判断；
+   产能与 ETA 仍按 getMetrics 的实际完成口径，两者不混用。 */
+function getActivityDateSet(p) {
+  const set = new Set();
+  (p.items || []).forEach(it => {
+    if (it.learnedDate) set.add(it.learnedDate);
+    if (it.masteredDate) set.add(it.masteredDate);
     (it.reviews || []).forEach((r, i) => {
-      if (r.date && i > 0) activeDates.add(r.date);
+      if (r.date && i > 0) set.add(r.date); // i=0 是首次录入，已由 learnedDate 覆盖
     });
-    // 首次录入日期也算活跃（用户至少录入了内容）
-    if (it.learnedDate) activeDates.add(it.learnedDate);
   });
   if (p.type === 'exercise') {
-    (p.records || []).forEach(r => { if (r.date) activeDates.add(r.date); });
+    (p.records || []).forEach(r => { if (r.date) set.add(r.date); });
   }
+  return set;
+}
+
+/* 活动日总数 + 当前连续活动天数（今天学了从今天算，否则从昨天算，不因今天尚未学就清零） */
+function getActivityStreak(p, t) {
+  t = t || todayStr();
+  const set = getActivityDateSet(p);
+  let streak = 0;
+  let cursor = set.has(t) ? t : addDays(t, -1);
+  while (set.has(cursor)) { streak++; cursor = addDays(cursor, -1); }
+  // 当前连续段最早那天距今天数（今天学了从 streak-1，否则从 streak）
+  const curStartAge = set.has(t) ? Math.max(0, streak - 1) : streak;
+  // 历史最长连续（只统计当前段之前的 60 天，避免把当前段算成"历史纪录"）
+  let priorLongest = 0, run = 0;
+  for (let age = 59; age > curStartAge; age--) {
+    const d = addDays(t, -age);
+    if (set.has(d)) { run++; priorLongest = Math.max(priorLongest, run); }
+    else run = 0;
+  }
+  // 上一个活动日（不含今天），用于回归/中断判断
+  let prev = null;
+  set.forEach(d => { if (d < t && (!prev || d > prev)) prev = d; });
+  return { activeDays: set.size, streak, priorLongest, prevDate: prev };
+}
+
+/* 摆烂检测：计算连续未复习天数（不含今天），返回 {days, lastReviewDate} */
+function getLazyInfo(p) {
+  const activeDates = getActivityDateSet(p);
   if (!activeDates.size) return { days: 0, lastReviewDate: null }; // 从未活跃，不触发摆烂提醒
   const today = todayStr();
   let last = null;
@@ -5060,12 +5365,54 @@ function getLazyInfo(p) {
   return { days: Math.max(0, days), lastReviewDate: last };
 }
 
+/* 因材施教的中断提醒：按"中断天数梯度 × 项目类型"差异化
+   轻度(3-4天)轻推+最小行动；中度(5-7天)自我关怀、强调捡起来比从零快；
+   长期(8天+)降低重启门槛、必要时引导调目标，避免"干脆放弃"。绝不制造内疚。 */
+function getLazyMessage(p, m, lazy) {
+  const days = lazy.days;
+  const u = unitName(p);
+  const verb = p.type === 'exercise' ? '推进' : '复习';
+  let head = `😴 你已经连续 ${days} 天没${verb}了`;
+  if (lazy.lastReviewDate) head += `（上次${verb} ${fmtCN(lazy.lastReviewDate)}）`;
+  head += '。';
+
+  // 最小启动量：行为激活，先做一个"一定能完成"的小动作
+  const micro = p.type === 'exercise'
+    ? `今天先推进 1 ${u}，把节奏找回来就好。`
+    : `今天只复习 1 条，记忆会很快接上。`;
+
+  // 按模式的核心提醒
+  let modeLine;
+  if (p.type === 'mistake') {
+    const overdue = getOverdueItems(p).length;
+    modeLine = overdue > 0
+      ? `目前有 ${overdue} 道逾期，不用一次清完，先从最久没复习的那条开始。`
+      : '错题靠间隔滚动，停几天后它们会更早地回到队列，正好趁现在接上。';
+  } else if (p.type === 'recite') {
+    modeLine = '背诵间隔一拉长，之前的记忆会变模糊，今天复习一条就能把它重新激活。';
+  } else {
+    modeLine = '进度不会因为停几天就清零，今天往前推一点点，节奏就回来了。';
+  }
+
+  if (days <= 4) {
+    return head + modeLine + micro;
+  }
+  if (days <= 7) {
+    return head + '断几天很正常，不用有负罪感——之前学的都还在，捡起来比从零开始快得多。' + modeLine + micro;
+  }
+  // 长期：明确"不需要补回欠下的，只需今天重新开始"；目标不现实时引导调整
+  const recal = (m && m.feasibility === 'impossible')
+    ? '如果最近目标确实太满，看看状态卡的建议，把截止日或每日目标调到够得着，比硬扛更重要。'
+    : '不用去补落下的量，把今天的目标定小一点，让"重新开始"足够容易。';
+  return head + '停得久了，最容易想"干脆放弃"——但你不需要补回欠下的，只需今天重新迈出第一步。' + recal + micro;
+}
+
 /* 双向最佳适配找空位（v2）
    在 [baseDate-maxBack, baseDate+maxForward]（且不早于 minDate）窗口内：
    1) 优先选"负载/容量比 < 1"中相对最空的日子，并列取离 baseDate 最近、再并列取更早（记忆更安全）
    2) 窗口全满时，继续向后逐日扩展搜索（最多再找 14 天），优先把批量录入摊到更远的空位
    3) 扩展后仍全满，才在原窗口内选相对负载最低的日子（有界超量，保证不无限顺延）
-   opts: { maxForward, maxBack=0, minDate=null, gap, loadMap=null }
+   opts: { maxForward, maxBack=0, minDate=null, gap, loadMap=null, maxExtend=14 }
    容量为 0（严格模式）时直接返回 baseDate。 */
 function findAvailableDate(p, baseDate, opts) {
   if (typeof opts === 'number') opts = { maxForward: opts }; // 兼容旧签名 (p, base, maxOffset)
@@ -5073,6 +5420,7 @@ function findAvailableDate(p, baseDate, opts) {
   const maxForward = Math.max(0, opts.maxForward != null ? opts.maxForward : 1);
   const maxBack = Math.max(0, opts.maxBack || 0);
   const minDate = opts.minDate;
+  const maxExtend = opts.maxExtend != null ? Math.max(0, opts.maxExtend) : 14;
 
   let start = addDays(baseDate, -maxBack);
   const end = addDays(baseDate, maxForward);
@@ -5109,8 +5457,8 @@ function findAvailableDate(p, baseDate, opts) {
   }
   if (acc.found) return acc.found.d;
 
-  // 窗口全满：向后扩展最多 14 天寻找真正的空位
-  const outerEnd = addDays(end, 14);
+  // 窗口全满：向后扩展（默认14天；早期复习调用方会传更短的 maxExtend，保证首次复习不被推到太远）寻找真正的空位
+  const outerEnd = addDays(end, maxExtend);
   for (let d = addDays(end, 1); d <= outerEnd; d = addDays(d, 1)) {
     const cap = getDailyCapacity(p, d);
     if (cap <= 0) break;
@@ -5130,32 +5478,160 @@ function scheduleNextReview(p, item, baseDate, stage, gapOverride) {
   let gap = gapOverride || intervals[st] || intervals[0] || 1;
   // 提前复习过的条目，间隔缩短15%（主动提前复习说明需要多巩固）
   if (item.earlyReviewed) gap = Math.max(1, Math.round(gap * 0.85));
-  const base = addDays(baseDate, gap);
-  if (p.reviewMode === 'balanced' && p.type === 'mistake') {
-    const maxForward = Math.max(1, Math.round(gap * 0.25));
-    const maxBack = Math.min(2, Math.floor(gap * 0.25));
-    return findAvailableDate(p, base, {
-      maxForward, maxBack, minDate: addDays(baseDate, 1), gap
-    });
+
+  // 背书本冲刺期（距考试不足一个完整复习周期）：
+  // 1) 任何复习都不能被排到考试之后（否则模糊条目会因间隔×1.3 越拉越长，等于考前不再复习）；
+  // 2) "模糊/忘记"的内容要在考前高频复现（2~3 天内再见），"记得"的也保证考前再见到至少一次。
+  let sprintClamp = null;
+  let sprintTail = false; // 冲刺最后 7 天：把复习均匀撒到剩余所有天，而非堆到目标日
+  let sprintFinal = false; // 已完成"考前最后一遍"，不再排到目标日
+  if (p.type === 'recite' && p.deadline) {
+    const d2d = diffDays(baseDate, p.deadline);
+    if (d2d >= 0 && d2d <= getReviewCycleDays(p)) {
+      const lastQ = item.reviews && item.reviews.length ? item.reviews[item.reviews.length - 1].quality : null;
+      const capGap = (d2d === 0) ? 1
+        : (lastQ === 'good') ? Math.max(1, Math.min(d2d, Math.round(d2d * 0.6)))
+        : Math.max(1, Math.min(3, d2d));
+      gap = Math.min(gap, capGap);
+      sprintClamp = d2d; // 错峰扩展也不得越过目标日
+      if (d2d <= 7) {
+        sprintTail = true;
+        // 非"记得"的内容（模糊/忘记），若按间隔下次再见已落到目标日当天或之后，
+        // 这次就作为考前最后一遍（再排只会在目标日堆积），记录并把下次放在目标日之后。
+        if (lastQ !== 'good' && addDays(baseDate, gap) >= p.deadline) sprintFinal = true;
+      }
+    }
   }
+  if (sprintFinal) {
+    item.finalReviewDate = baseDate;
+    return addDays(p.deadline, 1);
+  }
+
+  const base = addDays(baseDate, gap);
+  if (p.reviewMode === 'balanced' && p.type !== 'exercise') {
+    let maxForward, maxBack, maxExtend;
+    if (sprintTail) {
+      // 冲刺最后 7 天：在 [明天, 目标日] 全范围内找负载最低的一天，把本条均匀撒开，
+      // 避免 fuzzy/forgot 条目每次都排到"今天+1~3天"、最后在目标日集中爆发。
+      maxBack = 1; // start 被 minDate 抬到"明天"
+      maxForward = Math.max(0, sprintClamp - gap); // end ≈ 目标日
+      maxExtend = 0;
+    } else {
+      // 错题本与背书本在均匀模式下都做即时错峰（背书单条内容可多可少，错峰窗口仍按当前间隔自适应，避免某天扎堆）
+      maxForward = Math.max(1, Math.round(gap * 0.25));
+      maxBack = Math.min(2, Math.floor(gap * 0.25));
+      // 早期复习（间隔≤2天，尤其是刚学的首次复习）是记忆最关键的窗口：即使当天批量录入，
+      // 也只允许在近几天内错峰，绝不把"本应明天复习"的内容一路推到十几天后（那会拖垮整体毕业节奏）。
+      maxExtend = gap <= 2 ? 3 : 14;
+      if (sprintClamp != null) maxExtend = Math.min(maxExtend, sprintClamp);
+    }
+    let d = findAvailableDate(p, base, {
+      maxForward, maxBack, minDate: addDays(baseDate, 1), gap, maxExtend
+    });
+    // 冲刺期硬上限：错峰后仍不得越过目标日
+    if (p.type === 'recite' && p.deadline && d > p.deadline) d = p.deadline;
+    return d;
+  }
+  if (p.type === 'recite' && p.deadline && base > p.deadline) return p.deadline;
   return base;
 }
 
-/* 启动自动均衡：均匀模式下，今天待复习超过舒适量时，
-   自动把优先级最低的超额条目摊到未来 3 天（每个项目每天最多一次，严格容量0不触发）。
-   返回实际移动条数。 */
+/* 背书本冲刺重排：进入冲刺期（距目标日不足一个完整复习周期）后，做一次"全窗口负载均衡"。
+   处理两类会造成考前扎堆/沉睡的内容：
+   ① 下次复习为空或已被排到目标日之后的条目（尤其全 fuzzy 用户，间隔×1.3 容易越界沉睡）；
+   ② 未来某天（尤其目标日当天）排期超过当日容量的溢出条目。
+   把它们按"薄弱者优先、顺序填入最早未饱和日"的方式，均匀分摊到 [明天, 目标日]，
+   每天不超过当日容量，避免最后一天集中爆发。对 classic / balanced 都生效。
+   今天的条目不动（今天该复习的今天做）；只改 nextReviewDate，不删数据、不强制毕业。 */
+function rebalanceForSprint(p) {
+  if (!p || p.type !== 'recite' || !p.deadline) return 0;
+  const today = todayStr();
+  const d2d = diffDays(today, p.deadline);
+  if (d2d < 0 || d2d > getReviewCycleDays(p)) return 0;
+
+  const live = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate);
+  const capOf = d => (p.reviewMode === 'balanced') ? getSpreadDayCap(p, d) : getComfortCap(p);
+
+  // 负载表
+  const loadMap = new Map();
+  live.forEach(it => {
+    if (it.nextReviewDate) loadMap.set(it.nextReviewDate, (loadMap.get(it.nextReviewDate) || 0) + 1);
+  });
+
+  // 候选①：无日期 / 越界到目标日之后
+  const toMove = live.filter(it => !it.nextReviewDate || it.nextReviewDate > p.deadline);
+  const moveIds = new Set(toMove.map(it => it.id));
+
+  // 候选②：未来某天（不含今天）超容量的溢出
+  const buckets = {};
+  live.forEach(it => {
+    const d = it.nextReviewDate;
+    if (d && d > today && d <= p.deadline) (buckets[d] = buckets[d] || []).push(it);
+  });
+  Object.keys(buckets).sort().forEach(d => {
+    const arr = buckets[d].slice().sort(compareItemPriority); // 优先级高者在前（更该保留在近期）
+    const cap = capOf(d);
+    if (arr.length > cap) {
+      arr.slice(cap).forEach(it => {
+        if (!moveIds.has(it.id)) { moveIds.add(it.id); toMove.push(it); }
+      });
+    }
+  });
+  if (!toMove.length) return 0;
+
+  // 从负载表移除待移动条目的占位
+  toMove.forEach(it => {
+    const d = it.nextReviewDate;
+    if (d && loadMap.has(d)) loadMap.set(d, loadMap.get(d) - 1);
+  });
+
+  // 未来日期列表（今天不动）
+  const dayList = [];
+  for (let d = addDays(today, 1); d <= p.deadline; d = addDays(d, 1)) dayList.push(d);
+
+  // 薄弱者优先，顺序填入最早未饱和日（全满则选相对最空日，均摊而非堆到目标日）
+  toMove.sort(compareItemPriority);
+  let moved = 0;
+  toMove.forEach(it => {
+    let bestD = null;
+    for (const d of dayList) {
+      if ((loadMap.get(d) || 0) < capOf(d)) { bestD = d; break; } // 最早未饱和
+    }
+    if (!bestD) {
+      let bestRatio = Infinity;
+      for (const d of dayList) {
+        const ratio = (loadMap.get(d) || 0) / Math.max(1, capOf(d));
+        if (ratio < bestRatio - 1e-9) { bestRatio = ratio; bestD = d; }
+      }
+    }
+    if (!bestD) bestD = p.deadline;
+    it.nextReviewDate = bestD;
+    it.spreadCount = (it.spreadCount || 0) + 1;
+    it.lastSpreadDate = today;
+    loadMap.set(bestD, (loadMap.get(bestD) || 0) + 1);
+    moved++;
+  });
+  return moved;
+}
+
+/* 启动自动均衡：均匀模式下，今天待复习超过当日容量时，
+   自动把优先级最低的超额条目摊到未来若干天。
+   v10 修正：不再"每天只跑一次"（旧逻辑用 lastAutoBalanceDate 硬幂等，会导致
+   当天首次均衡之后又新增到期——批量录入、补录、复习"又错了"等——再也无法被摊派，
+   今天越堆越多）。改为"按超额触发、收敛即停"：
+   - 今天到期量 ≤ 当日容量：天然收敛，不动作、不写盘；
+   - 超出容量：只摊走真正超出的部分，摊完 today 回到容量内即停；
+   - 防饥饿（逾期太久，canBeSpread=false）的条目强制留今天，宁可今天多做也不继续后推；
+   - spreadItems 内每条最多被摊 3 次（canBeSpread），不会无限推、也不会与用户复习操作冲突。 */
 function autoBalanceIfNeeded(p) {
   if (!p || p.type === 'exercise') return 0;
   if (p.reviewMode !== 'balanced') return 0;
   if (p.dailyCapacity === 0) return 0;
   const today = todayStr();
-  if (p.lastAutoBalanceDate === today) return 0;
-  p.lastAutoBalanceDate = today; // 先标记，保证幂等、防 render 重入
-  const cap = getComfortCap(p);
+  const cap = getSpreadDayCap(p, today);
   const due = getDueItems(p).slice().sort(compareItemPriority);
   if (due.length <= cap) {
-    p.updatedAt = Date.now();
-    saveStore();
+    p.lastAutoBalanceDate = today;
     return 0;
   }
   // 先把锁死条目（canBeSpread=false，逾期太久不能再推）强制归入 keep 留今天，
@@ -5166,7 +5642,18 @@ function autoBalanceIfNeeded(p) {
   const keep = blocked.concat(spreadable.slice(0, keepN));
   const excess = spreadable.slice(keepN);
   keep.forEach(it => { it.nextReviewDate = today; });
-  return spreadItems(p, excess, 3);
+  if (!excess.length) {
+    // 超额条目全部因"逾期太久不能再推"而锁死，今日负载无法再后摊（记忆安全优先）。
+    // 标记今天已处理，交由状态卡如实提示"优先做逾期"，不做无效写盘。
+    p.lastAutoBalanceDate = today;
+    return 0;
+  }
+  // 摊派窗口按"积压量 / 每日容量"自适应（至少 3 天、至多 3 周）：
+  // 积压少时维持原来的 3 天（记忆更安全）；积压多时拉长，避免超额内容全挤在未来 3 天形成新的爆量日
+  const tomorrowCap = getSpreadDayCap(p, addDays(today, 1));
+  const spreadDays = Math.max(3, Math.min(21, Math.ceil(excess.length / Math.max(1, tomorrowCap))));
+  p.lastAutoBalanceDate = today;
+  return spreadItems(p, excess, spreadDays);
 }
 
 /* 防饥饿：判断这条是否还能被分散（注意：调用方需保证能拿到项目配置） */
@@ -5726,6 +6213,99 @@ function masteryFromScore(score) {
 }
 
 /* ============ 状态卡 ============ */
+/* 统一的"加量/缺口"措辞：既要让用户知道有缺口（首要目标是按时完成），又不用"多 358%、2.7 倍"
+   这种击溃性数字。小样本（medium）速率不稳、不给精确倍数；高倍数引导调整计划（加天数/延后/缩范围）。
+   short 用于卡片/脚注的短句；full 用于状态卡/看板的完整说明。 */
+function stretchShort(m) {
+  const ratio = m.ratio || 1;
+  if (!(ratio > 1.05)) return '';
+  if (m.confidence !== 'high') return '需加量（早期估算）';
+  const pct = Math.round((ratio - 1) * 100);
+  if (ratio <= 1.5) return `比平时多 ${pct}%`;
+  if (ratio <= 2.2) return '强度偏大，建议加天数';
+  return '缺口较大，建议调整计划';
+}
+function stretchFull(m) {
+  const ratio = m.ratio || 1;
+  if (!(ratio > 1.05)) return '';
+  if (m.confidence !== 'high') return '需要比平时多做一些才能赶上；现在样本还少、这个估算并不稳定，先按节奏推进，具体以状态卡的调整方案为准。';
+  const pct = Math.round((ratio - 1) * 100);
+  if (ratio <= 1.5) return `比平时多约 ${pct}%`;
+  if (ratio <= 2.2) return `每次约需比平时多 ${pct}%，强度偏大；更建议增加学习天数或把截止日适当延后，避免某天硬撑。`;
+  return '按当前节奏缺口较大，硬加到每天很容易累垮；更建议在设置里延后截止日、增加每周学习天数，或缩小范围。';
+}
+
+/* ============ 按期方案（看板 / 今日目标 / 状态卡共用，保证同一数字） ============
+   理念：按期完成是第一选择，延期只作兜底；从多个"按期组合"（每周几天 × 每次多少）里
+   选一个综合最易坚持的作为系统推荐，其余最多留一个备选，避免用户在多个数字里纠结。 */
+function getCatchUpPlan(p, m) {
+  const remaining = m.remaining;
+  // 背书正常窗口下追赶分母用"新学窗口（到新学截止日）"，与 perStudyDay 口径一致；
+  // 背书冲刺期、刷题/错题用"到目标日"。
+  const daysAvailable = (p.type === 'recite' && m.newLearnEnd && !m.sprint)
+    ? m.planDaysAvailable : m.daysAvailable;
+  const curWk = Math.max(1, Math.round(m.activityPerWeek));
+  const curRate = m.perStudyDayRaw > 0 ? m.perStudyDayRaw : 1;
+  const out = { onTime: null, alt: null, delay: null, curWk, curRate };
+  if (!(remaining > 0 && daysAvailable > 0)) return out;
+  const perFor = (wk) => remaining / (daysAvailable * wk / 7); // 每周学 wk 天时，每个学习日的量
+  const MAX_MULT = 2.5; // 每次量超过平时 2.5 倍视为硬撑，不放进"可行按期方案"
+
+  // 1) 保持当前频率（改动最小，缺口小时优先）
+  const keep = { wk: curWk, tag: `保持每周 ${curWk} 天`, per: perFor(curWk), mult: perFor(curWk) / curRate, keep: true };
+  // 2) 加频率的方案（每周 6 天 / 每天都学 / 向 5 天补）
+  const add = [];
+  const addCand = (wk, tag) => {
+    if (wk <= curWk || wk > 7) return;
+    const per = perFor(wk);
+    if (per <= curRate * MAX_MULT) add.push({ wk, tag, per, mult: per / curRate });
+  };
+  addCand(6, '每周 6 天');
+  addCand(7, '每天都学');
+  addCand(5, '每周 5 天');
+
+  if (keep.mult <= 1.5) {
+    // 缺口小：保持现有频率、每次稍微多做一点即可，不必改频率
+    out.onTime = keep;
+    out.alt = null;
+  } else {
+    const pool = add.filter(c => c.mult <= MAX_MULT);
+    if (pool.length) {
+      // 综合最易坚持：每次量倍数越低越好；倍数接近（≤15%）时优先每周 6 天（有缓冲、比每天都学更可持续）
+      pool.sort((a, b) => (a.mult + (a.wk === 6 ? -0.12 : 0)) - (b.mult + (b.wk === 6 ? -0.12 : 0)));
+      out.onTime = pool[0];
+      out.alt = pool[1] || null;
+    }
+    // 保持频率就能在 3 倍内追上（强度大但数学上可行）时，作为首选/备选
+    if (!out.onTime && keep.mult <= 3) out.onTime = keep;
+    if (out.onTime && !out.alt && keep.mult <= MAX_MULT && out.onTime.wk !== curWk) out.alt = keep;
+  }
+  // 无任何可行按期方案：给"每天都学"的硬路径，并如实标注强度，让卡片去引导延期
+  if (!out.onTime) {
+    const per = perFor(7);
+    out.onTime = { wk: 7, tag: '每天都学（冲刺）', per, mult: per / curRate, heavy: true };
+  }
+  // 3) 延期兜底：每周约 6 天、维持平时每次量，算出从容完成日（现实往往不允许逾期，故仅作最后兜底）
+  if (m.perStudyDayRaw > 0) {
+    const wk = Math.max(curWk, 6);
+    const days = Math.ceil(remaining / (curRate * wk / 7));
+    out.delay = { wk, per: curRate, days, date: addDays(m.t, days) };
+  }
+  return out;
+}
+
+// 统一的"每个学习日目标"：stretch/impossible 时采用推荐按期方案，其余按当前预测频率
+function getDailyTarget(p, m) {
+  if (m.remaining <= 0) return { per: 0, wk: null, plan: null };
+  if ((m.feasibility === 'stretch' || m.feasibility === 'impossible') && m.perStudyDayRaw > 0) {
+    const plan = getCatchUpPlan(p, m);
+    if (plan.onTime) return { per: plan.onTime.per, wk: plan.onTime.wk, plan, heavy: !!plan.onTime.heavy };
+  }
+  // 冷启动（数据不足）时 perStudyDay 是按"每周 5 天"先验折算的，频率口径也要用 5，避免大字与脚注打架
+  const wk = m.enoughData ? Math.round(m.activityPerWeek) : 5;
+  return { per: m.perStudyDay, wk: m.perStudyDay != null ? wk : null, plan: null };
+}
+
 function getStatusMessage(p, m) {
   const u = unitName(p);
   const curN = fmtUnitNum(m.currentPage), tot = fmtUnitNum(m.total), rem = fmtUnitNum(m.remaining);
@@ -5733,6 +6313,10 @@ function getStatusMessage(p, m) {
 
   // 1. 全部完成：提前完成给正反馈
   if (pct >= 1 && m.currentPage > 0) {
+    if (p.type === 'mistake') {
+      return { icon:'🏁', cls:'ok', title:'已收录的错题全部攻克',
+        desc:`共攻克 ${tot} 道错题，这些曾经的坑都被你填平了，它们就是你的得分点。以后遇到新错题随时收录，系统会继续自动提醒你重做。` };
+    }
     let praise = '';
     if (p.deadline) {
       const early = diffDays(m.t, p.deadline);
@@ -5743,55 +6327,146 @@ function getStatusMessage(p, m) {
       desc:`共 ${tot} ${u}，你在 ${fmtCN(m.t)} 完成了整个目标。${praise ? praise + '<br><br>' : ''}可以在设置中调整截止日期，或开始下一个任务。` };
   }
 
-  // 2. 错题本：基于间隔复习排期，不用"每天订正多少"的线性思维
+  // 2. 错题本：核心理念——攻克错题是最高效的提分，错题是"提前发现的薄弱点"而非负担。
+  //    按间隔滚动复习，不采用"每天订正多少 / 攻克速度线性外推"的线性思维：
+  //    每道题要走多轮才攻克，攻克速度天然非线性，小样本外推会得出"还需90周"这种荒谬且打击人的数字。
   if (p.type === 'mistake') {
+    const today = todayStr();
     const due = getDueItems(p).length;
     const over = getOverdueItems(p).length;
-    // 截止日风险：基于历史攻克速度估算，而非复习容量
+    const totalNum = m.total || 0;
+    const masteredNum = m.currentPage || 0;
+    const mpct = totalNum > 0 ? masteredNum / totalNum : 0;
+    const masteredPct = Math.round(mpct * 100);
+    const justStarted = masteredNum === 0 && totalNum > 0;
+
+    // 今天的动作（复习 / 攻克），用于"今天做完了"的即时满足
+    let reviewedToday = 0, masteredToday = 0;
+    (p.items || []).forEach(it => {
+      const revs = it.reviews || [];
+      if (revs.length >= 2 && revs[revs.length - 1].date === today) reviewedToday++;
+      if (it.masteredDate === today && !it.manualMastered) masteredToday++;
+    });
+    // 高频薄弱点：反复错（连续 2 次及以上"又错了"）的未攻克题——考前最该拿下、提分最快的点
+    const weakKey = (p.items || []).filter(it => !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2).length;
+
+    const masteryLine = totalNum > 0
+      ? (masteredNum > 0 ? `已攻克 ${curN} / ${tot} 道（${masteredPct}%）` : `已收录 ${tot} 道，还没开始复习`)
+      : '';
+    const progressPhrase = masteredNum > 0
+      ? `已实打实攻克 ${curN} 道，这些曾经的薄弱点正在变成你的得分点。`
+      : (totalNum > 0 ? '收录错题，就是在精准定位你自己的提分点，已经开了个好头。' : '');
+    const weakPhrase = weakKey > 0
+      ? `<strong>${weakKey}</strong> 道你反复错过，是考前最该拿下的高频薄弱点，优先做熟它们、提分最快。`
+      : '';
+
+    // 截止日：只在临近（≤14 天）或已过时温和提示；距离还远时不喊焦虑——每天清掉"今天到期"的就是最优策略
     let deadlineWarn = '';
     if (p.deadline && m.remaining > 0) {
-      const daysLeft = diffDays(todayStr(), p.deadline);
-      // 近30天攻克速度
-      const mastered30 = getCompletedPagesAtDate(p, todayStr()) - getCompletedPagesAtDate(p, addDays(todayStr(), -30));
-      if (mastered30 > 0) {
-        const perWeek = mastered30 / 30 * 7;
-        const weeksNeeded = Math.ceil(m.remaining / perWeek * 10) / 10;
-        if (daysLeft >= 0) {
-          const weeksLeft = Math.max(0, daysLeft / 7);
-          if (weeksNeeded > weeksLeft) {
-            deadlineWarn = `<br><br>⚠️ 按你近30天每周攻克约 ${perWeek.toFixed(1)} 道的速度，剩余 ${m.remaining} 道约需 ${weeksNeeded} 周，到 ${fmtCN(p.deadline)} 有点紧。想快一点：① 在学习记录里对到期题点「提前复习」；② 到设置里把间隔天数调短。`;
-          }
-        } else {
-          deadlineWarn = `<br><br>⛔ 已超过截止日 ${-daysLeft} 天，还有 ${m.remaining} 道待攻克。`;
-        }
-      } else if (daysLeft < 0) {
-        deadlineWarn = `<br><br>⛔ 已超过截止日 ${-daysLeft} 天，还有 ${m.remaining} 道待攻克。`;
+      const daysLeft = diffDays(today, p.deadline);
+      if (daysLeft < 0) {
+        deadlineWarn = `<br><br>目标日已过 ${-daysLeft} 天，错题本仍会继续帮你滚动剩下的 ${rem} 道，不用焦虑；想设个新目标日，可以在设置里调整。`;
+      } else if (daysLeft <= 14) {
+        deadlineWarn = `<br><br>距目标日 ${fmtCN(p.deadline)} 还有 ${daysLeft} 天，这段时间优先把“今天到期”的做熟，目标日前多过一轮比刷新题更值。`;
       }
     }
+
+    // (a) 有逾期：温和提醒 + 分批（自动均衡已控制今日量），进步前置，不制造"做不完"的恐慌
     if (over > 0) {
-      return { icon:'⚠️', cls:'bad', title:`有 ${over} 道错题已逾期`,
-        desc:`今天共 ${due} 道待复习（含 ${over} 道逾期）。错题越拖越忘，先把逾期的处理掉。已攻克 ${curN} / 共收录 ${tot} 道。错题按间隔排期滚动，做完当轮会自动排下一轮。${deadlineWarn}` };
+      const heavy = over >= Math.max(1, due * 0.5);
+      const lead = heavy
+        ? `今天有 ${due} 道待复习（含 ${over} 道逾期）。<strong>不用一次做完，也不用有负担</strong>，先从最久没复习的那条开始，其余的系统会自动摊到接下来几天。`
+        : `今天有 ${due} 道待复习（含 ${over} 道逾期）。先把逾期的过一遍，哪怕只做几条，记忆也会重新接上。`;
+      return { icon:'📌', cls:'info', title: heavy ? `有 ${over} 道逾期，分批消化就好` : `有 ${over} 道错题到期了`,
+        desc:`${lead}<br>${progressPhrase}${weakPhrase ? '<br>' + weakPhrase : ''}错题按间隔滚动，做完当轮自动排下一轮，你只管清今天的。${deadlineWarn}` };
     }
+    // (b) 正常待复习：强调"攻克 = 实打实进步"
     if (due > 0) {
-      return { icon:'📋', cls:'info', title:`今天有 ${due} 道错题待复习`,
-        desc:`按间隔复习，做对推进、做错可继续。已攻克 ${curN} / 共收录 ${tot} 道，待攻克 ${rem} 道。错题按排期滚动，做完当轮会自动排下一轮。${deadlineWarn}` };
+      let tail = '今天从第一条开始订正，间隔就会开始滚动。';
+      if (mpct >= 0.8) tail = '已经攻克大半，进入收尾，保持住，能看到头了。';
+      else if (mpct >= 0.5) tail = '已经攻克过半，进展很实在。';
+      else if (masteredNum > 0) tail = '做对会把间隔越拉越长，之后会越来越轻松。';
+      return { icon:'📋', cls:'info', title:`今天有 ${due} 道错题等你过一遍`,
+        desc:`每攻克一道错题，就是实打实补上一个提分点，比刷十道新题更值。${masteryLine ? masteryLine + '，' : ''}${tail}${weakPhrase ? '<br>' + weakPhrase : ''}${deadlineWarn}` };
+    }
+    // (c) 今天刚把队列清完（还没全攻克）：给即时满足
+    if (due <= 0 && reviewedToday > 0 && m.remaining > 0) {
+      const got = masteredToday > 0 ? `今天还攻克了 ${masteredToday} 道，又拿下 ${masteredToday} 个薄弱点。` : '';
+      return { icon:'✅', cls:'ok', title:'今天的错题都过完了',
+        desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，不用提前惦记。${progressPhrase ? '<br>' + progressPhrase : ''}` };
     }
     if (m.remaining === 0 && m.currentPage > 0) {
       return { icon:'🎉', cls:'ok', title:'已收录的错题全部攻克',
-        desc:`共攻克 ${curN} 道错题。遇到新错题随时收录，到复习日会自动提醒你重做。` };
+        desc:`共攻克 ${curN} 道错题，这些曾经的坑都被你填平了。遇到新错题随时收录，到复习日会自动提醒你重做。` };
     }
+    // (d) 刚收录、还没开始：把"收录错题"正面化
+    if (justStarted) {
+      return { icon:'📝', cls:'info', title:'错题已经帮你记下了',
+        desc:`已收录 ${tot} 道错题，等于提前找到了 ${tot} 个提分点。现在还没有到期提醒，可以在复习区先过 1 道，间隔系统就开始运转，之后全自动提醒。` };
+    }
+    // (e) 队列暂时清空
+    const calmTail = mpct >= 0.8
+      ? `已攻克 ${masteredPct}%，进入收尾，队列暂时清空，遇到新错题随时收录。`
+      : mpct >= 0.5
+        ? `已攻克 ${masteredPct}%、过半了，暂无到期就是暂时清空了队列，保持节奏就好。`
+        : masteredNum > 0
+          ? `已攻克 ${curN} / ${tot} 道，队列暂时清空，今天可以轻松些。`
+          : '暂无到期错题，遇到新错题随时收录即可。';
     return { icon:'✅', cls:'ok', title:'暂无到期错题',
-      desc:`已攻克 ${curN} / 共收录 ${tot} 道，待攻克 ${rem} 道。错题按间隔自动提醒，遇到新错题随时收录即可。${deadlineWarn}` };
+      desc:`${calmTail}${deadlineWarn}` };
   }
 
-  // 3. 数据不足：精简文案，明确粗略目标口径
+  // 3. 背书本·冲刺期：剩余时间已不足一个完整复习周期（距考试 < cycleDays），
+  //    目标从"把新内容学完"切换为"把已学的在考场上记住"，不判 impossible、给清晰的冲刺动作。
+  if (p.type === 'recite' && m.sprint) {
+    const due = getDueItems(p).length;
+    const over = getOverdueItems(p).length;
+    const finalRev = (p.items || []).filter(it => it.finalReviewDate).length;
+    let body = `距你的目标日 ${fmtCN(p.deadline)} 只剩 ${m.daysLeft} 天，已不足一个完整复习周期（约 ${m.cycleDays} 天）。<br><br>`;
+    body += `<b>这个阶段的目标不是"把没背的全背完"，而是"把已学的内容牢牢记住"。</b><br>`;
+    body += `• 已学内容的复习最优先，这是性价比最高的巩固动作；<br>`;
+    body += `• 新内容只挑最核心、最关键的部分，系统会用更短的间隔帮你快速过；<br>`;
+    if (m.remaining > 0) body += `• 还有约 ${fmtUnitNum(m.remaining)} 页没学，不建议再大面积铺新，按"先复习、有余力再挑重点学新"走即可。<br>`;
+    if (finalRev > 0) body += `• 已有 <b>${finalRev}</b> 条完成了目标前最后一遍，目标日前不再占用你，稳住状态即可。<br>`;
+    if (due > 0) body += `<br>今天有 ${due} 条到期复习${over > 0 ? `（含 ${over} 条逾期）` : ''}，先把它们过一遍，就是此刻最有效的冲刺。`;
+    else body += `<br>今天的复习已清完，有余力就挑重点学一点。`;
+    return { icon:'⏰', cls:'warn', title:'进入冲刺期：先复习、再挑重点学新', desc: body };
+  }
+
+  // 背书本的"新学截止日"提示（正常窗口）：新内容应在 deadline-cycleDays 前学完，之后只滚动复习，
+  // 才能保证所有内容在考试前走完所有轮次、形成长期记忆。
+  const reciteCycleLine = (p.type === 'recite' && m.newLearnEnd && !m.sprint)
+    ? (m.cycleTight
+      ? `<br><b>注意：</b>按当前节奏，新内容可能赶不上 ${fmtCN(m.newLearnEnd)} 的新学截止日，最后一部分会来不及走完完整复习周期；建议近期加一点量或提前，实在来不及就优先保高频考点。`
+      : `<br>新内容建议在 <b>${fmtCN(m.newLearnEnd)}</b> 前学完，之后约 ${m.cycleDays} 天只做滚动复习，这样到目标日每一块都能走完所有轮次、记得最牢。`)
+    : '';
+
+  // 4. 数据不足：用"已完成的小集合"框架肯定第一步，再给一个今天就能执行的小抓手
   if (!m.enoughData || !m.etaDate) {
-    if (m.needMoreActiveDays > 0) {
-      return { icon:'📊', cls:'info', title:'打卡数据还少，预测仅供参考',
-        desc:`已积累 ${m.activeDays} 个学习日，再打约 ${m.needMoreActiveDays} 次卡就能给出可信估算。当前目标是按"每天都学"粗算的，仅供参考。` };
+    const verb0 = p.type === 'recite' ? '新学' : '做';
+    const doneTxt = m.currentPage > 0
+      ? `已完成 ${curN} ${u}、第 ${m.activeDays} 个学习日`
+      : `第 ${m.activeDays} 个学习日`;
+    if (p.deadline && m.remaining > 0 && m.daysAvailable > 0) {
+      // 有截止日：早期也给一个粗略但可执行的小目标（只给一个数字，与看板/今日目标同源）。
+      // 背书按"新学窗口（目标日−完整复习周期）"算，留得出复习时间；其余按到目标日。
+      const reciteWin = (p.type === 'recite' && !m.sprint && m.newLearnEnd)
+        ? Math.max(1, diffDays(m.t, m.newLearnEnd) + 1) : 0;
+      const winDays = reciteWin || m.daysAvailable;
+      const perStudy = m.perStudyDay != null ? m.perStudyDay : m.remaining / (winDays * 5 / 7); // 按每周约 5 个学习日
+      const targetDate = reciteWin ? m.newLearnEnd : p.deadline;
+      const grasp = reciteWin
+        ? `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前学完，之后还留约 ${m.cycleDays} 天滚动复习。`
+        : `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前完成。`;
+      return { icon:'🌱', cls:'info', title:'刚开始，先把节奏跑起来',
+        desc:`${doneTxt}。先有个粗略抓手：${grasp}这是早期估算，做几天就会按你的真实节奏自动修正，现在不用有压力。${reciteCycleLine}` };
     }
-    return { icon:'📊', cls:'info', title:'数据还不够，暂时无法预测',
-      desc:'再积累几个学习日，系统会结合你的真实节奏估算完成时间。' };
+    if (m.activeDays >= 1) {
+      return { icon:'🌱', cls:'info', title:'第一步已经完成',
+        desc:`${doneTxt}已经记下了。再积累约 ${m.daysToMedium} 个学习日，系统就能开始结合你的节奏估算完成时间；现在只需定一个自己做得到的小量，连续几天完成它。` };
+    }
+    return { icon:'📊', cls:'info', title:'今天从第一个小目标开始',
+      desc:'先完成今天的第一次打卡/复习，让系统看到你的节奏。把目标定小到"一定能完成"，连续几天比一次猛学更重要。' };
   }
 
   const verb = p.type === 'recite' ? '新学' : '做';
@@ -5824,124 +6499,130 @@ function getStatusMessage(p, m) {
       desc:`${paceBits}，${rangeTxt}全部 ${tot} ${u}${weeksLeft ? `，大约还需 ${weeksLeft} 周` : ''}。可在设置里添加截止日，获得每个学习日目标和可行性提醒。${confTxt}` };
   }
 
-  // ---- 方案生成 ----
+  // ---- 按期方案（看板 / 今日目标 / 状态卡共用同一数字）：按期首选、延期只作兜底 ----
+  const plan = getCatchUpPlan(p, m);
   const remaining = m.remaining, daysAvailable = m.daysAvailable;
-  const onTimePlans = [];
-  if (remaining > 0 && daysAvailable > 0) {
-    const curWk = Math.max(1, Math.round(m.activityPerWeek));
-    const curRate = m.perStudyDayRaw > 0 ? m.perStudyDayRaw : 1;
-    if (curWk < 7) {
-      const per = remaining / daysAvailable;
-      if (per > 0 && per <= curRate * 2.5) {
-        onTimePlans.push({ tag:'每天都学', wk:7, per,
-          cmp:`每周比现在多 ${7-curWk} 天`,
-          tip: per <= curRate*1.2 ? '每次量和平时差不多，坚持每天打卡就行' : '每次量比平时多一些，但每天都学节奏更稳' });
-      }
-    }
-    const midWk = Math.min(curWk + 2, 6);
-    if (midWk > curWk && midWk < 7) {
-      const per = remaining / (daysAvailable * midWk / 7);
-      if (per > 0 && per <= curRate * 2.5) {
-        onTimePlans.push({ tag:`每周 ${midWk} 天`, wk:midWk, per,
-          cmp:`每周比现在多 ${midWk-curWk} 天`,
-          tip:'频率和每次量都适中，比较好坚持' });
-      }
-    }
-    const perKeep = remaining / (daysAvailable * curWk / 7);
-    if (perKeep > 0 && perKeep <= curRate * 3) {
-      onTimePlans.push({ tag:`保持每周 ${curWk} 天`, wk:curWk, per:perKeep,
-        cmp:`不用额外挤时间，每次多做 ${((perKeep/curRate-1)*100).toFixed(0)}%`,
-        tip: perKeep <= curRate*1.5 ? '每次多做一点就能赶上' : '需要每次明显多投入一些，适合冲刺阶段' });
-    }
-  }
-  const delayPlans = [];
-  if (remaining > 0 && m.perStudyDayRaw > 0) {
-    const curWk = Math.max(1, Math.round(m.activityPerWeek));
-    const curRate = m.perStudyDayRaw;
-    const mkDelay = (wk) => {
-      const days = Math.ceil(remaining / (curRate * wk / 7));
-      return { tag:`每周 ${wk} 天（比现在多 ${wk-curWk} 天）`, wk, per:curRate, days, date: addDays(m.t, days) };
-    };
-    const wk1 = Math.min(curWk + 1, 6);
-    if (wk1 > curWk) delayPlans.push(mkDelay(wk1));
-    const wk2 = Math.min(curWk + 2, 6);
-    if (wk2 > wk1) {
-      const d2 = mkDelay(wk2);
-      if (!delayPlans.length || delayPlans[0].days - d2.days >= 7) delayPlans.push(d2);
-    }
-    if (!delayPlans.length && curWk >= 6) {
-      const gentleRate = curRate * 1.2;
-      const days = Math.ceil(remaining / (gentleRate * curWk / 7));
-      delayPlans.push({ tag:`保持每周 ${curWk} 天，每次多做 20%`, wk:curWk, per:gentleRate, days, date: addDays(m.t, days) });
-    }
-  }
-  const fmtPlan = p => `<b>${p.tag}</b>：每次约 ${p.per.toFixed(1)} ${u}（${p.cmp}）—— ${p.tip}`;
-  const fmtDelay = p => `<b>${p.tag}</b>，每次保持平时的 ${p.per.toFixed(1)} ${u}，约 ${p.days} 天完成（${fmtCN(p.date)}）`;
+  const curWk = plan.curWk, curRate = plan.curRate;
+  const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const planText = (c) => {
+    if (!c) return '';
+    if (c.keep) return `保持每周 ${c.wk} 天、每次约 ${n1(c.per)} ${u}（比平时多约 ${Math.round((c.mult - 1) * 100)}%）`;
+    return `每周学 ${c.wk} 天、每次约 ${n1(c.per)} ${u}`;
+  };
+  // 真实完成日期：高置信给区间；小样本只在"能赶上 / 仅小幅落后"时给精确日期，
+  // 若外推到目标日 30 天以后（数据少时极易被几天低迷放大成击溃性数字），只如实说"会晚"而不给伪精确日期。
+  const etaLine = (() => {
+    if (m.confidence === 'high' && m.etaEarlyDate && m.etaLateDate && m.etaEarlyDate !== m.etaLateDate)
+      return { text: `按现在节奏预计 ${fmtCN(m.etaEarlyDate)}～${fmtCN(m.etaLateDate)} 完成`, far: false };
+    const d = m.momentumEtaDate || m.etaDate;
+    if (!d) return { text: '', far: false };
+    const over = p.deadline ? diffDays(p.deadline, d) : 0; // 正值=晚于目标日多少天
+    if (m.confidence !== 'high' && over > 30)
+      return { text: '按目前节奏会晚于目标日', far: true };
+    return { text: `按${m.momentumEtaDate ? '最近' : '现在'}节奏预计 ${fmtCN(d)} 左右完成`, far: false };
+  })();
+  // 小样本只保留这一次极短标注（far 时尤其需要强调会快速修正）
+  const earlyTag = m.confidence === 'medium'
+    ? (etaLine.far
+      ? '<span class="muted">（数据还少，只看方向不看具体日期，随每天记录快速修正）</span>'
+      : '<span class="muted">（早期估算，随每天记录更新）</span>')
+    : '';
 
-  // 5. impossible（含已过期）：完整四部分
+  // 5. impossible（含已过期）：先给按期硬路径，延期作为更现实的兜底；不渲染"晚 X 天"
   if (m.feasibility === 'impossible' || m.daysLeft < 0) {
     const overdue = m.daysLeft < 0;
-    const lateDays = overdue ? -m.daysLeft : (m.etaDate ? diffDays(p.deadline, m.etaDate) : 0);
-    const statusLine = overdue
-      ? `过了 ${lateDays} 天，还剩 ${rem} ${u}，预计 ${fmtCN(m.etaDate)} 完成。`
-      : `还剩 ${rem} ${u}，预计 ${fmtCN(m.etaDate)} 完成${lateDays > 0 ? `，比原定晚 ${lateDays} 天` : ''}。${behindTxt}`;
-    let body = statusLine + '<br><br>';
-    if (onTimePlans.length) {
-      body += `<b>想赶上 ${fmtCN(p.deadline)}，可以选：</b><br>`;
-      onTimePlans.forEach((p, i) => { body += `${i+1}. ${fmtPlan(p)}<br>`; });
-      body += '<br>';
+    let body = '';
+    if (overdue) {
+      body = `已经过了原定目标日 ${fmtCN(p.deadline)}，还剩 ${rem} ${u}。之前学的都还在，我们把计划重新理顺。<br><br>`;
+    } else {
+      body = `还剩 ${rem} ${u}，${etaLine.text ? etaLine.text + '，' : ''}按平时节奏在 ${fmtCN(p.deadline)} 前完成难度较大。<br><br>`;
     }
-    if (delayPlans.length) {
-      body += `<b>如果时间只能稍微放宽，最容易坚持的是：</b><br>`;
-      delayPlans.forEach((p, i) => { body += `${i+1}. ${fmtDelay(p)}<br>`; });
-      body += '<br>';
+    if (m.momentumDays >= 3) body += m.momentumImproving
+      ? `你最近 ${m.momentumDays} 天明显提速了，方向对了，继续保持；不过按目标日算，缺口仍然偏大。<br><br>`
+      : `你最近 ${m.momentumDays} 天有在持续推进，这股劲很重要。<br><br>`;
+    if (plan.onTime) {
+      if (plan.onTime.heavy) {
+        body += `<b>硬要赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+      } else {
+        body += `<b>想赶上 ${fmtCN(p.deadline)}，可行的方式：</b>${planText(plan.onTime)}。<br><br>`;
+      }
     }
-    body += `截止日期只是规划目标，节奏一变完成时间就会变，可随时在设置里调整。${sparseNote}${confTxt}`;
-    return { icon: overdue ? '⛔' : '🚧', cls:'bad', title: overdue ? `已过目标日 ${lateDays} 天` : `时间紧，预计 ${fmtCN(m.etaDate)} 完成`, desc: body };
+    if (plan.delay) {
+      body += `<b>如果强度太大，更现实的是把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏更稳）。截止日是规划工具不是审判，可在设置里调整。`;
+    }
+    body += reciteCycleLine + sparseNote;
+    return { icon: overdue ? '⛔' : '🚧', cls:'bad', title: overdue ? '已过目标日，一起重新规划' : '目标偏紧，需要调整安排', desc: body };
   }
 
-  // 6. stretch：按 ratio 分轻/重两档，补出口
+  // 6. stretch：势头能赶上→及时翻绿；在提速→先肯定；常规→真实现状 + 首选按期方案 + 延期兜底
   if (m.feasibility === 'stretch') {
     const ratio = m.ratio || 1;
-    const isHeavy = ratio > 1.5;
-    const statusLine = `还剩 ${rem} ${u}，按现在节奏预计 ${fmtCN(m.etaEarlyDate)}～${fmtCN(m.etaLateDate)} 之间完成。${behindTxt}`;
-    let body = statusLine + '<br><br>';
-    if (onTimePlans.length) {
-      body += `<b>想稳妥按时完成，可以选：</b><br>`;
-      onTimePlans.slice(0, 2).forEach((p, i) => { body += `${i+1}. ${fmtPlan(p)}<br>`; });
-      body += '<br>';
+    // 6a. 近期势头足以按期：立即翻绿、反馈进步，只给一句"保持"，不再罗列方案
+    if (m.momentumOnTime && m.momentumEtaDate) {
+      const keepPer = plan.onTime ? plan.onTime.per : m.perStudyDay;
+      const body = `还剩 ${rem} ${u}。你最近 ${m.momentumDays} 天明显提速，按这个势头预计 ${fmtCN(m.momentumEtaDate)} 完成，<b>赶得上</b>。<br><br>保持现在的节奏，每个学习日约 ${n1(keepPer)} ${u} 就好，不用额外猛冲。`;
+      return { icon:'🚀', cls:'ok', title:'最近势头很好，能赶上', desc: body };
     }
-    // 兜底出口
-    if (delayPlans.length) {
-      body += `如果时间上不宽裕，也可以把截止日调到 ${fmtCN(delayPlans[0].date)}（${delayPlans[0].tag}，每次保持平时的量），从容完成。<br><br>`;
+    // 6b. 正在提速、缺口在缩小（尚未完全赶上）：先肯定，再给首选按期方案
+    if (m.momentumImproving) {
+      // 只剩"硬路径"（强度很大）时，不能只给乐观，要如实说明仍需大幅加量
+      if (plan.onTime && plan.onTime.heavy) {
+        let body = `还剩 ${rem} ${u}。你最近明显提速了，方向对了，但按 ${fmtCN(p.deadline)} 算，缺口仍然偏大。<br><br>`;
+        body += `<b>硬要赶上，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+        if (plan.delay) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
+        body += reciteCycleLine;
+        return { icon:'🚧', cls:'warn', title:'在提速，但还需要加量', desc: body };
+      }
+      let body = `还剩 ${rem} ${u}。你最近明显提速了，缺口在缩小，继续保持。<br><br>`;
+      if (plan.onTime) {
+        body += `<b>想在 ${fmtCN(p.deadline)} 前完成：</b>${planText(plan.onTime)}。`;
+        if (plan.alt) body += `（也可${planText(plan.alt)}。）`;
+      }
+      if (plan.delay) body += `<br><span class="muted">若实在加不动，可把目标日延到 ${fmtCN(plan.delay.date)} 左右。</span>`;
+      body += reciteCycleLine;
+      return { icon:'📈', cls:'ok', title:'正在追赶，继续保持', desc: body };
     }
-    body += isHeavy
-      ? `需要认真调整节奏，加把劲才能赶上。${confTxt}${sparseNote}`
-      : `比平时多投入一点就来得及，不用太焦虑。${confTxt}${sparseNote}`;
-    return { icon: isHeavy ? '🚧' : '💪', cls: 'warn', title: isHeavy ? '需要明显加力才能赶上' : '加把劲，可以按时完成', desc: body };
+    // 6c. 常规 stretch
+    const isHeavyGap = ratio > 1.5;
+    const hardPath = plan.onTime && plan.onTime.heavy;
+    let body = `还剩 ${rem} ${u}，${etaLine.text}。${earlyTag}<br><br>`;
+    if (hardPath) {
+      // 缺口大到可持续方案都不可行：硬路径如实标注强度，延期不再弱化，而作为并列的现实选择
+      body += `<b>想赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+      if (plan.delay) body += `<b>更现实的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏可持续），在设置里即可调整。`;
+    } else {
+      if (plan.onTime) {
+        body += `<b>想按时完成，最省力的方式：</b>${planText(plan.onTime)}。`;
+        if (plan.onTime.keep) body += '不用改学习频率，每次多做一点即可。';
+        if (plan.alt) body += `<br>或者：${planText(plan.alt)}。`;
+        body += '<br><br>';
+      }
+      if (plan.delay) {
+        body += `<span class="muted">若最近确实排不开，可把目标日延到 ${fmtCN(plan.delay.date)} 左右（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}），在设置里即可调整。</span>`;
+      }
+    }
+    body += reciteCycleLine + sparseNote;
+    if (hardPath) return { icon:'🚧', cls:'warn', title:'目标偏紧，建议调整安排', desc: body };
+    return { icon: isHeavyGap ? '🚧' : '💪', cls: isHeavyGap ? 'warn' : 'ok',
+      title: isHeavyGap ? '想按时完成，需要加量' : '加把劲，可以按时完成', desc: body };
   }
 
-  // 7. easy：按富余天数分真轻松/刚好卡线
+  // 7. easy：节奏够，重点是"保持"；只给一个预计日期 + 一句缓冲建议，不堆多个速率数字
   const gapLate = m.etaLateDate ? diffDays(m.etaLateDate, p.deadline) : diffDays(m.etaDate, p.deadline);
   const isTight = gapLate <= 3;
-  const safeTxt = m.rateLow != null
-    ? `即使按你状态较差时的节奏（每次约 ${(Math.round(m.rateLow * 10) / 10).toFixed(1)} ${u}），预计 ${fmtCN(m.etaLateDate || m.etaDate)} 也能完成`
-    : `${rangeTxt}`;
-  const aheadTxt = gapLate > 0 ? `，比目标最晚还提前 ${gapLate} 天` : (gapLate === 0 ? '，最晚也刚好赶上' : '');
+  const etaEasy = m.etaLateDate ? fmtCN(m.etaLateDate) : fmtCN(m.etaDate);
   let body;
   if (isTight) {
-    body = `${paceBits}，${safeTxt}${aheadTxt}。<br><br>当前节奏刚好能赶上，不过余量不多——偶尔多学一点，后面更稳。每个学习日${verb} ${(Math.round(m.perStudyDay * 10) / 10).toFixed(1)} ${u} 即可。${sparseNote}`;
+    body = `还剩 ${rem} ${u}，按你现在的节奏预计 ${etaEasy} 前完成，刚好赶上。<br><br>余量不多，保持打卡、偶尔多学一点会更稳。${reciteCycleLine}${sparseNote}`;
   } else {
-    body = `${paceBits}，${safeTxt}${aheadTxt}。<br><br>时间比较充裕，保持现在的节奏就好。如果哪天状态好，可以往前赶一点，给自己多留缓冲。每个学习日${verb} ${(Math.round(m.perStudyDay * 10) / 10).toFixed(1)} ${u} 即可。${sparseNote}`;
+    body = `还剩 ${rem} ${u}，按你现在的节奏（每次约 ${(Math.round(m.perStudyDayRaw * 10) / 10).toFixed(1)} ${u}、每周约 ${Math.round(m.activityPerWeek)} 天），预计 ${etaEasy} 前完成，时间有富余。<br><br>保持现在的节奏就好，状态好时往前赶一点，给自己多留缓冲。${reciteCycleLine}${sparseNote}`;
   }
   return { icon:'✅', cls:'ok', title: isTight ? '节奏刚好，别松懈' : '按当前节奏，可以按时完成', desc: body };
 }
 
 /* ============ 进步鼓励系统 ============ */
-// 5种进步事件，4个防呆，文案必须有数字
+// 进度事件：启动脚手架（前3天）+ 提速/连续/回归；4个防呆，文案必须有数字
 function checkProgressPraise(p, m) {
-  // 防呆1：样本不足不弹
-  if (m.activeDays < 5) return null;
   // 防呆3：焦虑时不弹（impossible或已过期）
   if (m.feasibility === 'impossible' || m.daysLeft < 0) return null;
   // 防呆4：同一天只弹一次
@@ -5951,8 +6632,31 @@ function checkProgressPraise(p, m) {
 
   const praises = [];
   const u = unitName(p);
+  // 连续/启动用"活动日"口径（收录、复习、攻克、打卡都算今天学了）；
+  // 错题本用户前期可能只复习尚未攻克，按完成口径会误判为没学习、零反馈。
+  const act = getActivityStreak(p, today);
 
-  // ① 节奏提速：近7天产能 vs 之前3周，提升>=15%
+  // ⓪ 启动脚手架：最容易放弃的是前几天，这里只做"第1/2/3天"的有限递进确认，
+  //    每个事件只弹一次、之后自动交给常规里程碑，避免每天都被哄、也避免冷启动零反馈。
+  if (act.activeDays === 1 && !p.shownPraises['first_step']) {
+    praises.push({ priority: 0, key:'first_step', icon:'🌱',
+      title:'第一步完成了', desc:'最难的是开始，你已经在路上。今天保持这个量就好，明天再来一次。' });
+  }
+  if (act.streak === 2 && !p.shownPraises['streak_2']) {
+    praises.push({ priority: 0, key:'streak_2', icon:'🌱',
+      title:'连续两天，启动得不错', desc:'不用追求量大，能连续两天坐下来，节奏就开始建立了。' });
+  }
+
+  // 个性化启动：累计满 3 个学习日、系统从"粗略抓手"切换为"按你真实节奏定制"时，给一次明确反馈，
+  // 让冷启动到个性化的过渡可见（之前只能自己发现"样本不足"消失）。
+  // 仅在刚跨过门槛（3~6 个学习日）弹一次；连续 3 天的情况交给 streak_3 里程碑；老用户不补弹。
+  if (m.enoughData && act.activeDays >= 3 && act.activeDays <= 6 && act.streak !== 3 && !p.shownPraises['personalized']) {
+    praises.push({ priority: 0, key:'personalized', icon:'🎯',
+      title:'系统开始按你的节奏定制了',
+      desc:'已经积累 3 个学习日，今日目标和预计完成时间从现在起会随你的真实节奏自动调整——你只管跟着今天的安排走就好。' });
+  }
+
+  // ① 节奏提速：近7天产能 vs 之前3周，提升>=15%（需要历史，早期 prevRate 为空自然不触发）
   if (m.trendPct != null && m.trendPct >= 0.15 && m.recentRate != null && m.prevRate != null) {
     const lastKey = 'trend';
     const lastDate = p.shownPraises[lastKey];
@@ -5965,42 +6669,47 @@ function checkProgressPraise(p, m) {
     }
   }
 
-  // ② 连续打卡刷新：突破3/5/7/14/30天档位，或超过历史最长
+  // ② 连续打卡：突破 3/5/7/14/30 天档位；只有"曾连续≥3天、这次再打破历史最长"才算刷新纪录，
+  //    避免首次连续时 3→4→5 这样的小数字被天天当成新纪录
   const streakTargets = [3, 5, 7, 14, 30];
-  if (m.streakNow >= 3) {
-    const hitTarget = streakTargets.find(t => m.streakNow === t);
+  const streak = act.streak;
+  if (streak >= 3) {
+    const hitTarget = streakTargets.find(t => streak === t);
     // 已宣告过的纪录值也参与比较，避免刷新纪录只弹一次、之后再破纪录不再提示
     const announcedRecord = p.shownPraises.streak_record_n || 0;
-    const histBest = Math.max(m.longestStreak || 0, announcedRecord);
-    const isRecord = m.streakNow > histBest;
+    const histBest = Math.max(act.priorLongest || 0, announcedRecord);
+    const isRecord = !hitTarget && streak > histBest && histBest >= 3;
     if (hitTarget || isRecord) {
       const key = isRecord ? 'streak_record' : `streak_${hitTarget}`;
       const alreadyMilestone = !isRecord && p.shownPraises[key];
-      const alreadyRecord = isRecord && announcedRecord >= m.streakNow;
+      const alreadyRecord = isRecord && announcedRecord >= streak;
       if (!alreadyMilestone && !alreadyRecord) {
         const recordDesc = histBest > 0
-          ? `已经连续 ${m.streakNow} 天，超过了你之前的最长纪录 ${histBest} 天`
-          : `已经连续 ${m.streakNow} 天，这是你目前最长的一次连续打卡`;
+          ? `已经连续 ${streak} 天，超过了你之前的最长纪录 ${histBest} 天`
+          : `已经连续 ${streak} 天，这是你目前最长的一次连续打卡`;
         praises.push({
           priority: isRecord ? 2 : 3, key,
-          recordN: isRecord ? m.streakNow : 0,
-          icon: '🔥', title: isRecord ? '连续打卡刷新纪录' : `连续打卡 ${m.streakNow} 天`,
-          desc: isRecord ? recordDesc : `已经连续 ${m.streakNow} 天了，继续保持`
+          recordN: streak,
+          icon: '🔥', title: isRecord ? '连续打卡刷新纪录' : `连续打卡 ${streak} 天`,
+          desc: isRecord ? recordDesc : `已经连续 ${streak} 天了，继续保持`
         });
       }
     }
   }
 
-  // ③ 中断后回归：今天重新开始，且最近一次停摆>=3天（用prevStudyDate，不含今天）
-  if (m.streakNow === 1 && m.todayDone > 0 && m.prevStudyDate) {
-    const recentBreak = Math.max(0, diffDays(m.prevStudyDate, today) - 1);
+  // ③ 中断后回归：今天重新开始（当前连续=1），且上一个活动日距今停摆>=3天
+  if (act.streak === 1 && act.prevDate) {
+    const recentBreak = Math.max(0, diffDays(act.prevDate, today) - 1);
     if (recentBreak >= 3) {
       const key = `return_${today}`;
       if (!p.shownPraises[key]) {
+        const doneTxt = m.todayDone > 0
+          ? `今天做了 ${fmtUnitNum(m.todayDone)} ${u}，节奏没丢`
+          : '今天重新坐下来开始了，节奏没丢';
         praises.push({
           priority: 4, key,
           icon: '👋', title: '休息后回来了',
-          desc: `之前停了 ${recentBreak} 天，今天做了 ${fmtUnitNum(m.todayDone)} ${u}，节奏没丢`
+          desc: `之前停了 ${recentBreak} 天，${doneTxt}`
         });
       }
     }
@@ -6094,7 +6803,68 @@ function checkMilestones(p, m) {
   pending.forEach(ms => p.shownMilestones.push(ms.at));
   saveStore();
   const latest = pending[pending.length - 1];
-  setTimeout(() => showToast(latest.icon, latest.title, latest.desc), 450);
+  // 因材施教：百分比语义随模式不同（刷题=完成、背书=背完、错题=攻克），鼓励语也贴合各自任务
+  const verbWord = p.type === 'mistake' ? '攻克' : p.type === 'recite' ? '背完' : '完成';
+  const title = latest.at === 100
+    ? (p.type === 'mistake' ? '全部攻克！' : p.type === 'recite' ? '全部背完！' : '全部完成！')
+    : `${verbWord} ${latest.at}%！`;
+  const descByType = {
+    exercise: {
+      25: '已经推进四分之一，节奏很稳，继续保持。',
+      50: '进度过半，最容易松劲的阶段，坚持住就赢了一半。',
+      70: '胜利在望，保持节奏，别停下来。',
+      90: '只剩最后一程，一鼓作气。',
+      100: '全部刷完了，好好犒劳一下自己。'
+    },
+    recite: {
+      25: '已经背完四分之一，记得定期复习，节奏很稳。',
+      50: '过半了，新学的同时别忘了回头复习。',
+      70: '胜利在望，越到后面越要靠复习巩固。',
+      90: '最后一程，新学加复习一起冲。',
+      100: '全部背完了，接下来保持复习就不会忘。'
+    },
+    mistake: {
+      25: '已经攻克四分之一的错题，它们正在变成你最稳的得分点。',
+      50: '攻克过半，你已经填平了一半曾经的薄弱点。',
+      70: '只剩三成错题，胜利在望。',
+      90: '只剩最后一成，把它们彻底拿下。',
+      100: '收录的错题全部攻克，这些曾经的坑都被你填平了。'
+    }
+  };
+  const desc = (descByType[p.type] && descByType[p.type][latest.at]) || latest.desc;
+  setTimeout(() => showToast(latest.icon, title, desc), 450);
+}
+
+/* ============ 错题即时反馈：攻克正强化 + 反复错去羞耻化（均按天限频，避免刷屏） ============ */
+const __mistakeFbToday = {};     // key: projectId:date:kind → true
+const __milestoneFiredToday = {}; // key: projectId:date → true（今天是否已触发百分比里程碑，交给它庆祝）
+const _fbKey = (p, kind) => p.id + ':' + todayStr() + ':' + kind;
+const _msKey = (p) => p.id + ':' + todayStr();
+
+// 攻克错题：每天首次攻克时强化"实打实进步"；若当天已触发百分比里程碑（25%/50%…），则把庆祝交给里程碑，不重复弹
+function checkMistakeMasteryToast(p) {
+  if (!p || p.type !== 'mistake') return;
+  if (__mistakeFbToday[_fbKey(p, 'master')]) return;
+  const today = todayStr();
+  const masteredToday = (p.items || []).filter(it => it.masteredDate === today && !it.manualMastered).length;
+  if (masteredToday <= 0) return;
+  __mistakeFbToday[_fbKey(p, 'master')] = true;
+  if (__milestoneFiredToday[_msKey(p)]) return; // 百分比里程碑已给出更强的庆祝
+  const title = masteredToday >= 2 ? `今天攻克 ${masteredToday} 道错题` : '又攻克一道错题';
+  const desc = masteredToday >= 2
+    ? '这些曾经的薄弱点，今天都变成了你的得分点。'
+    : '这个薄弱点你彻底拿下了——比刷十道新题更值。';
+  setTimeout(() => showToast('🎯', title, desc, 4200), 650);
+}
+
+// 反复错（连续 2 次及以上"又错了"）：去羞耻化，把它框定为"考前发现的高频薄弱点"，每个项目每天最多提示一次
+function checkMistakeRelapseToast(p, item) {
+  if (!p || p.type !== 'mistake' || !item) return;
+  if (__mistakeFbToday[_fbKey(p, 'relapse')]) return;
+  if ((item.wrongStreak || 0) < 2) return;
+  __mistakeFbToday[_fbKey(p, 'relapse')] = true;
+  setTimeout(() => showToast('🔍', '这道题反复卡住',
+    '说明它是你的高频薄弱点，考前能发现它很值。已排到最近，多过两次就拿下了。', 4800), 520);
 }
 
 /* ============ 录入时的学习效果 + 预览 ============ */
@@ -6189,6 +6959,8 @@ function renderDailyGoal(p, m) {
   const u = unitName(p);
   const today = todayStr();
   const doneAll = m.currentPage > 0 && m.remaining === 0;
+  // 连续天数统一用"活动日"口径（复习/收录/攻克/打卡都算今天学了），避免错题本只复习未攻克时连续清零
+  const act = getActivityStreak(p, today);
 
   /* ---- 错题本：按"今日待解决条数"统计，不看累计页数 ---- */
   if (p.type === 'mistake') {
@@ -6216,8 +6988,8 @@ function renderDailyGoal(p, m) {
     const totalDueToday = due + reviewedToday;
     const pct = totalDueToday > 0 ? Math.min(100, reviewedToday / totalDueToday * 100) : 0;
     if (reviewedToday === 0) {
-      const tip = (m.streakNow >= 2)
-        ? `🔥 连续 ${m.streakNow} 天了，先从最久没复习的那条开始！`
+      const tip = (act.streak >= 2)
+        ? `🔥 连续 ${act.streak} 天了，先从最久没复习的那条开始！`
         : '📖 从最久没复习的那条开始，5 分钟进入状态~';
       _dgShow(box, fill, line, praise, 'idle', 0, `今天还有 ${due} 条错题待复习`, tip);
     } else {
@@ -6238,8 +7010,114 @@ function renderDailyGoal(p, m) {
     return;
   }
 
-  /* ---- 刷题 / 背书：按今日累计增量 todayDone 对今日目标 ---- */
-  const target = (m.perStudyDay != null) ? m.perStudyDay
+  /* ---- 背书本：复习优先、再学新。复习也是今日学习，复习推进就要计入进度，
+     避免"复习了 4 条却显示还没动"。今日目标分两段：① 到期复习（条）② 新学页。 ---- */
+  if (p.type === 'recite') {
+    const rvDueNow = getDueItems(p).length;
+    let rvDoneToday = 0;
+    (p.items || []).forEach(it => {
+      const revs = it.reviews || [];
+      // 与错题同口径：今天对该条做过复习（reviews[0] 是首次学习，至少 2 条且最后一次在今天）
+      if (revs.length >= 2 && revs[revs.length - 1].date === today) rvDoneToday++;
+    });
+    const rvTotal = rvDueNow + rvDoneToday;
+    // 新学目标：m.perStudyDay 已按"新学窗口（目标日−完整复习周期）"折算——个性化后用真实节奏，
+    // 冷启动也由 getMetrics 按每周 5 个学习日先验给出，故不会把新学误摊到含复习期的全程（前松后紧）。
+    // stretch/impossible 时改用与状态卡、看板同源的"最省力按期方案"，避免三处数字打架。
+    let newTarget = getDailyTarget(p, m).per;
+    // 极端兜底（无截止日等）：退到自然日均摊
+    if (newTarget == null && isFinite(m.needPerDay) && m.needPerDay > 0) newTarget = m.needPerDay;
+    // 冲刺期不再给固定新学页数（统一"复习优先、挑重点"），避免与冲刺策略冲突、制造额外压力
+    if (m.sprint) newTarget = null;
+    // 新学与复习联动：每日总容量（条）已含"新学+复习"，复习占用后剩余的才是新学，
+    // 复习高峰日新学自动减少、复习少的日子补新学，避免"复习一堆还要求学新 N 页"；
+    // 新学欠账会由 perStudyDay/按期均摊在新学窗口内自动追赶，不把压力抛给用户。
+    if (newTarget != null) {
+      const dayCap = getDailyCapacity(p);
+      if (dayCap > 0) {
+        const learned = (p.items || []).filter(it => it.learnedDate && it.pageStart != null && it.pageEnd != null);
+        let avgPages = 1;
+        if (learned.length) {
+          const pages = learned.reduce((s, it) => s + Math.max(0, it.pageEnd - it.pageStart + 1), 0);
+          avgPages = Math.max(0.5, pages / learned.length);
+        }
+        const roomItems = Math.max(0, dayCap - rvTotal);
+        newTarget = Math.max(0, Math.min(newTarget, roomItems * avgPages));
+      }
+    }
+    const newTargetR = newTarget != null ? Math.round(newTarget * 10) / 10 : null;
+    const newDone = m.todayDone || 0;
+    const newDoneR = Math.round(newDone * 10) / 10;
+
+    if (doneAll) {
+      _dgShow(box, fill, line, praise, 'done-all', 100, '都背完了', '恭喜拿下整个目标，好好犒劳一下自己~');
+      return;
+    }
+
+    // 阶段一：还有到期复习没清完——复习优先，进度条只反映复习
+    if (rvDueNow > 0) {
+      const pct = rvTotal > 0 ? Math.min(100, rvDoneToday / rvTotal * 100) : 0;
+      let mood, pr;
+      if (rvDoneToday === 0) {
+        mood = 'idle';
+        pr = (act.streak >= 2)
+          ? `🔥 连续 ${act.streak} 天了，先从最久没复习的那条开始~`
+          : '📖 先复习再学新，记得更牢，从最久没复习的那条开始~';
+      } else {
+        const rr = rvDoneToday / Math.max(1, rvTotal);
+        if (rr < 0.5) { mood = 'progress'; pr = `🌱 复习开了头，还剩 ${rvDueNow} 条~`; }
+        else if (rr < 0.7) { mood = 'progress'; pr = `🚶 复习过半，还剩 ${rvDueNow} 条~`; }
+        else { mood = 'almost'; pr = `🏃 复习只剩 ${rvDueNow} 条，清完再学新的~`; }
+      }
+      let tail;
+      if (m.sprint) tail = '（复习优先，新学挑重点即可）';
+      else if (newTargetR == null) tail = '';
+      else if (newTargetR > 0.3) tail = `（之后再学新约 ${fmtUnitNum(newTargetR)} 页）`;
+      else tail = '（今天复习是重点，新学量力而行）';
+      _dgShow(box, fill, line, praise, mood, pct, `复习 ${rvDoneToday}/${rvTotal} 条${tail}`, pr);
+      return;
+    }
+
+    // 阶段二：今天复习已清完（或本就无复习），进度转向新学页
+    const prefix = rvDoneToday > 0 ? '复习已清 ✓ · ' : '';
+    if (newTargetR == null || newTargetR <= 0) {
+      if (rvDoneToday > 0) {
+        _dgShow(box, fill, line, praise, 'done', 100, `今日复习 ${rvDoneToday} 条已清完`, '✅ 今天的复习都过完了，有余力可以学一点新内容~');
+      } else {
+        _dgShow(box, fill, line, praise, 'idle', 0, '今天没有安排复习', '💡 可以学一点新内容，或先休息~');
+      }
+      return;
+    }
+    const nr = newDone / newTarget;
+    const npct = Math.min(100, nr * 100);
+    let nmood, nl, npr;
+    if (newDone <= 0) {
+      nmood = 'idle';
+      nl = `${prefix}新学 0 / ${fmtUnitNum(newTargetR)} 页`;
+      npr = (act.streak >= 3)
+        ? `🔥 连续 ${act.streak} 天，复习已清，今天的新学也别落下~`
+        : `🎯 复习已清，今天再学 ${fmtUnitNum(newTargetR)} 页就圆满了~`;
+    } else if (nr < 1) {
+      const nleft = Math.max(0, Math.round((newTarget - newDone) * 10 + 1e-9) / 10);
+      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
+      if (nr < 0.5) { nmood = 'progress'; npr = `🌱 开了个头，再学 ${fmtUnitNum(nleft)} 页就到~`; }
+      else { nmood = 'almost'; npr = `🏃 就差 ${fmtUnitNum(nleft)} 页，趁热打铁~`; }
+    } else if (Math.abs(nr - 1) < 1e-9) {
+      nmood = 'done';
+      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
+      npr = '✅ 复习和新学都完成了，今天圆满~';
+    } else {
+      const over = Math.max(0, Math.round((newDone - newTarget) * 10 + 1e-9) / 10);
+      nmood = 'over';
+      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页（超 ${fmtUnitNum(over)}）`;
+      npr = '🌟 状态太好了！注意别一次学太多，给复习留点空间~';
+    }
+    _dgShow(box, fill, line, praise, nmood, npct, nl, npr);
+    return;
+  }
+  // stretch/impossible 时与看板、状态卡同源（最省力按期方案）；其余按当前预测频率
+  const dt0 = getDailyTarget(p, m);
+  const target = (dt0.per != null && dt0.per > 0) ? dt0.per
               : (isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay
               : null;
   if (doneAll) {
@@ -6258,19 +7136,30 @@ function renderDailyGoal(p, m) {
   const pct = Math.min(100, ratio * 100);
 
   let mood, l, pr;
+  // 启动量：套卷为最小单位 1 套；当目标本身不足 1 套/学习日（如 0.3 套，约几天一套）时，
+  // 明确"今天做 1 套就够"，避免与"0.3 套/天"的目标自相矛盾、让用户误以为要补量。
+  const isFracPaper = u === '套' && targetR < 1;
+  const startUnit = Math.max(1, Math.round(targetR*0.3));
   if (done <= 0) {
     mood = 'idle';
     l = `今天目标 ${fmtUnitNum(targetR)} ${u} · 还没动`;
-    if (m.streakNow >= 3) {
-      pr = `🔥 已经连续 ${m.streakNow} 天了，今天别断，先从 ${Math.max(1, Math.round(targetR*0.3))} ${u}开始！`;
+    if (act.streak >= 3) {
+      pr = isFracPaper
+        ? `🔥 已经连续 ${act.streak} 天了，今天做 ${startUnit} 套就好，不必硬赶~`
+        : `🔥 已经连续 ${act.streak} 天了，今天别断，先从 ${startUnit} ${u}开始！`;
     } else if (m.prevStudyDate) {
       const gap = Math.max(0, diffDays(m.prevStudyDate, today) - 1);
-      if (gap >= 2) pr = `👋 歇了 ${gap} 天，今天先捡 ${Math.max(1, Math.round(targetR*0.3))} ${u}找找状态~`;
+      if (gap >= 2) pr = isFracPaper
+        ? `👋 歇了 ${gap} 天，今天先做 ${startUnit} 套找找状态，这就够了~`
+        : `👋 歇了 ${gap} 天，今天先捡 ${startUnit} ${u}找找状态~`;
       else if (m.feasibility === 'impossible') pr = `💪 今天 ${fmtUnitNum(targetR)} ${u}量不小，拆成几次完成~`;
-      else if (m.feasibility === 'stretch') pr = `💪 比平时多 ${Math.round((m.ratio - 1) * 100)}%，挑状态好的时候做~`;
+      else if (dt0.heavy) pr = `⚠️ 今天 ${fmtUnitNum(targetR)} ${u}约为平时 ${dt0.plan.onTime.mult.toFixed(1)} 倍，是硬要赶上的冲刺量、量力而行；若做不到，建议在设置里把目标日往后调~`;
+      else if (m.feasibility === 'stretch') pr = `💪 今天任务偏紧，挑状态好的时候做；若持续吃力，可按状态卡调整计划~`;
       else pr = `🎯 今天目标 ${fmtUnitNum(targetR)} ${u}，按节奏推进就好~`;
     } else {
-      pr = `🎯 今天目标 ${fmtUnitNum(targetR)} ${u}，按节奏推进就好~`;
+      pr = m.enoughData
+        ? `🎯 今天目标 ${fmtUnitNum(targetR)} ${u}，按节奏推进就好~`
+        : `🎯 今天先做约 ${fmtUnitNum(targetR)} ${u}（早期粗略目标，做几天就会按你的节奏自动调整）~`;
     }
   } else if (ratio < 1) {
     const left = Math.max(0, Math.round((target - done) * 10 + 1e-9) / 10);
@@ -6310,14 +7199,19 @@ function render() {
     lastRenderedProjectId = null;
     return;
   }
-  // 自动均衡：均匀模式下今日待复习超过舒适量时，自动把超额条目摊到未来 3 天（每项目每天最多一次）
+  // 自动均衡：均匀模式下今日待复习超过舒适量时，自动把超额条目均匀摊到未来若干天（每项目每天最多一次）
   try {
+    // 背书冲刺期：先把已排到考试之后的沉睡条目拉回考前（classic/balanced 都需要）
+    if (p.type === 'recite') {
+      const _sprintMoved = rebalanceForSprint(p);
+      if (_sprintMoved > 0) saveStore();
+    }
     const _moved = autoBalanceIfNeeded(p);
     if (_moved > 0) {
       const _abKey = p.id + ':' + todayStr();
       if (!__autoBalanceToastShown[_abKey]) {
         __autoBalanceToastShown[_abKey] = true;
-        setTimeout(() => showToast('⚖️', '已自动均衡今日复习', `检测到今天待复习超过舒适量，已把 ${_moved} 条摊到未来 3 天；也可以在复习区横幅手动分散。`, 5200), 450);
+        setTimeout(() => showToast('⚖️', '已自动均衡今日复习', `检测到今天待复习偏多，已把 ${_moved} 条均匀安排到未来几天，避免今天堆积；你也可以在复习区横幅手动调整。`, 5200), 450);
       }
     }
   } catch (e) {}
@@ -6503,6 +7397,7 @@ function render() {
     updateRecitePreview();
   } else {
     $('#reviewSection').hidden = true;
+    const _hh = $('#honestHint'); if (_hh) _hh.hidden = true;
   }
 
   if (isExercise) {
@@ -6524,16 +7419,41 @@ function render() {
         ? (m.etaDate ? `未设截止日，按当前节奏预计 ${fmtCN(m.etaDate)} 完成` : '未设截止日，可在设置中添加')
         : '今天就是截止日';
     } else if (m.perStudyDay != null) {
+      const dt = getDailyTarget(p, m);
+      const showPer = dt.per;
+      const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日需做';
-      _setBigNum($('#mNeed'), (Math.round(m.perStudyDay * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), u);
       const bits = [];
-      if (m.feasibility === 'stretch') bits.push(`比平时多 ${((m.ratio-1)*100).toFixed(0)}%`);
-      else if (m.feasibility === 'impossible' || m.daysLeft < 0) bits.push('时间紧，可微调');
+      if (dt.plan && dt.plan.onTime) {
+        // 加量追赶期：大字与状态卡"最省力按期方案"同源，避免看板与卡片数字打架
+        if (dt.plan.onTime.heavy) {
+          // 硬路径（连每天都学仍需 >2.5 倍强度）：不能轻描淡写"可按期完成"，要诚实警示
+          bits.push(`为平时 ${dt.plan.onTime.mult.toFixed(1)} 倍，强度很大，建议看状态卡`);
+          if (m.confidence !== 'high') bits.push('早期估算');
+        } else {
+          bits.push(showWk >= 7 ? '每天都学，可按期完成' : `每周学 ${showWk} 天，可按期完成`);
+          if (m.confidence !== 'high') bits.push('早期估算');
+          if (m.feasibility === 'impossible' || m.daysLeft < 0) bits.push('强度偏大');
+        }
+      } else {
+        if (m.feasibility === 'stretch') { const _ss = stretchShort(m); if (_ss) bits.push(_ss); }
+        else if (m.feasibility === 'impossible' || m.daysLeft < 0) bits.push('时间紧，可微调');
+        else bits.push(`约每周 ${showWk} 个学习日`);
+      }
+      // 套卷每学习日不足 1 套时（如 0.3 套/学习日），换算成"约每周几套 / 每几周 1 套"，避免"做 0.3 套"的困惑
+      if (u === '套' && showPer > 0 && showPer < 1) {
+        const perWeek = showPer * showWk;
+        if (perWeek >= 0.95) bits.push(`约每周 ${perWeek.toFixed(1)} 套`);
+        else bits.push(`约每 ${Math.max(1, Math.round(1 / perWeek))} 周 1 套`);
+      }
+      // 冷启动：此时 perStudyDay 是按每周 5 天先验的粗略值，注明会很快按个人节奏修正
+      if (m.confidence === 'low' && bits.length === 0) bits.push(`早期粗略估算 · 再攒 ${m.daysToMedium} 个学习日就按你的节奏调整`);
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天做';
       _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
-      $('#mNeedFoot').textContent = m.needMoreDays > 0 ? `粗估（剩余÷剩余自然日）· 再积累约 ${m.needMoreDays} 个学习日后会更准` : '再积累几个学习日，将按你的真实节奏给出学习日目标';
+      $('#mNeedFoot').textContent = m.daysToMedium > 0 ? `粗估（剩余÷剩余自然日）· 再攒 ${m.daysToMedium} 个学习日就开始按你的节奏调整` : '再积累几个学习日，将按你的真实节奏给出学习日目标';
     }
   } else {
     const isMistake = p.type === 'mistake';
@@ -6566,6 +7486,11 @@ function render() {
       $('#labelNeed').textContent = '今日待复习';
       _setBigNum($('#mNeed'), due, '条');
       $('#mNeedFoot').textContent = '内容（复习优先，按间隔推进）';
+    } else if (m.sprint && m.remaining > 0) {
+      // 冲刺期当天复习已清完：不再给"新学 N 页"目标（与冲刺策略"先复习、挑重点"保持一致）
+      $('#labelNeed').textContent = '今日安排';
+      _setBigNum($('#mNeed'), null);
+      $('#mNeedFoot').textContent = '冲刺期：复习已清完，有余力挑重点学新';
     } else if (m.remaining === 0 && m.currentPage > 0) {
       $('#labelNeed').textContent = '每个学习日目标';
       _setBigNum($('#mNeed'), '0', u); $('#mNeedFoot').textContent = '已经完成啦';
@@ -6576,18 +7501,32 @@ function render() {
         ? (m.etaDate ? `未设截止日，按当前节奏预计 ${fmtCN(m.etaDate)} 完成` : '未设截止日，可在设置中添加')
         : '今天就是截止日';
     } else if (m.perStudyDay != null) {
+      const dt = getDailyTarget(p, m);
+      const showPer = dt.per;
+      const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日新学';
-      _setBigNum($('#mNeed'), (Math.round(m.perStudyDay * 10) / 10).toFixed(1), ru);
+      _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), ru);
       const bits = [];
-      bits.push(`约每周 ${Math.round(m.activityPerWeek)} 个学习日`);
-      if (m.feasibility === 'stretch') bits.push(`比平时多 ${((m.ratio-1)*100).toFixed(0)}%`);
-      else if (m.feasibility === 'impossible') bits.push('时间紧，可微调');
-      else bits.push('按平时节奏即可');
+      if (dt.plan && dt.plan.onTime) {
+        if (dt.plan.onTime.heavy) {
+          bits.push(`为平时 ${dt.plan.onTime.mult.toFixed(1)} 倍，强度很大，建议看状态卡`);
+          if (m.confidence !== 'high') bits.push('早期估算');
+        } else {
+          bits.push(showWk >= 7 ? '每天都学，可按期完成' : `每周学 ${showWk} 天，可按期完成`);
+          if (m.confidence !== 'high') bits.push('早期估算');
+        }
+      } else {
+        bits.push(`约每周 ${showWk} 个学习日`);
+        if (m.feasibility === 'stretch') { const _ss = stretchShort(m); if (_ss) bits.push(_ss); }
+        else if (m.feasibility === 'impossible') bits.push('时间紧，可微调');
+        else if (m.confidence === 'low') bits.push('早期粗略估算，会按你的节奏调整');
+        else bits.push('按平时节奏即可');
+      }
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天学';
       _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
-      $('#mNeedFoot').textContent = m.needMoreDays > 0 ? `粗估（剩余÷剩余自然日）· 再积累约 ${m.needMoreDays} 个学习日后会更准` : `${ru} / 天`;
+      $('#mNeedFoot').textContent = m.daysToMedium > 0 ? `粗估（剩余÷剩余自然日）· 再攒 ${m.daysToMedium} 个学习日就开始按你的节奏调整` : `${ru} / 天`;
     }
   }
 
@@ -6622,29 +7561,36 @@ function render() {
   let algoNote = '';
   const doneAll = m.currentPage > 0 && m.remaining === 0;
   if (!doneAll) {
-    if (!m.enoughData) {
-      algoNote = `怎么算的：系统统计你最近每个“真正学习的日子”推进了多少${u}、每周大约学几天，据此折算预计完成时间。累计约 2 周、满 7 个学习日后才会给出可靠范围；现在数据少，请先按粗略目标推进。`;
+    if (p.type === 'mistake') {
+      // 错题本是滚动复习，不是线性进度：不按"攻克速度"外推完成时间，说明要贴合其机制
+      algoNote = '每道错题按记忆间隔（1→2→4→7→15→30天）滚动复习，连续做对才算攻克。均匀模式会自动把每天的量错峰，你只要做完"今天到期"的即可，越往后复习越稀疏、负担越轻，不需要自己算每天做多少。';
+    } else if (p.type === 'recite') {
+      // 背书本是"新学推进 + 间隔复习"双任务，且要预留完整复习周期，说明与刷题/错题都不同
+      if (m.sprint) {
+        algoNote = `一轮完整复习约需 ${m.cycleDays} 天（1→2→4→7→15→30 间隔）。现在距目标日不足一个完整周期，已进入冲刺期，系统把"先复习已学、再挑重点学新"放在第一位；你只需按今天的清单做，不用再算新学目标。`;
+      } else if (!m.enoughData) {
+        algoNote = `背书 = 新学推进 + 按间隔复习，一轮完整复习约需 ${m.cycleDays} 天。系统会算出新学截止日（${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'}），之后只做滚动复习；现在数据少，先按粗略目标推进。`;
+      } else {
+        algoNote = `背书 = 新学 + 按间隔（1→2→4→7→15→30天）滚动复习，一轮约需 ${m.cycleDays} 天。系统按你的节奏安排每天新学页与复习并错峰，避免扎堆；新内容建议在 ${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'} 前学完，之后只做滚动复习，到期记得最牢。`;
+      }
+    } else if (!m.enoughData) {
+      algoNote = `系统统计你最近每个"真正学习的日子"推进了多少${u}、每周大约学几天，据此折算目标。满 3 个学习日开始个性化（范围偏宽），满 7 个学习日、跨约 2 周后最可靠；现在数据少，先按粗略目标推进。`;
     } else {
-      algoNote = `怎么算的：按你最近的真实节奏（每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${(Math.round(m.perStudyDayRaw * 10) / 10).toFixed(1)} ${u}）估算，完成日期给的是“顺利～慢一点”的范围而非死线；休息日不摊任务，只要在学习日做到目标量即可。节奏一变，范围会自动更新，截止日也可随时在设置里调整。`;
+      algoNote = `按你最近的真实节奏（每周约 ${Math.round(m.activityPerWeek)} 个学习日、每次约 ${(Math.round(m.perStudyDayRaw * 10) / 10).toFixed(1)} ${u}）估算；休息日不摊任务，学习日做到目标量即可。节奏一变，数字会自动更新；目标日也可在设置里调整。`;
     }
   }
   $('#statusAlgoNote').textContent = algoNote;
 
-  // 摆烂提醒：连续3天以上没复习时提示
+  // 摆烂提醒：连续3天以上没复习/推进时提示，文案按中断天数与模式差异化
   const lazyEl = $('#lazyWarning');
   const lazyTextEl = $('#lazyWarningText');
   if (lazyEl && lazyTextEl) {
     const lazy = getLazyInfo(p);
     const doneAll = m.currentPage > 0 && m.remaining === 0;
-    if (!doneAll && lazy.days >= 3 && (p.items || []).length > 0) {
+    const hasContent = (p.items || []).length > 0 || (p.records || []).length > 0;
+    if (!doneAll && lazy.days >= 3 && hasContent) {
       lazyEl.hidden = false;
-      const overdue = getOverdueItems(p).length;
-      let msg = `😴 你已经连续 ${lazy.days} 天没复习了`;
-      if (lazy.lastReviewDate) msg += `（上次复习 ${fmtCN(lazy.lastReviewDate)}）`;
-      msg += '。';
-      if (overdue > 0) msg += `目前有 ${overdue} 道已逾期，越拖越容易忘，今天先做几道吧～`;
-      else msg += '错题和背书都需要定期回顾才能记住，今天花几分钟复习几道吧～';
-      lazyTextEl.textContent = msg;
+      lazyTextEl.textContent = getLazyMessage(p, m, lazy);
     } else {
       lazyEl.hidden = true;
     }
@@ -6718,7 +7664,11 @@ function render() {
   }
 
   requestAnimationFrame(() => drawChart(m, p));
+  const _msBefore = Array.isArray(p.shownMilestones) ? p.shownMilestones.length : 0;
   checkMilestones(p, m);
+  const _msAfter = Array.isArray(p.shownMilestones) ? p.shownMilestones.length : 0;
+  if (_msAfter > _msBefore) __milestoneFiredToday[_msKey(p)] = true;
+  if (p.type === 'mistake') checkMistakeMasteryToast(p);
 
   // 浏览器标签页标题：显示待复习数量
   if (p.type !== 'exercise') {
@@ -6739,6 +7689,14 @@ function renderReview(p) {
   const retentionOverdue = getRetentionOverdueItems(p);
 
   $('#reviewSection').hidden = false;
+  // 评价真实性永久提醒（常驻、不指责、无术语）：双向覆盖"选高漏练"和"选低白做"，且点明多数人更易选低
+  const honestEl = $('#honestHint');
+  if (honestEl) {
+    honestEl.hidden = false;
+    honestEl.textContent = p.type === 'mistake'
+      ? '💡 请如实选择当前掌握状态。明明没把握却选「做对了」，没掌握的题会练得太少；明明会做却总选「看答案」，会做的题会反复出现、白占时间。请相信系统算法，如实选择才能效率最大化。'
+      : '💡 请如实选择当前掌握状态。明明没记住却选「记得」，没记牢的内容会练得太少；明明记住了却总选「模糊」，已经会的内容会反复出现、白占时间。请相信系统算法，如实选择才能效率最大化。';
+  }
   const countEl = $('#reviewCount');
   countEl.textContent = due.length;
   countEl.classList.toggle('overdue', overdue.length > 0);
@@ -6753,10 +7711,10 @@ function renderReview(p) {
     } else retCountEl.hidden = true;
   }
 
-  // 模式切换标签（仅错题本显示）
+  // 模式切换标签（错题本 / 背书本显示，刷题无复习模式）
   const modeBtn = $('#modeSwitchBtn');
   if (modeBtn) {
-    if (p.type === 'mistake') {
+    if (p.type === 'mistake' || p.type === 'recite') {
       modeBtn.hidden = false;
       const mode = p.reviewMode || 'classic';
       modeBtn.textContent = mode === 'balanced' ? '⚖️ 均匀分布 ▾' : '📖 经典间隔 ▾';
@@ -6810,7 +7768,18 @@ function renderReview(p) {
     const aOver = a.nextReviewDate < today ? 1 : 0;
     const bOver = b.nextReviewDate < today ? 1 : 0;
     if (aOver !== bOver) return bOver - aOver;
-    return a.nextReviewDate.localeCompare(b.nextReviewDate);
+    const dateCmp = a.nextReviewDate.localeCompare(b.nextReviewDate);
+    if (dateCmp !== 0) return dateCmp;
+    // 同一天到期：背书按书页顺序聚簇（同章节相邻、顺着书背，避免"3-5页、1-2页"的页码跳跃混乱）；
+    // 错题无页码顺序，按薄弱程度（分数低=更弱）先做。
+    if (p.type === 'recite') {
+      const ps = (a.pageStart ?? 0) - (b.pageStart ?? 0);
+      if (ps !== 0) return ps;
+      return (a.pageEnd ?? 0) - (b.pageEnd ?? 0);
+    }
+    const sa = getItemScore(a) ?? 0.5, sb = getItemScore(b) ?? 0.5;
+    if (sa !== sb) return sa - sb;
+    return (a.stage || 0) - (b.stage || 0);
   });
 
   // 正常复习条目
@@ -6836,6 +7805,9 @@ function renderReview(p) {
     const overdueHtml = isOverdue ? `<span class="overdue-tag">逾期 ${overdueDays} 天</span>` : '';
     const errTagHtml = (it.errTags || []).map(reasonPill).join(' ');
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
+    // 反复错（连续 2 次及以上"又错了"）：标为"关键薄弱点"，把挫败感转成"考前最该拿下的重点"
+    const weakKeyHtml = (p.type === 'mistake' && !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2)
+      ? `<span class="weak-key-tag">🔑 关键薄弱点</span>` : '';
 
     const btnLabels = p.type === 'mistake'
       ? { good: '✓ 做对了', fuzzy: '~ 看答案', forgot: '✗ 又错了' }
@@ -6850,6 +7822,7 @@ function renderReview(p) {
           <span>·</span>
           <span>第 ${stage} 轮 / 共 ${totalRounds} 轮</span>
           ${overdueHtml}
+          ${weakKeyHtml}
           ${lastEvalHtml}
           ${errTagHtml}
           ${lastNoteHtml}
@@ -8876,12 +9849,14 @@ function renderProgressInsights(p, m) {
     }
   }
 
+  const _act = getActivityStreak(p, m.t);
+  const _actLong = Math.max(_act.streak, _act.priorLongest || 0);
   const statGrid = `<div class="pp-insight-title">📈 学习节奏与坚持（近 ${m.windowDays} 天）</div>
     <div class="pp-stat-grid">
       <div class="pp-stat"><div class="v">${m.activeDays}</div><div class="k">学习日数</div></div>
       <div class="pp-stat"><div class="v">${enough ? num(m.perStudyDayRaw) : '—'}</div><div class="k">每次平均（${u}）</div></div>
       <div class="pp-stat"><div class="v">${enough ? num(m.activityPerWeek) : '—'}</div><div class="k">每周学习天数</div></div>
-      <div class="pp-stat"><div class="v">${m.streakNow} <span style="font-size:11px;color:var(--muted);font-weight:400">/ 最长${m.longestStreak}</span></div><div class="k">当前连续（天）</div></div>
+      <div class="pp-stat"><div class="v">${_act.streak} <span style="font-size:11px;color:var(--muted);font-weight:400">/ 最长${_actLong}</span></div><div class="k">当前连续（天）</div></div>
       ${breakCell}
       ${trendCell}
       ${modeCells}
@@ -8892,6 +9867,22 @@ function renderProgressInsights(p, m) {
   let etaLines = '';
   if (m.remaining <= 0) {
     etaLines = `🎉 已全部完成，共 ${fmtUnitNum(m.total)} ${u}。可以把目标总量或截止日调整到下一阶段。`;
+  } else if (p.type === 'mistake') {
+    // 错题本专属：滚动复习、攻克非线性，不做线性 ETA / 可行性判定（小样本"按攻克速度还需X周"会制造无谓焦虑）。
+    // 只呈现：攻克进度 + 今日量 + 高频薄弱点，让用户"无脑清今天到期的"即可。
+    const _due = getDueItems(p).length, _over = getOverdueItems(p).length;
+    const _weak = (p.items || []).filter(it => !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2).length;
+    let _dl = '';
+    if (p.deadline) {
+      const _dl2 = diffDays(m.t, p.deadline);
+      if (_dl2 < 0) _dl = `<br>目标日已过 ${-_dl2} 天，错题仍会继续滚动复习，可在设置里调整目标日。`;
+      else if (_dl2 <= 14) _dl = `<br>距目标日 ${fmtCN(p.deadline)} 还有 ${_dl2} 天，优先把每天到期的做熟，目标日前多过一轮最划算。`;
+    }
+    etaLines = `错题本按“收录 → 间隔复习 → 攻克”自动运转，<b>你不需要每天订目标</b>，只要清掉“今日复习”列表里的内容就好。<br>当前已攻克 <b>${fmtUnitNum(m.currentPage)}</b> / 共收录 <b>${fmtUnitNum(m.total)}</b> 道，待攻克 <b>${fmtUnitNum(m.remaining)}</b> 道${_due > 0 ? `，今天到期 <b>${_due}</b> 道${_over > 0 ? `（含逾期 ${_over} 道，会自动分批，不用一次做完）` : ''}` : ''}。${_weak > 0 ? `<br>其中 <b>${_weak}</b> 道反复错过，是你考前最该拿下的高频薄弱点。` : ''}<br>每攻克一道，都是实打实补上一个提分点。${_dl}`;
+  } else if (p.type === 'recite' && m.sprint) {
+    // 背书本冲刺期：不再给线性"完成区间"，呈现冲刺策略，避免用学新目标制造焦虑
+    const _due = getDueItems(p).length;
+    etaLines = `⏰ <b>已进入冲刺期</b>：距目标日 ${fmtCN(p.deadline)} 还有 ${m.daysLeft} 天，不足一个完整复习周期（约 ${m.cycleDays} 天）。<br>这段时间的重点不是把新书背完，而是<b>把已学内容牢牢记住</b>：先清每天到期的复习${_due > 0 ? `（今天 <b>${_due}</b> 条）` : ''}，再有余力挑最核心的内容学新。<br>系统会把复习都安排在目标日之前，模糊、忘记的内容会更频繁地出现，你只需按清单做即可。`;
   } else if (!enough) {
     const isMistake = p.type === 'mistake';
     let planNum = null, planNote = '';
@@ -8901,16 +9892,16 @@ function renderProgressInsights(p, m) {
         planNum = num(m.perStudyDay);
       } else if (isFinite(m.needPerDay) && m.needPerDay > 0) {
         planNum = num(m.needPerDay);
-        planNote = '（粗估：把剩余量均摊到剩余自然日；打卡满 7 个学习日后会按你的真实节奏修正）';
+        planNote = '（粗估：把剩余量均摊到剩余自然日；再攒几个学习日就开始按你的真实节奏修正）';
       }
     }
     // 错题本：不预估"每天攻克多少"，只看今天到期的复习条目
     if (planNum != null) {
-      etaLines = `完成时间范围还在估算中：再积累约 <b>${m.needMoreActiveDays}</b> 个学习日（累计满 7 个）后，会给出较可靠的“顺利～慢一点”完成区间。<br>当前先按每个学习日 <b>${planNum}</b> ${u} 的节奏推进即可${planNote}。`;
+      etaLines = `完成时间范围还在估算中：再攒约 <b>${m.daysToMedium}</b> 个学习日就开始给出估算，累计满 7 个学习日（约 2 周）后会给出更可靠的“顺利～慢一点”完成区间。<br>当前先按每个学习日 <b>${planNum}</b> ${u} 的节奏推进即可${planNote}。`;
     } else if (isMistake) {
       etaLines = `错题本按“收录 → 间隔复习 → 攻克”运转，不需要每天订目标。遇到错题随时收录，到复习日会自动提醒你重做。<br>当前已攻克 <b>${m.currentPage}</b> / 共收录 <b>${m.total}</b> 道，待攻克 <b>${m.remaining}</b> 道。`;
     } else {
-      etaLines = `完成时间范围还在估算中：再积累约 <b>${m.needMoreActiveDays}</b> 个学习日（累计满 7 个）后，会给出较可靠的“顺利～慢一点”完成区间。<br>当前未设截止日，可先按自己的节奏推进，或在设置里添加截止日获取每学习日目标。`;
+      etaLines = `完成时间范围还在估算中：再攒约 <b>${m.daysToMedium}</b> 个学习日就开始给出估算，累计满 7 个学习日（约 2 周）后范围更可靠。<br>当前未设截止日，可先按自己的节奏推进，或在设置里添加截止日获取每学习日目标。`;
     }
     if (m.sparseLogging) {
       etaLines += `<br><span style="color:#c07800">⚠️ 你最近打卡间隔较长（中位数约 ${m.medianGap} 天），产能估计可能有偏差，建议每天记录一次。</span>`;
@@ -8918,7 +9909,11 @@ function renderProgressInsights(p, m) {
   } else {
     etaLines = `按你最近每周约 <b>${num(m.activityPerWeek)}</b> 个学习日、每次约 <b>${num(m.perStudyDayRaw)}</b> ${u} 的节奏：<br>预计在 <b>${fmtCN(m.etaEarlyDate)} ～ ${fmtCN(m.etaLateDate)}</b> 之间完成，基准约 <b>${fmtCN(m.etaDate)}</b>。`;
     if (m.feasibility === 'easy') etaLines += `<br><span style="color:var(--ok)">✅ 按当前节奏即可按时完成，保持就好。</span>`;
-    else if (m.feasibility === 'stretch') etaLines += `<br><span style="color:#c07800">⚠️ 需要比平时略多投入（约多 ${Math.round((m.ratio - 1) * 100)}%），或在设置里把截止日延后到 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))} 更稳妥。</span>`;
+    else if (m.feasibility === 'stretch') {
+      const sf = stretchFull(m);
+      const delayHint = m.feasibleDays ? `，或把截止日延后到约 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))} 更稳妥` : '';
+      etaLines += `<br><span style="color:#c07800">⚠️ ${sf}${delayHint}。</span>`;
+    }
     else if (m.feasibility === 'impossible') etaLines += `<br><span style="color:var(--bad)">🚧 按现在节奏有点紧，建议增加每周学习天数，或把截止日延后到约 ${fmtCN(addDays(m.t, Math.ceil(m.feasibleDays)))}。</span>`;
     // 相对理想进度（与 getMetrics 同口径：填了 startDate 用它，否则用最早打卡日）
     if (m.effStart && p.deadline && m.total > 0) {
@@ -9176,7 +10171,14 @@ function syncFormUnit() {
   $('#fTotalRow').hidden = !isSet;
   $('#fBookRangeRow').style.display = usePageRange ? '' : 'none';
   $('#fBookRangeHint').style.display = usePageRange ? '' : 'none';
-  $('#fReviewModeRow').hidden = !isMistake;
+  $('#fReviewModeRow').hidden = !(isMistake || type === 'recite');
+  // 复习模式说明文案按类型区分（错题 / 背书）
+  const fRmLab = document.getElementById('fReviewModeHint');
+  if (fRmLab) {
+    fRmLab.innerHTML = type === 'recite'
+      ? '<b>均匀分布</b>：自动把复习错峰到每天，避免某天突然要背一堆，适合批量录入、或一次背诵跨很多页。<br><b>经典间隔</b>：严格按记忆曲线间隔提醒，适合量少、能跟上节奏的情况。'
+      : '<b>均匀分布</b>：自动把复习错峰到每天，避免某天突然爆量，适合经常批量录入错题。<br><b>经典间隔</b>：严格按间隔天数提醒，适合量少、能跟上节奏的情况。';
+  }
   $('#fTotalLabel').textContent = '总套数';
   $('#fTotal').placeholder = '例：20（共多少套卷）';
   $('#fStartPageLabel').textContent = isAnySet ? '已完成套数（可选）' : '开始页码（可选）';
@@ -9187,10 +10189,10 @@ function syncFormUnit() {
       : isExercise
         ? '填上「开始日期 + 开始页码」可以立刻估算速度；不填的话，打卡几次后也能自动估算。'
         : isMistakePage
-          ? '错题按页码归类到习题册，开启单元模式后薄弱点看板可按单元看错题分布。累计约 2 周、满 7 个学习日后完成预测会比较准。'
+          ? '错题按页码归类到习题册，开启单元模式后薄弱点看板可按单元看错题分布。再攒 3 个学习日就开始按你的节奏估算，满 7 个学习日（约 2 周）后预测最准。'
           : (isMistake
-            ? '错题按「已攻克 / 已收录」统计进度：每记录一道错题算 1 条收录，复习到攻克后算攻克。可在「出处」里自由填写它来自哪套卷、哪本书哪页（选填）。累计约 2 周、满 7 个学习日后完成预测会比较准。'
-            : '背书按页码范围统计进度：一条内容跨多页算多页，同一页建多条只算一页。累计约 2 周、满 7 个学习日后，完成预测会比较准。');
+            ? '错题按「已攻克 / 已收录」统计进度：每记录一道错题算 1 条收录，复习到攻克后算攻克。可在「出处」里自由填写它来自哪套卷、哪本书哪页（选填）。再攒 3 个学习日就开始按你的节奏估算，满 7 个学习日（约 2 周）后预测最准。'
+            : '背书按页码范围统计进度：一条内容跨多页算多页，同一页建多条只算一页。再攒 3 个学习日就开始按你的节奏估算，满 7 个学习日（约 2 周）后预测最准。');
   const labelMode = (document.querySelector('input[name="ppaperlabel"]:checked') || {}).value || 'index';
   $('#fPaperYear').hidden = !(isAnySet && labelMode === 'year');
 }
@@ -9283,13 +10285,14 @@ function openSettings() {
   $('#intervalSection').hidden = !isRecite;
   if (isRecite) $('#sIntervals').value = getIntervals(p).join(', ');
 
-  // 复习模式（仅错题本）
-  $('#reviewModeSectionTitle').hidden = !isMistake;
-  $('#reviewModeSection').hidden = !isMistake;
+  // 复习模式（错题本 / 背书本都有复习模式；刷题本没有）
+  const canReviewMode = isMistake || p.type === 'recite';
+  $('#reviewModeSectionTitle').hidden = !canReviewMode;
+  $('#reviewModeSection').hidden = !canReviewMode;
   // 整本书正文范围（错题本不需要）
   $('#sBookRangeRow').style.display = isMistake ? 'none' : '';
   $('#sBookRangeHint').style.display = isMistake ? 'none' : '';
-  if (isMistake) {
+  if (canReviewMode) {
     const mode = p.reviewMode || 'classic';
     const radio = document.querySelector('input[name="reviewMode"][value="' + mode + '"]');
     if (radio) radio.checked = true;
@@ -10307,6 +11310,7 @@ function doImport(imported, mode) {
           if (!Array.isArray(it.reviews)) it.reviews = [];
           if (it.masteredDate === undefined) it.masteredDate = null;
           if (it.learnedDate == null) it.learnedDate = todayStr();
+          if (it.finalReviewDate === undefined) it.finalReviewDate = null;
         });
         if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
         if (!Array.isArray(p.units)) p.units = [];
@@ -10595,7 +11599,7 @@ function submitFormCreate() {
     weakThreshold: 0.4,
     lapseRollback: 2,
     skipConfirmDismissed: false,
-    reviewMode: type === 'mistake'
+    reviewMode: (type === 'mistake' || type === 'recite')
       ? ((document.querySelector('input[name="freviewmode"]:checked') || {}).value || 'balanced')
       : 'classic',
     dailyCapacity: null,
@@ -10888,7 +11892,7 @@ $('#btnShowMistakeGuide').addEventListener('click', () => {
 /* 复习区标题旁的模式快捷切换 */
 $('#modeSwitchBtn').addEventListener('click', () => {
   const p = cur();
-  if (!p || p.type !== 'mistake') return;
+  if (!p || (p.type !== 'mistake' && p.type !== 'recite')) return;
   const newMode = (p.reviewMode || 'classic') === 'balanced' ? 'classic' : 'balanced';
   confirmModeSwitch(newMode);
 });
@@ -10899,18 +11903,20 @@ function confirmModeSwitch(newMode) {
   const p = cur();
   if (!p) return;
   pendingModeSwitch = newMode;
+  const isRecite = p.type === 'recite';
+  const itemWord = isRecite ? '背诵内容' : '错题';
   const isBalanced = newMode === 'balanced';
   $('#modeSwitchConfirmTitle').textContent = '切换到' + (isBalanced ? '均匀分布' : '经典间隔') + '模式？';
-  $('#modeSwitchConfirmDesc').innerHTML = '当前是<b>' + ((p.reviewMode || 'classic') === 'balanced' ? '均匀分布' : '经典间隔') + '</b>模式。<br>切换后所有未攻克错题会立即按新模式重新排期，已攻克的不受影响。';
+  $('#modeSwitchConfirmDesc').innerHTML = '当前是<b>' + ((p.reviewMode || 'classic') === 'balanced' ? '均匀分布' : '经典间隔') + '</b>模式。<br>切换后所有未掌握的' + itemWord + '会立即按新模式重新排期，已掌握的不受影响。';
   const target = $('#modeSwitchConfirmTarget');
   if (isBalanced) {
     target.className = 'mode-help-card mode-balanced';
     target.innerHTML = '<div style="font-weight:700;margin-bottom:6px;color:#4338ca">⚖️ 均匀分布模式</div>' +
-      '<div style="color:var(--muted);font-size:13px;line-height:1.7">自动把复习错峰到每天，避免某天突然爆量。<br><b>适合</b>：经常批量录入错题、希望每天复习量稳定。</div>';
+      '<div style="color:var(--muted);font-size:13px;line-height:1.7">自动把复习错峰到每天，避免某天突然要' + (isRecite ? '背' : '做') + '一大堆。<br><b>适合</b>：经常批量录入、希望每天复习量稳定。</div>';
   } else {
     target.className = 'mode-help-card mode-classic';
     target.innerHTML = '<div style="font-weight:700;margin-bottom:6px">📖 经典间隔模式</div>' +
-      '<div style="color:var(--muted);font-size:13px;line-height:1.7">严格按间隔天数（1→2→4→7→15→30天）提醒复习。<br><b>适合</b>：错题量少、能跟上节奏、希望严格遵循记忆曲线。</div>';
+      '<div style="color:var(--muted);font-size:13px;line-height:1.7">严格按间隔天数（1→2→4→7→15→30天）提醒复习。<br><b>适合</b>：量少、能跟上节奏、希望严格遵循记忆曲线。</div>';
   }
   $('#modeSwitchConfirmMask').hidden = false;
   modalTop($('#modeSwitchConfirmMask'));
@@ -10921,6 +11927,7 @@ $('#modeSwitchConfirmOk').addEventListener('click', () => {
   const p = cur();
   if (!p || !pendingModeSwitch) return;
   const newMode = pendingModeSwitch;
+  const isRecite = p.type === 'recite';
   p.reviewMode = newMode;
   p.updatedAt = Date.now();
   saveStore();
@@ -10931,9 +11938,9 @@ $('#modeSwitchConfirmOk').addEventListener('click', () => {
   rebalanceAllItems(p);
   render();
   if (newMode === 'balanced') {
-    showToast('⚖️', '已切换到均匀分布模式', '所有未攻克错题已重新均匀排期，之后新录入也会自动错峰。', 3500);
+    showToast('⚖️', '已切换到均匀分布模式', '今天该复习的内容已保留，之后的复习会按每日容量自动错峰、均匀安排，新录入也会自动错峰。', 3800);
   } else {
-    showToast('📖', '已切换到经典间隔模式', '所有未攻克错题已按经典间隔重新排期，之后严格按间隔提醒。', 3500);
+    showToast('📖', '已切换到经典间隔模式', '今天该复习的内容已保留，之后严格按记忆间隔提醒，到期就复习。', 3500);
   }
 });
 
@@ -11173,7 +12180,7 @@ function submitSettings() {
     // 模式变化时直接按新模式重新排期
     rebalanceAllItems(p);
     render();
-    showToast('🔄', '已按新模式重新排期', '所有未攻克条目已按新复习模式调整日期。', 3000);
+    showToast('🔄', '已按新模式重新排期', '今天该复习的内容已保留，其余未攻克条目按新复习模式调整日期。', 3200);
   } else {
     render();
   }
@@ -11628,6 +12635,22 @@ $('#btnCheckin').addEventListener('click', () => {
     if (!confirm(`你填的第 ${endPage} 页在正文起始页 ${p.bookStartPage} 之前（可能是目录/前言），确定要记录吗？`)) return;
   }
   if (!Array.isArray(p.records)) p.records = [];
+  // 顺序录入"学到第N页"隐含从正文开头连续完成到N页。若用户此前用区间跳着学、中间留有空洞，
+  // 这次会把跳过的空洞也计入完成。这里只在确实存在"被夹在中间的跳过页"时做事后轻提示（不阻断、不弹确认），
+  // 既防呆又不打扰正常连续学习的用户。
+  let gapFilled = 0;
+  if (startPage == null) {
+    try {
+      const _done = mergeRanges(getBookDoneRanges(p)).filter(r => r.start <= endPage);
+      const _tgt = getTargetPageRanges(p);
+      const _bStart = (p.bookStartPage != null) ? p.bookStartPage : (_tgt.length ? _tgt[0].start : 1);
+      for (let i = 0; i < _done.length - 1; i++) {
+        const gs = _done[i].end + 1;
+        const ge = Math.min(_done[i + 1].start - 1, endPage);
+        if (ge >= gs && _done[i].start >= _bStart) gapFilled += ge - gs + 1;
+      }
+    } catch (e) { gapFilled = 0; }
+  }
   if (startPage == null) {
     const cp = p.records.find(r => r.date === date && r.startPage == null);
     // 顺序打卡回退：新 endPage < 旧 endPage 会回退进度，先确认
@@ -11646,6 +12669,10 @@ $('#btnCheckin').addEventListener('click', () => {
   showToast('✅', '已记录', startPage != null
     ? (isSinglePage ? `第 ${endPage} 页` : `第 ${startPage}-${endPage} 页`)
     : `学到第 ${endPage} 页`);
+  if (gapFilled > 0) {
+    // 延后到里程碑表扬（800ms）之后再弹，确保数据口径提示最终可见、不被覆盖
+    setTimeout(() => showToast('💡', '检测到此前跳过的页', `按“连续学到第 ${endPage} 页”，之前跳过的 ${gapFilled} 页也已计入完成。如果这些页其实还没做，建议改用「按区间录入」分别记录，进度会更准。`, 6500), 1500);
+  }
   $('#inPageStart').value = '';
   $('#inPageEnd').value = '';
   render();
@@ -11742,7 +12769,11 @@ $('#btnReciteAdd').addEventListener('click', () => {
   const qWrap = $('#reciteQuality');
   if (qWrap) qWrap.querySelectorAll('.rec-qbtn').forEach(b => b.classList.remove('active'));
   updateRecitePreview();
-  showToast('🎉', '已添加', `下次复习安排在 ${fmtCN(newItem.nextReviewDate)}`);
+  if (isMistake) {
+    showToast('🎯', '已收录一道错题', `又锁定一个提分点，${fmtCN(newItem.nextReviewDate)} 提醒你重做`);
+  } else {
+    showToast('🎉', '已添加', `下次复习安排在 ${fmtCN(newItem.nextReviewDate)}`);
+  }
   render();
   maybeShowProgressPraise(p);
 });
@@ -11900,12 +12931,15 @@ $('#reviewList').addEventListener('click', e => {
 
   const noteInput = itemEl.querySelector('.ri-note');
   const note = noteInput ? noteInput.value : '';
-  applyReview(item, btn.dataset.quality, p, note);
+  const _quality = btn.dataset.quality;
+  applyReview(item, _quality, p, note);
   if ($('#confirmMasterMask').hidden) {
     saveStore();
     render();
     // 复习完阈值条数后，弹窗提示可分散剩余
     checkReviewMilestone(p);
+    // 错题本：连续又错（高频薄弱点）时去羞耻化提示，每天最多一次
+    if (p.type === 'mistake' && _quality === 'forgot') checkMistakeRelapseToast(p, item);
   }
 });
 
