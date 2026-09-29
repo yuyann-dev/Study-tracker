@@ -141,13 +141,15 @@ if ('serviceWorker' in navigator) {
 
   .kinsoku{line-break:strict;hanging-punctuation:allow-end;overflow-wrap:break-word;word-break:normal}
 
-  input[type=number],input[type=date],input[type=text],select,textarea{
+  input[type=number],input[type=date],input[type=text],input[type=email],input[type=password],select,textarea{
     font-family:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);
     border-radius:10px;background:#fafaff;color:var(--text);outline:none;width:100%;
     transition:border-color .15s, box-shadow .15s, background .15s;
   }
   input:hover:not(:focus),select:hover:not(:focus),textarea:hover:not(:focus){border-color:#d1d5f2}
+  input[type=email]:hover:not(:focus),input[type=password]:hover:not(:focus){border-color:#d1d5f2}
   input:focus,select:focus,textarea:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(91,110,245,.14)}
+  input[type=email]:focus,input[type=password]:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(91,110,245,.14)}
   select{
     cursor:pointer;appearance:none;-webkit-appearance:none;
     background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237b7994' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
@@ -1103,6 +1105,8 @@ if ('serviceWorker' in navigator) {
   html[data-theme="dark"] input[type=number],
   html[data-theme="dark"] input[type=date],
   html[data-theme="dark"] input[type=text],
+  html[data-theme="dark"] input[type=email],
+  html[data-theme="dark"] input[type=password],
   html[data-theme="dark"] select,
   html[data-theme="dark"] textarea{
     background:#23232f;color:var(--text);border-color:var(--line);
@@ -1403,6 +1407,112 @@ if ('serviceWorker' in navigator) {
   /* 按钮 disabled 统一视觉反馈：半透明 + 禁点 + 禁手型 */
   button:disabled,.btn:disabled,.soft-btn:disabled,.primary:disabled,.danger-btn:disabled,
   .q-btn:disabled,.ob-btn:disabled,.pct-chip:disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
+
+  /* === 账号系统 & 云端同步 CSS === */
+  #btnUser{display:inline-flex;align-items:center;gap:6px}
+  .user-avatar-btn{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;overflow:hidden;transition:.15s;padding:0}
+  .user-avatar-btn:hover{border-color:var(--brand);transform:scale(1.05)}
+  .user-avatar-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+  .sync-indicator{display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;border-radius:50%;margin-left:2px;flex:0 0 auto}
+  .sync-indicator.sync-ok{background:#0ea472;box-shadow:0 0 6px rgba(14,164,114,.5)}
+  .sync-indicator.sync-ing{background:#5b6ef5;box-shadow:0 0 6px rgba(91,110,245,.5);animation:syncPulse 1.2s ease-in-out infinite}
+  .sync-indicator.sync-fail{background:#e5484d;box-shadow:0 0 6px rgba(229,72,77,.5)}
+  @keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .auth-tabs{display:flex;gap:0;margin-bottom:20px;border-radius:12px;background:var(--bg);padding:4px}
+  .auth-tab{flex:1;text-align:center;padding:10px 0;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);transition:.15s;border:none;background:none;font-family:inherit}
+  .auth-tab.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 4px 12px -4px rgba(91,110,245,.4)}
+  .auth-brand{text-align:center;margin-bottom:20px}
+  .auth-brand-icon{width:56px;height:56px;margin:0 auto 10px;border-radius:16px;font-size:28px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--brand),var(--brand2));box-shadow:0 10px 24px -10px rgba(91,110,245,.5)}
+  .auth-brand h2{font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--brand),var(--brand2));-webkit-background-clip:text;-webkit-text-fill-color:background-clip:text;margin-bottom:4px}
+  .auth-brand p{font-size:12.5px;color:var(--muted)}
+  .auth-error{display:none;background:#fdeef0;border:1px solid #f5c5c9;color:#c93038;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;line-height:1.5}
+  .auth-error.show{display:block}
+  html[data-theme="dark"] .auth-error{background:#2a1f22;border-color:#5a3036;color:#f0a0a8}
+  .pw-strength{margin:-8px 0 14px;display:flex;flex-direction:column;gap:6px}
+  .pw-strength-bar{display:flex;gap:4px;height:4px;border-radius:2px;overflow:hidden}
+  .pw-strength-seg{flex:1;border-radius:2px;background:var(--line);transition:.2s}
+  .pw-strength-seg.s1{background:#e5484d}
+  .pw-strength-seg.s2{background:#e08a00}
+  .pw-strength-seg.s3{background:#0ea472}
+  .pw-strength-text{font-size:11.5px;color:var(--muted)}
+  .profile-avatar-area{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:20px}
+  .profile-avatar{width:72px;height:72px;border-radius:50%;font-size:36px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 8px 24px -8px rgba(91,110,245,.4);overflow:hidden}
+  .profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+  .emoji-picker{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
+  .emoji-opt{width:38px;height:38px;border-radius:10px;border:2px solid var(--line);background:var(--bg);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s;padding:0}
+  .emoji-opt:hover{border-color:var(--brand);transform:scale(1.08)}
+  .emoji-opt.selected{border-color:var(--brand);background:#eef0fe;box-shadow:0 0 0 2px rgba(91,110,245,.15)}
+  html[data-theme="dark"] .emoji-opt{background:#23232f}
+  html[data-theme="dark"] .emoji-opt.selected{background:#2a2a44}
+  .sync-status-box{background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+  .sync-status-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .sync-status-dot.ok{background:#0ea472}
+  .sync-status-dot.ing{background:#5b6ef5;animation:syncPulse 1.2s ease-in-out infinite}
+  .sync-status-dot.fail{background:#e5484d}
+  .sync-status-info{flex:1}
+  .sync-status-label{font-size:13px;font-weight:600;color:var(--text)}
+  .sync-status-time{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .site-footer{text-align:center;font-size:11px;color:#b0aec4;margin-top:16px;line-height:1.8;padding-bottom:env(safe-area-inset-bottom)}
+  .site-footer a{color:#b0aec4;text-decoration:none;transition:.15s}
+  .site-footer a:hover{color:var(--brand)}
+  .site-footer .police-beian{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
+  html[data-theme="dark"] .site-footer{color:#6d6b85}
+  html[data-theme="dark"] .site-footer a{color:#6d6b85}
+  html[data-theme="dark"] .site-footer a:hover{color:var(--brand)}
+  html[data-theme="dark"] .auth-tabs{background:#1e1e2a}
+  html[data-theme="dark"] .auth-tab{color:#8a8aa3}
+  html[data-theme="dark"] .auth-tab.active{color:#fff}
+  html[data-theme="dark"] .sync-status-box{background:#1e1e2a}
+  html[data-theme="dark"] .pw-strength-seg{background:#2a2a38}
+  .admin-tabs{display:flex;gap:0;margin-bottom:18px;border-radius:12px;background:var(--bg);padding:4px}
+  .admin-tab{flex:1;text-align:center;padding:9px 0;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);transition:.15s;border:none;background:none;font-family:inherit}
+  .admin-tab.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;box-shadow:0 4px 12px -4px rgba(91,110,245,.4)}
+  html[data-theme="dark"] .admin-tabs{background:#1e1e2a}
+  html[data-theme="dark"] .admin-tab{color:#8a8aa3}
+  html[data-theme="dark"] .admin-tab.active{color:#fff}
+  .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+  .stat-card{background:var(--bg);border-radius:12px;padding:14px;text-align:center}
+  .stat-card .num{font-size:24px;font-weight:800;color:var(--brand)}
+  .stat-card .lab{font-size:11.5px;color:var(--muted);margin-top:4px}
+  html[data-theme="dark"] .stat-card{background:#1e1e2a}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+  .admin-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:480px}
+  .admin-table th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--line);color:var(--muted);font-weight:600;white-space:nowrap}
+  .admin-table td{padding:8px 10px;border-bottom:1px solid var(--line);color:var(--text);white-space:nowrap}
+  .admin-table tr:hover td{background:var(--bg)}
+  html[data-theme="dark"] .admin-table tr:hover td{background:#1e1e2a}
+  .badge-admin{display:inline-block;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;margin-left:6px;vertical-align:middle}
+  .badge-disabled{display:inline-block;background:#fdeef0;color:#c93038;font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600}
+  .badge-active{display:inline-block;background:#e6f7ee;color:#0ea472;font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600}
+  .badge-used{display:inline-block;background:#f0f0f5;color:var(--muted);font-size:10px;padding:2px 8px;border-radius:999px}
+  .badge-unused{display:inline-block;background:#eef0fe;color:var(--brand);font-size:10px;padding:2px 8px;border-radius:999px}
+  .invite-code-display{font-family:monospace;font-size:16px;font-weight:700;letter-spacing:2px;background:var(--bg);padding:10px 16px;border-radius:10px;text-align:center;color:var(--brand);cursor:pointer;margin:8px 0;user-select:all}
+  html[data-theme="dark"] .invite-code-display{background:#1e1e2a}
+  .admin-input-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap}
+  .admin-input-row label{flex:1;min-width:80px}
+  @media(max-width:600px){
+    #btnUser{font-size:12px;padding:8px 10px}
+    .auth-brand-icon{width:48px;height:48px;font-size:24px}
+    .profile-avatar{width:60px;height:60px;font-size:30px}
+    .emoji-opt{width:34px;height:34px;font-size:18px}
+    .site-footer{font-size:10.5px;padding:0 8px;word-break:break-all}
+    .modal{padding:20px 16px}
+  }
+  /* === 密码可见性切换 === */
+  .pw-wrap{position:relative}
+  .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;opacity:.55;transition:opacity .15s;line-height:1}
+  .pw-toggle:hover{opacity:1}
+  .pw-wrap input{padding-right:38px}
+  .login-wall-notice{text-align:center;font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5;padding:8px 12px;background:var(--bg);border-radius:8px}
+  html[data-theme="dark"] .login-wall-notice{background:#1e1e2a}
+  /* 密码小眼睛 */
+  .pwd-wrap{position:relative;display:flex;align-items:center}
+  .pwd-wrap input{flex:1;padding-right:40px !important}
+  .pwd-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted);padding:4px 6px;border-radius:6px;line-height:1;user-select:none}
+  .pwd-toggle:hover{color:var(--text);background:var(--bg)}
+  html[data-theme="dark"] .pwd-toggle:hover{background:#2a2a3a}
+  .register-hint{text-align:center;font-size:11.5px;color:var(--brand);margin:-8px 0 10px;display:none}
+  .register-hint.show{display:block}
 </style>
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
@@ -1450,7 +1560,7 @@ if ('serviceWorker' in navigator) {
     <div class="welcome-feats">
       <span class="welcome-feat">🗓️ 艾宾浩斯自动排复习</span>
       <span class="welcome-feat">📊 进度与薄弱点看板</span>
-      <span class="welcome-feat">🔒 数据只存本地</span>
+      <span class="welcome-feat">☁️ 云端同步备份</span>
     </div>
     <button class="primary" id="btnCreateFirst">＋ 新建第一个任务</button>
     <div class="welcome-types">
@@ -1459,7 +1569,11 @@ if ('serviceWorker' in navigator) {
       <div class="wtype"><div class="wt-ico">📝</div><div class="wt-name">错题本</div><div class="wt-desc">自由出处/习题册/套卷三种模式，错因标签 + 薄弱点分析</div></div>
     </div>
   </div>
-  <p class="footer">数据只保存在你的浏览器本地</p>
+  <p class="footer">数据本地加密存储，登录后云端备份</p>
+  <div class="site-footer">
+    <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener">皖ICP备2026033517号</a>
+    <span id="policeBeianLink" class="police-beian" hidden></span>
+  </div>
 </div>
 
 <!-- ============ 主界面 ============ -->
@@ -1479,6 +1593,9 @@ if ('serviceWorker' in navigator) {
       <button class="ghost-btn" id="btnMistakeGuide" title="错题本使用说明" hidden>❓ 使用说明</button>
       <button class="ghost-btn" id="btnSwitch">📚 切换</button>
       <button class="ghost-btn" id="btnSettings">⚙️ 设置</button>
+      <button class="ghost-btn" id="btnUser" title="账号">👤 登录</button>
+      <button class="ghost-btn" id="btnAdmin" title="管理员后台" hidden>⚙️ 管理</button>
+      <span id="syncIndicator" class="sync-indicator" hidden title="同步状态"></span>
     </div>
   </header>
 
@@ -1748,7 +1865,11 @@ if ('serviceWorker' in navigator) {
     <ul class="records" id="recordList"></ul>
   </section>
 
-  <p class="footer">数据只保存在你的浏览器本地，不会上传到任何服务器。</p>
+  <p class="footer">数据本地加密存储，登录后云端备份</p>
+  <div class="site-footer">
+    <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener">皖ICP备2026033517号</a>
+    <span id="policeBeianLink2" class="police-beian" hidden></span>
+  </div>
 </div>
 
 <!-- ============ 切换项目弹窗 ============ -->
@@ -2240,6 +2361,229 @@ if ('serviceWorker' in navigator) {
       <div class="spacer"></div>
       <button class="ghost-btn" id="settingsCancel" type="button">取消</button>
       <button class="primary" id="settingsSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 登录/注册弹窗 ============ -->
+<div class="mask" id="authMask" hidden>
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head">
+      <h2 id="authModalTitle">欢迎使用</h2>
+      <button class="x-btn" id="authClose">×</button>
+    </div>
+    <div class="auth-brand">
+      <div class="auth-brand-icon">📚</div>
+      <h2>Study Tracker</h2>
+      <p>登录后云端备份你的学习数据</p>
+    </div>
+    <div class="login-wall-notice">🔒 使用 Study Tracker 需要登录账号，学习数据将云端加密备份</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="authTabLogin" type="button">登录</button>
+      <button class="auth-tab" id="authTabRegister" type="button">注册</button>
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <form id="authForm">
+      <div id="loginFields">
+        <label>QQ邮箱
+          <input id="loginEmail" type="email" placeholder="yourname@qq.com" autocomplete="email">
+        </label>
+        <label>密码
+          <input id="loginPassword" type="password" placeholder="请输入密码" autocomplete="current-password">
+        </label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:-4px 0 14px">
+          <label style="flex-direction:row;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px;color:var(--muted)">
+            <input type="checkbox" id="loginRemember" checked style="width:auto;margin:0">
+            <span>自动登录</span>
+          </label>
+          <button type="button" id="linkForgot" style="background:none;border:none;color:var(--brand);font-size:12.5px;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px">忘记密码？</button>
+        </div>
+      </div>
+      <div id="registerFields" hidden>
+        <label>QQ邮箱
+          <input id="regEmail" type="email" placeholder="yourname@qq.com" autocomplete="email">
+        </label>
+        <label>邀请码
+          <input id="regInviteCode" type="text" maxlength="20" placeholder="请输入邀请码" autocomplete="off" style="text-transform:uppercase">
+        </label>
+        <label>用户名（昵称）
+          <input id="regUsername" type="text" maxlength="20" placeholder="3-20位字母/数字/下划线" autocomplete="username">
+        </label>
+        <label>密码
+          <input id="regPassword" type="password" placeholder="至少8位，包含字母和数字" autocomplete="new-password">
+        </label>
+        <div class="pw-strength" id="pwStrengthWrap">
+          <div class="pw-strength-bar">
+            <div class="pw-strength-seg" id="pwSeg1"></div>
+            <div class="pw-strength-seg" id="pwSeg2"></div>
+            <div class="pw-strength-seg" id="pwSeg3"></div>
+          </div>
+          <span class="pw-strength-text" id="pwStrengthText">密码强度：弱</span>
+        </div>
+        <label>确认密码
+          <input id="regConfirmPassword" type="password" placeholder="再次输入密码" autocomplete="new-password">
+        </label>
+      </div>
+      <button type="submit" class="primary" id="authSubmit" style="width:100%;margin-top:6px">登 录</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ 忘记密码弹窗 ============ -->
+<div class="mask" id="forgotMask" hidden>
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head">
+      <h2>找回密码</h2>
+      <button class="x-btn" id="forgotClose">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">输入你的QQ邮箱，我们会发送重置链接（1小时内有效）。</p>
+    <div class="auth-error" id="forgotError"></div>
+    <form id="forgotForm">
+      <label>QQ邮箱
+        <input id="forgotEmail" type="email" placeholder="yourname@qq.com" autocomplete="email">
+      </label>
+      <button type="submit" class="primary" id="forgotSubmit" style="width:100%;margin-top:6px">发送重置链接</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ 重置密码弹窗 ============ -->
+<div class="mask" id="resetMask" hidden>
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head">
+      <h2>重置密码</h2>
+      <button class="x-btn" id="resetClose">×</button>
+    </div>
+    <div class="auth-error" id="resetError"></div>
+    <form id="resetForm">
+      <label>新密码
+        <input id="resetNewPassword" type="password" placeholder="至少8位，包含字母和数字" autocomplete="new-password">
+      </label>
+      <div class="pw-strength" id="resetPwStrength">
+        <div class="pw-strength-bar">
+          <div class="pw-strength-seg" id="resetSeg1"></div>
+          <div class="pw-strength-seg" id="resetSeg2"></div>
+          <div class="pw-strength-seg" id="resetSeg3"></div>
+        </div>
+        <span class="pw-strength-text" id="resetPwText">密码强度：弱</span>
+      </div>
+      <label>确认新密码
+        <input id="resetConfirmPassword" type="password" placeholder="再次输入新密码" autocomplete="new-password">
+      </label>
+      <button type="submit" class="primary" id="resetSubmit" style="width:100%;margin-top:6px">确认重置</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ 个人中心弹窗 ============ -->
+<div class="mask" id="profileMask" hidden>
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <h2 id="profileModalTitle">个人中心</h2>
+      <button class="x-btn" id="profileClose">×</button>
+    </div>
+    <div class="profile-avatar-area">
+      <div class="profile-avatar" id="profileAvatar">🐱</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        <button class="ghost-btn" id="btnUploadAvatar" type="button">📷 上传头像</button>
+        <input type="file" id="avatarFile" accept="image/jpeg,image/png,image/webp" hidden>
+      </div>
+      <div class="emoji-picker" id="emojiPicker">
+        <button type="button" class="emoji-opt" data-emoji="🐱">🐱</button>
+        <button type="button" class="emoji-opt" data-emoji="🐶">🐶</button>
+        <button type="button" class="emoji-opt" data-emoji="🦊">🦊</button>
+        <button type="button" class="emoji-opt" data-emoji="🐼">🐼</button>
+        <button type="button" class="emoji-opt" data-emoji="🦁">🦁</button>
+        <button type="button" class="emoji-opt" data-emoji="🐸">🐸</button>
+        <button type="button" class="emoji-opt" data-emoji="🐵">🐵</button>
+        <button type="button" class="emoji-opt" data-emoji="🐰">🐰</button>
+        <button type="button" class="emoji-opt" data-emoji="🐻">🐻</button>
+        <button type="button" class="emoji-opt" data-emoji="🦄">🦄</button>
+      </div>
+    </div>
+    <div class="sec-title">账号信息</div>
+    <label>用户名
+      <input id="profileUsername" type="text" maxlength="20">
+    </label>
+    <div class="modal-actions" style="margin-top:0">
+      <button class="primary" id="btnSaveProfile" type="button">保存资料</button>
+    </div>
+    <label>QQ邮箱
+      <input id="profileEmail" type="email" placeholder="yourname@qq.com">
+    </label>
+    <div class="sec-title">修改密码</div>
+    <label>原密码
+      <input id="oldPassword" type="password" autocomplete="current-password">
+    </label>
+    <label>新密码
+      <input id="newPassword" type="password" autocomplete="new-password">
+    </label>
+    <label>确认新密码
+      <input id="confirmNewPassword" type="password" autocomplete="new-password">
+    </label>
+    <div class="modal-actions" style="margin-top:0">
+      <button class="primary" id="btnChangePassword" type="button">修改密码</button>
+    </div>
+    <div class="sec-title">数据同步</div>
+    <div class="sync-status-box">
+      <div class="sync-status-dot ok" id="profileSyncDot"></div>
+      <div class="sync-status-info">
+        <div class="sync-status-label" id="profileSyncLabel">已同步</div>
+        <div class="sync-status-time" id="profileSyncTime">—</div>
+      </div>
+      <button class="ghost-btn" id="btnManualSync" type="button">立即同步</button>
+    </div>
+    <div class="modal-actions" style="border-top:1px solid var(--line);padding-top:16px;margin-top:8px">
+      <div class="spacer"></div>
+      <button class="danger-btn" id="btnLogout" type="button">退出登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 管理员后台弹窗 ============ -->
+<div class="mask" id="adminMask" hidden>
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head">
+      <h2>⚙️ 管理员后台</h2>
+      <button class="x-btn" id="adminClose">×</button>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" id="adminTabOverview" type="button">📊 概览</button>
+      <button class="admin-tab" id="adminTabUsers" type="button">👥 用户管理</button>
+      <button class="admin-tab" id="adminTabInvites" type="button">🎫 邀请码</button>
+    </div>
+    <div id="adminPaneOverview">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="num" id="statTotalUsers">—</div><div class="lab">总用户数</div></div>
+        <div class="stat-card"><div class="num" id="statActiveUsers">—</div><div class="lab">活跃用户</div></div>
+        <div class="stat-card"><div class="num" id="statDisabledUsers">—</div><div class="lab">禁用用户</div></div>
+        <div class="stat-card"><div class="num" id="statUnusedInvites">—</div><div class="lab">未使用邀请码</div></div>
+      </div>
+    </div>
+    <div id="adminPaneUsers" hidden>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
+          <tbody id="adminUsersBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="adminPaneInvites" hidden>
+      <div class="admin-input-row">
+        <label>生成数量<input id="inviteCount" type="number" value="1" min="1" max="100"></label>
+        <label>有效天数（空=永久）<input id="inviteExpireDays" type="number" min="1" placeholder="永久"></label>
+        <button class="primary" id="btnGenInvite" type="button">生成邀请码</button>
+      </div>
+      <div id="newInviteDisplay" hidden>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">新邀请码（点击复制）：</div>
+        <div class="invite-code-display" id="newInviteCode">—</div>
+      </div>
+      <div class="table-wrap" style="margin-top:12px">
+        <table class="admin-table">
+          <thead><tr><th>邀请码</th><th>使用者</th><th>使用时间</th><th>过期时间</th><th>状态</th></tr></thead>
+          <tbody id="adminInvitesBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -3875,6 +4219,8 @@ function saveStore() {
   idbSaveSnapshot(dataStr);
   // 第三备份：Cache API（PWA 离线存储，异步不阻塞）
   cacheSave(dataStr);
+  // 云端同步：已登录则防抖同步到云端（追加，不影响原有逻辑）
+  if (typeof STAuth !== 'undefined' && STAuth.isLoggedIn()) STAuth.scheduleCloudSync();
 }
 
 /* ---- UI 标记：双写 localStorage + store.uiFlags，任一为 true 即视为已设置 ----
@@ -10000,7 +10346,7 @@ function openDashboard() {
     ${getKaoyanHTML()}
     ${getWeeklyReviewHTML()}
     <div class="dash-hero ${urgent ? 'urgent' : ''}">
-      <div class="greet-big">${g}</div>
+      <div class="greet-big">${g}${(typeof STAuth!=="undefined"&&STAuth.isLoggedIn()&&STAuth.getUsername())?"，"+STAuth.getUsername()+(STAuth.getUser()&&STAuth.getUser().isAdmin?" 👑":"")+"！":""}</div>
       <div class="greet-sub">这是你今天的学习看板</div>
       <div class="hero-status">${msg}</div>
       <div class="hero-enc">${enc}</div>
@@ -14728,6 +15074,30 @@ window.addEventListener('resize', () => {
   await loadStore(); // 等待数据恢复完成（防止空数据覆盖 IndexedDB 备份）
   applyTheme(); // 数据恢复后重新应用主题：iOS 清 localStorage 后，store.localData 里的主题偏好从 IndexedDB 恢复，需要重新应用
   _booting = false;  // 恢复完成，允许保存
+  // 账号系统：恢复登录状态并同步云端（追加，不影响原有逻辑）
+  if (typeof STAuth !== 'undefined') STAuth.initAuth();
+
+  // 初始化所有密码输入框的小眼睛切换
+  (function(){
+    document.querySelectorAll('input[type="password"]').forEach(function(inp){
+      if (inp.parentElement.classList.contains('pwd-wrap')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'pwd-wrap';
+      inp.parentNode.insertBefore(wrap, inp);
+      wrap.appendChild(inp);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pwd-toggle';
+      btn.textContent = '👁️';
+      btn.title = '显示/隐藏密码';
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+        else { inp.type = 'password'; btn.textContent = '👁️'; }
+      });
+      wrap.appendChild(btn);
+    });
+  })();
   // 数据安全提示不自动跳过：新用户首次进入会在下面弹一次（由 checkDataSecurityOnStart 按 DATA_SECURITY_KEY 控制）
   if (store.currentId && !store.projects[store.currentId]) {
     const ids = Object.keys(store.projects);
@@ -14747,11 +15117,12 @@ window.addEventListener('resize', () => {
     setTimeout(() => { try { splash.remove(); } catch (e) {} }, 350);
   }
   // 弹窗逻辑延迟到下一帧，确保主界面先绘制完成
-  // 新用户（无任何项目）：只弹数据安全提示，关闭后停留在全屏欢迎页 #welcome
+  // 新用户（无任何项目）：直接进入全屏欢迎页 #welcome
   // 老用户（有项目）：直接进入主界面 #app，不弹任何启动/引导/更新弹窗
-  requestAnimationFrame(() => {
-    checkDataSecurityOnStart();
-  });
+  // 数据安全提示弹窗已禁用（已有云端账号同步保障数据安全）
+  // requestAnimationFrame(() => {
+  //   checkDataSecurityOnStart();
+  // });
   // 定期备份提醒弹窗（iOS 每3天，其他端每15天）
   // 首次打开且无任何项目数据 → 标记为新用户，等打卡满3天后再第一次提醒
   if (!getLocalVal(BACKUP_MODAL_INIT_KEY, '') && !getLocalVal(BACKUP_MODAL_NEW_USER_KEY, '')) {
@@ -14775,9 +15146,802 @@ window.addEventListener('resize', () => {
   };
   setTimeout(_tryBackupModal, 800);
   // 检测无痕浏览模式
-  setTimeout(checkIncognito, 1500);
+  // 无痕浏览检测已禁用（云端账号同步保障数据安全）  // setTimeout(checkIncognito, 1500);
   } catch (e) { console.error('boot 启动失败:', e); }
 })();
+
+/* ============ 账号系统 & 云端同步模块（STAuth） ============ */
+var STAuth = (function () {
+  var AUTH_TOKEN_KEY = 'st_auth_token';
+  var AUTH_USER_KEY = 'st_auth_user';
+  var currentUser = null;
+  var lastCloudSync = null;
+  var syncTimer = null;
+  var isSyncing = false;
+  var SYNC_DEBOUNCE_MS = 5000;
+
+  function getToken() {
+    try {
+      return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY);
+    } catch(e) { return null; }
+  }
+  function setToken(t, remember) {
+    try {
+      clearToken();
+      if (remember) localStorage.setItem(AUTH_TOKEN_KEY, t);
+      else sessionStorage.setItem(AUTH_TOKEN_KEY, t);
+    } catch(e) {}
+  }
+  function clearToken() {
+    try { localStorage.removeItem(AUTH_TOKEN_KEY); } catch(e) {}
+    try { sessionStorage.removeItem(AUTH_TOKEN_KEY); } catch(e) {}
+  }
+  function getStoredUser() {
+    try {
+      var raw = localStorage.getItem(AUTH_USER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+  function setStoredUser(u) {
+    try { localStorage.setItem(AUTH_USER_KEY, JSON.stringify(u)); } catch(e) {}
+  }
+  function clearStoredUser() {
+    try { localStorage.removeItem(AUTH_USER_KEY); } catch(e) {}
+  }
+  function isLoggedIn() { return !!getToken(); }
+  function getUsername() { return currentUser ? (currentUser.username || '') : ''; }
+  function getUser() { return currentUser; }
+
+  async function apiRequest(path, options) {
+    options = options || {};
+    options.headers = options.headers || {};
+    var tok = getToken();
+    if (tok) options.headers['Authorization'] = 'Bearer ' + tok;
+    if (options.body && !(options.body instanceof FormData)) {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(options.body);
+    }
+    var resp = await fetch(path, options);
+    if (resp.status === 401) {
+      clearToken(); clearStoredUser(); currentUser = null;
+      updateHeaderUI(); updateSyncStatus('logout');
+      throw new Error('未登录或登录已过期');
+    }
+    if (resp.status === 403) {
+      var f3 = await resp.json().catch(function(){ return {}; });
+      throw new Error(f3.error || '账号已被禁用，请联系管理员');
+    }
+    var data = await resp.json().catch(function(){ return {}; });
+    if (!resp.ok || data.ok === false) {
+      throw new Error(data.error || ('请求失败 (' + resp.status + ')'));
+    }
+    return data;
+  }
+
+  function showAuthError(msg) {
+    var el = document.getElementById('authError');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideAuthError() {
+    var el = document.getElementById('authError');
+    if (el) el.classList.remove('show');
+  }
+
+  function openAuth(mode) {
+    var mask = document.getElementById('authMask');
+    if (!mask) return;
+    mask.hidden = false;
+    switchAuthTab(mode || 'login');
+    hideAuthError();
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('regEmail').value = '';
+    document.getElementById('regInviteCode').value = '';
+    document.getElementById('regUsername').value = '';
+    document.getElementById('regPassword').value = '';
+    document.getElementById('regConfirmPassword').value = '';
+  }
+  function closeAuth() {
+    if (_loginWall) return;
+    document.getElementById('authMask').hidden = true;
+  }
+
+  function switchAuthTab(mode) {
+    var loginTab = document.getElementById('authTabLogin');
+    var regTab = document.getElementById('authTabRegister');
+    var loginFields = document.getElementById('loginFields');
+    var registerFields = document.getElementById('registerFields');
+    var submit = document.getElementById('authSubmit');
+    var title = document.getElementById('authModalTitle');
+    if (mode === 'register') {
+      loginTab.classList.remove('active');
+      regTab.classList.add('active');
+      loginFields.hidden = true;
+      registerFields.hidden = false;
+      submit.textContent = '注 册';
+      title.textContent = '创建账号';
+    } else {
+      regTab.classList.remove('active');
+      loginTab.classList.add('active');
+      loginFields.hidden = false;
+      registerFields.hidden = true;
+      submit.textContent = '登 录';
+      title.textContent = '欢迎回来';
+    }
+    hideAuthError();
+  }
+
+  function checkPasswordStrength(pw) {
+    var score = 0;
+    if (pw.length >= 8) score++;
+    if (/[a-zA-Z]/.test(pw) && /\d/.test(pw)) score++;
+    if (pw.length >= 12) score++;
+    return score;
+  }
+  function updatePwStrength() {
+    var pw = document.getElementById('regPassword').value;
+    var seg1 = document.getElementById('pwSeg1');
+    var seg2 = document.getElementById('pwSeg2');
+    var seg3 = document.getElementById('pwSeg3');
+    var txt = document.getElementById('pwStrengthText');
+    [seg1,seg2,seg3].forEach(function(s){ s.className = 'pw-strength-seg'; });
+    if (!pw) { txt.textContent = '密码强度：'; return; }
+    var s = checkPasswordStrength(pw);
+    if (s >= 1) seg1.classList.add('s1');
+    if (s >= 2) { seg1.classList.remove('s1'); seg1.classList.add('s2'); seg2.classList.add('s2'); }
+    if (s >= 3) { seg1.classList.remove('s2'); seg1.classList.add('s3'); seg2.classList.remove('s2'); seg2.classList.add('s3'); seg3.classList.add('s3'); }
+    var labels = ['弱','中','强'];
+    txt.textContent = '密码强度：' + labels[Math.min(s,2)];
+  }
+
+  async function doRegister(email, username, password, inviteCode, remember) {
+    var data = await apiRequest('/api/auth/register', {
+      method: 'POST',
+      body: { email: email, username: username, password: password, inviteCode: inviteCode }
+    });
+    setToken(data.token, remember);
+    currentUser = data.user;
+    setStoredUser(data.user);
+    disableLoginWall();
+    return data.user;
+  }
+  async function doLogin(email, password, remember) {
+    var data = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: { email: email, password: password }
+    });
+    setToken(data.token, remember);
+    currentUser = data.user;
+    setStoredUser(data.user);
+    return data.user;
+  }
+  async function doLogout() {
+    try { await apiRequest('/api/auth/logout', { method: 'POST' }); } catch(e) {}
+    clearToken(); clearStoredUser(); currentUser = null;
+    lastCloudSync = null;
+    updateHeaderUI();
+    updateSyncStatus('logout');
+    closeProfile();
+    if (typeof showToast === 'function') showToast('👋','已退出登录','请重新登录');
+    enableLoginWall();
+  }
+  async function fetchMe() {
+    var data = await apiRequest('/api/auth/me', { method: 'GET' });
+    currentUser = data.user;
+    setStoredUser(data.user);
+    return data.user;
+  }
+
+  function updateHeaderUI() {
+    var btn = document.getElementById('btnUser');
+    if (!btn) return;
+    if (currentUser) {
+      var avatar = currentUser.avatar;
+      var displayName = currentUser.username || '';
+      if (avatar && (avatar.indexOf('data:') === 0 || avatar.indexOf('http') === 0 || avatar.indexOf('/uploads/') === 0)) {
+        btn.innerHTML = '<span class="user-avatar-btn"><img src="' + avatar + '" alt=""></span>';
+      } else if (avatar && avatar.length <= 4) {
+        btn.innerHTML = '<span class="user-avatar-btn">' + avatar + '</span>';
+      } else {
+        var ch = displayName.charAt(0).toUpperCase();
+        btn.innerHTML = '<span class="user-avatar-btn">' + ch + '</span>';
+      }
+      btn.title = displayName + ' · 个人中心';
+    } else {
+      btn.innerHTML = '👤 登录';
+      btn.title = '登录 / 注册';
+    }
+    var btnAdm = document.getElementById('btnAdmin');
+    if (btnAdm) btnAdm.hidden = !(currentUser && currentUser.isAdmin);
+  }
+
+  function updateSyncStatus(status, timeStr) {
+    var dot = document.getElementById('syncIndicator');
+    if (!dot) return;
+    if (status === 'ing') {
+      dot.hidden = false;
+      dot.className = 'sync-indicator sync-ing';
+      dot.title = '同步中…';
+    } else if (status === 'fail') {
+      dot.hidden = false;
+      dot.className = 'sync-indicator sync-fail';
+      dot.title = '同步失败，点击重试';
+    } else if (status === 'ok') {
+      dot.hidden = false;
+      dot.className = 'sync-indicator sync-ok';
+      dot.title = '已同步' + (timeStr ? ' · ' + timeStr : '');
+    } else {
+      dot.hidden = true;
+    }
+    var pDot = document.getElementById('profileSyncDot');
+    var pLabel = document.getElementById('profileSyncLabel');
+    var pTime = document.getElementById('profileSyncTime');
+    if (pDot && pLabel && pTime) {
+      if (status === 'ing') {
+        pDot.className = 'sync-status-dot ing';
+        pLabel.textContent = '正在同步…';
+      } else if (status === 'fail') {
+        pDot.className = 'sync-status-dot fail';
+        pLabel.textContent = '同步失败';
+      } else if (status === 'ok') {
+        pDot.className = 'sync-status-dot ok';
+        pLabel.textContent = '已同步';
+      } else {
+        pDot.className = 'sync-status-dot ok';
+        pLabel.textContent = '未登录';
+      }
+      pTime.textContent = timeStr || (lastCloudSync ? ('上次同步：' + formatTime(lastCloudSync)) : '—');
+    }
+  }
+
+  function formatTime(d) {
+    if (!(d instanceof Date)) d = new Date(d);
+    var pad = function(n){ return n<10?'0'+n:''+n; };
+    return (d.getMonth()+1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function scheduleCloudSync() {
+    if (!isLoggedIn()) return;
+    if (syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(function(){
+      syncToCloud();
+    }, SYNC_DEBOUNCE_MS);
+  }
+
+  async function syncToCloud() {
+    if (!isLoggedIn() || isSyncing) return;
+    isSyncing = true;
+    updateSyncStatus('ing');
+    try {
+      var data = await apiRequest('/api/data', {
+        method: 'PUT',
+        body: { store: store }
+      });
+      lastCloudSync = new Date();
+      updateSyncStatus('ok', formatTime(lastCloudSync));
+    } catch(e) {
+      console.error('云端上传失败:', e);
+      updateSyncStatus('fail');
+    } finally {
+      isSyncing = false;
+    }
+  }
+
+  async function syncFromCloud() {
+    if (!isLoggedIn()) return;
+    isSyncing = true;
+    updateSyncStatus('ing');
+    try {
+      var data = await apiRequest('/api/data', { method: 'GET' });
+      var cloudStore = data.store;
+      var localProjectCount = (store && store.projects) ? Object.keys(store.projects).length : 0;
+      var cloudProjectCount = cloudStore && cloudStore.projects ? Object.keys(cloudStore.projects).length : 0;
+
+      if (cloudStore && cloudProjectCount > 0 && localProjectCount === 0) {
+        store = cloudStore;
+        _lastSaveSig = '';
+        saveStore();
+        lastCloudSync = new Date(data.updatedAt || Date.now());
+        updateSyncStatus('ok', formatTime(lastCloudSync));
+        if (typeof render === 'function') render();
+        if (typeof showToast === 'function') showToast('☁️','已从云端恢复数据','共 ' + cloudProjectCount + ' 个任务');
+      } else if (localProjectCount > 0 && (!cloudStore || cloudProjectCount === 0)) {
+        await syncToCloud();
+      } else if (localProjectCount > 0 && cloudProjectCount > 0) {
+        if (cloudProjectCount > localProjectCount) {
+          store = cloudStore;
+          _lastSaveSig = '';
+          saveStore();
+          lastCloudSync = new Date(data.updatedAt || Date.now());
+          updateSyncStatus('ok', formatTime(lastCloudSync));
+          if (typeof render === 'function') render();
+          if (typeof showToast === 'function') showToast('☁️','云端数据更多，已合并','以云端数据为准');
+        } else if (localProjectCount > cloudProjectCount) {
+          await syncToCloud();
+          if (typeof showToast === 'function') showToast('☁️','本地数据更多','已自动上传到云端');
+        } else {
+          lastCloudSync = new Date(data.updatedAt || Date.now());
+          updateSyncStatus('ok', formatTime(lastCloudSync));
+        }
+      } else {
+        lastCloudSync = new Date(data.updatedAt || Date.now());
+        updateSyncStatus('ok', formatTime(lastCloudSync));
+      }
+    } catch(e) {
+      console.error('云端拉取失败:', e);
+      updateSyncStatus('fail');
+    } finally {
+      isSyncing = false;
+    }
+  }
+
+  function triggerSync() {
+    if (!isLoggedIn()) return;
+    syncFromCloud();
+  }
+
+  function openProfile() {
+    var mask = document.getElementById('profileMask');
+    if (!mask) return;
+    var titleEl = document.getElementById('profileModalTitle');
+    if (titleEl) titleEl.innerHTML = currentUser ? ('个人中心 · ' + currentUser.username + (currentUser.isAdmin ? ' <span class="badge-admin">👑 管理员</span>' : '')) : '个人中心';
+    var avEl = document.getElementById('profileAvatar');
+    if (currentUser && currentUser.avatar) {
+      var av = currentUser.avatar;
+      if (av.indexOf('data:') === 0 || av.indexOf('http') === 0 || av.indexOf('/uploads/') === 0) {
+        avEl.innerHTML = '<img src="' + av + '" alt="头像">';
+      } else {
+        avEl.textContent = av;
+      }
+    } else {
+      avEl.textContent = (currentUser && currentUser.username) ? currentUser.username.charAt(0).toUpperCase() : '🐱';
+    }
+    document.getElementById('profileUsername').value = currentUser ? (currentUser.username || '') : '';
+    document.getElementById('profileEmail').value = currentUser ? (currentUser.email || '') : '';
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmNewPassword').value = '';
+    updateSyncStatus(isSyncing ? 'ing' : (currentUser ? 'ok' : 'logout'));
+    document.querySelectorAll('.emoji-opt').forEach(function(btn){
+      btn.classList.toggle('selected', currentUser && currentUser.avatar === btn.dataset.emoji);
+    });
+    mask.hidden = false;
+  }
+  function closeProfile() {
+    document.getElementById('profileMask').hidden = true;
+  }
+
+  async function initAuth() {
+    initPwToggles();
+    var storedUser = getStoredUser();
+    var tok = getToken();
+    if (tok && storedUser) {
+      currentUser = storedUser;
+      updateHeaderUI();
+      try {
+        await fetchMe();
+        updateHeaderUI();
+        setTimeout(function(){ syncFromCloud(); }, 500);
+      } catch(e) {
+        console.warn('Token expired, logging out:', e.message);
+        clearToken(); clearStoredUser(); currentUser = null;
+        updateHeaderUI();
+      }
+    } else {
+      updateHeaderUI();
+      enableLoginWall();
+    }
+  }
+
+  function initPwToggles() {
+    document.querySelectorAll('input[type="password"]').forEach(function(inp){
+      if (inp.parentElement.classList.contains('pw-wrap')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'pw-wrap';
+      inp.parentNode.insertBefore(wrap, inp);
+      wrap.appendChild(inp);
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'pw-toggle'; btn.textContent = '👁';
+      btn.addEventListener('click', function(){
+        if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+        else { inp.type = 'password'; btn.textContent = '👁'; }
+        inp.focus();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+  var _loginWall = false;
+  function enableLoginWall() {
+    _loginWall = true;
+    var mask = document.getElementById('authMask');
+    if (mask) { mask.hidden = false; var c = document.getElementById('authClose'); if (c) c.style.display = 'none'; }
+    var app = document.getElementById('app'); if (app) app.style.visibility = 'hidden';
+    var w = document.getElementById('welcome'); if (w) w.style.visibility = 'hidden';
+  }
+  function disableLoginWall() {
+    _loginWall = false;
+    var mask = document.getElementById('authMask');
+    if (mask) { mask.hidden = true; var c = document.getElementById('authClose'); if (c) c.style.display = ''; }
+    var app = document.getElementById('app'); if (app) app.style.visibility = '';
+    var w = document.getElementById('welcome'); if (w) w.style.visibility = '';
+  }
+  /* === 忘记密码 / 重置密码 === */
+  var _resetToken = '';
+  function openForgot() {
+    document.getElementById('forgotMask').hidden = false;
+    document.getElementById('forgotEmail').value = '';
+    var fe = document.getElementById('forgotError'); if (fe) fe.classList.remove('show');
+  }
+  function closeForgot() { document.getElementById('forgotMask').hidden = true; }
+  function openReset(token) {
+    document.getElementById('resetMask').hidden = false;
+    document.getElementById('resetNewPassword').value = '';
+    document.getElementById('resetConfirmPassword').value = '';
+    var re = document.getElementById('resetError'); if (re) re.classList.remove('show');
+    _resetToken = token;
+  }
+  function closeReset() { document.getElementById('resetMask').hidden = true; }
+
+  /* === 管理员后台 === */
+  function openAdmin() {
+    var m = document.getElementById('adminMask'); if (!m) return;
+    m.hidden = false;
+    switchAdminTab('overview');
+    loadAdminStats();
+  }
+  function closeAdmin() { var m = document.getElementById('adminMask'); if (m) m.hidden = true; }
+  function switchAdminTab(tab) {
+    var tabs = {overview:'adminTabOverview',users:'adminTabUsers',invites:'adminTabInvites'};
+    var panes = {overview:'adminPaneOverview',users:'adminPaneUsers',invites:'adminPaneInvites'};
+    Object.keys(tabs).forEach(function(k){
+      var t=document.getElementById(tabs[k]); if(t) t.classList.toggle('active',k===tab);
+      var p=document.getElementById(panes[k]); if(p) p.hidden=(k!==tab);
+    });
+    if (tab==='users') loadAdminUsers();
+    if (tab==='invites') loadInviteList();
+  }
+  async function loadAdminStats() {
+    try {
+      var d = await apiRequest('/api/admin/stats',{method:'GET'});
+      var set = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=(v!=null?v:'—'); };
+      set('statTotalUsers',d.totalUsers); set('statActiveUsers',d.activeUsers);
+      set('statDisabledUsers',d.disabledUsers); set('statUnusedInvites',d.unusedInvites);
+    } catch(e){ console.error('stats:',e); }
+  }
+  async function loadAdminUsers() {
+    var tb = document.getElementById('adminUsersBody');
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted)">加载中…</td></tr>';
+    try {
+      var d = await apiRequest('/api/admin/users',{method:'GET'});
+      var users = d.users || [];
+      if (!users.length) { tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted)">暂无用户</td></tr>'; return; }
+      tb.innerHTML = users.map(function(u){
+        var self = currentUser && u.id === currentUser.id;
+        var badge = u.isAdmin ? '<span class="badge-admin">管理员</span>' : '';
+        var isDisabled = u.status === 'disabled';
+        var st = isDisabled ? '<span class="badge-disabled">已禁用</span>' : '<span class="badge-active">正常</span>';
+        var btn = self ? '' : '<button class="ghost-btn" style="padding:4px 10px;font-size:12px" onclick="STAuth._toggleUserStatus('+u.id+','+(isDisabled?'false':'true')+')">'+(isDisabled?'启用':'禁用')+'</button>';
+        return '<tr><td>'+u.id+'</td><td>'+(u.username||'')+badge+'</td><td>'+(u.email||'—')+'</td><td>'+(u.isAdmin?'是':'否')+'</td><td>'+st+'</td><td>'+(u.createdAt||'—')+'</td><td>'+btn+'</td></tr>';
+      }).join('');
+    } catch(e) {
+      tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--bad)">'+e.message+'</td></tr>';
+    }
+  }
+  async function loadInviteList() {
+    var tb = document.getElementById('adminInvitesBody');
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">加载中…</td></tr>';
+    try {
+      var d = await apiRequest('/api/admin/invite/list',{method:'GET'});
+      var codes = d.invites || [];
+      if (!codes.length) { tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">暂无邀请码</td></tr>'; return; }
+      tb.innerHTML = codes.map(function(c){
+        var st = c.usedAt ? '<span class="badge-used">已使用</span>' : '<span class="badge-unused">未使用</span>';
+        return '<tr><td style="font-family:monospace;font-weight:600">'+(c.code||'')+'</td><td>'+(c.usedBy||'—')+'</td><td>'+(c.usedAt||'—')+'</td><td>'+(c.expiresAt||'永久')+'</td><td>'+st+'</td></tr>';
+      }).join('');
+    } catch(e) {
+      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--bad)">'+e.message+'</td></tr>';
+    }
+  }
+  async function _toggleUserStatus(uid, disable) {
+    try {
+      await apiRequest('/api/admin/users/'+uid+'/status',{method:'PUT',body:{status: disable ? 'disabled' : 'active'}});
+      if (typeof showToast==='function') showToast('✅',disable?'用户已禁用':'用户已启用');
+      loadAdminUsers();
+    } catch(e) {
+      if (typeof showToast==='function') showToast('❌',e.message||'操作失败');
+    }
+  }
+
+  function bindEvents() {
+    var btnUser = document.getElementById('btnUser');
+    if (btnUser) {
+      btnUser.addEventListener('click', function(){
+        if (isLoggedIn()) openProfile();
+        else openAuth('login');
+      });
+    }
+    var authClose = document.getElementById('authClose');
+    if (authClose) authClose.addEventListener('click', closeAuth);
+    var tabLogin = document.getElementById('authTabLogin');
+    var tabReg = document.getElementById('authTabRegister');
+    if (tabLogin) tabLogin.addEventListener('click', function(){ switchAuthTab('login'); });
+    if (tabReg) tabReg.addEventListener('click', function(){ switchAuthTab('register'); });
+    var pwInput = document.getElementById('authPassword');
+    if (pwInput) pwInput.addEventListener('input', updatePwStrength);
+    var authForm = document.getElementById('authForm');
+    if (authForm) {
+      authForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        hideAuthError();
+        var isRegister = document.getElementById('authTabRegister').classList.contains('active');
+        var remember = document.getElementById('loginRemember').checked;
+        var submitBtn = document.getElementById('authSubmit');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '请稍候…';
+        try {
+          if (isRegister) {
+            var email = document.getElementById('regEmail').value.trim();
+            var regName = document.getElementById('regUsername').value.trim();
+            var inviteCode = document.getElementById('regInviteCode').value.trim().toUpperCase();
+            var pw = document.getElementById('regPassword').value;
+            var cf = document.getElementById('regConfirmPassword').value;
+            if (!email) { showAuthError('请输入QQ邮箱'); return; }
+            if (!/@qq\.com$/i.test(email)) { showAuthError('仅支持QQ邮箱'); return; }
+            if (!inviteCode) { showAuthError('请输入邀请码'); return; }
+            if (!regName || regName.length < 3 || regName.length > 20) { showAuthError('用户名需3-20个字符'); return; }
+            if (!pw || pw.length < 8) { showAuthError('密码至少需要8位'); return; }
+            if (!/[a-zA-Z]/.test(pw) || !/\d/.test(pw)) { showAuthError('密码需同时包含字母和数字'); return; }
+            if (pw !== cf) { showAuthError('两次输入的密码不一致'); return; }
+            await doRegister(email, regName, pw, inviteCode, remember);
+            if (typeof showToast === 'function') showToast('🎉','注册成功，欢迎加入！','已自动登录');
+          } else {
+            var email2 = document.getElementById('loginEmail').value.trim();
+            var pw2 = document.getElementById('loginPassword').value;
+            if (!email2) { showAuthError('请输入QQ邮箱'); return; }
+            if (!/@qq\.com$/i.test(email2)) { showAuthError('仅支持QQ邮箱'); return; }
+            if (!pw2) { showAuthError('请输入密码'); return; }
+            await doLogin(email2, pw2, remember);
+            var dn = currentUser ? currentUser.username : '';
+            if (typeof showToast === 'function') showToast('✅','欢迎回来，' + dn + '！','正在同步数据…');
+          }
+          updateHeaderUI();
+          disableLoginWall();
+          closeAuth();
+          setTimeout(function(){ syncFromCloud(); }, 300);
+        } catch(err) {
+          showAuthError(err.message || '操作失败，请重试');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = isRegister ? '注 册' : '登 录';
+        }
+      });
+    }
+    var profClose = document.getElementById('profileClose');
+    if (profClose) profClose.addEventListener('click', closeProfile);
+    var btnLogout = document.getElementById('btnLogout');
+    if (btnLogout) btnLogout.addEventListener('click', function(){ doLogout(); });
+    var btnSync = document.getElementById('btnManualSync');
+    if (btnSync) btnSync.addEventListener('click', function(){ triggerSync(); });
+    var btnSaveProf = document.getElementById('btnSaveProfile');
+    if (btnSaveProf) {
+      btnSaveProf.addEventListener('click', async function(){
+        var newName = document.getElementById('profileUsername').value.trim();
+        var newEmail = document.getElementById('profileEmail').value.trim();
+        if (!newName || newName.length < 3 || newName.length > 20) {
+          if (typeof showToast === 'function') showToast('⚠️','用户名需3-20字符'); return;
+        }
+        if (!newEmail || !/@qq\.com$/i.test(newEmail)) {
+          if (typeof showToast === 'function') showToast('⚠️','仅支持QQ邮箱'); return;
+        }
+        try {
+          var data = await apiRequest('/api/user/profile', { method: 'PUT', body: { username: newName, email: newEmail } });
+          currentUser = data.user;
+          setStoredUser(data.user);
+          updateHeaderUI();
+          if (typeof showToast === 'function') showToast('✅','资料已更新');
+        } catch(e) {
+          if (typeof showToast === 'function') showToast('❌', e.message || '修改失败');
+        }
+      });
+    }
+    var btnChgPw = document.getElementById('btnChangePassword');
+    if (btnChgPw) {
+      btnChgPw.addEventListener('click', async function(){
+        var oldP = document.getElementById('oldPassword').value;
+        var newP = document.getElementById('newPassword').value;
+        var confP = document.getElementById('confirmNewPassword').value;
+        if (!oldP || !newP) { if (typeof showToast === 'function') showToast('⚠️','请填写完整'); return; }
+        if (newP.length < 8) { if (typeof showToast === 'function') showToast('⚠️','新密码至少8位'); return; }
+        if (newP !== confP) { if (typeof showToast === 'function') showToast('⚠️','两次新密码不一致'); return; }
+        try {
+          await apiRequest('/api/user/password', { method: 'PUT', body: { oldPassword: oldP, newPassword: newP } });
+          if (typeof showToast === 'function') showToast('✅','密码已修改');
+          document.getElementById('oldPassword').value = '';
+          document.getElementById('newPassword').value = '';
+          document.getElementById('confirmNewPassword').value = '';
+        } catch(e) {
+          if (typeof showToast === 'function') showToast('❌', e.message || '修改失败');
+        }
+      });
+    }
+    document.querySelectorAll('.emoji-opt').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var emoji = btn.dataset.emoji;
+        try {
+          var data = await apiRequest('/api/user/profile', { method: 'PUT', body: { avatar: emoji } });
+          currentUser = data.user;
+          setStoredUser(data.user);
+          document.getElementById('profileAvatar').textContent = emoji;
+          updateHeaderUI();
+          document.querySelectorAll('.emoji-opt').forEach(function(b){ b.classList.toggle('selected', b === btn); });
+        } catch(e) {
+          if (typeof showToast === 'function') showToast('❌', e.message || '设置失败');
+        }
+      });
+    });
+    var btnUpload = document.getElementById('btnUploadAvatar');
+    var fileInput = document.getElementById('avatarFile');
+    if (btnUpload && fileInput) {
+      btnUpload.addEventListener('click', function(){ fileInput.click(); });
+      fileInput.addEventListener('change', async function(){
+        if (!fileInput.files || !fileInput.files[0]) return;
+        var file = fileInput.files[0];
+        if (file.size > 2 * 1024 * 1024) {
+          if (typeof showToast === 'function') showToast('⚠️','图片不能超过2MB');
+          return;
+        }
+        var fd = new FormData();
+        fd.append('avatar', file);
+        try {
+          var data = await apiRequest('/api/user/avatar', { method: 'POST', body: fd });
+          currentUser.avatar = data.avatar;
+          setStoredUser(currentUser);
+          document.getElementById('profileAvatar').innerHTML = '<img src="' + data.avatar + '" alt="头像">';
+          updateHeaderUI();
+          if (typeof showToast === 'function') showToast('✅','头像已更新');
+        } catch(e) {
+          if (typeof showToast === 'function') showToast('❌', e.message || '上传失败');
+        }
+        fileInput.value = '';
+      });
+    }
+    var syncDot = document.getElementById('syncIndicator');
+    if (syncDot) syncDot.addEventListener('click', function(){ triggerSync(); });
+    [['authMask', closeAuth], ['profileMask', closeProfile], ['adminMask', closeAdmin]].forEach(function(pair){
+      var mask = document.getElementById(pair[0]);
+      if (mask) mask.addEventListener('click', function(e){ if (e.target === mask) pair[1](); });
+    });
+    // Forgot password link
+    var linkF = document.getElementById('linkForgot');
+    if (linkF) linkF.addEventListener('click', openForgot);
+    var fClose = document.getElementById('forgotClose');
+    if (fClose) fClose.addEventListener('click', closeForgot);
+    var fForm = document.getElementById('forgotForm');
+    if (fForm) {
+      fForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        var email = document.getElementById('forgotEmail').value.trim();
+        var errEl = document.getElementById('forgotError');
+        errEl.classList.remove('show');
+        if (!email || !/@qq\.com$/i.test(email)) {
+          errEl.textContent = '请输入正确的QQ邮箱'; errEl.classList.add('show'); return;
+        }
+        var btn = document.getElementById('forgotSubmit');
+        btn.disabled = true; btn.textContent = '发送中…';
+        try {
+          await apiRequest('/api/auth/forgot-password', { method: 'POST', body: { email: email } });
+          closeForgot();
+          if (typeof showToast === 'function') showToast('📧','如果该邮箱已注册，重置链接已发送','请查收邮件（1小时内有效）');
+        } catch(err) {
+          errEl.textContent = err.message || '发送失败'; errEl.classList.add('show');
+        } finally {
+          btn.disabled = false; btn.textContent = '发送重置链接';
+        }
+      });
+    }
+    // Reset password
+    var rClose = document.getElementById('resetClose');
+    if (rClose) rClose.addEventListener('click', closeReset);
+    var rForm = document.getElementById('resetForm');
+    if (rForm) {
+      rForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        var np = document.getElementById('resetNewPassword').value;
+        var cp = document.getElementById('resetConfirmPassword').value;
+        var errEl = document.getElementById('resetError');
+        errEl.classList.remove('show');
+        if (!np || np.length < 8) { errEl.textContent = '新密码至少8位'; errEl.classList.add('show'); return; }
+        if (!/[a-zA-Z]/.test(np) || !/\d/.test(np)) { errEl.textContent = '密码需包含字母和数字'; errEl.classList.add('show'); return; }
+        if (np !== cp) { errEl.textContent = '两次输入不一致'; errEl.classList.add('show'); return; }
+        var btn = document.getElementById('resetSubmit');
+        btn.disabled = true; btn.textContent = '重置中…';
+        try {
+          await apiRequest('/api/auth/reset-password', { method: 'POST', body: { token: _resetToken, newPassword: np } });
+          closeReset();
+          history.replaceState(null, '', location.pathname);
+          switchAuthTab('login');
+          openAuth('login');
+          if (typeof showToast === 'function') showToast('✅','密码已重置，请登录');
+        } catch(err) {
+          errEl.textContent = err.message || '重置失败'; errEl.classList.add('show');
+        } finally {
+          btn.disabled = false; btn.textContent = '确认重置';
+        }
+      });
+      var rPw = document.getElementById('resetNewPassword');
+      if (rPw) rPw.addEventListener('input', function(){
+        var pw = rPw.value;
+        var s1=document.getElementById('resetSeg1'),s2=document.getElementById('resetSeg2'),s3=document.getElementById('resetSeg3');
+        var txt=document.getElementById('resetPwText');
+        [s1,s2,s3].forEach(function(s){ s.className='pw-strength-seg'; });
+        if (!pw) { txt.textContent='密码强度：'; return; }
+        var sc = checkPasswordStrength(pw);
+        if (sc>=1) s1.classList.add('s1');
+        if (sc>=2) { s1.classList.remove('s1'); s1.classList.add('s2'); s2.classList.add('s2'); }
+        if (sc>=3) { s1.classList.remove('s2'); s1.classList.add('s3'); s2.classList.remove('s2'); s2.classList.add('s3'); s3.classList.add('s3'); }
+        txt.textContent='密码强度：'+['弱','中','强'][Math.min(sc,2)];
+      });
+    }
+    [['forgotMask', closeForgot], ['resetMask', closeReset]].forEach(function(pair){
+      var m = document.getElementById(pair[0]);
+      if (m) m.addEventListener('click', function(e){ if (e.target===m) pair[1](); });
+    });
+    (function(){
+      try {
+        var params = new URLSearchParams(location.search);
+        var token = params.get('reset');
+        if (token) { setTimeout(function(){ openReset(token); }, 800); }
+      } catch(e) {}
+    })();
+    var bAdm = document.getElementById('btnAdmin');
+    if (bAdm) bAdm.addEventListener('click', openAdmin);
+    var aClose = document.getElementById('adminClose');
+    if (aClose) aClose.addEventListener('click', closeAdmin);
+    [['adminTabOverview','overview'],['adminTabUsers','users'],['adminTabInvites','invites']].forEach(function(pair){
+      var el = document.getElementById(pair[0]);
+      if (el) el.addEventListener('click', function(){ switchAdminTab(pair[1]); });
+    });
+    var bGen = document.getElementById('btnGenInvite');
+    if (bGen) bGen.addEventListener('click', async function(){
+      var cnt = parseInt(document.getElementById('inviteCount').value)||1;
+      var daysRaw = document.getElementById('inviteExpireDays').value.trim();
+      var body = { count: cnt };
+      if (daysRaw) body.days = parseInt(daysRaw);
+      try {
+        var d = await apiRequest('/api/admin/invite/generate',{method:'POST',body:body});
+        var codes = d.codes || [];
+        if (codes.length) {
+          document.getElementById('newInviteDisplay').hidden = false;
+          var cel = document.getElementById('newInviteCode');
+          cel.textContent = codes.join('  ·  ');
+          cel.onclick = function(){ if(navigator.clipboard) navigator.clipboard.writeText(codes.join(',')); if(typeof showToast==='function') showToast('✅','邀请码已复制'); };
+        }
+        loadInviteList(); loadAdminStats();
+      } catch(e) { if(typeof showToast==='function') showToast('❌',e.message||'生成失败'); }
+    });
+  }
+
+  return {
+    isLoggedIn: isLoggedIn,
+    getUsername: getUsername,
+    getUser: getUser,
+    _toggleUserStatus: _toggleUserStatus,
+    scheduleCloudSync: scheduleCloudSync,
+    triggerSync: triggerSync,
+    initAuth: initAuth,
+    bindEvents: bindEvents,
+    closeAuth: closeAuth,
+    closeProfile: closeProfile
+  };
+})();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function(){ STAuth.bindEvents(); });
+} else {
+  STAuth.bindEvents();
+}
 </script>
 <div id="busyMask" hidden class="busy-mask">
   <div class="busy-card">
