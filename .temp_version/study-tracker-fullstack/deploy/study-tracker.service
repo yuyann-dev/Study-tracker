@@ -1,0 +1,18 @@
+[Unit]
+Description=Study Tracker Backend API Server
+After=network.target
+
+[Service]
+Type=simple
+User=study
+WorkingDirectory=/opt/study-tracker/backend
+EnvironmentFile=/opt/study-tracker/backend/.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=study-tracker
+
+[Install]
+WantedBy=multi-user.target
