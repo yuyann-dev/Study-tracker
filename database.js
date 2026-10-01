@@ -23,9 +23,12 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new Database(config.dbFile);
 
-// WAL：读写并发更好；外键约束打开
+// WAL：读写并发更好；外键约束打开；synchronous=NORMAL 兼顾性能与安全；cache_size 提升读缓存
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('synchronous = NORMAL');
+db.pragma('cache_size = -20000'); // 约 20MB 页缓存（负数表示 KB）
+db.pragma('temp_store = MEMORY');
 
 db.exec(`
   -- v3: users 表。username 仅作展示昵称可重名；email 是唯一登录账号（存小写）
@@ -60,7 +63,10 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+  CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
   CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+  CREATE INDEX IF NOT EXISTS idx_invite_codes_used_by ON invite_codes(used_by);
+  CREATE INDEX IF NOT EXISTS idx_invite_codes_created_by ON invite_codes(created_by);
 `);
 
 /**

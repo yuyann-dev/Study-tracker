@@ -5,6 +5,8 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script>
+/* 页面最早期阻止浏览器默认 PWA 安装气泡，改用自定义引导（只弹一次） */
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._deferredInstallEarly = e; });
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
@@ -15398,6 +15400,17 @@ var STAuth = (function () {
 
   // 按项目ID合并两份数据：独有项目互相保留；共有项目取 updatedAt 较新者，
   // 并互相补齐独有的打卡记录（rid），避免“项目总数相等却不合并”导致丢数据。
+  // 合并模板：本地全部保留（含内置 preset_），云端只并入用户自定义模板，同 id 取 updatedAt 新者
+  function mergeTemplates(localArr, cloudArr){
+    var map = {};
+    (localArr || []).forEach(function(t){ if(t && t.id) map[t.id] = t; });
+    (cloudArr || []).forEach(function(t){
+      if(!t || !t.id || String(t.id).indexOf('preset_') === 0) return;
+      var ex = map[t.id];
+      if(!ex || (t.updatedAt || 0) > (ex.updatedAt || 0)) map[t.id] = t;
+    });
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
   function mergeStores(localStore, cloudStore){
     var out = JSON.parse(JSON.stringify(localStore || {}));
     out.projects = out.projects || {};
@@ -15423,6 +15436,16 @@ var STAuth = (function () {
       }
       out.projects[id] = mergedP;
     });
+    // 合并用户自定义的单元/套卷模板（内置 preset_ 保留本地、不重复合并）
+    out.unitTemplates = mergeTemplates(out.unitTemplates, cloudStore && cloudStore.unitTemplates);
+    out.paperTemplates = mergeTemplates(out.paperTemplates, cloudStore && cloudStore.paperTemplates);
+    // 修正当前任务：本地 currentId 失效时优先用云端 currentId，否则取第一个任务
+    var ids = Object.keys(out.projects);
+    var curOk = out.currentId && out.projects[out.currentId];
+    if(!curOk){
+      if(cloudStore && cloudStore.currentId && out.projects[cloudStore.currentId]) out.currentId = cloudStore.currentId;
+      else out.currentId = ids.length ? ids[0] : null;
+    }
     return out;
   }
 
@@ -15487,7 +15510,14 @@ var STAuth = (function () {
       } else {
         var wasEmptyLocal = localProjectCount === 0 && cloudProjectCount > 0;
         var merged = mergeStores(store, cloudStore);
-        var changedLocal = JSON.stringify(merged.projects || {}) !== JSON.stringify((store && store.projects) || {});
+        var _oldProjSig = JSON.stringify((store && store.projects) || {});
+        var _oldUnitSig = JSON.stringify((store && store.unitTemplates) || []);
+        var _oldPaperSig = JSON.stringify((store && store.paperTemplates) || []);
+        var _oldCur = (store && store.currentId) || null;
+        var changedLocal = JSON.stringify(merged.projects || {}) !== _oldProjSig
+          || JSON.stringify(merged.unitTemplates || []) !== _oldUnitSig
+          || JSON.stringify(merged.paperTemplates || []) !== _oldPaperSig
+          || (merged.currentId || null) !== _oldCur;
         var needPush = storeHasNewerThan(merged, cloudStore);
 
         if (changedLocal){
@@ -15520,11 +15550,24 @@ var STAuth = (function () {
   }
 
   /* ===== 安装为应用（PWA，全平台、自动更新）===== */
-  var _deferredInstall = null;
+  var _deferredInstall = window._deferredInstallEarly || null;
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
     _deferredInstall = e;
   });
+  /* 自动安装引导：只在首次登录后弹一次，之后永不自动弹（用户仍可在设置里手动打开） */
+  function maybeAutoPromptInstall(){
+    try {
+      if (isStandaloneApp()) return;
+      if (localStorage.getItem('st_install_prompted')) return;
+      if (!isLoggedIn()) return;
+      setTimeout(function(){
+        if (isStandaloneApp()) return;
+        localStorage.setItem('st_install_prompted', '1');
+        if (typeof openInstall === 'function') openInstall();
+      }, 8000);
+    } catch(e) {}
+  }
   window.addEventListener('appinstalled', function(){
     _deferredInstall = null;
     var inl = document.getElementById('installInline');
@@ -15644,6 +15687,7 @@ var STAuth = (function () {
         updateHeaderUI();
         setTimeout(function(){ syncFromCloud(); }, 500);
         startPeriodicSync();
+        maybeAutoPromptInstall();
       } catch(e) {
         console.warn('Token expired, logging out:', e.message);
         clearToken(); clearStoredUser(); currentUser = null;
@@ -15960,6 +16004,7 @@ var STAuth = (function () {
           disableLoginWall();
           closeAuth();
           setTimeout(function(){ syncFromCloud(); }, 300);
+          maybeAutoPromptInstall();
         } catch(err) {
           showAuthError(err.message || '操作失败，请重试');
         } finally {
