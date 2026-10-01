@@ -1,0 +1,13 @@
+[Unit]
+Description=Study Tracker SQLite 在线热备（每日）
+After=network.target
+
+[Service]
+Type=oneshot
+# 与主服务同一低权用户 study（见 study-tracker.service.study 注释）
+User=study
+Group=study
+WorkingDirectory=/opt/study-tracker/backend
+ExecStart=/bin/bash /opt/study-tracker/backend/scripts/backup.sh
+# 备份失败时发一封告警（复用 alert.js 的 SMTP，1h 去重）
+# OnFailure=study-backup-email@%n.service
