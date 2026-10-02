@@ -1,7 +1,7 @@
 /* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版（避免旧缓存卡住）；
    静态资源 cache-first：图标/清单等离线可用。 */
-var CACHE = 'yystudy-v19';
+var CACHE = 'yystudy-v14';
 var CORE = [
   './',
   './index.html',
