@@ -1,9 +1,23 @@
 # Study Tracker 考研学习规划应用
 
+
+
 ![CI](https://github.com/yuyann-dev/Study-tracker/actions/workflows/ci.yml/badge.svg)
+
+
+
 ![Deploy](https://github.com/yuyann-dev/Study-tracker/actions/workflows/deploy.yml/badge.svg)
+
+
+
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+
+
 ![Node](https://img.shields.io/badge/node-%3E%3D18-green)
+
+
+
 ![Platform](https://img.shields.io/badge/platform-web%20%7C%20PWA-lightgrey)
 
 ## 项目简介
@@ -103,6 +117,8 @@ Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学�
 * 日志：自定义 JSONL 日志，按天轮转
 
 ### 部署与运维
+
+
 
 * 服务器：腾讯云轻量应用服务器（OpenCloudOS 9.6）
 
@@ -280,27 +296,44 @@ study-tracker/
 
 * 数据库文件位于 `backend/data/study.db`，定期备份
 
-### Docker 一键部署（推荐本地开发/测试）
+### Docker 一键部署（推荐本地开发 / 测试）
+
+
 
 1. 复制环境变量配置：
-   ```bash
-   cp .env.example .env
-   # 编辑 .env，填入 JWT_SECRET、SMTP 等配置
-   ```
 
-2. 启动服务：
-   ```bash
-   docker-compose up -d
-   ```
 
-3. 访问：
-   - 前端：http://localhost:8080
-   - 后端 API：http://localhost:3001/api/health
 
-4. 停止服务：
-   ```bash
-   docker-compose down
-   ```
+```
+cp .env.example .env
+# 编辑 .env，填入 JWT_SECRET、SMTP 等配置
+```
+
+
+
+1. 启动服务：
+
+
+
+```
+docker-compose up -d
+```
+
+
+
+1. 访问：
+
+* 前端：[http://localhost:8080](http://localhost:8080)
+
+* 后端 API：[http://localhost:3001/api/health](http://localhost:3001/api/health)
+
+1. 停止服务：
+
+
+
+```
+docker-compose down
+```
 
 数据持久化在 Docker volume 中（`backend-data`、`backend-logs`、`backend-uploads`），不会因容器重建而丢失。
 
@@ -308,17 +341,22 @@ study-tracker/
 
 项目配置了 GitHub Actions 工作流：
 
+
+
 * **CI**（`.github/workflows/ci.yml`）：每次 push/PR 自动运行后端语法检查、单元测试、前端 `js/*.js` 与 sw.js 语法检查、manifest.json 校验
+
 * **Deploy**（`.github/workflows/deploy.yml`）：push 到 main 分支后自动部署到生产服务器
 
 配置自动部署需要在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加以下 Secrets：
 
-| Secret 名 | 说明 |
-|---|---|
+
+
+| Secret 名          | 说明               |
+| ----------------- | ---------------- |
 | `SSH_PRIVATE_KEY` | SSH 私钥（用于部署到服务器） |
-| `SERVER_HOST` | 服务器地址（IP 或域名） |
-| `SSH_USER` | SSH 登录用户名 |
-| `APP_DOMAIN` | 应用域名（用于健康检查） |
+| `SERVER_HOST`     | 服务器地址（IP 或域名）    |
+| `SSH_USER`        | SSH 登录用户名        |
+| `APP_DOMAIN`      | 应用域名（用于健康检查）     |
 
 ## 开发说明
 
@@ -326,17 +364,29 @@ study-tracker/
 
 前端采用原生 ES Modules 模块化结构，无需构建工具。`index.html` 通过 `<script type="module" src="js/app.js">` 加载入口，auth 模块以 `<script defer src="js/auth.js">` 经典脚本方式引入。修改对应职责的 JS 文件即可：
 
-- `js/app.js` 启动装配与模块导入
-- `js/utils.js` 通用工具与常量
-- `js/storage.js` 三层存储与数据安全
-- `js/review.js` 复习与排期算法
-- `js/render.js` 视图渲染与图表
-- `js/ui.js` 仪表盘、表单、设置等 UI 组件
-- `js/events.js` 事件绑定与导入导出
-- `js/auth.js` 鉴权、同步、个人中心与管理员面板
-- `css/style.css` 全局样式
+
+
+* `js/app.js` 启动装配与模块导入
+
+* `js/utils.js` 通用工具与常量
+
+* `js/storage.js` 三层存储与数据安全
+
+* `js/review.js` 复习与排期算法
+
+* `js/render.js` 视图渲染与图表
+
+* `js/ui.js` 仪表盘、表单、设置等 UI 组件
+
+* `js/events.js` 事件绑定与导入导出
+
+* `js/auth.js` 鉴权、同步、个人中心与管理员面板
+
+* `css/style.css` 全局样式
 
 语法检查：
+
+
 
 ```
 node --check frontend/js/app.js
@@ -358,18 +408,24 @@ node server.js       # 本地启动（默认监听 3001 端口）
 
 后端包含数据合并和复习调度算法的单元测试：
 
-```bash
+
+
+```
 cd backend
 npm test
 ```
 
 测试覆盖：
+
+
+
 * 数据同步合并（12 个用例）：墓碑机制、多设备合并、LWW 策略、墓碑清理等
+
 * 背书复习调度（15 个用例）：三态标记、间隔计算、毕业判定、退轮机制等
 
 ### API 文档
 
-完整的接口文档见 [docs/API.md](docs/API.md)，包含认证、用户、数据同步、管理员等所有接口的请求/响应格式说明。
+完整的接口文档见 [docs/API.md](docs/API.md)，包含认证、用户、数据同步、管理员等所有接口的请求 / 响应格式说明。
 
 ### 数据结构
 
@@ -391,16 +447,16 @@ npm test
 
 
 
-| 版本  | 日期         | 主要变更                              |
-| --- | ---------- | --------------------------------- |
-| v1  | 2026-09-15 | 初始版本，单页学习记录应用                     |
-| v6  | 2026-09-20 | 新增苹果数据防护机制，iOS 数据丢失防护             |
-| v7  | 2026-09-21 | 新增备份弹窗保护，存储异常时提醒导出                |
-| v11 | 2026-09-28 | 功能完善：刷题 / 错题 / 背书三大模块，PWA 支持，深色模式 |
-| v13 | 2026-09-30 | 全栈版本：加入 Node.js 后端，邮箱登录，云端同步      |
-| v15 | 2026-10-01 | 稳定版本：服务端合并算法，管理员面板，安全加固           |
-| v17 | 2026-10-02 | 视觉定稿：纸感学院派设计，品牌图标，性能优化            |
-| v18 | 2026-10-03 | 修复图标更新问题，ETag 增量同步，同步性能优化         |
+| 版本  | 日期         | 主要变更                                                                                                                                       |
+| --- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| v1  | 2026-09-15 | 初始版本，单页学习记录应用                                                                                                                              |
+| v6  | 2026-09-20 | 新增苹果数据防护机制，iOS 数据丢失防护                                                                                                                      |
+| v7  | 2026-09-21 | 新增备份弹窗保护，存储异常时提醒导出                                                                                                                         |
+| v11 | 2026-09-28 | 功能完善：刷题 / 错题 / 背书三大模块，PWA 支持，深色模式                                                                                                          |
+| v13 | 2026-09-30 | 全栈版本：加入 Node.js 后端，邮箱登录，云端同步                                                                                                               |
+| v15 | 2026-10-01 | 稳定版本：服务端合并算法，管理员面板，安全加固                                                                                                                    |
+| v17 | 2026-10-02 | 视觉定稿：纸感学院派设计，品牌图标，性能优化                                                                                                                     |
+| v18 | 2026-10-03 | 修复图标更新问题，ETag 增量同步，同步性能优化                                                                                                                  |
 | v19 | 2026-10-03 | 前端 ES Modules 模块化拆分（单文件拆为 7 个 ES Module + auth IIFE，CSS 独立）；修复 401 提示、未打卡提示框样式、管理员邀请码批量删除按钮、外键约束硬删除 500、邀请码过期判断、旧格式邀请码兼容、重注册删除顺序；SW 升级 v22 |
 
 ## 许可证
