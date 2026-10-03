@@ -33,15 +33,22 @@ jobs:
             set -e
             mkdir -p /tmp/deploy_frontend
             tar xzf /tmp/frontend.tar.gz -C /tmp/deploy_frontend
+            # 创建 css/ 和 js/ 目录
+            mkdir -p /var/www/yystudy/css /var/www/yystudy/js
+            # 复制根目录文件
             cp -f /tmp/deploy_frontend/index.html /var/www/yystudy/
             cp -f /tmp/deploy_frontend/sw.js /var/www/yystudy/
             cp -f /tmp/deploy_frontend/manifest.json /var/www/yystudy/
             cp -f /tmp/deploy_frontend/icon-*.png /var/www/yystudy/ 2>/dev/null || true
             cp -f /tmp/deploy_frontend/apple-touch-icon.png /var/www/yystudy/ 2>/dev/null || true
             cp -f /tmp/deploy_frontend/favicon-64.png /var/www/yystudy/ 2>/dev/null || true
+            # 复制 css/ 和 js/ 目录（框架化重构后新增）
+            cp -rf /tmp/deploy_frontend/css/* /var/www/yystudy/css/ 2>/dev/null || true
+            cp -rf /tmp/deploy_frontend/js/* /var/www/yystudy/js/ 2>/dev/null || true
             cd /var/www/yystudy/
-            for f in index.html sw.js manifest.json; do
-              gzip -c -9 "$f" > "${f}.gz"
+            # gzip 压缩所有静态资源
+            for f in index.html sw.js manifest.json css/style.css js/app.js js/auth.js; do
+              if [ -f "$f" ]; then gzip -c -9 "$f" > "${f}.gz"; fi
             done
             chown -R study:study /var/www/yystudy/
             chmod -R go+rX /var/www/yystudy/

@@ -1662,5 +1662,3 @@
   /* 方案B 学院派：标题衬线（正文与数字保持系统无衬线、tabular-nums） */
   h1,h2{line-height:1.6}
   .welcome h2{line-height:1.4}
-
-@keyframes busySlide{0%{margin-left:-30%}100%{margin-left:100%}}

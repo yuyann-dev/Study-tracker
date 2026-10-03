@@ -12343,3 +12343,5 @@ window.addEventListener('resize', () => {
   // 无痕浏览检测已禁用（云端账号同步保障数据安全）  // setTimeout(checkIncognito, 1500);
   } catch (e) { console.error('boot 启动失败:', e); }
 })();
+
+/* ============ 账号系统 & 云端同步模块（STAuth） ============ */

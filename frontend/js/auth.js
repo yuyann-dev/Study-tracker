@@ -1,4 +1,3 @@
-/* ============ 账号系统 & 云端同步模块（STAuth） ============ */
 var STAuth = (function () {
   var AUTH_TOKEN_KEY = 'st_auth_token';
   var AUTH_USER_KEY = 'st_auth_user';
