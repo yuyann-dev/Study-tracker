@@ -1,8 +1,9 @@
 ﻿/* Study Tracker Service Worker
-   导航请求 network-first：服务器更新后用户立即拿到新版（避免旧缓存卡住）；
+   导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v22：前端 ES Modules 模块化拆分（app+utils+storage+review+render+ui+events 七个模块 + auth classic），缓存全部 JS 文件 */
-var CACHE = 'yystudy-v24';
+   v25：回退非模块化，CORE 仅保留实际存在文件；install 容错避免单文件404导致整体失败；
+         activate 强制清理全部旧缓存 + clients.claim，用户刷新即生效，无需关闭浏览器 */
+var CACHE = 'yystudy-v25';
 var CORE = [
   './',
   './index.html',
@@ -10,38 +11,36 @@ var CORE = [
   './css/style.css',
   './js/app.js',
   './js/auth.js',
-  './js/utils.js',
-  './js/storage.js',
-  './js/review.js',
-  './js/render.js',
-  './js/ui.js',
-  './js/events.js',
   './icon-192.png?v=2',
   './icon-512.png?v=2',
   './apple-touch-icon.png?v=2',
   './favicon-64.png?v=2'
 ];
 
-/* 支持前端 postMessage({type:'SKIP_WAITING'}) 立即激活新版 */
-self.addEventListener('message', function (e) {
-  if (e.data && e.data.type === 'SKIP_WAITING') { self.skipWaiting(); }
-});
-
 self.addEventListener('install', function (e) {
   e.waitUntil(
-    caches.open(CACHE).then(function (c) { return c.addAll(CORE); })
-      .then(function () { return self.skipWaiting(); })
+    caches.open(CACHE).then(function (c) {
+      // 逐个 add，避免单个文件 404 导致整个 install 失败
+      return Promise.all(CORE.map(function (url) {
+        return c.add(url).catch(function (err) {
+          console.warn('[SW] 预缓存失败:', url, err);
+        });
+      }));
+    }).then(function () { return self.skipWaiting(); })
   );
 });
 
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(
-        keys.filter(function (k) { return k !== CACHE; })
-            .map(function (k) { return caches.delete(k); })
-      );
-    }).then(function () { return self.clients.claim(); })
+      // 清理所有旧版本缓存（不限于当前 CACHE 名称）
+      return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+    }).then(function () {
+      // 重新打开当前缓存（上面全删了）
+      return caches.open(CACHE);
+    }).then(function () {
+      return self.clients.claim();
+    })
   );
 });
 
