@@ -310,6 +310,8 @@ var STAuth = (function () {
     disableLoginWall();
     // 新账号注册成功：彻底清除本地旧账号数据，防止串号（未登出直接注册新账号的场景）
     await clearLocalStoreData();
+    // 清除后重新渲染空状态，避免显示旧账号的残留 DOM
+    if (typeof render === 'function') { try { render(); } catch(e) {} }
     startPeriodicSync();
     return data.user;
   }
