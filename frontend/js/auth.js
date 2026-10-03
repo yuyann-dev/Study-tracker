@@ -1,4 +1,4 @@
-var STAuth = (function () {
+﻿var STAuth = (function () {
   var AUTH_TOKEN_KEY = 'st_auth_token';
   var AUTH_USER_KEY = 'st_auth_user';
   var currentUser = null;
