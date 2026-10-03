@@ -126,6 +126,12 @@ var STAuth = (function () {
     }
     var resp = await fetch(path, options);
     if (resp.status === 401) {
+      // 登录/注册接口的 401 是账号或密码错误，不是 token 过期：不清登录态，透传后端错误信息
+      var isAuthEndpoint = path.indexOf('/api/auth/login') !== -1 || path.indexOf('/api/auth/register') !== -1;
+      if (isAuthEndpoint) {
+        var authErr = await resp.json().catch(function(){ return {}; });
+        throw new Error(authErr.error || '邮箱或密码错误');
+      }
       clearToken(); clearStoredUser(); currentUser = null;
       _lastSyncEtag = null; _localDirty = false; syncPending = false;
       // token 失效时也清除本地学习数据，防止切换账号后串号

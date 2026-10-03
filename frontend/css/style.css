@@ -1102,7 +1102,6 @@
   }
   html[data-theme="dark"] #settingsDirtyBar{background:#2c3a4e!important;border-color:#4a5a75!important;color:#e0c070!important}
   html[data-theme="dark"] .pp-chip.ok{background:#2c4450;color:#78baa0}
-  html[data-theme="dark"] #lazyWarning{background:#2c3a4e!important;border-color:#4a5a75!important;color:#e0c070!important}
   html[data-theme="dark"] #pressurePanel{background:#3a5079!important;border-color:var(--border)!important}
   html[data-theme="dark"] #spreadPressureHint{background:#3a5079!important;color:var(--muted)!important}
   html[data-theme="dark"] #comfortAdvice{background:#2c3a4e!important;border-color:#4a5a75!important;color:#e0c070!important}
@@ -1314,7 +1313,6 @@
   html[data-theme="dark"] #pressurePanel{background:#3a5079;border-color:#556c94}
   html[data-theme="dark"] .pressure-bar-label{color:#b6c3d8}
   html[data-theme="dark"] #spreadPressureHint{background:#3a5079}
-  html[data-theme="dark"] #lazyWarning{background:#22314f;border-color:#4a5a75;color:#cdae70}
   html[data-theme="dark"] .mode-tag{background:rgba(131,188,169,.14);color:var(--brand);border-color:rgba(131,188,169,.3)}
   html[data-theme="dark"] .mode-tag.classic{background:#3a5079;color:#b6c3d8;border-color:#556c94}
   html[data-theme="dark"] #totalLockSection{border-top-color:#556c94}
@@ -1468,8 +1466,12 @@
   .adm-ops{display:flex;gap:6px;flex-wrap:wrap}
   .adm-op{padding:4px 9px !important;font-size:11.5px !important;white-space:nowrap;flex:0 0 auto}
   .adm-danger{color:#b02e24 !important;border-color:rgba(201,48,56,.35) !important}
-  .batch-bar{display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(46,107,79,.08);border:1px solid rgba(46,107,79,.2);border-radius:8px;font-size:13px}
+  .batch-bar{display:none;align-items:center;gap:12px;padding:8px 12px;background:rgba(46,107,79,.08);border:1px solid rgba(46,107,79,.2);border-radius:8px;font-size:13px}
   .batch-bar.show{display:flex}
+  /* 摆烂/未打卡提醒：纸感学院派风格，替代原刺眼黄底 */
+  .lazy-warning{display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:10px 14px;border-radius:10px;background:rgba(46,107,79,.07);border:1px solid rgba(46,107,79,.18);font-size:12.5px;color:var(--text);line-height:1.65}
+  .lazy-warning-icon{font-size:15px;line-height:1.5;flex-shrink:0}
+  html[data-theme="dark"] .lazy-warning{background:rgba(131,188,169,.1);border-color:rgba(131,188,169,.25);color:#c8d6e5}
 
 
   /* === 管理员面板扩展（admin-31~56）=== */

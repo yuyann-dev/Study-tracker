@@ -168,6 +168,15 @@ function ensureColumn(db, table, column, def) {
 const db = new Database(config.dbFile);
 runMigrations(db);
 
+// 一次性数据归一化：将 invite_codes.expires_at 从旧的 toISOString() 格式（含 T/Z）
+// 统一为 datetime('now') 兼容的 'YYYY-MM-DD HH:MM:SS' 格式，确保过期判断正确。
+// 幂等：只处理含 'T' 的行，执行一次后不再匹配。
+try {
+  db.prepare("UPDATE invite_codes SET expires_at = datetime(expires_at) WHERE expires_at LIKE '%T%'").run();
+} catch (e) {
+  console.warn('normalize invite_codes.expires_at skipped:', e.message);
+}
+
 module.exports = db;
 module.exports.runMigrations = runMigrations;
 module.exports.ensureColumn = ensureColumn;

@@ -8,7 +8,7 @@
 
 ## 项目简介
 
-Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学生管理刷题、错题整理和背书复习三大核心学习任务。应用采用前后端分离架构，前端为单文件原生 HTML/CSS/JS 实现，后端基于 Node.js Express + SQLite，支持 PWA 离线使用和多设备数据同步。
+Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学生管理刷题、错题整理和背书复习三大核心学习任务。应用采用前后端分离架构，前端为原生 JS ES Modules 模块化架构，无重型框架依赖，轻量高性能；后端基于 Node.js Express + SQLite，支持 PWA 离线使用和多设备数据同步。
 
 我自己是考研人，这个项目最初是为了解决自己刷题、错题整理和背书复习的需求开发的，后来身边朋友也在用，就慢慢完善成了现在的样子。项目已上线生产环境 `https://yystudy.top`。
 
@@ -80,11 +80,11 @@ Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学�
 
 
 
-* 原生 HTML5 / CSS3 / JavaScript（ES6+），无框架依赖
+* 原生 HTML5 / CSS3 / JavaScript（ES6+），ES Modules 模块化架构，无重型框架依赖，轻量高性能
 
 * PWA：Web App Manifest + Service Worker，支持离线缓存和添加到桌面
 
-* 数据存储：localStorage（主数据）+ IndexedDB（大容量缓存）
+* 数据存储：localStorage（主数据）+ IndexedDB（快照备份）+ Cache API（第三备份）
 
 * 响应式设计：手机、平板、PC 全适配，支持深色模式
 
@@ -127,8 +127,19 @@ Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学�
 ```
 study-tracker/
 ├── frontend/                  # 前端文件
-│   ├── index.html            # 主页面（单文件应用，含全部 CSS/JS）
-│   ├── sw.js                 # Service Worker（离线缓存）
+│   ├── index.html            # 主页面（通过 ES Module 加载 js/app.js）
+│   ├── css/
+│   │   └── style.css         # 全局样式（纸感学院派，含深色模式）
+│   ├── js/                   # ES Modules 模块化前端代码
+│   │   ├── app.js            # 入口：导入模块、暴露 window API、boot() 启动
+│   │   ├── utils.js          # 工具函数、常量、主题、错因管理
+│   │   ├── storage.js        # 存储层：localStorage/IndexedDB/Cache 三层、数据安全、预设模板
+│   │   ├── review.js         # 复习算法、排期引擎、三态评价、掌握度
+│   │   ├── render.js         # 主渲染、图表、项目切换
+│   │   ├── ui.js             # 仪表盘、提醒、表单、设置、模板、薄弱点
+│   │   ├── events.js         # 事件绑定、导入导出、反馈动效
+│   │   └── auth.js           # 注册/登录/同步/个人中心/管理员面板（IIFE）
+│   ├── sw.js                 # Service Worker（离线缓存，预缓存全部 JS/CSS）
 │   ├── manifest.json         # PWA 应用清单
 │   ├── icon-192.png          # 应用图标 192x192
 │   ├── icon-512.png          # 应用图标 512x512
@@ -237,9 +248,9 @@ study-tracker/
 
 
 
-1. 将 `frontend/` 目录下所有文件上传到服务器静态目录（如 `/var/www/yystudy/`）
+1. 将 `frontend/` 目录下所有文件（含 `js/`、`css/` 子目录）上传到服务器静态目录（如 `/var/www/yystudy/`）
 
-2. 为 index.html、sw.js、manifest.json 生成 gzip 预压缩文件（gzip -9）
+2. 为 index.html、sw.js、manifest.json 及 `js/*.js`、`css/*.css` 生成 gzip 预压缩文件（gzip -9）
 
 3. 配置 Nginx：静态资源服务 + gzip\_static on + 合理的缓存策略
 
@@ -297,7 +308,7 @@ study-tracker/
 
 项目配置了 GitHub Actions 工作流：
 
-* **CI**（`.github/workflows/ci.yml`）：每次 push/PR 自动运行后端语法检查、单元测试、前端语法检查
+* **CI**（`.github/workflows/ci.yml`）：每次 push/PR 自动运行后端语法检查、单元测试、前端 `js/*.js` 与 sw.js 语法检查、manifest.json 校验
 * **Deploy**（`.github/workflows/deploy.yml`）：push 到 main 分支后自动部署到生产服务器
 
 配置自动部署需要在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加以下 Secrets：
@@ -313,14 +324,24 @@ study-tracker/
 
 ### 前端开发
 
-前端为单文件 `index.html`，所有 CSS 和 JS 都内联在其中。修改时直接编辑该文件即可，无需构建工具。
+前端采用原生 ES Modules 模块化结构，无需构建工具。`index.html` 通过 `<script type="module" src="js/app.js">` 加载入口，auth 模块以 `<script defer src="js/auth.js">` 经典脚本方式引入。修改对应职责的 JS 文件即可：
+
+- `js/app.js` 启动装配与模块导入
+- `js/utils.js` 通用工具与常量
+- `js/storage.js` 三层存储与数据安全
+- `js/review.js` 复习与排期算法
+- `js/render.js` 视图渲染与图表
+- `js/ui.js` 仪表盘、表单、设置等 UI 组件
+- `js/events.js` 事件绑定与导入导出
+- `js/auth.js` 鉴权、同步、个人中心与管理员面板
+- `css/style.css` 全局样式
 
 语法检查：
 
-
-
 ```
-node --check <(sed -n '/<script>/,/<\/script>/p' frontend/index.html | head -n -1 | tail -n +2)
+node --check frontend/js/app.js
+node --check frontend/js/utils.js
+# 其余 js/ 下文件同理；sw.js 单独检查
 ```
 
 ### 后端开发
@@ -380,6 +401,7 @@ npm test
 | v15 | 2026-10-01 | 稳定版本：服务端合并算法，管理员面板，安全加固           |
 | v17 | 2026-10-02 | 视觉定稿：纸感学院派设计，品牌图标，性能优化            |
 | v18 | 2026-10-03 | 修复图标更新问题，ETag 增量同步，同步性能优化         |
+| v19 | 2026-10-03 | 前端 ES Modules 模块化拆分（单文件拆为 7 个 ES Module + auth IIFE，CSS 独立）；修复 401 提示、未打卡提示框样式、管理员邀请码批量删除按钮、外键约束硬删除 500、邀请码过期判断、旧格式邀请码兼容、重注册删除顺序；SW 升级 v22 |
 
 ## 许可证
 

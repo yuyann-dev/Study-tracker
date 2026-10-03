@@ -391,7 +391,8 @@ if ('serviceWorker' in navigator) {
         <summary style="font-size:12px;color:var(--muted);cursor:pointer;opacity:.8;user-select:none;list-style:revert">怎么算的？</summary>
         <div class="status-desc" id="statusAlgoNote" style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.7;opacity:.9"></div>
       </details>
-      <div id="lazyWarning" hidden style="margin-top:10px;padding:10px 12px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a;font-size:12.5px;color:#92400e;line-height:1.6">
+      <div id="lazyWarning" class="lazy-warning" hidden>
+        <span class="lazy-warning-icon">💤</span>
         <span id="lazyWarningText"></span>
       </div>
     </div>
@@ -1296,7 +1297,7 @@ if ('serviceWorker' in navigator) {
         <div class="invite-code-display" id="newInviteCode">—</div>
       </div>
       <div class="table-wrap" style="margin-top:12px">
-        <div id="inviteBatchBar" class="batch-bar" style="display:none;margin-bottom:8px">
+        <div id="inviteBatchBar" class="batch-bar" style="margin-bottom:8px">
           <span id="inviteBatchCount">已选 0 个</span>
           <button class="ghost-btn adm-op adm-danger" onclick="STAuth._batchDeleteInvites()">批量清理</button>
         </div>
@@ -1788,8 +1789,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/app.js"></script>
-<script src="js/auth.js"></script>
+<script type="module" src="js/app.js"></script>
+<script defer src="js/auth.js"></script>
 <script>
 
 if (document.readyState === 'loading') {

@@ -1,8 +1,8 @@
 /* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版（避免旧缓存卡住）；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v21：前端框架化重构（CSS/JS 分离），缓存新增 css/style.css、js/app.js、js/auth.js */
-var CACHE = 'yystudy-v21';
+   v22：前端 ES Modules 模块化拆分（app+utils+storage+review+render+ui+events 七个模块 + auth classic），缓存全部 JS 文件 */
+var CACHE = 'yystudy-v22';
 var CORE = [
   './',
   './index.html',
@@ -10,6 +10,12 @@ var CORE = [
   './css/style.css',
   './js/app.js',
   './js/auth.js',
+  './js/utils.js',
+  './js/storage.js',
+  './js/review.js',
+  './js/render.js',
+  './js/ui.js',
+  './js/events.js',
   './icon-192.png?v=2',
   './icon-512.png?v=2',
   './apple-touch-icon.png?v=2',
