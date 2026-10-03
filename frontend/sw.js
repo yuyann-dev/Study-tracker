@@ -1,18 +1,19 @@
 /* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版（避免旧缓存卡住）；
-   静态资源 cache-first：图标/清单等离线可用。
-   v20：图标 cache-busting（?v=2），修复安卓 PWA 启动器图标不更新问题 */
-var CACHE = 'yystudy-v20';
+   静态资源 cache-first：图标/清单/CSS/JS 离线可用。
+   v21：前端框架化重构（CSS/JS 分离），缓存新增 css/style.css、js/app.js、js/auth.js */
+var CACHE = 'yystudy-v21';
 var CORE = [
   './',
   './index.html',
   './manifest.json',
+  './css/style.css',
+  './js/app.js',
+  './js/auth.js',
   './icon-192.png?v=2',
   './icon-512.png?v=2',
   './apple-touch-icon.png?v=2',
-  './favicon-64.png?v=2',
-  './paper-warm.jpg',
-  './paper-dark.jpg'
+  './favicon-64.png?v=2'
 ];
 
 /* 支持前端 postMessage({type:'SKIP_WAITING'}) 立即激活新版 */
