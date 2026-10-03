@@ -496,7 +496,7 @@ router.delete('/users/:id', (req, res) => {
     const exported = exportUserStore(targetId);
     const tx = db.transaction(() => {
       db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(targetId);
-      db.prepare('UPDATE invite_codes SET used_by = NULL WHERE used_by = ?').run(targetId);
+      // 不清除 used_by：邀请码已被使用，保持已使用状态
       db.prepare(
         `UPDATE users SET deleted_at = datetime('now'), status='disabled', delete_reason='admin',
                 token_version = token_version + 1, updated_at=datetime('now') WHERE id=?`
@@ -547,7 +547,7 @@ router.delete('/users/:id/permanent', (req, res) => {
 
     const tx = db.transaction(() => {
       db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(targetId);
-      db.prepare('UPDATE invite_codes SET used_by = NULL WHERE used_by = ?').run(targetId);
+      // 不清除 used_by：邀请码已被使用，保持已使用状态
       db.prepare('DELETE FROM users WHERE id = ?').run(targetId); // user_data 外键级联删除
     });
     tx();
