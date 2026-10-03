@@ -3,7 +3,8 @@ node_modules/
 
 # 环境变量（含密钥，绝不提交）
 .env
-.env.*
+.env.local
+!.env.example
 
 # 数据库
 backend/data/
@@ -42,3 +43,14 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+
+# 根目录的构建/部署临时脚本（不排除子目录里的正式脚本）
+/*.py
+/*.sh
+/deploy/deploy*.sh
+/deploy/package*.sh
+/deploy/*.txt
+
+# 维护文档（含服务器敏感信息，不公开）
+*Prompt*.md
+*维护*.md

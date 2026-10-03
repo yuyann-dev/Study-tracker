@@ -159,9 +159,13 @@ study-tracker/
 │   ├── logs/                 # 日志文件（不提交到 git）
 │   └── uploads/              # 用户上传（头像等）
 ├── deploy/                    # 部署配置
-│   └── yystudy-https.conf    # Nginx 生产配置
-├── docs/                      # 项目文档
+│   ├── yystudy-https.conf    # Nginx 生产配置（HTTPS、反代、缓存）
+│   ├── nginx-api.conf         # Nginx API 反代配置（参考）
+│   ├── enable-https.sh        # Let's Encrypt 证书配置脚本
+│   └── study-tracker.service  # systemd 服务单元（参考）
+├── .env.example               # 环境变量示例（复制为 .env 后填入实际值）
 ├── .gitignore                # Git 忽略规则
+├── LICENSE                   # 开源协议
 └── README.md                 # 本文件
 ```
 
