@@ -935,6 +935,12 @@
     initPwToggles();
     var storedUser = getStoredUser();
     var tok = getToken();
+    // 校验本地缓存用户信息完整性：缺少 id 或 email 视为损坏（大版本回退/缓存异常可能导致），
+    // 清除登录态强制重新登录，避免显示"用户/you@example.com"等占位异常。学习数据不受影响。
+    if (storedUser && (!storedUser.id || !storedUser.email)) {
+      console.warn('[initAuth] 本地用户信息字段不完整，清除登录态');
+      clearToken(); clearStoredUser(); storedUser = null;
+    }
     if (tok && storedUser) {
       // 立即：仅用本地缓存恢复会话并刷新头部（同步、快），首屏头部马上显示用户
       currentUser = storedUser;
