@@ -5,6 +5,16 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 <script>
+/* 核选项：立即注销所有旧 Service Worker，防止旧SW安装失败/旧缓存死死控制页面导致更新不生效。
+   注销后页面不再被SW控制，浏览器直接从服务器拉取最新文件；后续正常加载时会重新注册最新版SW。 */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    if (regs.length > 0) {
+      regs.forEach(function(reg) { reg.unregister(); });
+      window.location.reload();
+    }
+  }).catch(function(){});
+}
 /* 页面最早期阻止浏览器默认 PWA 安装气泡，改用自定义引导（只弹一次） */
 window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._deferredInstallEarly = e; });
 if ('serviceWorker' in navigator) {
