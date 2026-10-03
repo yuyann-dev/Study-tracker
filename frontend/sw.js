@@ -1,8 +1,9 @@
 ﻿/* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v26：API 响应绝不缓存（防登出后隐私残留）；导航响应仅缓存 200（防 500 页入缓存）
-var CACHE = 'yystudy-v26';
+   v27：API 响应绝不缓存（防登出后隐私残留）；导航响应仅缓存 200（防 500 页入缓存）；
+        恢复纸纹背景图预缓存；修复 v26 注释未闭合导致 SW 脚本语法错误、安装失败 */
+var CACHE = 'yystudy-v27';
 var CORE = [
   './',
   './index.html',
@@ -13,7 +14,9 @@ var CORE = [
   './icon-192.png?v=2',
   './icon-512.png?v=2',
   './apple-touch-icon.png?v=2',
-  './favicon-64.png?v=2'
+  './favicon-64.png?v=2',
+  './paper-warm.jpg',
+  './paper-dark.jpg'
 ];
 
 self.addEventListener('install', function (e) {

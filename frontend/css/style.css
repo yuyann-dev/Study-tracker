@@ -29,8 +29,8 @@
     padding-right:calc(16px + env(safe-area-inset-right));
   }
   body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-    background-image:url("paper-warm.jpg");background-repeat:repeat;background-size:760px 760px}
-  html[data-theme="dark"] body::before{background-image:url("paper-dark.jpg");background-repeat:repeat;background-size:760px 760px}
+    background-image:url("/paper-warm.jpg");background-repeat:repeat;background-size:760px 760px}
+  html[data-theme="dark"] body::before{background-image:url("/paper-dark.jpg");background-repeat:repeat;background-size:760px 760px}
   .wrap{max-width:880px;margin:0 auto;position:relative}
 
   .head{display:flex;flex-direction:column;align-items:stretch;gap:13px;margin-bottom:18px;padding:0 4px}
