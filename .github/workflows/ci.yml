@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-check:
+    name: Backend Syntax & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Syntax check all JS files
+        working-directory: backend
+        run: |
+          find . -name "*.js" -not -path "./node_modules/*" | while read f; do
+            node --check "$f" || exit 1
+          done
+          echo "All JS files passed syntax check"
+
+      - name: Run unit tests
+        working-directory: backend
+        run: npm test
+
+  frontend-check:
+    name: Frontend Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check sw.js syntax
+        run: node --check frontend/sw.js
+
+      - name: Extract and check inline JS from index.html
+        run: |
+          # 提取 <script> 标签内容（排除 src 引用的外部脚本）
+          python3 -c "
+          import re, sys
+          with open('frontend/index.html', 'r', encoding='utf-8') as f:
+              html = f.read()
+          # 匹配没有 src 的 inline script
+          scripts = re.findall(r'<script(?![^>]*src=)[^>]*>(.*?)</script>', html, re.DOTALL)
+          for i, s in enumerate(scripts):
+              with open(f'/tmp/inline_{i}.js', 'w', encoding='utf-8') as out:
+                  out.write(s)
+          print(f'Extracted {len(scripts)} inline scripts')
+          "
+          # 检查每个 inline script 的语法
+          for f in /tmp/inline_*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "All inline scripts passed syntax check"
+
+      - name: Validate manifest.json
+        run: |
+          python3 -c "import json; json.load(open('frontend/manifest.json')); print('manifest.json is valid JSON')"
