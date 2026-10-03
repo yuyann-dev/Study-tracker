@@ -9,6 +9,9 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      # 容器模式必须监听 0.0.0.0，否则 Nginx 容器无法通过容器网络访问
+      # （生产环境非容器部署时 config.js 默认 127.0.0.1，由 Nginx 同机反代）
+      - HOST=0.0.0.0
       - PORT=3001
       - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
       - SMTP_HOST=${SMTP_HOST:-smtp.qq.com}
@@ -22,8 +25,10 @@ services:
       - backend-data:/app/data
       - backend-logs:/app/logs
       - backend-uploads:/app/uploads
-    ports:
-      - "3001:3001"
+    # 后端端口不暴露到宿主机（仅 Nginx 容器通过内部网络访问）；
+    # 如需调试可临时取消注释：ports: - "3001:3001"
+    expose:
+      - "3001"
     networks:
       - study-tracker-net
 
@@ -33,7 +38,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
-      - ./deploy/nginx-api.conf:/etc/nginx/conf.d/default.conf:ro
+      # 使用 Docker 专用 Nginx 配置（proxy_pass 指向 backend:3001 服务名）
+      - ./deploy/nginx-docker.conf:/etc/nginx/conf.d/default.conf:ro
+      # 共享 uploads volume，Nginx 直接提供头像静态文件
+      - backend-uploads:/app/uploads:ro
     ports:
       - "8080:80"
     depends_on:

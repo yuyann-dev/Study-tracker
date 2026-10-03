@@ -31,8 +31,9 @@ require('dotenv').config({ path: DOTENV_PATH });
 
 /** 主配置对象 */
 const config = {
-  /** 服务监听地址，只绑回环，由 Nginx 反代 */
-  host: '127.0.0.1',
+  /** 服务监听地址。生产环境（Nginx 反代）默认只绑回环 127.0.0.1；
+   *  容器部署时通过环境变量 HOST=0.0.0.0 覆盖，使 Nginx 容器可通过容器网络访问。 */
+  host: process.env.HOST || '127.0.0.1',
   port: parseInt(process.env.PORT || '3001', 10),
 
   /** JWT 签名 */

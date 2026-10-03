@@ -454,8 +454,8 @@ router.put('/users/:id/admin', requireSuperAdmin, (req, res) => {
     if (!makeAdmin) {
       const rePassword = req.body && req.body.password ? String(req.body.password) : '';
       if (!rePassword) return fail(res, '请重新输入登录密码以确认', 400);
-      const meRow = db.prepare('SELECT password FROM users WHERE id = ?').get(req.user.id);
-      if (!meRow || !require('bcryptjs').compareSync(rePassword, meRow.password)) {
+      const meRow = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+      if (!meRow || !require('bcryptjs').compareSync(rePassword, meRow.password_hash)) {
         return fail(res, '登录密码不正确，操作已取消', 403);
       }
     }
@@ -539,8 +539,8 @@ router.delete('/users/:id/permanent', (req, res) => {
     // 不可逆操作：要求重新输入当前管理员自己的登录密码（admin-55），防止会话被冒用误删
     const rePassword = req.body && req.body.password ? String(req.body.password) : '';
     if (!rePassword) return fail(res, '请重新输入登录密码以确认永久删除', 400);
-    const me = db.prepare('SELECT password FROM users WHERE id = ?').get(req.user.id);
-    if (!me || !require('bcryptjs').compareSync(rePassword, me.password)) {
+    const me = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+    if (!me || !require('bcryptjs').compareSync(rePassword, me.password_hash)) {
       return fail(res, '登录密码不正确，操作已取消', 403);
     }
 
