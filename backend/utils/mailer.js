@@ -78,6 +78,9 @@ async function sendVerificationCode(toEmail, code, purpose = 'register') {
   } else if (purpose === 'changeemail') {
     title = 'Study Tracker 更换邮箱验证码';
     desc = '我们收到了更换绑定邮箱的请求，请使用以下验证码确认新邮箱：';
+  } else if (purpose === 'delete') {
+    title = 'Study Tracker 注销账号验证码';
+    desc = '我们收到了注销账号的请求。注销后所有云端数据将被永久删除且不可恢复，请使用以下验证码确认操作：';
   } else {
     title = 'Study Tracker 重置密码验证码';
     desc = '我们收到了重置密码的请求，请使用以下验证码重置密码：';

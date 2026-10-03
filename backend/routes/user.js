@@ -199,12 +199,12 @@ router.post('/avatar', (req, res) => {
 });
 
 // DELETE /api/user —— 自助注销账号（合规：个保法第47条，用户有权删除个人信息）
-// 前置：先 POST /api/auth/send-code { email: 当前邮箱, type:'reset } 拿验证码，再带 { code } 调用。
+// 前置：先 POST /api/auth/send-code { email: 当前邮箱, type:'delete' } 拿验证码，再带 { code } 调用。
 router.delete('/', (req, res) => {
   try {
     const { code } = req.body || {};
-    // 二次确认：必须凭邮箱验证码
-    const v = verifyCode(String(req.user.email).trim().toLowerCase(), 'reset', code);
+    // 二次确认：必须凭邮箱验证码（delete 类型，与重置密码验证码隔离）
+    const v = verifyCode(String(req.user.email).trim().toLowerCase(), 'delete', code);
     if (!v.valid) return fail(res, v.reason || '验证码错误或已过期');
 
     const userId = req.user.id;
@@ -221,7 +221,7 @@ router.delete('/', (req, res) => {
       db.prepare("UPDATE invite_codes SET used_by = NULL WHERE used_by = ?").run(userId);
       db.prepare(
         `UPDATE users SET deleted_at = datetime('now'), token_version = token_version + 1,
-                status = 'disabled', updated_at = datetime('now') WHERE id = ?`
+                status = 'disabled', delete_reason = 'self', updated_at = datetime('now') WHERE id = ?`
       ).run(userId);
     });
     tx();

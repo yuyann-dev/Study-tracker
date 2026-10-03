@@ -300,7 +300,7 @@ router.get('/users', (req, res) => {
     const total = db.prepare(`SELECT COUNT(*) AS c FROM users u ${whereSql}`).get(...params).c;
     const rows = db.prepare(
       `SELECT u.id, u.username, u.email, u.is_admin, u.status, u.ban_reason, u.ban_until,
-              u.last_login_ip, u.last_login_at, u.created_at, u.deleted_at,
+              u.last_login_ip, u.last_login_at, u.created_at, u.deleted_at, u.delete_reason,
               d.project_count, d.updated_at AS last_sync, LENGTH(d.store_json) AS bytes
        FROM users u LEFT JOIN user_data d ON d.user_id = u.id
        ${whereSql} ORDER BY u.id ASC LIMIT ? OFFSET ?`
@@ -316,6 +316,7 @@ router.get('/users', (req, res) => {
       banReason: r.ban_reason,
       banUntil: r.ban_until,
       deletedAt: r.deleted_at,
+      deleteReason: r.delete_reason,
       projectCount: r.project_count || 0,
       lastSyncAt: r.last_sync || null,
       lastLoginAt: r.last_login_at || null,
@@ -497,7 +498,7 @@ router.delete('/users/:id', (req, res) => {
       db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(targetId);
       db.prepare('UPDATE invite_codes SET used_by = NULL WHERE used_by = ?').run(targetId);
       db.prepare(
-        `UPDATE users SET deleted_at = datetime('now'), status='disabled',
+        `UPDATE users SET deleted_at = datetime('now'), status='disabled', delete_reason='admin',
                 token_version = token_version + 1, updated_at=datetime('now') WHERE id=?`
       ).run(targetId);
     });
@@ -517,7 +518,7 @@ router.post('/users/:id/restore', (req, res) => {
     const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
     if (!target) return fail(res, '用户不存在', 404);
     if (target.deleted_at == null) return fail(res, '该用户未被删除');
-    db.prepare("UPDATE users SET deleted_at = NULL, status='active', updated_at=datetime('now') WHERE id=?")
+    db.prepare("UPDATE users SET deleted_at = NULL, status='active', delete_reason=NULL, updated_at=datetime('now') WHERE id=?")
       .run(targetId);
     writeAudit(req.user.id, 'restore_user', 'user', targetId, {}, req);
     return ok(res, { id: targetId, restored: true });
@@ -635,6 +636,42 @@ router.delete('/invite/:code', (req, res) => {
     return ok(res, { code, revoked: true });
   } catch (e) {
     console.error('admin/invite DELETE:', e.message);
+    return fail(res, '服务器内部错误', 500);
+  }
+});
+
+// POST /api/admin/invite/batch-delete  body: { codes: [...] }
+// 批量物理删除已用/已作废/已过期的邀请码（未使用且未作废的码不允许删，防止误删可用码）
+router.post('/invite/batch-delete', (req, res) => {
+  try {
+    const { codes } = req.body || {};
+    if (!Array.isArray(codes) || codes.length === 0) return fail(res, 'codes 必须是非空数组');
+    if (codes.length > 500) return fail(res, '单次最多删除 500 个');
+
+    // 只允许删除已用、已作废或已过期的码；未使用且未作废的码跳过（保护可用码）
+    const placeholders = codes.map(() => '?').join(',');
+    const rows = db.prepare(
+      `SELECT code, used_at, revoked_at, expires_at FROM invite_codes
+       WHERE code IN (${placeholders})`
+    ).all(...codes);
+
+    let deleted = 0;
+    const now = new Date().toISOString();
+    const tx = db.transaction(() => {
+      rows.forEach((r) => {
+        const expired = r.expires_at && new Date(r.expires_at) < new Date(now);
+        if (r.used_at || r.revoked_at || expired) {
+          const result = db.prepare('DELETE FROM invite_codes WHERE code = ?').run(r.code);
+          deleted += result.changes;
+        }
+      });
+    });
+    tx();
+
+    writeAudit(req.user.id, 'batch_delete_invite', 'invite', null, { deleted, total: codes.length }, req);
+    return ok(res, { deleted, skipped: codes.length - rows.length });
+  } catch (e) {
+    console.error('admin/invite/batch-delete:', e.message);
     return fail(res, '服务器内部错误', 500);
   }
 });
