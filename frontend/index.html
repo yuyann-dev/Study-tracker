@@ -16154,6 +16154,20 @@ var STAuth = (function () {
     } catch (e) {}
   }
   async function doLogout() {
+    // 登出前：如果有未同步的本地变更，先推送到云端，防止数据丢失（最多等 3 秒）
+    if (_localDirty && isLoggedIn()) {
+      try {
+        isSyncing = true;
+        await Promise.race([
+          pushToCloudInner(),
+          new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('timeout')); }, 3000); })
+        ]);
+        isSyncing = false;
+      } catch(e) {
+        isSyncing = false;
+        console.warn('logout: push local changes failed', e && e.message);
+      }
+    }
     try { await apiRequest('/api/auth/logout', { method: 'POST' }); } catch(e) {}
     stopPeriodicSync();
     clearToken(); clearStoredUser(); currentUser = null;

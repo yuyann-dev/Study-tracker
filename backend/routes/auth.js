@@ -101,8 +101,8 @@ router.post('/send-code', async (req, res) => {
       .get(emailNorm);
 
     if (purpose === 'register') {
-      // 注册：邮箱不能已注册（含已软删除的邮箱——视为已注册，走找回流程）
-      if (existingUser) return fail(res, '该邮箱已注册，请直接登录');
+      // 注册：邮箱不能是正常注册用户；已注销（软删除）的邮箱允许重新注册
+      if (existingUser && existingUser.deleted_at == null) return fail(res, '该邮箱已注册，请直接登录');
 
       // 非首个用户需要验证邀请码
       if (!isFirstUser()) {
@@ -166,9 +166,14 @@ router.post('/register', (req, res) => {
       return fail(res, '密码必须同时包含字母和数字');
     }
 
-    // 邮箱不能已注册（含软删除邮箱）
-    if (db.prepare('SELECT id FROM users WHERE email = ?').get(emailNorm)) {
-      return fail(res, '该邮箱已注册，请直接登录');
+    // 邮箱检查：正常用户不可重复注册；已注销（软删除）的邮箱允许重新注册——先物理删除旧账号数据
+    const existing = db.prepare('SELECT id, deleted_at FROM users WHERE email = ?').get(emailNorm);
+    if (existing) {
+      if (existing.deleted_at == null) {
+        return fail(res, '该邮箱已注册，请直接登录');
+      }
+      // 已注销用户重新注册：物理删除旧账号（user_data 外键级联删除），invite_codes.used_by 保留（邀请码保持已使用状态）
+      db.prepare('DELETE FROM users WHERE id = ?').run(existing.id);
     }
 
     // 验证验证码

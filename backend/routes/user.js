@@ -215,10 +215,10 @@ router.delete('/', (req, res) => {
     // 删除前把云端数据导出留存（误删可恢复）
     const exported = exportUserStore(userId);
 
-    // 软删除 + 强制所有已签发 token 失效 + 解除邀请码引用
+    // 软删除 + 强制所有已签发 token 失效
+    // 注意：不清除 invite_codes.used_by——邀请码已被使用，保持已使用状态，不可被重复使用
     const tx = db.transaction(() => {
       db.prepare("UPDATE invite_codes SET created_by = NULL WHERE created_by = ?").run(userId);
-      db.prepare("UPDATE invite_codes SET used_by = NULL WHERE used_by = ?").run(userId);
       db.prepare(
         `UPDATE users SET deleted_at = datetime('now'), token_version = token_version + 1,
                 status = 'disabled', delete_reason = 'self', updated_at = datetime('now') WHERE id = ?`
