@@ -1,0 +1,31 @@
+# ---- dependencies ----
+node_modules/
+backend/node_modules/
+
+# ---- secrets ----
+.env
+backend/.env
+*.local
+
+# ---- databases & user uploads (data lives on the server only) ----
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+backend/data/
+backend/uploads/
+
+# ---- build output ----
+dist/
+
+# ---- python ----
+__pycache__/
+*.pyc
+
+# ---- backups / archives ----
+*.zip
+*.tar.gz
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db

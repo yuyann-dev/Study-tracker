@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "Study Tracker",
+  "short_name": "Study Tracker",
+  "description": "刷题、错题、背书的智能学习规划工具，帮你按目标稳步完成。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f5f6fb",
+  "theme_color": "#5b6ef5",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "favicon-64.png", "sizes": "64x64", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
