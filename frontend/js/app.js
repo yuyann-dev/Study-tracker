@@ -1,4 +1,4 @@
-﻿/* ============ 工具 ============ */
+/* ============ 工具 ============ */
 const $ = s => document.querySelector(s);
 const pad2 = n => String(n).padStart(2, '0');
 const fmtDate = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -12312,7 +12312,7 @@ window.addEventListener('resize', () => {
   try {
   // 版本强制下线机制：大版本更新时清除登录态（仅 token/user，学习数据完整保留）
   // 每次需要强制全员重新登录时，修改下方 APP_VERSION 的值即可
-  const APP_VERSION = '20261003b';
+  const APP_VERSION = '20261003c';
   const VER_KEY = 'st_app_version';
   try {
     const lastVer = localStorage.getItem(VER_KEY);
