@@ -1539,6 +1539,8 @@ if ('serviceWorker' in navigator) {
   .adm-ops{display:flex;gap:6px;flex-wrap:wrap}
   .adm-op{padding:4px 9px !important;font-size:11.5px !important;white-space:nowrap;flex:0 0 auto}
   .adm-danger{color:#b02e24 !important;border-color:rgba(201,48,56,.35) !important}
+  .batch-bar{display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(46,107,79,.08);border:1px solid rgba(46,107,79,.2);border-radius:8px;font-size:13px}
+  .batch-bar.show{display:flex}
 
 
   /* === 管理员面板扩展（admin-31~56）=== */
@@ -2959,8 +2961,12 @@ if ('serviceWorker' in navigator) {
         <div class="invite-code-display" id="newInviteCode">—</div>
       </div>
       <div class="table-wrap" style="margin-top:12px">
+        <div id="inviteBatchBar" class="batch-bar" style="display:none;margin-bottom:8px">
+          <span id="inviteBatchCount">已选 0 个</span>
+          <button class="ghost-btn adm-op adm-danger" onclick="STAuth._batchDeleteInvites()">批量清理</button>
+        </div>
         <table class="admin-table">
-          <thead><tr><th>邀请码</th><th>备注</th><th>渠道</th><th>使用者</th><th>使用时间</th><th>过期时间</th><th>状态</th><th>操作</th></tr></thead>
+          <thead><tr><th style="width:36px"><input type="checkbox" id="inviteCheckAll"></th><th>邀请码</th><th>备注</th><th>渠道</th><th>使用者</th><th>使用时间</th><th>过期时间</th><th>状态</th><th>操作</th></tr></thead>
           <tbody id="adminInvitesBody"></tbody>
         </table>
       </div>
@@ -15925,6 +15931,8 @@ var STAuth = (function () {
     if (resp.status === 401) {
       clearToken(); clearStoredUser(); currentUser = null;
       _lastSyncEtag = null; _localDirty = false; syncPending = false;
+      // token 失效时也清除本地学习数据，防止切换账号后串号
+      try { await clearLocalStoreData(); } catch(e) {}
       updateHeaderUI(); updateSyncStatus('logout');
       throw new Error('未登录或登录已过期');
     }
@@ -16103,6 +16111,8 @@ var STAuth = (function () {
     currentUser = data.user;
     setStoredUser(data.user);
     disableLoginWall();
+    // 新账号注册成功：彻底清除本地旧账号数据，防止串号（未登出直接注册新账号的场景）
+    await clearLocalStoreData();
     startPeriodicSync();
     return data.user;
   }
@@ -16117,6 +16127,32 @@ var STAuth = (function () {
     startPeriodicSync();
     return data.user;
   }
+  /* 登出/切换账号时彻底清除本地学习数据（localStorage + IndexedDB + Cache 三层），
+     防止新账号登录后把老账号数据同步到云端（数据串号） */
+  async function clearLocalStoreData() {
+    // 1. 立即重置内存 store，防止后续操作读到旧数据
+    try {
+      store = { currentId: null, projects: {}, unitTemplates: [], paperTemplates: [], tombstones: {} };
+      _lastSaveSig = '';
+    } catch (e) {}
+    // 2. 清除 localStorage 主存储
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    // 3. 清除 IndexedDB 快照备份
+    try {
+      if (typeof indexedDB !== 'undefined') {
+        await new Promise(function(res) {
+          var req = indexedDB.deleteDatabase('study_tracker_safe');
+          req.onsuccess = req.onerror = req.onblocked = function() { res(); };
+        });
+      }
+    } catch (e) {}
+    // 4. 清除 Cache API 备份
+    try {
+      if ('caches' in window) {
+        await caches.delete('study-tracker-data-v1');
+      }
+    } catch (e) {}
+  }
   async function doLogout() {
     try { await apiRequest('/api/auth/logout', { method: 'POST' }); } catch(e) {}
     stopPeriodicSync();
@@ -16125,6 +16161,7 @@ var STAuth = (function () {
     _lastSyncEtag = null;  // 清除 ETag，切换账号后重新全量拉取
     _localDirty = false;
     syncPending = false;
+    await clearLocalStoreData();  // 彻底清除本地学习数据，防止串号
     updateHeaderUI();
     updateSyncStatus('logout');
     closeProfile();
@@ -16790,7 +16827,7 @@ var STAuth = (function () {
     days: 14,
     usersPage: 1, usersPageSize: 20, usersQ: '', usersStatus: '', usersIsAdmin: '',
     usersSort: 'id', usersSortDir: 'asc', selected: {}, total: 0, page: 1,
-    auditPage: 1
+    auditPage: 1, selectedInvites: {}
   };
   var _confirmCb = null, _confirmExpectName = null;
 
@@ -16922,7 +16959,8 @@ var STAuth = (function () {
         var name = esc(u.username || '');
         var nameJs = esc(JSON.stringify(u.username || ''));
         var adminBadge = u.isSuperAdmin ? '<span class="badge-admin">超级管理员</span>' : (u.isAdmin ? '<span class="badge-admin">管理员</span>' : '');
-        var st = u.deletedAt ? '<span class="badge-deleted">回收站</span>'
+        var st = u.deletedAt 
+               ? (u.deleteReason === 'self' ? '<span class="badge-deleted">已注销</span>' : '<span class="badge-deleted">回收站</span>')
                : (u.status === 'disabled' ? '<span class="badge-disabled">已禁用</span>' : '<span class="badge-active">正常</span>');
         var checked = adminState.selected[u.id] ? ' checked' : '';
         var ops = '<button class="ghost-btn adm-op" onclick="STAuth._userDetail(' + u.id + ')">详情</button>';
@@ -16982,11 +17020,11 @@ var STAuth = (function () {
       var codes = (d.inviteCodes || []).map(function(c){
         var st = c.used_at ? '已用' : (c.revoked_at ? '作废' : '未用');
         return '<div class="login-row"><span class="lr-ip">' + esc(c.code || '') + '</span> · ' + st +
-          '<div class="lr-meta">' + esc(c.note || c.channel || '') + (c.used_at ? ' · ' + fmtDateTime(c.used_at) : '') + '</div></div>';
+          '<div class="lr-meta">' + (c.note ? '备注：' + esc(c.note) : '') + (c.note && c.channel ? ' · ' : '') + (c.channel ? '渠道：' + esc(c.channel) : '') + (!c.note && !c.channel ? '—' : '') + (c.used_at ? ' · ' + fmtDateTime(c.used_at) : '') + '</div></div>';
       }).join('') || '<div style="color:var(--muted);font-size:12.5px">无关联邀请码</div>';
       document.getElementById('udBody').innerHTML =
         '<div class="drow"><span>邮箱</span><b>' + esc(u.email || '—') + '</b></div>'
-        + '<div class="drow"><span>状态</span><b>' + esc(u.status || '—') + (u.deletedAt ? '（回收站）' : '') + '</b></div>'
+        + '<div class="drow"><span>状态</span><b>' + (u.deletedAt ? (u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）') : esc(u.status || '—')) + '</b></div>'
         + (u.banReason ? '<div class="drow"><span>封禁原因</span><b>' + esc(u.banReason) + '</b></div>' : '')
         + (u.banUntil ? '<div class="drow"><span>封禁至</span><b>' + fmtDateTime(u.banUntil) + '</b></div>' : '')
         + '<div class="drow"><span>数据量</span><b>' + (dt.sizeBytes != null ? Math.round(dt.sizeBytes/1024*100)/100 + ' KB' : '—') + '</b></div>'
@@ -17097,11 +17135,26 @@ var STAuth = (function () {
   /* ---- 邀请码 admin-42/44 ---- */
   async function loadInviteList(){
     var tb = document.getElementById('adminInvitesBody'); if (!tb) return;
-    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted)">加载中…</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted)">加载中…</td></tr>';
     try {
       var d = await apiRequest('/api/admin/invite/list', {method:'GET'});
       var codes = d.codes || [];
-      if (!codes.length){ tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted)">暂无邀请码</td></tr>'; return; }
+      if (!codes.length){ tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted)">暂无邀请码</td></tr>'; updateInviteBatchBar(); return; }
+      // 排序：未用 > 已作废/已过期 > 已用（未用邀请码排在最上面，方便管理）
+      codes.sort(function(a, b){
+        function rank(c){
+          var exp = c.expiresAt && parseServerTime(c.expiresAt) < new Date();
+          if (c.usedAt) return 2;
+          if (c.revokedAt || exp) return 1;
+          return 0;
+        }
+        var ra = rank(a), rb = rank(b);
+        if (ra !== rb) return ra - rb;
+        // 同状态按创建时间倒序（新的在前）
+        var ta = a.createdAt ? parseServerTime(a.createdAt).getTime() : 0;
+        var tb2 = b.createdAt ? parseServerTime(b.createdAt).getTime() : 0;
+        return tb2 - ta;
+      });
       tb.innerHTML = codes.map(function(c){
         var expDate = parseServerTime(c.expiresAt);
         var expired = !c.usedAt && !c.revokedAt && expDate && expDate < new Date();
@@ -17110,15 +17163,56 @@ var STAuth = (function () {
                : (expired ? '<span class="badge-disabled">已过期</span>' : '<span class="badge-unused">未用</span>'));
         var user = c.usedAt ? esc(c.usedByName || '—') : '—';
         var exp = c.expiresAt ? fmtDateTime(c.expiresAt) : '永久';
+        var canBatchDel = !!(c.usedAt || c.revokedAt || expired);
+        var checked = adminState.selectedInvites[c.code] ? ' checked' : '';
+        var checkbox = canBatchDel
+          ? '<input type="checkbox" class="ad-table-check invite-check" data-code="' + esc(c.code) + '"' + checked + '>'
+          : '';
         var delBtn = (c.usedAt || c.revokedAt)
           ? '<button class="ghost-btn adm-op" disabled style="opacity:.4;cursor:not-allowed">作废</button>'
           : '<button class="ghost-btn adm-op adm-danger" onclick="STAuth._deleteCode(\'' + c.code + '\')">作废</button>';
-        return '<tr><td style="font-family:monospace;font-weight:600">' + esc(c.code) + '</td>'
+        return '<tr><td>' + checkbox + '</td>'
+          + '<td style="font-family:monospace;font-weight:600">' + esc(c.code) + '</td>'
           + '<td>' + esc(c.note || '—') + '</td><td>' + esc(c.channel || '—') + '</td>'
           + '<td>' + user + '</td><td>' + (c.usedAt ? fmtDateTime(c.usedAt) : '—') + '</td><td>' + exp + '</td><td>' + st + '</td>'
           + '<td><div class="adm-ops"><button class="ghost-btn adm-op" onclick="STAuth._copyCode(\'' + c.code + '\')">复制</button>' + delBtn + '</div></td></tr>';
       }).join('');
-    } catch(e){ tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--bad)">' + esc(e.message || '加载失败') + '</td></tr>'; }
+      // 绑定复选框事件
+      tb.querySelectorAll('.invite-check').forEach(function(cb){
+        cb.addEventListener('change', function(){
+          var code = cb.getAttribute('data-code');
+          if (cb.checked) adminState.selectedInvites[code] = 1;
+          else delete adminState.selectedInvites[code];
+          updateInviteBatchBar();
+        });
+      });
+      updateInviteBatchBar();
+    } catch(e){ tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--bad)">' + esc(e.message || '加载失败') + '</td></tr>'; }
+  }
+  function updateInviteBatchBar(){
+    var n = Object.keys(adminState.selectedInvites || {}).length;
+    var bar = document.getElementById('inviteBatchBar');
+    if (bar){ bar.classList.toggle('show', n > 0); var lab = document.getElementById('inviteBatchCount'); if (lab) lab.textContent = '已选 ' + n + ' 个'; }
+    var head = document.getElementById('inviteCheckAll');
+    if (head){
+      var rows = document.querySelectorAll('#adminInvitesBody .invite-check');
+      var checkedN = 0; rows.forEach(function(r){ if(r.checked) checkedN++; });
+      head.checked = rows.length > 0 && checkedN === rows.length;
+      head.indeterminate = checkedN > 0 && checkedN < rows.length;
+    }
+  }
+  async function _batchDeleteInvites(){
+    var codes = Object.keys(adminState.selectedInvites || {});
+    if (!codes.length) return;
+    openConfirm({title:'批量清理邀请码', msg:'确定永久删除选中的 ' + codes.length + ' 个已用/已作废/已过期邀请码？此操作不可恢复。', onOk:function(){
+      apiRequest('/api/admin/invite/batch-delete', {method:'POST', body:{codes: codes}})
+        .then(function(d){
+          adminState.selectedInvites = {};
+          if (typeof showToast === 'function') showToast('✅', '已清理 ' + (d.deleted || codes.length) + ' 个邀请码');
+          loadInviteList(); loadAdminStats();
+        })
+        .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); });
+    }});
   }
   async function _deleteCode(code){
     openConfirm({title:'作废邀请码', msg:'确定作废未使用的邀请码 ' + code + '？', onOk:function(){
@@ -17245,7 +17339,7 @@ var STAuth = (function () {
   /* ---- 注销账号 admin-51 ---- */
   async function _sendDelAcctCode(){
     try {
-      await apiRequest('/api/auth/send-code', {method:'POST', body:{email: currentUser.email, type:'reset'}});
+      await apiRequest('/api/auth/send-code', {method:'POST', body:{email: currentUser.email, type:'delete'}});
       if (typeof showToast === 'function') showToast('📧', '验证码已发送', '请查收邮箱', 3500);
       armCodeCooldown(document.getElementById('delAcctSend'), 60, '发送验证码');
     } catch(e){ if (typeof showToast === 'function') showToast('❌', e.message || '发送失败'); }
@@ -17291,6 +17385,13 @@ var STAuth = (function () {
       var rows = document.querySelectorAll('#adminUsersBody .rowcheck');
       Array.prototype.forEach.call(rows, function(r){ r.checked = head.checked; adminState.selected[r.getAttribute('data-id')] = head.checked ? 1 : 0; if(!head.checked) delete adminState.selected[r.getAttribute('data-id')]; });
       updateBatchBar();
+    });
+    // 邀请码全选
+    var inviteHead = document.getElementById('inviteCheckAll');
+    if (inviteHead) inviteHead.addEventListener('change', function(){
+      var rows = document.querySelectorAll('#adminInvitesBody .invite-check');
+      Array.prototype.forEach.call(rows, function(r){ r.checked = inviteHead.checked; var code = r.getAttribute('data-code'); if(inviteHead.checked) adminState.selectedInvites[code] = 1; else delete adminState.selectedInvites[code]; });
+      updateInviteBatchBar();
     });
     var tbody = document.getElementById('adminUsersBody');
     if (tbody) tbody.addEventListener('change', function(e){
@@ -17772,6 +17873,7 @@ var STAuth = (function () {
     _chartDrill: _chartDrill,
     _exportCsv: _exportCsv,
     _deleteCode: _deleteCode,
+    _batchDeleteInvites: _batchDeleteInvites,
     _copyCode: _copyCode,
     scheduleCloudSync: scheduleCloudSync,
     triggerSync: triggerSync,

@@ -127,6 +127,8 @@ function runMigrations(db) {
   ensureColumn(db, 'users', 'last_login_ip', 'TEXT');
   ensureColumn(db, 'users', 'last_login_at', 'TEXT');
   ensureColumn(db, 'users', 'deleted_at', 'TEXT');
+  // v6: 注销原因（self=用户自助注销，admin=管理员软删除），用于管理员面板区分
+  ensureColumn(db, 'users', 'delete_reason', 'TEXT');
   // v5: user_data 项目数冗余列
   ensureColumn(db, 'user_data', 'project_count', 'INTEGER NOT NULL DEFAULT 0');
   // v5: 邀请码渠道 / 软作废

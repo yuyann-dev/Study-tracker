@@ -90,7 +90,7 @@ function checkInviteCode(inviteCode) {
 router.post('/send-code', async (req, res) => {
   try {
     const { email, type, inviteCode } = req.body || {};
-    const purpose = type === 'reset' ? 'reset' : 'register';
+    const purpose = type === 'reset' ? 'reset' : (type === 'delete' ? 'delete' : 'register');
 
     if (!email || !RULES.email.test(String(email))) {
       return fail(res, '请输入有效的邮箱地址');
