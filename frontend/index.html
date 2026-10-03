@@ -8244,7 +8244,7 @@ function checkMistakeMasteryToast(p) {
   const desc = masteredToday >= 2
     ? '这些曾经的薄弱点，今天都变成了你的得分点。'
     : '这个薄弱点你彻底拿下了——比刷十道新题更值。';
-  setTimeout(() => showToast('🎯', title, desc, 4200), 650);
+  setTimeout(() => showToast('🎯', title, desc, 3000), 650);
 }
 
 // 反复错（连续 2 次及以上"又错了"）：去羞耻化，把它框定为"考前发现的高频薄弱点"，每个项目每天最多提示一次
@@ -8615,14 +8615,14 @@ function render() {
       const _abKey = p.id + ':' + todayStr();
       if (!__autoBalanceToastShown[_abKey]) {
         __autoBalanceToastShown[_abKey] = true;
-        setTimeout(() => showToast('⚖️', '已自动均衡今日复习', `检测到今天待复习偏多，已把 ${_moved} 条均匀安排到未来几天，避免今天堆积；你也可以在复习区横幅手动调整。`, 5200), 450);
+        setTimeout(() => showToast('⚖️', '已自动均衡今日复习', `检测到今天待复习偏多，已把 ${_moved} 条均匀安排到未来几天，避免今天堆积；你也可以在复习区横幅手动调整。`, 3500), 450);
       }
     }
     if (_pulled > 0) {
       const _pfKey = p.id + ':pf:' + todayStr();
       if (!__autoBalanceToastShown[_pfKey]) {
         __autoBalanceToastShown[_pfKey] = true;
-        setTimeout(() => showToast('⏩', '趁前期多推进一点', `已把 ${_pulled} 条近期复习提前到今天，前期多消化一些，后面新增错题时会更从容～不想多做也可以顺延，不勉强。`, 6000), 600);
+        setTimeout(() => showToast('⏩', '趁前期多推进一点', `已把 ${_pulled} 条近期复习提前到今天，前期多消化一些，后面新增错题时会更从容～不想多做也可以顺延，不勉强。`, 3500), 600);
       }
     }
   } catch (e) {}
@@ -12516,7 +12516,7 @@ function readUnitRowsFromList(listEl) {
     }
   }
   if (overlaps.length) {
-    showToast('⚠️', '单元页码有重叠', overlaps.slice(0, 3).join('；'), 4500);
+    showToast('⚠️', '单元页码有重叠', overlaps.slice(0, 3).join('；'), 3000);
   }
   // 构建嵌套树
   const tree = [];
@@ -14653,7 +14653,7 @@ $('#btnCheckin').addEventListener('click', () => {
     : `学到第 ${endPage} 页`);
   if (gapFilled > 0) {
     // 延后到里程碑表扬（800ms）之后再弹，确保数据口径提示最终可见、不被覆盖
-    setTimeout(() => showToast('💡', '检测到此前跳过的页', `按“连续学到第 ${endPage} 页”，之前跳过的 ${gapFilled} 页也已计入完成。如果这些页其实还没做，建议改用「按区间录入」分别记录，进度会更准。`, 6500), 1500);
+    setTimeout(() => showToast('💡', '检测到此前跳过的页', `按“连续学到第 ${endPage} 页”，之前跳过的 ${gapFilled} 页也已计入完成。如果这些页其实还没做，建议改用「按区间录入」分别记录，进度会更准。`, 4000), 1500);
   }
   $('#inPageStart').value = '';
   $('#inPageEnd').value = '';
