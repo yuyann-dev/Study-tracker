@@ -1,5 +1,11 @@
 # Study Tracker 考研学习规划应用
 
+![CI](https://github.com/yuyann-dev/Study-tracker/actions/workflows/ci.yml/badge.svg)
+![Deploy](https://github.com/yuyann-dev/Study-tracker/actions/workflows/deploy.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Node](https://img.shields.io/badge/node-%3E%3D18-green)
+![Platform](https://img.shields.io/badge/platform-web%20%7C%20PWA-lightgrey)
+
 ## 项目简介
 
 Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学生管理刷题、错题整理和背书复习三大核心学习任务。应用采用前后端分离架构，前端为单文件原生 HTML/CSS/JS 实现，后端基于 Node.js Express + SQLite，支持 PWA 离线使用和多设备数据同步。
@@ -98,8 +104,6 @@ Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学�
 
 ### 部署与运维
 
-
-
 * 服务器：腾讯云轻量应用服务器（OpenCloudOS 9.6）
 
 * Web 服务器：Nginx（静态资源 + 反向代理 + HTTPS）
@@ -111,6 +115,10 @@ Study Tracker 是一个面向考研学生的学习规划 Web 应用，帮助学�
 * 数据备份：sqlite3 .backup 在线热备，每日自动执行
 
 * 监控告警：服务异常邮件告警
+
+* CI/CD：GitHub Actions（自动语法检查 + 单元测试 + 自动部署）
+
+* 容器化：Docker + Docker Compose（支持一键本地部署）
 
 ## 目录结构
 
@@ -261,6 +269,46 @@ study-tracker/
 
 * 数据库文件位于 `backend/data/study.db`，定期备份
 
+### Docker 一键部署（推荐本地开发/测试）
+
+1. 复制环境变量配置：
+   ```bash
+   cp .env.example .env
+   # 编辑 .env，填入 JWT_SECRET、SMTP 等配置
+   ```
+
+2. 启动服务：
+   ```bash
+   docker-compose up -d
+   ```
+
+3. 访问：
+   - 前端：http://localhost:8080
+   - 后端 API：http://localhost:3001/api/health
+
+4. 停止服务：
+   ```bash
+   docker-compose down
+   ```
+
+数据持久化在 Docker volume 中（`backend-data`、`backend-logs`、`backend-uploads`），不会因容器重建而丢失。
+
+### CI/CD 自动部署
+
+项目配置了 GitHub Actions 工作流：
+
+* **CI**（`.github/workflows/ci.yml`）：每次 push/PR 自动运行后端语法检查、单元测试、前端语法检查
+* **Deploy**（`.github/workflows/deploy.yml`）：push 到 main 分支后自动部署到生产服务器
+
+配置自动部署需要在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加以下 Secrets：
+
+| Secret 名 | 说明 |
+|---|---|
+| `SSH_PRIVATE_KEY` | SSH 私钥（用于部署到服务器） |
+| `SERVER_HOST` | 服务器地址（IP 或域名） |
+| `SSH_USER` | SSH 登录用户名 |
+| `APP_DOMAIN` | 应用域名（用于健康检查） |
+
 ## 开发说明
 
 ### 前端开发
@@ -284,6 +332,23 @@ cd backend
 npm install          # 安装全部依赖（含开发依赖）
 node server.js       # 本地启动（默认监听 3001 端口）
 ```
+
+### 运行测试
+
+后端包含数据合并和复习调度算法的单元测试：
+
+```bash
+cd backend
+npm test
+```
+
+测试覆盖：
+* 数据同步合并（12 个用例）：墓碑机制、多设备合并、LWW 策略、墓碑清理等
+* 背书复习调度（15 个用例）：三态标记、间隔计算、毕业判定、退轮机制等
+
+### API 文档
+
+完整的接口文档见 [docs/API.md](docs/API.md)，包含认证、用户、数据同步、管理员等所有接口的请求/响应格式说明。
 
 ### 数据结构
 
