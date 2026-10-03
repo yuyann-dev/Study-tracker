@@ -1,9 +1,8 @@
 ﻿/* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v25：回退非模块化，CORE 仅保留实际存在文件；install 容错避免单文件404导致整体失败；
-         activate 强制清理全部旧缓存 + clients.claim，用户刷新即生效，无需关闭浏览器 */
-var CACHE = 'yystudy-v25';
+   v26：API 响应绝不缓存（防登出后隐私残留）；导航响应仅缓存 200（防 500 页入缓存）
+var CACHE = 'yystudy-v26';
 var CORE = [
   './',
   './index.html',
@@ -48,11 +47,20 @@ self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
 
+  // API 响应含用户全量数据：直接走网络、绝不进 SW 缓存，避免登出后隐私残留
+  if (req.url.indexOf('/api/') !== -1) {
+    e.respondWith(fetch(req));
+    return;
+  }
+
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        // 仅缓存 200 导航响应，避免 500/维护页被写进缓存
+        if (res && res.status === 200) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        }
         return res;
       }).catch(function () {
         return caches.match(req).then(function (r) { return r || caches.match('./index.html'); });

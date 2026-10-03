@@ -11,11 +11,13 @@
 const db = require('../database');
 const logger = require('./logger');
 
-/** 取请求 IP（反代后通常是 X-Forwarded-For 第一个），取不到给 '-' */
+/**
+ * 取请求 IP。server.js 已设置 trust proxy=1（仅信任紧邻的 Nginx 一层），
+ * req.ip 会自动取 X-Forwarded-For 中靠近代理的最右端 IP，攻击者无法通过伪造
+ * X-Forwarded-For 最左端来污染审计日志。取不到给 null。
+ */
 function clientIp(req) {
   if (!req) return null;
-  const xff = req.headers && req.headers['x-forwarded-for'];
-  if (typeof xff === 'string' && xff.length) return xff.split(',')[0].trim();
   return req.ip || null;
 }
 

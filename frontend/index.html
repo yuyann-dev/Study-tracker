@@ -10,8 +10,10 @@
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(function(regs) {
     if (regs.length > 0) {
-      regs.forEach(function(reg) { reg.unregister(); });
-      window.location.reload();
+      // 等所有 SW 注销完成后再 reload，避免 fire-and-forget 导致刷新循环
+      Promise.all(regs.map(function(reg) { return reg.unregister(); })).then(function() {
+        window.location.reload();
+      });
     }
   }).catch(function(){});
 }
@@ -1789,8 +1791,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/auth.js?v=20261003d"></script>
-<script src="js/app.js?v=20261003d"></script>
+<script src="js/auth.js?v=20261003e"></script>
+<script src="js/app.js?v=20261003e"></script>
 <script>
 
 if (document.readyState === 'loading') {

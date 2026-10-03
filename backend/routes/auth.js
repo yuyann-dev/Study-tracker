@@ -101,17 +101,20 @@ router.post('/send-code', async (req, res) => {
       .get(emailNorm);
 
     if (purpose === 'register') {
-      // 注册：邮箱不能是正常注册用户；已注销（软删除）的邮箱允许重新注册
-      if (existingUser && existingUser.deleted_at == null) return fail(res, '该邮箱已注册，请直接登录');
-
-      // 非首个用户需要验证邀请码
+      // 非首个用户需要验证邀请码（先校验邀请码，避免无邀请码时被用来枚举邮箱）
       if (!isFirstUser()) {
         const inviteCheck = checkInviteCode(inviteCode);
         if (!inviteCheck.valid) return fail(res, inviteCheck.reason);
       }
+      // 防邮箱枚举：若邮箱已被活跃账号注册，不实际发送验证码，仍返回统一成功提示
+      if (existingUser && existingUser.deleted_at == null) {
+        return ok(res, { message: '验证码已发送至邮箱，5 分钟内有效', cooldown: 60 });
+      }
     } else {
-      // 重置密码：邮箱必须已注册且未注销
-      if (!existingUser || existingUser.deleted_at != null) return fail(res, '该邮箱未注册');
+      // 防邮箱枚举：无论邮箱是否存在，都返回统一提示；不存在/已注销则不实际发送
+      if (!existingUser || existingUser.deleted_at != null) {
+        return ok(res, { message: '如果该邮箱已注册，验证码已发送' });
+      }
     }
 
     // 创建验证码
@@ -140,7 +143,7 @@ router.post('/send-code', async (req, res) => {
     });
   } catch (e) {
     console.error('send-code error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -169,7 +172,8 @@ router.post('/register', (req, res) => {
     // 邮箱检查：正常用户不可重复注册；已注销（软删除）的邮箱允许重新注册
     const existing = db.prepare('SELECT id, deleted_at FROM users WHERE email = ?').get(emailNorm);
     if (existing && existing.deleted_at == null) {
-      return fail(res, '该邮箱已注册，请直接登录');
+      // 防邮箱枚举：不区分"已注册"，统一模糊报错
+      return fail(res, '注册失败，请检查输入信息');
     }
 
     // 验证验证码
@@ -185,34 +189,46 @@ router.post('/register', (req, res) => {
       invite = inviteCheck.invite;
     }
 
-    // 所有校验通过后，再物理删除已注销的旧账号（不可逆操作放在最后，避免校验失败导致数据丢失）
-    if (existing && existing.deleted_at != null) {
-      const tx = db.transaction(() => {
-        db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(existing.id);
-        db.prepare('UPDATE invite_codes SET used_by = NULL WHERE used_by = ?').run(existing.id);
-        db.prepare('DELETE FROM users WHERE id = ?').run(existing.id); // user_data 外键级联删除
-      });
-      tx();
-    }
-
     const isAdmin = firstUser ? 1 : 0;
     const hash = bcrypt.hashSync(password, config.bcryptRounds);
-    const info = db
-      .prepare('INSERT INTO users (username, password_hash, email, is_admin) VALUES (?, ?, ?, ?)')
-      .run(usernameTrim, hash, emailNorm, isAdmin);
-    const newId = info.lastInsertRowid;
 
-    if (invite) {
-      db.prepare("UPDATE invite_codes SET used_by = ?, used_at = datetime('now') WHERE id = ?")
-        .run(newId, invite.id);
-    }
+    // 整体事务：删旧账号（清 invite_codes 引用）+ INSERT 新用户 + 条件抢占邀请码。
+    // 任一步失败全部回滚，避免 INSERT 失败导致旧数据永久丢失。
+    const newId = db.transaction(() => {
+      // 物理删除已注销的旧账号（不可逆操作放在所有校验通过后）
+      if (existing && existing.deleted_at != null) {
+        db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(existing.id);
+        // 清空 used_by 时同时清空 used_at，否则已用邀请码会因 checkInviteCode 不查 used_at 而"复活"
+        db.prepare('UPDATE invite_codes SET used_by = NULL, used_at = NULL WHERE used_by = ?').run(existing.id);
+        db.prepare('DELETE FROM users WHERE id = ?').run(existing.id); // user_data 外键级联删除
+      }
+
+      const info = db
+        .prepare('INSERT INTO users (username, password_hash, email, is_admin) VALUES (?, ?, ?, ?)')
+        .run(usernameTrim, hash, emailNorm, isAdmin);
+      const insertedId = info.lastInsertRowid;
+
+      // 条件抢占邀请码：WHERE used_by IS NULL 防止并发注册同一邀请码（TOCTOU 竞态）
+      if (invite) {
+        const claim = db.prepare(
+          "UPDATE invite_codes SET used_by = ?, used_at = datetime('now') WHERE id = ? AND used_by IS NULL"
+        ).run(insertedId, invite.id);
+        if (claim.changes === 0) {
+          throw new Error('INVITE_CODE_TAKEN');
+        }
+      }
+      return insertedId;
+    })();
 
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(newId);
     writeLoginLog({ userId: newId, username: emailNorm, result: 'register', req });
     return ok(res, { token: signToken(row), user: publicUser(row) });
   } catch (e) {
+    if (e.message === 'INVITE_CODE_TAKEN') {
+      return fail(res, '邀请码已被使用，请更换');
+    }
     console.error('register error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -275,7 +291,7 @@ router.post('/login', (req, res) => {
     return ok(res, { token: signToken(fresh), user: publicUser(fresh) });
   } catch (e) {
     console.error('login error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -299,7 +315,7 @@ router.get('/me', authRequired, (req, res) => {
       },
     });
   } catch (e) {
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -328,9 +344,11 @@ router.post('/reset-password', (req, res) => {
       return fail(res, '新密码必须同时包含字母和数字');
     }
 
-    // 改密码即 token_version+1，强制所有旧 token（含被盗 token）失效
+    // 改密码即 token_version+1，强制所有旧 token（含被盗 token）失效；
+    // 同时清零失败计数/锁定，否则被锁用户重置密码后仍无法登录。
     db.prepare(
       `UPDATE users SET password_hash = ?, password_changed_at = datetime('now'),
+              failed_login_count = 0, locked_until = NULL,
               token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?`
     ).run(bcrypt.hashSync(newPassword, config.bcryptRounds), row.id);
 
@@ -338,7 +356,7 @@ router.post('/reset-password', (req, res) => {
     return ok(res, { message: '密码已重置，请使用新密码登录' });
   } catch (e) {
     console.error('reset-password error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 

@@ -14,7 +14,7 @@ const db = require('../database');
 const { config, RULES } = require('../config');
 const { authRequired } = require('../middleware/auth');
 const { ok, fail } = require('../utils/respond');
-const { createCode, verifyCode } = require('../utils/verification');
+const { createCode, verifyCode, invalidateCode } = require('../utils/verification');
 const { sendVerificationCode } = require('../utils/mailer');
 
 const router = express.Router();
@@ -85,7 +85,7 @@ router.put('/profile', (req, res) => {
     return ok(res, { user: toPublic(row) });
   } catch (e) {
     console.error('PUT /api/user/profile error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -103,21 +103,40 @@ router.post('/change-email/request', async (req, res) => {
     const { code, cooldown } = createCode(newEmail, 'changeemail');
     if (cooldown > 0) return fail(res, `请求过于频繁，请 ${cooldown} 秒后再试`);
 
-    const sent = await sendVerificationCode(newEmail, code, 'changeemail');
-    if (!sent) return fail(res, '邮件服务未配置，无法发送验证码');
+    try {
+      const sent = await sendVerificationCode(newEmail, code, 'changeemail');
+      if (!sent) {
+        // SMTP 未配置：撤销验证码，避免占用 60s 重发冷却
+        invalidateCode(newEmail, 'changeemail');
+        return fail(res, '邮件服务未配置，无法发送验证码');
+      }
+    } catch (e) {
+      console.error('change-email/request error:', e.message);
+      // SMTP 发送失败：撤销刚下发的验证码，允许用户立即重试，无需等 60s 冷却
+      invalidateCode(newEmail, 'changeemail');
+      return fail(res, '验证码发送失败，请稍后再试', 500);
+    }
     return ok(res, { sent: true });
   } catch (e) {
-    console.error('change-email/request error:', e.message);
+    console.error('change-email/request outer error:', e.message);
     return fail(res, '验证码发送失败，请稍后再试', 500);
   }
 });
 
-// POST /api/user/change-email/confirm  body: { newEmail, code } —— 校验验证码并绑定新邮箱
+// POST /api/user/change-email/confirm  body: { newEmail, code, oldPassword } —— 校验验证码并绑定新邮箱
 router.post('/change-email/confirm', (req, res) => {
   try {
     const newEmail = String((req.body && req.body.newEmail) || '').trim().toLowerCase();
     const code = String((req.body && req.body.code) || '').trim();
+    const oldPassword = String((req.body && req.body.oldPassword) || '');
     if (!newEmail || !RULES.email.test(newEmail)) return fail(res, '请输入有效的邮箱地址');
+    if (!oldPassword) return fail(res, '请输入当前密码以确认身份');
+
+    // 必须验证旧密码：token 泄露时攻击者仅持有 token 无法改邮箱，必须再知道当前密码
+    const me = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+    if (!me || !bcrypt.compareSync(oldPassword, me.password_hash)) {
+      return fail(res, '旧密码错误', 403);
+    }
 
     const dup = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(newEmail, req.user.id);
     if (dup) return fail(res, '该邮箱已被使用');
@@ -131,7 +150,7 @@ router.post('/change-email/confirm', (req, res) => {
     return ok(res, { user: toPublic(row) });
   } catch (e) {
     console.error('change-email/confirm error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -156,7 +175,7 @@ router.put('/password', (req, res) => {
     return ok(res, {});
   } catch (e) {
     console.error('PUT /api/user/password error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -193,7 +212,7 @@ router.post('/avatar', (req, res) => {
       return ok(res, { avatar: avatarUrl });
     } catch (e) {
       console.error('POST /api/user/avatar error:', e.message);
-      return fail(res, '服务器内部错误', 500);
+      return fail(res, '服务器开小差了，请稍后重试', 500);
     }
   });
 });
@@ -229,7 +248,7 @@ router.delete('/', (req, res) => {
     return ok(res, { deleted: true, exportedTo: exported });
   } catch (e) {
     console.error('DELETE /api/user error:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 

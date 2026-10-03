@@ -10,7 +10,14 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
 const { config } = require('./config');
-require('./database'); // 初始化 SQLite（建表 + 幂等迁移）
+const db = require('./database'); // 初始化 SQLite（建表 + 幂等迁移）
+
+// JWT_SECRET 强度校验：系统环境变量空字符串会绕过 ensureEnvFile() 的自动生成，
+// 这里在数据库初始化之后、监听端口之前兜底，防止以空密钥启动导致 token 可被伪造。
+if (!process.env.JWT_SECRET || String(process.env.JWT_SECRET).length < 32) {
+  console.error('FATAL: JWT_SECRET 未配置或强度不足（需≥32字符）');
+  process.exit(1);
+}
 const metrics = require('./utils/metrics');
 const logger = require('./utils/logger');
 
@@ -33,7 +40,8 @@ app.use(
     origin(origin, cb) {
       // 同源/非浏览器请求（无 Origin）直接放行
       if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-      return cb(new Error('来源不被允许'));
+      // 拒绝但不抛错：cb(null, false) 不会落到全局错误处理返回 500，仅正常拒绝跨域
+      return cb(null, false);
     },
   })
 );
@@ -47,7 +55,7 @@ app.set('trust proxy', 1);
 // CSP：API 本身不渲染页面，但统一带上纵深防御；前端页面的 CSP 由 Nginx 同名头兜底。
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader(
     'Content-Security-Policy',
@@ -126,9 +134,21 @@ app.use('/api', (req, res) => res.status(404).json({ ok: false, error: '接口�
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   logger.log('error', 'unhandled: ' + err.message, { method: req.method, path: req.path });
-  res.status(500).json({ ok: false, error: '服务器内部错误' });
+  res.status(500).json({ ok: false, error: '服务器开小差了，请稍后重试' });
 });
 
-app.listen(config.port, config.host, () => {
+const server = app.listen(config.port, config.host, () => {
   logger.log('info', `backend listening on http://${config.host}:${config.port}`);
+});
+
+// 优雅关闭：systemd restart / docker stop 收到 SIGTERM 时先停止接新连接，
+// 再做一次 WAL checkpoint 把内存页刷盘，避免进程直接退出中断写入。
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    try { db.prepare('PRAGMA wal_checkpoint(TRUNCATE)').run(); } catch (e) {}
+    process.exit(0);
+  });
+  // 10 秒内未结束则强制退出，避免 hang 住
+  setTimeout(() => process.exit(1), 10000).unref();
 });

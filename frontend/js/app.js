@@ -284,7 +284,7 @@ document.addEventListener('click', e => {
 });
 
 /* ============ 存储 ============ */
-const STORE_KEY = 'study_tracker_v2';
+var STORE_KEY = 'study_tracker_v2';
 var store = { currentId: null, projects: {}, unitTemplates: [], paperTemplates: [], tombstones: {} };
 let lastMetrics = null;
 let creatingLinkedFrom = null; // 从刷题本创建关联错题本时，存储刷题本ID
@@ -1315,7 +1315,7 @@ async function getStorageEstimate() {
 }
 
 // ---- 保存：localStorage（主）+ IndexedDB（备）双写，带防抖 ----
-let _lastSaveSig = '';
+var _lastSaveSig = '';
 let _booting = true; // 启动恢复期间禁止写入，防止空数据覆盖备份
 function saveStore() {
   if (_booting) return; // 恢复期间静默忽略，防止空 store 污染 IndexedDB 备份
@@ -5138,6 +5138,15 @@ function render() {
     lastRenderedProjectId = null;
     return;
   }
+  // 登录墙激活时（未登录/登出后）：在任何自动均衡/写盘副作用之前直接挡住，
+  // 避免残留的上一用户数据被 autoBalanceIfNeeded/pullForward 等逻辑回写（saveStore）污染。
+  if (typeof STAuth !== 'undefined' && STAuth.isLoginWallActive && STAuth.isLoginWallActive()) {
+    var _wel = document.getElementById('welcome');
+    var _appEl = document.getElementById('app');
+    if (_wel) _wel.hidden = true;
+    if (_appEl) _appEl.hidden = true;
+    return;
+  }
   // 自动均衡：均匀模式下今日待复习超过舒适量时，自动把超额条目均匀摊到未来若干天（每项目每天最多一次）
   try {
     // 清理过期未做的“提前复习”（点了但没做，第二天自动回到原计划日期，不惩罚）
@@ -5809,7 +5818,7 @@ function renderReview(p) {
     const errTagHtml = (it.errTags || []).map(reasonPill).join(' ');
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
     // 反复错（连续 2 次及以上"又错了"）：标为"关键薄弱点"，把挫败感转成"考前最该拿下的重点"
-    const weakKeyHtml = (p.type === 'mistake' && !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 3)
+    const weakKeyHtml = (p.type === 'mistake' && !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2)
       ? `<span class="weak-key-tag">🔑 关键薄弱点</span>` : '';
     // 本轮没做对被打回：用极简计数体现"已重做几次"，做对即进下一轮（错题/背书通用）
     const ws = it.wrongStreak || 0;
@@ -7555,7 +7564,7 @@ function openDashboard() {
     ${getKaoyanHTML()}
     ${getWeeklyReviewHTML()}
     <div class="dash-hero ${urgent ? 'urgent' : ''}">
-      <div class="greet-big">${g}${(typeof STAuth!=="undefined"&&STAuth.isLoggedIn()&&STAuth.getUsername())?"，"+STAuth.getUsername()+"！":""}</div>
+      <div class="greet-big">${g}${(typeof STAuth!=="undefined"&&STAuth.isLoggedIn()&&STAuth.getUsername())?"，"+esc(STAuth.getUsername())+"！":""}</div>
       <div class="greet-sub">这是你今天的学习看板</div>
       <div class="hero-status">${msg}</div>
       <div class="hero-enc">${enc}</div>
@@ -9325,7 +9334,11 @@ function renderWeaknessBoard(p) {
   const list = $('#wbList');
   const useUnit = p.unitMode && (p.units || []).length && (p.type !== 'mistake' || isMistakePageMode(p));
   if (!filtered.length) {
-    list.innerHTML = '<div class="wb-empty">没有符合条件的条目 🎉</div>';
+    // 区分两种空态：完全没有条目 vs 有筛选条件但筛空
+    const _wbEmptyText = (items.length === 0)
+      ? (isMistake ? '还没有错题，录入一道看看吧' : '还没有条目，录入一条看看吧')
+      : '没有符合条件的条目 🎉';
+    list.innerHTML = '<div class="wb-empty">' + _wbEmptyText + '</div>';
   } else if (useUnit) {
     const units = [...p.units].sort((a, b) => (a.startPage || 0) - (b.startPage || 0));
     const pageOf = it => { const n = parseInt(getItemPageStart(it), 10); return isNaN(n) ? 0 : n; };
@@ -12312,7 +12325,7 @@ window.addEventListener('resize', () => {
   try {
   // 版本强制下线机制：大版本更新时清除登录态（仅 token/user，学习数据完整保留）
   // 每次需要强制全员重新登录时，修改下方 APP_VERSION 的值即可
-  const APP_VERSION = '20261003d';
+  const APP_VERSION = '20261003e';
   const VER_KEY = 'st_app_version';
   try {
     const lastVer = localStorage.getItem(VER_KEY);

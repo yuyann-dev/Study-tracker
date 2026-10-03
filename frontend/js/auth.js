@@ -1,6 +1,7 @@
 ﻿var STAuth = (function () {
   var AUTH_TOKEN_KEY = 'st_auth_token';
   var AUTH_USER_KEY = 'st_auth_user';
+  var AUTH_PERSIST_KEY = 'st_auth_persist';  // 登录持久化标志：'true'=localStorage，'false'=sessionStorage
   var currentUser = null;
   var lastCloudSync = null;
   var syncTimer = null;
@@ -10,6 +11,9 @@
   var _localDirty = false;   // 本地数据自上次成功推送后是否有变更
   var SYNC_DEBOUNCE_MS = 5000;
   var PERIODIC_SYNC_MS = 60000;   // 每 60 秒自动双向同步一次
+  var _syncRetryCount = 0;        // 同步失败自动退避重试计数（成功后清零）
+  var _syncRetryTimer = null;     // 同步失败自动重试定时器
+  var _storageSyncTimer = null;   // 多标签页 storage 变更触发同步的防抖定时器
 
   // === 关闭浏览器对应用内输入框的自动填充与输入历史 ===
   // 两层处理：
@@ -79,14 +83,26 @@
 
   function getToken() {
     try {
-      return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY);
+      var persist = localStorage.getItem(AUTH_PERSIST_KEY);
+      if (persist === null) {
+        // 兼容旧数据：无标志位时保持原逻辑（先 localStorage 后 sessionStorage）
+        return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY);
+      }
+      // 按登录时选择的存储位置精确读取，避免 remember=false 用户误读到另一账号残留在 localStorage 的 token
+      if (persist === 'true') return localStorage.getItem(AUTH_TOKEN_KEY);
+      return sessionStorage.getItem(AUTH_TOKEN_KEY);
     } catch(e) { return null; }
   }
   function setToken(t, remember) {
     try {
       clearToken();
-      if (remember) localStorage.setItem(AUTH_TOKEN_KEY, t);
-      else sessionStorage.setItem(AUTH_TOKEN_KEY, t);
+      if (remember) {
+        localStorage.setItem(AUTH_TOKEN_KEY, t);
+        localStorage.setItem(AUTH_PERSIST_KEY, 'true');
+      } else {
+        sessionStorage.setItem(AUTH_TOKEN_KEY, t);
+        localStorage.setItem(AUTH_PERSIST_KEY, 'false');
+      }
     } catch(e) {}
   }
   function clearToken() {
@@ -124,7 +140,17 @@
       options.cache = 'no-store';
       path += (path.indexOf('?') === -1 ? '?' : '&') + '_t=' + Date.now();
     }
-    var resp = await fetch(path, options);
+    var resp;
+    try {
+      resp = await fetch(path, options);
+    } catch (fetchErr) {
+      // 网络层错误（断网/CORS/服务器不可达，fetch 抛 TypeError: Failed to fetch）
+      // 与服务端错误（HTTP 状态码）区分开，给出统一友好提示
+      if (fetchErr && (fetchErr.name === 'TypeError' || (fetchErr.message && fetchErr.message.indexOf('Failed to fetch') !== -1))) {
+        throw new Error('网络连接失败，请检查网络');
+      }
+      throw fetchErr;
+    }
     if (resp.status === 401) {
       // 登录/注册接口的 401 是账号或密码错误，不是 token 过期：不清登录态，透传后端错误信息
       var isAuthEndpoint = path.indexOf('/api/auth/login') !== -1 || path.indexOf('/api/auth/register') !== -1;
@@ -132,11 +158,8 @@
         var authErr = await resp.json().catch(function(){ return {}; });
         throw new Error(authErr.error || '邮箱或密码错误');
       }
-      clearToken(); clearStoredUser(); currentUser = null;
-      _lastSyncEtag = null; _localDirty = false; syncPending = false;
-      // token 失效时也清除本地学习数据，防止切换账号后串号
-      try { await clearLocalStoreData(); } catch(e) {}
-      updateHeaderUI(); updateSyncStatus('logout');
+      // 非 auth 端点的 401 = token 过期/失效：统一走 forceLogout（清数据 + 弹登录墙）
+      await forceLogout('expired');
       throw new Error('未登录或登录已过期');
     }
     if (resp.status === 403) {
@@ -318,6 +341,8 @@
     await clearLocalStoreData();
     // 清除后重新渲染空状态，避免显示旧账号的残留 DOM
     if (typeof render === 'function') { try { render(); } catch(e) {} }
+    // 标记本地数据归属为新账号，避免下次登录时因无归属标记而误清空
+    try { store.ownerUserId = data.user.id; saveStore(); } catch(e) {}
     startPeriodicSync();
     return data.user;
   }
@@ -329,6 +354,19 @@
     setToken(data.token, remember);
     currentUser = data.user;
     setStoredUser(data.user);
+    // 换号串号防护：在 syncFromCloud 合并云端数据前，先核对本地学习数据的归属。
+    //  - 归属存在且 != 当前用户：本地是上一账号（remember=false 关标签页残留）数据，先清空再同步，防止被合并进新账号云端
+    //  - 归属 == 当前用户：同账号重登，保留本地未同步改动，直接与云端合并
+    //  - 归属不存在（旧数据/新设备）：归属不可信，同样清空
+    var prevOwner = null;
+    try { prevOwner = (store && store.ownerUserId != null) ? store.ownerUserId : null; } catch(e) {}
+    var needWipe = (prevOwner === null) || (String(prevOwner) !== String(currentUser.id));
+    if (needWipe) {
+      try { await clearLocalStoreData(); } catch(e) {}
+      if (typeof render === 'function') { try { render(); } catch(e) {} }
+    }
+    // 标记归属为当前用户（saveStore 随整 store 持久化到 localStorage/IndexedDB）
+    try { store.ownerUserId = currentUser.id; saveStore(); } catch(e) {}
     startPeriodicSync();
     return data.user;
   }
@@ -358,6 +396,24 @@
       }
     } catch (e) {}
   }
+  /* 统一强制登出：收敛所有"登录态失效"路径的行为。
+     清 token（local+session）、清用户信息、清本地学习数据、弹登录墙。
+     供 apiRequest 401 / fetchMe 失败 / 本地用户信息损坏 / 多标签页登出 / doLogout 复用。 */
+  async function forceLogout(reason) {
+    stopPeriodicSync();
+    clearToken(); clearStoredUser(); currentUser = null;
+    lastCloudSync = null;
+    _lastSyncEtag = null;  // 清除 ETag，切换账号后重新全量拉取
+    _localDirty = false;
+    syncPending = false;
+    if (_syncRetryTimer) { clearTimeout(_syncRetryTimer); _syncRetryTimer = null; }
+    _syncRetryCount = 0;
+    try { await clearLocalStoreData(); } catch(e) { console.warn('forceLogout: clear local data failed', e && e.message); }
+    updateHeaderUI();
+    updateSyncStatus('logout');
+    closeProfile();
+    enableLoginWall();
+  }
   async function doLogout() {
     // 登出前：如果有未同步的本地变更，先推送到云端，防止数据丢失（最多等 3 秒）
     if (_localDirty && isLoggedIn()) {
@@ -374,18 +430,8 @@
       }
     }
     try { await apiRequest('/api/auth/logout', { method: 'POST' }); } catch(e) {}
-    stopPeriodicSync();
-    clearToken(); clearStoredUser(); currentUser = null;
-    lastCloudSync = null;
-    _lastSyncEtag = null;  // 清除 ETag，切换账号后重新全量拉取
-    _localDirty = false;
-    syncPending = false;
-    try { await clearLocalStoreData(); } catch(e) { console.warn('logout: clear local data failed', e && e.message); }  // 彻底清除本地学习数据，防止串号
-    updateHeaderUI();
-    updateSyncStatus('logout');
-    closeProfile();
+    await forceLogout();
     if (typeof showToast === 'function') showToast('👋','已退出登录','请重新登录');
-    enableLoginWall();
   }
   async function fetchMe() {
     var data = await apiRequest('/api/auth/me', { method: 'GET' });
@@ -406,7 +452,7 @@
         btn.innerHTML = '<span class="user-avatar-btn">' + avatar + '</span>';
       } else {
         var ch = displayName.charAt(0).toUpperCase();
-        btn.innerHTML = '<span class="user-avatar-btn"><span class="av-text">' + ch + '</span></span>';
+        btn.innerHTML = '<span class="user-avatar-btn"><span class="av-text">' + esc(ch) + '</span></span>';
       }
       btn.title = displayName + ' · 个人中心';
     } else {
@@ -694,6 +740,7 @@
     if (opts && opts.skeleton && typeof showListShimmer === 'function' && cur()) {
       try { showListShimmer(4); } catch (e) {}
     }
+    var _syncOk = false;  // 本次同步是否成功（成功才清零退避重试计数）
     try {
       // ETag 增量：带上次 ETag，服务端无变化则 304，省掉全量 JSON 下载
       var getOpts = { method: 'GET' };
@@ -709,6 +756,7 @@
           lastCloudSync = new Date();
           updateSyncStatus('ok', formatTime(lastCloudSync));
         }
+        _syncOk = true;
         return;
       }
 
@@ -769,6 +817,7 @@
           showToast('☁️','已从云端恢复数据','共 ' + cloudProjectCount + ' 个任务');
         }
       }
+      _syncOk = true;
     } catch(e) {
       console.error('云端同步失败:', e);
       updateSyncStatus('fail');
@@ -776,7 +825,22 @@
       if (typeof render === 'function') { try { render(); } catch (er) {} }
       // ux-14：顶部可点击重试的 toast
       if (typeof showToast === 'function') showToast('⚠️','同步失败','网络异常，点此重试', 4000, function(){ syncFromCloud({ skeleton: true }); });
+      // 指数退避自动重试：10s → 30s → 60s，共 3 次；之后停止，等 60s 周期同步或用户手动重试
+      if (_syncRetryCount < 3) {
+        var retryDelays = [10000, 30000, 60000];
+        var retryDelay = retryDelays[_syncRetryCount];
+        _syncRetryCount++;
+        if (_syncRetryTimer) clearTimeout(_syncRetryTimer);
+        _syncRetryTimer = setTimeout(function(){
+          if (isLoggedIn() && !isSyncing) syncFromCloud();
+        }, retryDelay);
+      }
     } finally {
+      // 同步成功：清零退避计数并取消待触发的自动重试
+      if (_syncOk) {
+        _syncRetryCount = 0;
+        if (_syncRetryTimer) { clearTimeout(_syncRetryTimer); _syncRetryTimer = null; }
+      }
       isSyncing = false;
       // 手动同步的骨架条必须还原：即使云端无变化(changedLocal=false，日常最常见)也要重渲染，
       // 否则 recordList 会永久停在骨架条，看起来像页面故障
@@ -936,10 +1000,11 @@
     var storedUser = getStoredUser();
     var tok = getToken();
     // 校验本地缓存用户信息完整性：缺少 id 或 email 视为损坏（大版本回退/缓存异常可能导致），
-    // 清除登录态强制重新登录，避免显示"用户/you@example.com"等占位异常。学习数据不受影响。
+    // 统一走 forceLogout 清除登录态与本地数据，强制重新登录。
     if (storedUser && (!storedUser.id || !storedUser.email)) {
-      console.warn('[initAuth] 本地用户信息字段不完整，清除登录态');
-      clearToken(); clearStoredUser(); storedUser = null;
+      console.warn('[initAuth] 本地用户信息字段不完整，强制登出');
+      storedUser = null;
+      forceLogout('corrupt-user');
     }
     if (tok && storedUser) {
       // 立即：仅用本地缓存恢复会话并刷新头部（同步、快），首屏头部马上显示用户
@@ -954,13 +1019,31 @@
           maybeAutoPromptInstall();
         }).catch(function(e){
           console.warn('Token expired, logging out:', e && e.message);
-          clearToken(); clearStoredUser(); currentUser = null;
-          updateHeaderUI();
+          forceLogout('fetch-me-failed');
         });
       });
     } else {
       updateHeaderUI();
       enableLoginWall();
+    }
+    // 多标签页协同：监听其他标签页对登录态/数据的变更
+    window.addEventListener('storage', onStorageEvent);
+  }
+
+  // 多标签页 storage 事件处理（storage 事件只在其他标签页触发，本页修改不触发自身）
+  function onStorageEvent(e) {
+    if (!e) return;
+    // 其他标签页登出：token 被移除（仅 localStorage 移除会触发；sessionStorage 不触发 storage 事件）
+    if (e.key === AUTH_TOKEN_KEY && !e.newValue) {
+      forceLogout('tab-logout');
+      return;
+    }
+    // 其他标签页修改了本地学习数据：若本页已登录，防抖后拉取云端合并
+    if (e.key === STORE_KEY && isLoggedIn()) {
+      if (_storageSyncTimer) clearTimeout(_storageSyncTimer);
+      _storageSyncTimer = setTimeout(function(){
+        if (isLoggedIn() && !isSyncing) syncFromCloud();
+      }, 2000);
     }
   }
 
@@ -2064,24 +2147,8 @@
       if (typeof showToast==='function') showToast('✅','已刷新');
     });
     bindAdminEvents();
-    var bGen = document.getElementById('btnGenInvite');
-    if (bGen) bGen.addEventListener('click', async function(){
-      var cnt = parseInt(document.getElementById('inviteCount').value)||1;
-      var daysRaw = document.getElementById('inviteExpireDays').value.trim();
-      var body = { count: cnt };
-      if (daysRaw) body.expiresInDays = parseInt(daysRaw);
-      try {
-        var d = await apiRequest('/api/admin/invite/generate',{method:'POST',body:body});
-        var codes = d.codes || [];
-        if (codes.length) {
-          document.getElementById('newInviteDisplay').hidden = false;
-          var cel = document.getElementById('newInviteCode');
-          cel.textContent = codes.join('  ·  ');
-          cel.onclick = function(){ if(navigator.clipboard) navigator.clipboard.writeText(codes.join(',')); if(typeof showToast==='function') showToast('✅','邀请码已复制'); };
-        }
-        loadInviteList(); loadAdminStats();
-      } catch(e) { if(typeof showToast==='function') showToast('❌',e.message||'生成失败'); }
-    });
+    // 注意：#btnGenInvite 的点击绑定已在 bindAdminEvents() 内完成（完整版，含 note/channel）。
+    // 此处不再重复绑定，否则一次点击会发两次 /api/admin/invite/generate 请求。
   }
 
   return {

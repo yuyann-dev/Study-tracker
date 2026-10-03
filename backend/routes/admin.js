@@ -149,7 +149,7 @@ router.get('/stats', (req, res) => {
     });
   } catch (e) {
     console.error('admin/stats:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -222,7 +222,7 @@ router.get('/system', (req, res) => {
     });
   } catch (e) {
     console.error('admin/system:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -241,7 +241,7 @@ router.get('/audit-logs', requireSuperAdmin, (req, res) => {
     return ok(res, { items: rows, total, page, pageSize });
   } catch (e) {
     console.error('admin/audit-logs:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -255,7 +255,9 @@ router.get('/users/export', (req, res) => {
        WHERE u.deleted_at IS NULL ORDER BY u.id ASC`
     ).all();
     const esc = (v) => {
-      const s = v == null ? '' : String(v);
+      let s = v == null ? '' : String(v);
+      // Formula Injection 防护：以 = + - @ 开头的字段前置单引号，防止 Excel 打开时执行公式
+      if (/^[=+\-@]/.test(s)) s = "'" + s;
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const lines = [['id', 'username', 'email', 'isAdmin', 'status', 'projectCount', 'lastSync', 'createdAt'].join(',')];
@@ -267,7 +269,7 @@ router.get('/users/export', (req, res) => {
     return res.send('﻿' + lines.join('\n'));
   } catch (e) {
     console.error('admin/users/export:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -327,7 +329,7 @@ router.get('/users', (req, res) => {
     return ok(res, { items, total, page, pageSize });
   } catch (e) {
     console.error('admin/users:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -363,7 +365,7 @@ router.get('/users/:id', (req, res) => {
     });
   } catch (e) {
     console.error('admin/users/:id:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -387,7 +389,7 @@ router.post('/users/:id/reset-password', (req, res) => {
     return ok(res, { tempPassword: temp, message: '临时密码已生成，请转告用户并提醒其登录后立即修改' });
   } catch (e) {
     console.error('admin reset-password:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -437,7 +439,7 @@ router.put('/users/:id/status', (req, res) => {
     });
   } catch (e) {
     console.error('admin/users/:id/status:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -472,7 +474,7 @@ router.put('/users/:id/admin', requireSuperAdmin, (req, res) => {
     return ok(res, { id: targetId, isAdmin: makeAdmin });
   } catch (e) {
     console.error('admin/users/:id/admin:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -507,7 +509,7 @@ router.delete('/users/:id', (req, res) => {
     return ok(res, { id: targetId, deleted: true, recycled: true, exportedTo: exported });
   } catch (e) {
     console.error('admin/users DELETE:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -518,13 +520,15 @@ router.post('/users/:id/restore', (req, res) => {
     const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
     if (!target) return fail(res, '用户不存在', 404);
     if (target.deleted_at == null) return fail(res, '该用户未被删除');
+    // 普通管理员不能管理其他管理员（同级横向越权），仅超管可
+    if (target.is_admin === 1 && req.user.id !== SUPER_ADMIN_ID) return fail(res, '不能管理其他管理员', 403);
     db.prepare("UPDATE users SET deleted_at = NULL, status='active', delete_reason=NULL, updated_at=datetime('now') WHERE id=?")
       .run(targetId);
     writeAudit(req.user.id, 'restore_user', 'user', targetId, {}, req);
     return ok(res, { id: targetId, restored: true });
   } catch (e) {
     console.error('admin/users restore:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -536,6 +540,8 @@ router.delete('/users/:id/permanent', (req, res) => {
     if (!target) return fail(res, '用户不存在', 404);
     if (targetId === SUPER_ADMIN_ID) return fail(res, '不能删除超级管理员', 403);
     if (target.deleted_at == null) return fail(res, '请先软删除后再执行物理删除');
+    // 普通管理员不能管理其他管理员（同级横向越权），仅超管可
+    if (target.is_admin === 1 && req.user.id !== SUPER_ADMIN_ID) return fail(res, '不能管理其他管理员', 403);
 
     // 不可逆操作：要求重新输入当前管理员自己的登录密码（admin-55），防止会话被冒用误删
     const rePassword = req.body && req.body.password ? String(req.body.password) : '';
@@ -556,7 +562,7 @@ router.delete('/users/:id/permanent', (req, res) => {
     return ok(res, { id: targetId, permanentlyDeleted: true });
   } catch (e) {
     console.error('admin/users permanent:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -588,7 +594,7 @@ router.post('/invite/generate', (req, res) => {
     return ok(res, { codes });
   } catch (e) {
     console.error('admin/invite/generate:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -621,7 +627,7 @@ router.get('/invite/list', (req, res) => {
     });
   } catch (e) {
     console.error('admin/invite/list:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -637,7 +643,7 @@ router.delete('/invite/:code', (req, res) => {
     return ok(res, { code, revoked: true });
   } catch (e) {
     console.error('admin/invite DELETE:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
@@ -660,7 +666,8 @@ router.post('/invite/batch-delete', (req, res) => {
     const now = new Date().toISOString();
     const tx = db.transaction(() => {
       rows.forEach((r) => {
-        const expired = r.expires_at && new Date(r.expires_at) < new Date(now);
+        // expires_at 为 'YYYY-MM-DD HH:MM:SS'（UTC）；补 T 和 Z 强制按 UTC 解析，避免本地时区偏差
+        const expired = r.expires_at && new Date(r.expires_at.replace(' ', 'T') + 'Z') < new Date(now);
         if (r.used_at || r.revoked_at || expired) {
           const result = db.prepare('DELETE FROM invite_codes WHERE code = ?').run(r.code);
           deleted += result.changes;
@@ -673,7 +680,7 @@ router.post('/invite/batch-delete', (req, res) => {
     return ok(res, { deleted, skipped: codes.length - rows.length });
   } catch (e) {
     console.error('admin/invite/batch-delete:', e.message);
-    return fail(res, '服务器内部错误', 500);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
 
