@@ -1,7 +1,8 @@
 /* Study Tracker — 复习算法、排期引擎、评价、掌握度、教练文案 */
 /* 自动从 app.js 拆分，对应原文件 L1498-5130 */
 
-import { $, DEFAULT_INTERVALS, addDays, diffDays, fmtCN, todayStr } from './utils.js';
+import { DEFAULT_INTERVALS, addDays, diffDays, fmtCN, todayStr } from './utils.js';
+import { $ } from './dom.js';
 import { cur, saveStore, store } from './storage.js';
 import { render } from './render.js';
 import { countRanges, editingProjectId, getBookDoneRanges, getTargetPageRanges, getTodayReviewedCount, modalTop, unlockBodyScroll } from './ui.js';

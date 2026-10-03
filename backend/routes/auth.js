@@ -79,7 +79,7 @@ function checkInviteCode(inviteCode) {
     .prepare(
       `SELECT * FROM invite_codes
        WHERE code = ? AND used_by IS NULL AND revoked_at IS NULL
-         AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))`
+         AND (expires_at IS NULL OR expires_at > datetime('now'))`
     )
     .get(String(inviteCode).trim().toUpperCase());
   if (!invite) return { valid: false, reason: '邀请码无效或已被使用/作废' };
@@ -166,10 +166,14 @@ router.post('/register', (req, res) => {
       return fail(res, '密码必须同时包含字母和数字');
     }
 
-    // 邮箱检查：正常用户不可重复注册；已注销（软删除）的邮箱允许重新注册
+    // 邮箱检查：正常用户不可重复注册；已注销（软删除）的邮箱允许重新注册——先物理删除旧账号数据
     const existing = db.prepare('SELECT id, deleted_at FROM users WHERE email = ?').get(emailNorm);
-    if (existing && existing.deleted_at == null) {
-      return fail(res, '该邮箱已注册，请直接登录');
+    if (existing) {
+      if (existing.deleted_at == null) {
+        return fail(res, '该邮箱已注册，请直接登录');
+      }
+      // 已注销用户重新注册：物理删除旧账号（user_data 外键级联删除），invite_codes.used_by 保留（邀请码保持已使用状态）
+      db.prepare('DELETE FROM users WHERE id = ?').run(existing.id);
     }
 
     // 验证验证码
@@ -183,16 +187,6 @@ router.post('/register', (req, res) => {
       const inviteCheck = checkInviteCode(inviteCode);
       if (!inviteCheck.valid) return fail(res, inviteCheck.reason);
       invite = inviteCheck.invite;
-    }
-
-    // 所有校验通过后，再物理删除已注销的旧账号（不可逆操作放在最后，避免校验失败导致数据丢失）
-    if (existing && existing.deleted_at != null) {
-      const tx = db.transaction(() => {
-        db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(existing.id);
-        db.prepare('UPDATE invite_codes SET used_by = NULL WHERE used_by = ?').run(existing.id);
-        db.prepare('DELETE FROM users WHERE id = ?').run(existing.id); // user_data 外键级联删除
-      });
-      tx();
     }
 
     const isAdmin = firstUser ? 1 : 0;

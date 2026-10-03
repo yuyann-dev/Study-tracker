@@ -1,7 +1,8 @@
 /* Study Tracker — 存储层、数据安全、预设模板、IndexedDB/Cache */
 /* 自动从 app.js 拆分，对应原文件 L286-1497 */
 
-import { $, DEFAULT_INTERVALS, addDays, todayStr } from './utils.js';
+import { DEFAULT_INTERVALS, addDays, todayStr } from './utils.js';
+import { $ } from './dom.js';
 import { defaultComfortCap, showToast, staggerRetentionDate } from './review.js';
 
 /* ============ 存储 ============ */

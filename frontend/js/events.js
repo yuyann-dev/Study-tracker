@@ -1,7 +1,8 @@
 /* Study Tracker — 事件绑定、导入导出、反馈动效、弹窗 */
 /* 自动从 app.js 拆分，对应原文件 L9574-12303 */
 
-import { DEFAULT_INTERVALS, ERROR_REASONS, $, addDays, applyTheme, diffDays, getThemePref, openReasonDropdown, openReasonPopover, pendingNewReason, pendingNewReasonItemId, reasonPill, renderReasonDropdown, setThemePref, todayStr } from './utils.js';
+import { DEFAULT_INTERVALS, ERROR_REASONS, addDays, applyTheme, diffDays, getThemePref, openReasonDropdown, openReasonPopover, pendingNewReason, pendingNewReasonItemId, reasonPill, renderReasonDropdown, setThemePref, todayStr } from './utils.js';
+import { $ } from './dom.js';
 import { creatingLinkedFrom, cur, genId, getUIFlag, lastMetrics, markOfflineWrite, migrateProject, replaceStore, sanitizeStoreData, saveStore, setLocalVal, setUIFlag, store } from './storage.js';
 import { _retentionExpanded, applyRetentionReview, applyReview, checkMistakeRelapseToast, clearAllFieldErrors, clearRetention, defaultComfortCap, findAvailableDate, gapForQuality, getComfortCap, getDueItems, getIntervals, getPaperSections, getSetState, isMistakeFreeMode, isMistakePageMode, isMistakeSetMode, isPageScopeCapable, isSetMode, maybeShowProgressPraise, mergeRanges, pendingConfirmFromSkip, pendingConfirmItem, pendingConfirmProject, rebalanceAllItems, reciteQuality, recomputeItemMastery, renderComfortAdvice, setFieldError, setupEnterNav, showConfirmMaster, showToast, showUndo, spreadExcessToday, spreadOverdueItems, unitName, updatePressurePanel, updateRecitePreview, updateSpreadPressureHint } from './review.js';
 import { _expandedHistItems, closeProgressBoard, closeSwitch, drawChart, openProgressBoard, openSwitch, render } from './render.js';

@@ -5,13 +5,14 @@
 
 // ===== 工具 =====
 import {
-  $, esc, todayStr, fmtDate, parseDate, diffDays, addDays, fmtCN,
+  esc, todayStr, fmtDate, parseDate, diffDays, addDays, fmtCN,
   applyTheme, setThemePref, getThemePref, resolveTheme,
   reasonColor, reasonPill, reasonOptionList, deleteReasonByName,
   renderReasonDropdown, openReasonDropdown, openReasonPopover,
   TYPES, DEFAULT_INTERVALS, ERROR_REASONS, REASON_COLORS, WEEK,
   pendingNewReason, pendingNewReasonItemId,
 } from './utils.js';
+import { $ } from './dom.js';
 
 // ===== 存储 =====
 import {
@@ -87,6 +88,7 @@ import {
   doCloseSettings, renderUnitEditor, addUnitRow, addUnitRowToList,
   addScopeRow, readScopeRows, renderScopeEditor, updateScopeCount,
   refreshUnitTplSelect, refreshPaperTplSelect, applyUnitTpl, applyPaperTpl,
+  initPaperTplSelects,
   saveUnitTplFromEditor, savePaperTplFromEditor, readUnitRows,
   readUnitRowsFromList, openTplManager, renderTplManagerList, editTpl,
   renameTpl, deleteTpl, openWeaknessBoard, closeWeaknessBoard,
@@ -159,6 +161,7 @@ for (const _k of Object.keys(__APP__)) {
   await loadStore(); // 等待数据恢复完成（防止空数据覆盖 IndexedDB 备份）
   applyTheme(); // 数据恢复后重新应用主题：iOS 清 localStorage 后，store.localData 里的主题偏好从 IndexedDB 恢复，需要重新应用
   _booting = false;  // 恢复完成，允许保存
+  initPaperTplSelects(); // 初始化套卷模板下拉（需在 store 初始化后调用）
   // 账号系统：恢复登录状态并同步云端（追加，不影响原有逻辑）
   if (typeof STAuth !== 'undefined') STAuth.initAuth();
 

@@ -1,7 +1,7 @@
 /* Study Tracker — 工具函数、常量、主题、错因管理 */
 /* 自动从 app.js 拆分，对应原文件 L1-285 */
 
-import { saveStore, cur } from './storage.js';
+import { saveStore, cur, getLocalVal, setLocalVal } from './storage.js';
 import { modalTop } from './ui.js';
 
 /* ============ 工具 ============ */

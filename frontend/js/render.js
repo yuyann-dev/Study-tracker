@@ -1,7 +1,8 @@
 /* Study Tracker — 主渲染、图表、项目切换、进度面板 */
 /* 自动从 app.js 拆分，对应原文件 L5131-6869 */
 
-import { $, TYPES, addDays, diffDays, esc, fmtCN, parseDate, reasonPill, renderReasonDropdown, todayStr } from './utils.js';
+import { TYPES, addDays, diffDays, esc, fmtCN, parseDate, reasonPill, renderReasonDropdown, todayStr } from './utils.js';
+import { $ } from './dom.js';
 import { cur, getLocalVal, getUIFlag, lastMetrics, lastRenderedProjectId, saveStore, setLocalVal, setUIFlag, store } from './storage.js';
 import { RETENTION_SHOWN_CAP, __autoBalanceToastShown, __milestoneFiredToday, _msKey, _retentionExpanded, _setBigNum, autoBalanceIfNeeded, checkMilestones, checkMistakeMasteryToast, countClippedRanges, defaultComfortCap, ensureAtLeastOneReview, fmtItemLocator, getCompletedPagesAtDate, getDailyTarget, getDueItems, getItemIntervals, getItemScore, getLazyInfo, getLazyMessage, getMasteryInfo, getMetrics, getMistakeFeasibility, getNormalizedSections, getOverdueItems, getPaperSections, getRecordRange, getRetentionDueItems, getRetentionOverdueItems, getStatusMessage, getUnitItemEntries, getUnitMastery, hasPageLocator, hasSetLocator, isMistakeFreeMode, isMistakePageMode, isMistakeSetMode, isSetMode, masteryFromScore, mergeRanges, paperLabel, pullForwardIfNeeded, rebalanceForSprint, renderDailyGoal, renderStageOptions, scrollToEntryForm, settleToday, showToast, stretchShort, unitName, updateRecitePreview } from './review.js';
 import { getBookDoneRanges, modalTop, openDashboard, renderProgressBoard, unlockBodyScroll } from './ui.js';

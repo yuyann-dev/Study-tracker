@@ -1,7 +1,8 @@
 /* Study Tracker — 仪表盘、提醒、表单、设置、模板、薄弱点 */
 /* 自动从 app.js 拆分，对应原文件 L6870-9573 */
 
-import { $, ERROR_REASONS, addDays, diffDays, fmtCN, fmtDate, parseDate, reasonColor, todayStr } from './utils.js';
+import { ERROR_REASONS, addDays, diffDays, fmtCN, fmtDate, parseDate, reasonColor, todayStr } from './utils.js';
+import { $ } from './dom.js';
 import { _booting, cur, genId, getLocalVal, saveStore, setLocalVal, store } from './storage.js';
 import { Coach, coachSlot, defaultComfortCap, fmtItemLocator, getActivityStreak, getCompletedPages, getCompletedPagesAtDate, getCompletedSets, getDailyTarget, getDueItems, getIntervals, getItemPageEnd, getItemPageStart, getItemScore, getItemSource, getLazyInfo, getMasteryInfo, getMetrics, getNormalizedSections, getOverdueItems, getPaperSections, getRecordRange, getRetentionDueItems, getSetFraction, getSetState, getUnitMastery, getUnitPageRanges, isMistakeFreeMode, isMistakePageMode, isMistakeSetMode, isPageScopeCapable, isSetMode, masteryFromScore, mergeRanges, renderComfortAdvice, showToast, stretchFull, unitName, updatePressurePanel, updateSpreadPressureHint } from './review.js';
 import { ALL_MODAL_IDS, showGenericConfirm, updateIntervalHint } from './events.js';
@@ -1499,7 +1500,7 @@ export function applyPaperTemplate(listEl, tplKey) {
   t[1].forEach(([n, w]) => addPaperSecRow(listEl, n, w));
   refreshPaperSecSum(listEl);
 }
-(function initPaperTplSelects() {
+export function initPaperTplSelects() {
   ['fPaperTpl', 'sPaperTpl'].forEach((selId, i) => {
     const sel = document.getElementById(selId);
     if (!sel) return;
@@ -1510,7 +1511,7 @@ export function applyPaperTemplate(listEl, tplKey) {
       sel.value = '';
     });
   });
-})();
+}
 
 export function formIsPageScope() {
   const type = (document.querySelector('input[name="ptype"]:checked') || {}).value;

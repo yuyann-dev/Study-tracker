@@ -87,7 +87,7 @@ router.get('/stats', (req, res) => {
     const unusedInviteCodes = db.prepare('SELECT COUNT(*) AS c FROM invite_codes WHERE used_by IS NULL AND revoked_at IS NULL').get().c;
     const usedInviteCodes = db.prepare('SELECT COUNT(*) AS c FROM invite_codes WHERE used_at IS NOT NULL').get().c;
     const expiredInviteCodes = db.prepare(
-      "SELECT COUNT(*) AS c FROM invite_codes WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')"
+      "SELECT COUNT(*) AS c FROM invite_codes WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at < datetime('now')"
     ).get().c;
 
     // 近 7 天有同步的用户
@@ -547,8 +547,7 @@ router.delete('/users/:id/permanent', (req, res) => {
 
     const tx = db.transaction(() => {
       db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(targetId);
-      // 物理删除前必须清除 used_by 外键引用，否则 FOREIGN KEY 约束报错（invite_codes.used_by REFERENCES users(id) 无 ON DELETE）
-      db.prepare('UPDATE invite_codes SET used_by = NULL WHERE used_by = ?').run(targetId);
+      // 不清除 used_by：邀请码已被使用，保持已使用状态
       db.prepare('DELETE FROM users WHERE id = ?').run(targetId); // user_data 外键级联删除
     });
     tx();
@@ -568,7 +567,7 @@ router.post('/invite/generate', (req, res) => {
     let expiresAt = null;
     if (expiresInDays !== undefined && expiresInDays !== null && !isNaN(Number(expiresInDays))) {
       const days = Number(expiresInDays);
-      if (days > 0) expiresAt = new Date(Date.now() + days * 24 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+      if (days > 0) expiresAt = new Date(Date.now() + days * 24 * 3600 * 1000).toISOString();
     }
     const noteVal = note ? String(note).slice(0, 100) : null;
     const channelVal = channel ? String(channel).slice(0, 50) : null;
