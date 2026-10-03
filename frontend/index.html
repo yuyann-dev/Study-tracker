@@ -24,24 +24,15 @@ if ('serviceWorker' in navigator) {
       var barShown = false;
       function showUpdateBar(){
         if (barShown) return; barShown = true;
-        function paint(){
-          if (document.getElementById('swUpdateBar')) return;
-          var bar = document.createElement('div');
-          bar.id = 'swUpdateBar';
-          bar.setAttribute('role','button');
-          bar.setAttribute('tabindex','0');
-          bar.setAttribute('aria-label','已更新到新版本，点击刷新');
-          bar.style.cssText = 'position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;padding:12px 20px;border-radius:12px;font-size:13.5px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);z-index:260;cursor:pointer;max-width:calc(100vw - 32px)';
-          bar.textContent = '⬆️ 已更新到新版本，点此刷新';
-          var reload = function(){
-            try { if (reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'}); } catch(e){}
-            window.location.reload();
-          };
-          bar.addEventListener('click', reload);
-          bar.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') reload(); });
-          document.body.appendChild(bar);
-        }
-        if (document.body) paint(); else document.addEventListener('DOMContentLoaded', paint);
+        // 检测到新版本后自动刷新：先 postMessage 让 waiting SW 立即激活，再 reload
+        try { if (reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'}); } catch(e){}
+        // 短暂提示后自动刷新，用户无需手动点击
+        var bar = document.createElement('div');
+        bar.id = 'swUpdateBar';
+        bar.style.cssText = 'position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;padding:12px 20px;border-radius:12px;font-size:13.5px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);z-index:260;max-width:calc(100vw - 32px)';
+        bar.textContent = '⬆️ 检测到新版本，正在刷新…';
+        if (document.body) document.body.appendChild(bar); else document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(bar); });
+        setTimeout(function(){ window.location.reload(); }, 800);
       }
       // 已有 controller（非首次安装）且有 waiting worker → 提示
       if (navigator.serviceWorker.controller && reg.waiting) showUpdateBar();
@@ -1788,8 +1779,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/app.js"></script>
-<script src="js/auth.js"></script>
+<script src="js/app.js?v=20261003b"></script>
+<script src="js/auth.js?v=20261003b"></script>
 <script>
 
 if (document.readyState === 'loading') {
