@@ -5225,6 +5225,12 @@ function render() {
       }
     }
   }
+  // 登录墙激活时（未登录/登出后）不显示主界面，避免 render() 覆盖 enableLoginWall 的隐藏效果
+  if (typeof STAuth !== 'undefined' && STAuth.isLoginWallActive && STAuth.isLoginWallActive()) {
+    $('#welcome').hidden = true;
+    $('#app').hidden = true;
+    return;
+  }
   $('#welcome').hidden = true;
   $('#app').hidden = false;
 

@@ -380,7 +380,7 @@
     _lastSyncEtag = null;  // 清除 ETag，切换账号后重新全量拉取
     _localDirty = false;
     syncPending = false;
-    await clearLocalStoreData();  // 彻底清除本地学习数据，防止串号
+    try { await clearLocalStoreData(); } catch(e) { console.warn('logout: clear local data failed', e && e.message); }  // 彻底清除本地学习数据，防止串号
     updateHeaderUI();
     updateSyncStatus('logout');
     closeProfile();
@@ -993,16 +993,17 @@
     _loginWall = true;
     var mask = document.getElementById('authMask');
     if (mask) { mask.hidden = false; var c = document.getElementById('authClose'); if (c) c.style.display = 'none'; }
-    var app = document.getElementById('app'); if (app) app.style.visibility = 'hidden';
-    var w = document.getElementById('welcome'); if (w) w.style.visibility = 'hidden';
+    var app = document.getElementById('app'); if (app) { app.style.visibility = 'hidden'; app.hidden = true; }
+    var w = document.getElementById('welcome'); if (w) { w.style.visibility = 'hidden'; w.hidden = true; }
   }
   function disableLoginWall() {
     _loginWall = false;
     var mask = document.getElementById('authMask');
     if (mask) { mask.hidden = true; var c = document.getElementById('authClose'); if (c) c.style.display = ''; }
-    var app = document.getElementById('app'); if (app) app.style.visibility = '';
-    var w = document.getElementById('welcome'); if (w) w.style.visibility = '';
+    var app = document.getElementById('app'); if (app) { app.style.visibility = ''; app.hidden = false; }
+    var w = document.getElementById('welcome'); if (w) { w.style.visibility = ''; w.hidden = false; }
   }
+  function isLoginWallActive() { return _loginWall; }
   /* === 忘记密码（三步验证码） === */
   var fCurrentStep = 1;
 
@@ -2107,6 +2108,7 @@
     initAuth: initAuth,
     bindEvents: bindEvents,
     closeAuth: closeAuth,
-    closeProfile: closeProfile
+    closeProfile: closeProfile,
+    isLoginWallActive: isLoginWallActive
   };
 })();
