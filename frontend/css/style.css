@@ -934,6 +934,38 @@
   .wb-dist-legend .d i{width:10px;height:10px;border-radius:3px;display:inline-block}
   .wb-dist-legend b{color:var(--text);font-variant-numeric:tabular-nums}
 
+  /* 打卡热力图 */
+  .wb-heatmap-wrap{margin:0 0 16px;padding:12px;background:var(--inputBg);border-radius:12px}
+  .wb-heatmap-months{display:flex;gap:0;margin-bottom:4px;padding-left:28px;font-size:10px;color:var(--muted);height:14px}
+  .wb-heatmap-months span{flex:0 0 auto;width:calc(13px * 4 + 3px * 3);text-align:left}
+  .wb-heatmap-dow{display:flex;flex-direction:column;gap:3px;font-size:9px;color:var(--muted);width:18px;text-align:right;padding-top:1px;line-height:13px}
+  .wb-heatmap{display:flex;gap:3px;flex-wrap:nowrap;overflow-x:auto}
+  .wb-heatmap-col{display:flex;flex-direction:column;gap:3px}
+  .hm-cell{width:13px;height:13px;border-radius:3px;cursor:pointer;transition:transform .12s,box-shadow .12s;flex:0 0 auto}
+  .hm-cell:hover{transform:scale(1.25);box-shadow:0 0 0 2px var(--accent)}
+  .hm-cell.hm-0{background:#ebedf0}
+  .hm-cell.hm-1{background:#c6e48b}
+  .hm-cell.hm-2{background:#7bc96f}
+  .hm-cell.hm-3{background:#239a3b}
+  .hm-cell.hm-4{background:#196127}
+  .hm-cell.hm-today{outline:2px solid var(--accent);outline-offset:1px}
+  .hm-cell.hm-future{opacity:.35;cursor:default}
+  .hm-cell.hm-future:hover{transform:none;box-shadow:none}
+  .wb-heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:10px;font-size:11px;color:var(--muted)}
+  .wb-heatmap-legend .hm-cell{cursor:default;width:11px;height:11px}
+  .wb-heatmap-legend .hm-cell:hover{transform:none;box-shadow:none}
+  .wb-heat-detail{margin-top:10px;padding:14px;background:var(--cardBg);border-radius:12px;border:1px solid var(--border)}
+  .wb-heat-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:700;font-size:14px}
+  .wb-heat-detail-section{margin-bottom:12px}
+  .wb-heat-detail-section:last-child{margin-bottom:0}
+  .wb-heat-detail-section h4{font-size:12px;color:var(--muted);margin:0 0 6px;font-weight:600}
+  .wb-heat-detail-list{max-height:160px;overflow-y:auto;font-size:12.5px;line-height:1.7}
+  .wb-heat-detail-list .hd-item{padding:3px 8px;border-radius:6px;background:var(--inputBg);margin-bottom:4px}
+  .wb-heat-detail-list .hd-item .hd-meta{color:var(--muted);font-size:11px;margin-left:6px}
+  .wb-heat-detail-empty{color:var(--muted);font-size:12px;font-style:italic}
+  .wb-heat-detail-rate{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .wb-heat-detail-rate b{color:var(--text)}
+
   .skip-btn{
     background:none;border:none;color:#8a8175;cursor:pointer;
     font-size:11.5px;padding:4px 8px;border-radius:6px;font-family:inherit;

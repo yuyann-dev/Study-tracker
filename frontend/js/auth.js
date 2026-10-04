@@ -1448,12 +1448,12 @@
     try {
       var d = await apiRequest('/api/admin/invite/list', {method:'GET'});
       var codes = d.codes || [];
-      if (!codes.length){ tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted)">暂无邀请码</td></tr>'; updateInviteBatchBar(); return; }
+      if (!codes.length){ tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted)">暂无邀请码</td></tr>'; updateInviteBatchBar(); return; }
       // 排序：未用 > 已作废/已过期 > 已用（未用邀请码排在最上面，方便管理）
       codes.sort(function(a, b){
         function rank(c){
           var exp = c.expiresAt && parseServerTime(c.expiresAt) < new Date();
-          if (c.usedAt) return 2;
+          if (c.usedCount > 0) return 2;
           if (c.revokedAt || exp) return 1;
           return 0;
         }
@@ -1466,24 +1466,29 @@
       });
       tb.innerHTML = codes.map(function(c){
         var expDate = parseServerTime(c.expiresAt);
-        var expired = !c.usedAt && !c.revokedAt && expDate && expDate < new Date();
-        var st = c.usedAt ? '<span class="badge-used">已用</span>'
-               : (c.revokedAt ? '<span class="badge-revoked">已作废</span>'
-               : (expired ? '<span class="badge-disabled">已过期</span>' : '<span class="badge-unused">未用</span>'));
-        var user = c.usedAt ? esc(c.usedByName || '—') : '—';
+        var expired = c.usedCount === 0 && !c.revokedAt && expDate && expDate < new Date();
+        var usedRatio = c.usedCount + '/' + c.maxUses;
+        var st;
+        if (c.revokedAt) st = '<span class="badge-revoked">已作废</span>';
+        else if (expired) st = '<span class="badge-disabled">已过期</span>';
+        else if (c.usedCount >= c.maxUses) st = '<span class="badge-used">已用完</span>';
+        else if (c.usedCount > 0) st = '<span class="badge-unused" style="background:#e8f4fd;color:#1a73e8">使用中</span>';
+        else st = '<span class="badge-unused">未用</span>';
+        var userNames = (c.usedByNames && c.usedByNames.length) ? c.usedByNames.map(esc).join('、') : '—';
         var exp = c.expiresAt ? fmtDateTime(c.expiresAt) : '永久';
-        var canBatchDel = !!(c.usedAt || c.revokedAt || expired);
+        var canBatchDel = !!(c.usedCount > 0 || c.revokedAt || expired);
         var checked = adminState.selectedInvites[c.code] ? ' checked' : '';
         var checkbox = canBatchDel
           ? '<input type="checkbox" class="ad-table-check invite-check" data-code="' + esc(c.code) + '"' + checked + '>'
           : '';
-        var delBtn = (c.usedAt || c.revokedAt)
+        var delBtn = (c.usedCount > 0 || c.revokedAt)
           ? '<button class="ghost-btn adm-op" disabled style="opacity:.4;cursor:not-allowed">作废</button>'
           : '<button class="ghost-btn adm-op adm-danger" onclick="STAuth._deleteCode(\'' + c.code + '\')">作废</button>';
         return '<tr><td>' + checkbox + '</td>'
           + '<td style="font-family:monospace;font-weight:600">' + esc(c.code) + '</td>'
           + '<td>' + esc(c.note || '—') + '</td><td>' + esc(c.channel || '—') + '</td>'
-          + '<td>' + user + '</td><td>' + (c.usedAt ? fmtDateTime(c.usedAt) : '—') + '</td><td>' + exp + '</td><td>' + st + '</td>'
+          + '<td>' + userNames + '</td><td style="text-align:center;font-weight:600">' + usedRatio + '</td>'
+          + '<td>' + (c.usedAt ? fmtDateTime(c.usedAt) : '—') + '</td><td>' + exp + '</td><td>' + st + '</td>'
           + '<td><div class="adm-ops"><button class="ghost-btn adm-op" onclick="STAuth._copyCode(\'' + c.code + '\')">复制</button>' + delBtn + '</div></td></tr>';
       }).join('');
       // 绑定复选框事件
@@ -1734,10 +1739,12 @@
       var daysRaw = (document.getElementById('inviteExpireDays').value || '').trim();
       var note = (document.getElementById('inviteNote').value || '').trim();
       var channel = (document.getElementById('inviteChannel').value || '').trim();
+      var maxUsesRaw = (document.getElementById('inviteMaxUses').value || '').trim();
       var body = {count: cnt};
       if (daysRaw) body.expiresInDays = parseInt(daysRaw, 10);
       if (note) body.note = note;
       if (channel) body.channel = channel;
+      if (maxUsesRaw) { var mu = parseInt(maxUsesRaw, 10); if (mu >= 1) body.maxUses = mu; }
       try {
         var d = await apiRequest('/api/admin/invite/generate', {method:'POST', body:body});
         var codes = d.codes || [];

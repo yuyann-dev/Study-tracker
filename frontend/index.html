@@ -1289,6 +1289,7 @@ if ('serviceWorker' in navigator) {
     <div id="adminPaneInvites" hidden>
       <div class="admin-input-row">
         <label>生成数量<input id="inviteCount" type="number" value="1" min="1" max="50"></label>
+        <label>单码使用人数<input id="inviteMaxUses" type="number" value="1" min="1" max="10000" placeholder="默认1"></label>
         <label>有效天数（空=永久）<input id="inviteExpireDays" type="number" min="1" placeholder="永久"></label>
         <label>备注 note<input id="inviteNote" type="text" maxlength="100" placeholder="如：社群投放"></label>
         <label>渠道 channel<input id="inviteChannel" type="text" maxlength="50" placeholder="如：微信"></label>
@@ -1304,7 +1305,7 @@ if ('serviceWorker' in navigator) {
           <button class="ghost-btn adm-op adm-danger" onclick="STAuth._batchDeleteInvites()">批量清理</button>
         </div>
         <table class="admin-table">
-          <thead><tr><th style="width:36px"><input type="checkbox" id="inviteCheckAll"></th><th>邀请码</th><th>备注</th><th>渠道</th><th>使用者</th><th>使用时间</th><th>过期时间</th><th>状态</th><th>操作</th></tr></thead>
+          <thead><tr><th style="width:36px"><input type="checkbox" id="inviteCheckAll"></th><th>邀请码</th><th>备注</th><th>渠道</th><th>使用者</th><th>已用/总数</th><th>使用时间</th><th>过期时间</th><th>状态</th><th>操作</th></tr></thead>
           <tbody id="adminInvitesBody"></tbody>
         </table>
       </div>
@@ -1475,6 +1476,37 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <div id="wbDist" class="wb-dist"></div>
+
+    <div class="wb-section-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span>🔥 打卡热力图</span>
+      <span style="font-size:11px;color:var(--muted);font-weight:normal">数据随每日计划实时更新 · 点击格子查看当天详情</span>
+    </div>
+    <div class="wb-heatmap-wrap">
+      <div class="wb-heatmap-months" id="wbHeatMonths"></div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <div class="wb-heatmap-dow">
+          <div>一</div><div style="visibility:hidden">三</div><div>五</div><div style="visibility:hidden">日</div>
+        </div>
+        <div class="wb-heatmap" id="wbHeatmap"></div>
+      </div>
+      <div class="wb-heatmap-legend">
+        <span>少</span>
+        <div class="hm-cell hm-0"></div>
+        <div class="hm-cell hm-1"></div>
+        <div class="hm-cell hm-2"></div>
+        <div class="hm-cell hm-3"></div>
+        <div class="hm-cell hm-4"></div>
+        <span>多</span>
+        <span style="margin-left:12px;color:var(--muted);font-size:11px" id="wbHeatStats"></span>
+      </div>
+    </div>
+    <div id="wbHeatDetail" class="wb-heat-detail" hidden>
+      <div class="wb-heat-detail-head">
+        <span id="wbHeatDetailDate"></span>
+        <button class="x-btn" onclick="document.getElementById('wbHeatDetail').hidden=true" style="font-size:18px">×</button>
+      </div>
+      <div id="wbHeatDetailBody"></div>
+    </div>
 
     <div class="wb-filter">
       <button class="wb-filter-btn active" data-filter="all">全部</button>

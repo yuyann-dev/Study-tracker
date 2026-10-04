@@ -84,10 +84,10 @@ router.get('/stats', (req, res) => {
     const activeUsers = db.prepare("SELECT COUNT(*) AS c FROM users WHERE status='active' AND deleted_at IS NULL").get().c;
     const disabledUsers = db.prepare("SELECT COUNT(*) AS c FROM users WHERE status='disabled' AND deleted_at IS NULL").get().c;
     const totalInviteCodes = db.prepare('SELECT COUNT(*) AS c FROM invite_codes').get().c;
-    const unusedInviteCodes = db.prepare('SELECT COUNT(*) AS c FROM invite_codes WHERE used_by IS NULL AND revoked_at IS NULL').get().c;
-    const usedInviteCodes = db.prepare('SELECT COUNT(*) AS c FROM invite_codes WHERE used_at IS NOT NULL').get().c;
+    const unusedInviteCodes = db.prepare('SELECT COUNT(*) AS c FROM invite_codes WHERE used_count = 0 AND revoked_at IS NULL').get().c;
+    const usedInviteCodes = db.prepare('SELECT COUNT(*) AS c FROM invite_codes WHERE used_count > 0').get().c;
     const expiredInviteCodes = db.prepare(
-      "SELECT COUNT(*) AS c FROM invite_codes WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')"
+      "SELECT COUNT(*) AS c FROM invite_codes WHERE used_count = 0 AND revoked_at IS NULL AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')"
     ).get().c;
 
     // 近 7 天有同步的用户
@@ -343,10 +343,23 @@ router.get('/users/:id', (req, res) => {
     const recentLogins = db.prepare(
       'SELECT ip, ua, result, created_at FROM login_logs WHERE user_id = ? ORDER BY id DESC LIMIT 5'
     ).all(targetId);
-    const codes = db.prepare(
-      `SELECT code, used_by, used_at, note, channel, revoked_at, created_at
-       FROM invite_codes WHERE created_by = ? OR used_by = ? ORDER BY id DESC`
-    ).all(targetId, targetId);
+    // 邀请码：created_by = 用户创建的；used_by JSON 数组包含 = 用户使用过的
+    const allCodes = db.prepare(
+      `SELECT code, used_by, used_count, max_uses, used_at, note, channel, revoked_at, created_at
+       FROM invite_codes WHERE created_by = ? ORDER BY id DESC`
+    ).all(targetId);
+    const usedCodes = db.prepare(
+      `SELECT code, used_by, used_count, max_uses, used_at, note, channel, revoked_at, created_at
+       FROM invite_codes`
+    ).all();
+    const userUsedCodes = usedCodes.filter((c) => {
+      try { return JSON.parse(c.used_by || '[]').includes(targetId); } catch (e) { return false; }
+    });
+    // 合并去重（按 code）
+    const codeMap = new Map();
+    for (const c of allCodes) codeMap.set(c.code, c);
+    for (const c of userUsedCodes) codeMap.set(c.code, c);
+    const codes = Array.from(codeMap.values()).sort((a, b) => b.created_at.localeCompare(a.created_at));
     return ok(res, {
       user: {
         id: u.id, username: u.username, email: u.email,
@@ -553,8 +566,18 @@ router.delete('/users/:id/permanent', (req, res) => {
 
     const tx = db.transaction(() => {
       db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(targetId);
-      // 物理删除前必须清除 used_by 外键引用，否则 FOREIGN KEY 约束报错（invite_codes.used_by REFERENCES users(id) 无 ON DELETE）
-      db.prepare('UPDATE invite_codes SET used_by = NULL WHERE used_by = ?').run(targetId);
+      // 多用户邀请码：从 used_by JSON 数组中移除该用户 ID（事务内读取再更新），
+      // used_count 不递减——邀请码已被实际使用过，不应回退使用次数。
+      const allInvites = db.prepare('SELECT id, used_by FROM invite_codes').all();
+      for (const inv of allInvites) {
+        try {
+          const arr = JSON.parse(inv.used_by || '[]');
+          const filtered = arr.filter((uid) => uid !== targetId);
+          if (filtered.length !== arr.length) {
+            db.prepare('UPDATE invite_codes SET used_by = ? WHERE id = ?').run(JSON.stringify(filtered), inv.id);
+          }
+        } catch (e) { /* 非 JSON 格式跳过 */ }
+      }
       db.prepare('DELETE FROM users WHERE id = ?').run(targetId); // user_data 外键级联删除
     });
     tx();
@@ -566,11 +589,13 @@ router.delete('/users/:id/permanent', (req, res) => {
   }
 });
 
-// POST /api/admin/invite/generate  body: { count?, expiresInDays?, note?, channel? }
+// POST /api/admin/invite/generate  body: { count?, expiresInDays?, note?, channel?, maxUses? }
 router.post('/invite/generate', (req, res) => {
   try {
-    const { count, expiresInDays, note, channel } = req.body || {};
+    const { count, expiresInDays, note, channel, maxUses } = req.body || {};
     const n = Math.max(1, Math.min(50, parseInt(count, 10) || 1));
+    // 单码最大使用人数：默认1（一次性），范围1-10000
+    const maxUsesVal = Math.max(1, Math.min(10000, parseInt(maxUses, 10) || 1));
     let expiresAt = null;
     if (expiresInDays !== undefined && expiresInDays !== null && !isNaN(Number(expiresInDays))) {
       const days = Number(expiresInDays);
@@ -579,7 +604,7 @@ router.post('/invite/generate', (req, res) => {
     const noteVal = note ? String(note).slice(0, 100) : null;
     const channelVal = channel ? String(channel).slice(0, 50) : null;
 
-    const insert = db.prepare('INSERT INTO invite_codes (code, created_by, expires_at, note, channel) VALUES (?, ?, ?, ?, ?)');
+    const insert = db.prepare('INSERT INTO invite_codes (code, created_by, expires_at, note, channel, max_uses) VALUES (?, ?, ?, ?, ?, ?)');
     const codes = [];
     for (let i = 0; i < n; i++) {
       let code = generateCode();
@@ -587,10 +612,10 @@ router.post('/invite/generate', (req, res) => {
       while (db.prepare('SELECT id FROM invite_codes WHERE code = ?').get(code) && guard < 5) {
         code = generateCode(); guard++;
       }
-      insert.run(code, req.user.id, expiresAt, noteVal, channelVal);
+      insert.run(code, req.user.id, expiresAt, noteVal, channelVal, maxUsesVal);
       codes.push(code);
     }
-    writeAudit(req.user.id, 'generate_invite', 'invite', null, { count: n, note: noteVal, channel: channelVal, codes }, req);
+    writeAudit(req.user.id, 'generate_invite', 'invite', null, { count: n, note: noteVal, channel: channelVal, maxUses: maxUsesVal, codes }, req);
     return ok(res, { codes });
   } catch (e) {
     console.error('admin/invite/generate:', e.message);
@@ -603,27 +628,48 @@ router.get('/invite/list', (req, res) => {
   try {
     const rows = db.prepare(
       `SELECT c.code, c.created_by, cb.username AS created_by_name,
-              c.used_by, ub.username AS used_by_name,
+              c.used_by, c.used_count, c.max_uses,
               c.used_at, c.expires_at, c.note, c.channel, c.revoked_at, c.created_at
        FROM invite_codes c
        LEFT JOIN users cb ON cb.id = c.created_by
-       LEFT JOIN users ub ON ub.id = c.used_by
-       ORDER BY c.id DESC`
+       ORDER BY (c.used_count = 0 AND c.revoked_at IS NULL) DESC, c.id DESC`
     ).all();
+
+    // 收集所有 used_by JSON 数组中的用户 ID，批量查用户名（避免 N+1 查询）
+    const userIdSet = new Set();
+    for (const r of rows) {
+      try {
+        const arr = JSON.parse(r.used_by || '[]');
+        for (const uid of arr) userIdSet.add(uid);
+      } catch (e) { /* 非 JSON 格式跳过 */ }
+    }
+    const userMap = {};
+    if (userIdSet.size > 0) {
+      const placeholders = Array.from(userIdSet).map(() => '?').join(',');
+      const userRows = db.prepare(`SELECT id, username FROM users WHERE id IN (${placeholders})`).all(...Array.from(userIdSet));
+      for (const u of userRows) userMap[u.id] = u.username;
+    }
+
     return ok(res, {
-      codes: rows.map((r) => ({
-        code: r.code,
-        createdBy: r.created_by,
-        createdByName: r.created_by_name,
-        usedBy: r.used_by,
-        usedByName: r.used_by_name,
-        usedAt: r.used_at,
-        expiresAt: r.expires_at,
-        note: r.note,
-        channel: r.channel,
-        revokedAt: r.revoked_at,
-        createdAt: r.created_at,
-      })),
+      codes: rows.map((r) => {
+        let usedUserIds = [];
+        try { usedUserIds = JSON.parse(r.used_by || '[]'); } catch (e) { /* 非 JSON 格式 */ }
+        return {
+          code: r.code,
+          createdBy: r.created_by,
+          createdByName: r.created_by_name,
+          usedBy: usedUserIds,
+          usedByNames: usedUserIds.map((uid) => userMap[uid] || `用户#${uid}`),
+          usedCount: r.used_count,
+          maxUses: r.max_uses,
+          usedAt: r.used_at,
+          expiresAt: r.expires_at,
+          note: r.note,
+          channel: r.channel,
+          revokedAt: r.revoked_at,
+          createdAt: r.created_at,
+        };
+      }),
     });
   } catch (e) {
     console.error('admin/invite/list:', e.message);
@@ -637,7 +683,7 @@ router.delete('/invite/:code', (req, res) => {
     const code = String(req.params.code || '').trim().toUpperCase();
     const invite = db.prepare('SELECT * FROM invite_codes WHERE code = ?').get(code);
     if (!invite) return fail(res, '邀请码不存在', 404);
-    if (invite.used_by != null) return fail(res, '已使用的邀请码不可删除（保留分发归因记录）', 400);
+    if (invite.used_count > 0) return fail(res, '已使用的邀请码不可删除（保留分发归因记录）', 400);
     db.prepare("UPDATE invite_codes SET revoked_at = datetime('now') WHERE id = ?").run(invite.id);
     writeAudit(req.user.id, 'revoke_invite', 'invite', code, {}, req);
     return ok(res, { code, revoked: true });

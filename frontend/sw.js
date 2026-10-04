@@ -1,9 +1,8 @@
 ﻿/* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v27：API 响应绝不缓存（防登出后隐私残留）；导航响应仅缓存 200（防 500 页入缓存）；
-        恢复纸纹背景图预缓存；修复 v26 注释未闭合导致 SW 脚本语法错误、安装失败 */
-var CACHE = 'yystudy-v27';
+   v28：邀请码支持多用户使用（max_uses/used_count）；错题本薄弱点看板新增打卡热力图（点击查看当天计划/实际复习详情） */
+var CACHE = 'yystudy-v28';
 var CORE = [
   './',
   './index.html',

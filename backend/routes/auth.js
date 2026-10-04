@@ -67,7 +67,8 @@ function isFirstUser() {
 }
 
 /**
- * 验证邀请码（未使用、未过期、未软作废）
+ * 验证邀请码（未达使用上限、未过期、未软作废）
+ * 支持多用户邀请码：used_count < max_uses 即为可用
  * @param {string} inviteCode
  * @returns {{valid: boolean, invite?: object, reason?: string}}
  */
@@ -78,11 +79,11 @@ function checkInviteCode(inviteCode) {
   const invite = db
     .prepare(
       `SELECT * FROM invite_codes
-       WHERE code = ? AND used_by IS NULL AND revoked_at IS NULL
+       WHERE code = ? AND used_count < max_uses AND revoked_at IS NULL
          AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))`
     )
     .get(String(inviteCode).trim().toUpperCase());
-  if (!invite) return { valid: false, reason: '邀请码无效或已被使用/作废' };
+  if (!invite) return { valid: false, reason: '邀请码无效或已达使用上限/已作废' };
   return { valid: true, invite };
 }
 
@@ -198,8 +199,18 @@ router.post('/register', (req, res) => {
       // 物理删除已注销的旧账号（不可逆操作放在所有校验通过后）
       if (existing && existing.deleted_at != null) {
         db.prepare('UPDATE invite_codes SET created_by = NULL WHERE created_by = ?').run(existing.id);
-        // 清空 used_by 时同时清空 used_at，否则已用邀请码会因 checkInviteCode 不查 used_at 而"复活"
-        db.prepare('UPDATE invite_codes SET used_by = NULL, used_at = NULL WHERE used_by = ?').run(existing.id);
+        // 多用户邀请码：从 used_by JSON 数组中移除该用户 ID（事务内读取再更新，安全可靠），
+        // used_count 不递减——邀请码已被实际使用过，不应"复活"回退使用次数。
+        const allUsed = db.prepare("SELECT id, used_by FROM invite_codes").all();
+        for (const r of allUsed) {
+          try {
+            const arr = JSON.parse(r.used_by || '[]');
+            const filtered = arr.filter((uid) => uid !== existing.id);
+            if (filtered.length !== arr.length) {
+              db.prepare('UPDATE invite_codes SET used_by = ? WHERE id = ?').run(JSON.stringify(filtered), r.id);
+            }
+          } catch (e) { /* 非 JSON 格式跳过 */ }
+        }
         db.prepare('DELETE FROM users WHERE id = ?').run(existing.id); // user_data 外键级联删除
       }
 
@@ -208,10 +219,11 @@ router.post('/register', (req, res) => {
         .run(usernameTrim, hash, emailNorm, isAdmin);
       const insertedId = info.lastInsertRowid;
 
-      // 条件抢占邀请码：WHERE used_by IS NULL 防止并发注册同一邀请码（TOCTOU 竞态）
+      // 条件抢占邀请码：WHERE used_count < max_uses 防止并发注册超额（TOCTOU 竞态）
+      // json_insert(used_by, '$[#]', ?) 将用户 ID 追加到 JSON 数组末尾
       if (invite) {
         const claim = db.prepare(
-          "UPDATE invite_codes SET used_by = ?, used_at = datetime('now') WHERE id = ? AND used_by IS NULL"
+          "UPDATE invite_codes SET used_count = used_count + 1, used_by = json_insert(used_by, '$[#]', ?), used_at = datetime('now') WHERE id = ? AND used_count < max_uses AND revoked_at IS NULL"
         ).run(insertedId, invite.id);
         if (claim.changes === 0) {
           throw new Error('INVITE_CODE_TAKEN');
@@ -225,7 +237,7 @@ router.post('/register', (req, res) => {
     return ok(res, { token: signToken(row), user: publicUser(row) });
   } catch (e) {
     if (e.message === 'INVITE_CODE_TAKEN') {
-      return fail(res, '邀请码已被使用，请更换');
+      return fail(res, '邀请码已达使用上限，请更换');
     }
     console.error('register error:', e.message);
     return fail(res, '服务器开小差了，请稍后重试', 500);

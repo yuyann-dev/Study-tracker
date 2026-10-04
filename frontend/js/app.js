@@ -9249,6 +9249,171 @@ function renderWeaknessBoard(p) {
   }).join('');
   $('#wbDist').innerHTML = distSegs || '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:8px">暂无数据</div>';
 
+  // —— 打卡热力图 ——
+  (function renderHeatmap(){
+    const hmEl = $('#wbHeatmap'); if (!hmEl) return;
+    const monthsEl = $('#wbHeatMonths');
+    const statsEl = $('#wbHeatStats');
+    const WEEKS = 14; // 显示14周（约3.5个月）
+    const todayDate = new Date();
+    const todayStrVal = todayStr();
+
+    // 收集每天实际复习记录：{ date: [{item, quality}] }
+    const dailyActual = {};
+    // 收集每天计划复习：{ date: [item] }
+    const dailyPlanned = {};
+    items.forEach(function(it){
+      // 实际复习记录
+      (it.reviews || []).forEach(function(rv){
+        if (!rv || !rv.date) return;
+        if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
+        dailyActual[rv.date].push({ item: it, quality: rv.quality || rv.result || 'review' });
+      });
+      // 计划复习（nextReviewDate）
+      if (it.nextReviewDate && !isMastered(it)) {
+        if (!dailyPlanned[it.nextReviewDate]) dailyPlanned[it.nextReviewDate] = [];
+        dailyPlanned[it.nextReviewDate].push(it);
+      }
+    });
+
+    // 找到最近的周一（作为热力图最后一列的开始）
+    const dayOfWeek = todayDate.getDay(); // 0=周日, 1=周一, ...
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const lastMonday = new Date(todayDate);
+    lastMonday.setDate(todayDate.getDate() - daysSinceMonday);
+
+    // 生成 WEEKS 列，每列从周一开始
+    const columns = [];
+    for (let w = WEEKS - 1; w >= 0; w--) {
+      const colStart = new Date(lastMonday);
+      colStart.setDate(lastMonday.getDate() - w * 7);
+      const days = [];
+      for (let d = 0; d < 7; d++) {
+        const dt = new Date(colStart);
+        dt.setDate(colStart.getDate() + d);
+        const ds = dt.toISOString().slice(0, 10);
+        const actualN = (dailyActual[ds] || []).length;
+        const plannedN = (dailyPlanned[ds] || []).length;
+        const isFuture = ds > todayStrVal;
+        const isToday = ds === todayStrVal;
+        days.push({ date: ds, actualN, plannedN, isFuture, isToday, dt });
+      }
+      columns.push({ start: colStart, days });
+    }
+
+    // 颜色等级：0, 1, 2-3, 4-6, 7+
+    function levelOf(n){
+      if (n <= 0) return 0;
+      if (n === 1) return 1;
+      if (n <= 3) return 2;
+      if (n <= 6) return 3;
+      return 4;
+    }
+
+    // 渲染月份标签
+    if (monthsEl) {
+      const monthLabels = [];
+      let lastMonth = -1;
+      columns.forEach(function(col, ci){
+        const m = col.start.getMonth();
+        if (m !== lastMonth) {
+          monthLabels.push({ idx: ci, label: (m + 1) + '月' });
+          lastMonth = m;
+        }
+      });
+      monthsEl.innerHTML = monthLabels.map(function(ml){
+        return '<span style="margin-left:' + (ml.idx * (13 + 3)) + 'px">' + ml.label + '</span>';
+      }).join('');
+    }
+
+    // 渲染热力图格子
+    hmEl.innerHTML = columns.map(function(col){
+      return '<div class="wb-heatmap-col">' + col.days.map(function(d){
+        const lv = d.isFuture ? 0 : levelOf(d.actualN);
+        const cls = 'hm-cell hm-' + lv + (d.isToday ? ' hm-today' : '') + (d.isFuture ? ' hm-future' : '');
+        const title = d.isFuture
+          ? d.date + '（未来）计划' + d.plannedN + '题'
+          : d.date + ' 复习' + d.actualN + '题' + (d.plannedN ? ' / 计划' + d.plannedN + '题' : '');
+        return '<div class="' + cls + '" data-date="' + d.date + '" title="' + title + '"></div>';
+      }).join('') + '</div>';
+    }).join('');
+
+    // 统计：总打卡天数、总复习次数、连续打卡
+    const allDates = Object.keys(dailyActual).filter(function(d){ return d <= todayStrVal; }).sort();
+    const totalReviews = allDates.reduce(function(s, d){ return s + dailyActual[d].length; }, 0);
+    // 连续打卡（从今天往前数）
+    let streak = 0;
+    let checkDate = new Date(todayDate);
+    while (true) {
+      const ds = checkDate.toISOString().slice(0, 10);
+      if ((dailyActual[ds] || []).length > 0) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        // 今天还没打卡不算断，从昨天开始算
+        if (ds === todayStrVal && streak === 0) {
+          checkDate.setDate(checkDate.getDate() - 1);
+          continue;
+        }
+        break;
+      }
+      if (streak > 365) break;
+    }
+    if (statsEl) statsEl.textContent = '共' + allDates.length + '天 · ' + totalReviews + '次复习 · 连续' + streak + '天';
+
+    // 点击格子显示详情
+    hmEl.querySelectorAll('.hm-cell:not(.hm-future)').forEach(function(cell){
+      cell.addEventListener('click', function(){
+        const ds = cell.getAttribute('data-date');
+        const actual = dailyActual[ds] || [];
+        const planned = dailyPlanned[ds] || [];
+        const detailEl = $('#wbHeatDetail');
+        const dateEl = $('#wbHeatDetailDate');
+        const bodyEl = $('#wbHeatDetailBody');
+        if (!detailEl || !dateEl || !bodyEl) return;
+
+        const dt = new Date(ds + 'T00:00:00');
+        const weekdayNames = ['日','一','二','三','四','五','六'];
+        dateEl.textContent = ds + ' 周' + weekdayNames[dt.getDay()];
+
+        const rate = planned.length > 0
+          ? '完成率 <b>' + Math.min(100, Math.round(actual.length / planned.length * 100)) + '%</b>（实际' + actual.length + '/计划' + planned.length + '）'
+          : '当天无计划任务，实际复习' + actual.length + '题';
+
+        function itemHtml(it, tag){
+          const loc = fmtItemLocator(p, it);
+          const meta = [];
+          if (loc) meta.push(loc);
+          if (it.errTags && it.errTags.length) meta.push(it.errTags.slice(0,2).join('/'));
+          if (tag) meta.push(tag);
+          return '<div class="hd-item">' + esc(it.content).slice(0, 80) +
+            (it.content.length > 80 ? '…' : '') +
+            (meta.length ? '<span class="hd-meta">' + meta.join(' · ') + '</span>' : '') +
+            '</div>';
+        }
+
+        const plannedHtml = planned.length
+          ? '<div class="wb-heat-detail-list">' + planned.map(function(it){ return itemHtml(it, '计划'); }).join('') + '</div>'
+          : '<div class="wb-heat-detail-empty">当天无计划复习任务</div>';
+
+        const actualHtml = actual.length
+          ? '<div class="wb-heat-detail-list">' + actual.map(function(r){
+              const qMap = { remember: '记得', fuzzy: '模糊', forgot: '忘记', review: '复习' };
+              return itemHtml(r.item, qMap[r.quality] || r.quality);
+            }).join('') + '</div>'
+          : '<div class="wb-heat-detail-empty">当天没有复习记录</div>';
+
+        bodyEl.innerHTML =
+          '<div class="wb-heat-detail-rate">' + rate + '</div>' +
+          '<div class="wb-heat-detail-section"><h4>📋 当天计划复习</h4>' + plannedHtml + '</div>' +
+          '<div class="wb-heat-detail-section"><h4>✅ 当天实际复习</h4>' + actualHtml + '</div>';
+
+        detailEl.hidden = false;
+        detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    });
+  })();
+
   // 单条渲染（错题显示错因+出处，背书显示页码）
   const itemLi = ({ it, score }) => {
     const displayScore = (score == null) ? '未复习' : score.toFixed(2);
@@ -12325,7 +12490,7 @@ window.addEventListener('resize', () => {
   try {
   // 版本强制下线机制：大版本更新时清除登录态（仅 token/user，学习数据完整保留）
   // 每次需要强制全员重新登录时，修改下方 APP_VERSION 的值即可
-  const APP_VERSION = '20261003e';
+  const APP_VERSION = '20261004a';
   const VER_KEY = 'st_app_version';
   try {
     const lastVer = localStorage.getItem(VER_KEY);
