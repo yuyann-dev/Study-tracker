@@ -1785,127 +1785,134 @@
   h1,h2{line-height:1.6}
   .welcome h2{line-height:1.4}
 
-  /* ============ 自习室（Study Room）样式 ============ */
-  .sr-fullmask{background:rgba(44,38,32,.55)}
-  .sr-modal.sr-room-modal{max-width:560px}
+/* ============ 自习室（Study Room）样式 — UI 重设计版 ============ */
+.sr-fullmask{background:rgba(44,38,32,.55)}
+.sr-modal.sr-room-modal{max-width:560px}
 
-  /* 引导页 */
-  .sr-welcome-hero{font-size:48px;text-align:center;margin:18px 0 10px}
-  .sr-welcome-title{font-size:16px;font-weight:600;text-align:center;color:var(--text);margin-bottom:22px;line-height:1.6}
-  /* 入口卡：无 hover 投影，保留 cursor:pointer 与按压反馈 */
-  .sr-entry-card{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;margin-bottom:12px;background:var(--inputBg);border:1px solid var(--border);border-radius:14px;cursor:pointer;text-align:left;transition:transform .12s}
-  .sr-entry-card:active{transform:scale(.985)}
-  .sr-entry-icon{font-size:28px;flex:0 0 auto}
-  .sr-entry-text{flex:1}
-  .sr-entry-title{font-size:15px;font-weight:700;color:var(--text)}
-  .sr-entry-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+/* 引导页 */
+.sr-welcome-hero{font-size:48px;text-align:center;margin:18px 0 10px}
+.sr-welcome-title{font-size:16px;font-weight:600;text-align:center;color:var(--text);margin-bottom:22px;line-height:1.6}
+.sr-entry-card{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;margin-bottom:12px;background:var(--inputBg);border:1px solid var(--border);border-radius:14px;cursor:pointer;text-align:left}
+.sr-entry-card:active{transform:scale(.985)}
+.sr-entry-icon{font-size:28px;flex:0 0 auto}
+.sr-entry-text{flex:1;min-width:0}
+.sr-entry-title{font-size:15px;font-weight:700;color:var(--text)}
+.sr-entry-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
 
-  /* 房间信息 */
-  .sr-room-info{background:var(--inputBg);border-radius:14px;padding:14px 16px;margin-bottom:16px}
-  .sr-room-name-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
-  .sr-room-name{font-size:17px;font-weight:700;color:var(--text)}
-  .sr-member-count{font-size:12.5px;color:var(--muted);flex:0 0 auto}
-  .sr-room-code-row{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--muted)}
-  .sr-room-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:700;letter-spacing:3px;color:var(--text);background:var(--elevated);padding:2px 10px;border-radius:6px;border:1px solid var(--border)}
-  .sr-copy-btn{margin-left:auto;padding:4px 10px;font-size:12px;white-space:nowrap}
+/* 房间信息栏 */
+.sr-room-info{background:var(--inputBg);border-radius:14px;padding:14px 16px;margin-bottom:16px}
+.sr-room-name-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sr-room-name{font-size:17px;font-weight:700;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-member-count{font-size:12.5px;color:var(--muted);flex:0 0 auto;font-variant-numeric:tabular-nums}
+.sr-visibility-badge{flex:0 0 auto;font-size:11px;font-weight:600;color:var(--brand);background:var(--inputBg);border:1px solid var(--border);padding:2px 9px;border-radius:999px}
+.sr-room-code-row{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);flex-wrap:wrap}
+.sr-room-code-label{flex:0 0 auto}
+.sr-room-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:700;letter-spacing:3px;color:var(--text);background:var(--elevated);padding:2px 10px;border-radius:6px;border:1px solid var(--border)}
+.sr-copy-btn{margin-left:auto;padding:4px 10px;font-size:12px;white-space:nowrap}
 
-  /* 成员列表 */
-  .sr-member-list-title{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 12px}
-  .sr-member-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
-  .sr-member-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border)}
-  /* 成员头像：无 hover 放大，保留 cursor:pointer */
-  .sr-member-avatar{width:44px;height:44px;border-radius:50%;background:var(--elevated);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex:0 0 auto;font-size:22px;border:1px solid var(--border)}
-  .sr-member-avatar img{width:100%;height:100%;object-fit:cover;display:block}
-  .sr-avatar-fallback{line-height:1}
-  .sr-member-info{flex:1;min-width:0}
-  .sr-member-name{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .sr-owner-badge{font-size:10.5px;font-weight:600;color:#2e6b4f;background:#e6efe9;padding:2px 7px;border-radius:6px}
-  .sr-self-tag{font-size:11px;color:var(--muted)}
-  .sr-member-status{font-size:12.5px;margin-top:4px}
-  .sr-status-ok{color:#15803d}
-  .sr-status-private{color:var(--muted)}
+/* 房主操作行 + 房间内广场入口 */
+.sr-owner-actions{display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap}
+.sr-disband-btn{padding:5px 12px;font-size:12.5px}
+.sr-plaza-room-btn{width:100%;margin:0 0 16px}
 
-  /* 退出按钮 */
-  .sr-leave-btn{width:100%;margin-top:4px}
+/* 成员列表 */
+.sr-member-list-title{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 10px}
+.sr-member-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.sr-member-card{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border)}
+.sr-member-avatar{width:40px;height:40px;border-radius:50%;background:var(--elevated);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex:0 0 auto;font-size:20px;border:1px solid var(--border)}
+.sr-member-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.sr-avatar-fallback{line-height:1;color:var(--muted)}
+.sr-member-info{flex:1;min-width:0}
+.sr-member-name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sr-member-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sr-owner-badge{font-size:10.5px;font-weight:600;color:#2e6b4f;background:#e6efe9;padding:2px 7px;border-radius:6px;flex:0 0 auto}
+.sr-self-tag{font-size:11px;color:var(--muted);flex:0 0 auto}
+.sr-member-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:3px;font-size:12px;line-height:1.4;color:var(--muted)}
+.sr-meta-streak{color:var(--brand);font-variant-numeric:tabular-nums}
+.sr-meta-streak.sr-streak-zero{color:var(--muted);font-variant-numeric:normal}
+.sr-meta-divider{color:var(--border)}
+.sr-meta-today{font-variant-numeric:tabular-nums}
+.sr-meta-today.sr-today-ok{color:#15803d}
+.sr-meta-today.sr-today-zero{color:var(--muted)}
+.sr-meta-today.sr-today-private{color:var(--muted)}
+.sr-kick-btn{flex:0 0 auto;align-self:center;padding:4px 10px;font-size:12px;color:var(--bad)}
 
-  /* 表单错误提示 */
-  .sr-form-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12.5px;margin:0 0 10px;line-height:1.5}
+/* 退出按钮 */
+.sr-leave-btn{width:100%;margin-top:4px}
 
-  /* 成员详情弹窗 */
-  .sr-detail-modal{max-width:560px}
-  .sr-detail-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-  .sr-detail-avatar{width:52px;height:52px;border-radius:50%;background:var(--inputBg);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:28px;border:1px solid var(--border);flex:0 0 auto}
-  .sr-detail-avatar img{width:100%;height:100%;object-fit:cover;display:block}
-  .sr-detail-username{font-size:17px;font-weight:700;color:var(--text)}
-  .sr-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
-  .sr-stat-card{background:var(--inputBg);border:1px solid var(--border);border-radius:12px;padding:10px 6px;text-align:center}
-  .sr-stat-icon{font-size:18px;margin-bottom:4px}
-  .sr-stat-value{font-size:16px;font-weight:700;color:var(--text);line-height:1.2}
-  .sr-stat-label{font-size:11px;color:var(--muted);margin-top:3px}
+/* 表单错误提示 */
+.sr-form-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12.5px;margin:0 0 10px;line-height:1.5}
 
-  /* 未公开提示弹窗 */
-  .sr-private-modal{max-width:320px;text-align:center}
-  .sr-private-icon{font-size:44px;margin:8px 0 12px}
-  .sr-private-text{font-size:15px;color:var(--text);margin-bottom:18px;line-height:1.6}
+/* 成员详情弹窗 */
+.sr-detail-modal{max-width:520px}
+.sr-detail-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.sr-detail-avatar{width:56px;height:56px;border-radius:50%;background:var(--inputBg);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:28px;border:1px solid var(--border);flex:0 0 auto}
+.sr-detail-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.sr-detail-username{font-size:17px;font-weight:700;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  .sr-leave-confirm-text{font-size:14px;color:var(--text)}
+/* 最近学习动态（替代热力图） */
+.sr-detail-recent{margin-top:2px;margin-bottom:16px}
+.sr-detail-recent-title{font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:.3px}
+.sr-recent-list{display:flex;flex-direction:column;gap:6px}
+.sr-recent-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 12px;background:var(--inputBg);border:1px solid var(--border);border-radius:8px;font-size:12.5px}
+.sr-recent-date{color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.sr-recent-count{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.sr-recent-empty{font-size:12.5px;color:var(--muted);text-align:center;padding:14px}
 
-  @media (max-width:480px){
-    .sr-stats-grid{grid-template-columns:repeat(2,1fr)}
-  }
+/* 4 统计卡片 */
+.sr-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+.sr-stat-card{background:var(--inputBg);border:1px solid var(--border);border-radius:12px;padding:12px 6px;text-align:center}
+.sr-stat-icon{font-size:18px;margin-bottom:4px}
+.sr-stat-value{font-size:16px;font-weight:700;color:var(--text);line-height:1.2;font-variant-numeric:tabular-nums}
+.sr-stat-label{font-size:11px;color:var(--muted);margin-top:3px}
 
-  /* ============ 自习室 v2：可见性徽章 / 房主操作 / 连续打卡 / 广场 ============ */
-  /* 三视图统一最小高度：welcome ↔ room ↔ plaza 切换时弹窗高度不跳变 */
-  #srWelcomeView,#srRoomView,#srPlazaView{min-height:360px}
+/* 未公开提示弹窗 */
+.sr-private-modal{max-width:320px;text-align:center}
+.sr-private-icon{font-size:44px;margin:8px 0 12px}
+.sr-private-text{font-size:15px;color:var(--text);margin-bottom:18px;line-height:1.6}
 
-  /* 房间名旁的公开/私有可见性徽章 */
-  .sr-visibility-badge{flex:0 0 auto;font-size:11px;font-weight:600;color:var(--brand);background:var(--inputBg);border:1px solid var(--border);padding:2px 9px;border-radius:999px}
+/* 确认文案（退出/踢出/解散共用） */
+.sr-leave-confirm-text{font-size:14px;color:var(--text);line-height:1.7}
+.sr-disband-text{font-size:14px;color:var(--text);line-height:1.7}
 
-  /* 房主操作行（房间设置按钮等），一行排列带间距 */
-  .sr-owner-actions{display:flex;align-items:center;gap:10px;margin:0 0 16px}
+/* ===== 公开自习室广场 ===== */
+.sr-plaza-title{font-size:15px;font-weight:700;color:var(--text);margin:4px 0 10px}
+.sr-plaza-list{display:flex;flex-direction:column;gap:10px;margin:4px 0 0}
+.sr-plaza-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name btn" "meta btn";align-items:center;column-gap:12px;row-gap:3px;padding:12px 14px;background:var(--inputBg);border:1px solid var(--border);border-radius:12px}
+.sr-plaza-name{grid-area:name;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;font-size:14px;font-weight:600;color:var(--text)}
+.sr-plaza-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-plaza-meta{grid-area:meta;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-plaza-full{font-size:10.5px;font-weight:600;color:var(--brand2);background:var(--inputBg);border:1px solid var(--border);padding:1px 6px;border-radius:6px;flex:0 0 auto}
+.sr-plaza-join-btn{grid-area:btn;flex:0 0 auto;padding:7px 18px;font-size:13px}
+.sr-plaza-join-btn:disabled{opacity:.5;cursor:not-allowed}
 
-  /* 成员连续打卡：12.5px、墨绿主色、数字等宽；零打卡降为弱化色 */
-  .sr-member-streak{font-size:12.5px;color:var(--brand);margin-top:3px;font-variant-numeric:tabular-nums}
-  .sr-streak-zero{color:var(--muted);font-variant-numeric:normal}
-  /* 今日还未打卡：弱化色 */
-  .sr-status-zero{color:var(--muted)}
+/* 三视图统一最小高度 */
+#srWelcomeView,#srRoomView,#srPlazaView{min-height:360px}
 
-  /* 房主踢人按钮：小号 ghost、危险语义文字色，不出红底 */
-  .sr-kick-btn{flex:0 0 auto;padding:4px 10px;font-size:12px;color:var(--bad)}
+/* ===== 深色模式覆盖 ===== */
+html[data-theme="dark"] .sr-entry-card,
+html[data-theme="dark"] .sr-member-card,
+html[data-theme="dark"] .sr-stat-card,
+html[data-theme="dark"] .sr-plaza-card,
+html[data-theme="dark"] .sr-recent-item{background:var(--input);border-color:var(--input-border)}
+html[data-theme="dark"] .sr-room-info{background:var(--input);border:1px solid var(--input-border)}
+html[data-theme="dark"] .sr-visibility-badge{background:var(--input);border-color:var(--input-border);color:var(--brand)}
+html[data-theme="dark"] .sr-plaza-full{background:var(--input);border-color:var(--input-border);color:var(--brand2)}
+html[data-theme="dark"] .sr-kick-btn{color:var(--bad)}
+html[data-theme="dark"] .sr-detail-avatar{background:var(--input);border-color:var(--input-border)}
+html[data-theme="dark"] .sr-owner-badge{background:#2c3a4e;color:#83bca9}
+html[data-theme="dark"] .sr-meta-today.sr-today-ok{color:#78baa0}
+html[data-theme="dark"] .sr-form-error{background:#3a3040;border-color:#5a4048;color:#e3a0a4}
+html[data-theme="dark"] .sr-fullmask{background:rgba(10,15,28,.65)}
 
-  /* ===== 公开自习室广场 ===== */
-  .sr-plaza-list{display:flex;flex-direction:column;gap:10px;margin:4px 0 0}
-  /* 卡片：左侧名称+meta 上下堆叠，右侧加入按钮（grid 区域对齐，DOM 无需额外 wrapper） */
-  .sr-plaza-card{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name btn" "meta btn";align-items:center;column-gap:12px;row-gap:2px;padding:12px 14px;background:var(--inputBg);border:1px solid var(--border);border-radius:12px}
-  .sr-plaza-name{grid-area:name;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;font-size:14px;font-weight:600;color:var(--text)}
-  .sr-plaza-meta{grid-area:meta;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  /* 已满小徽章 */
-  .sr-plaza-full{font-size:10.5px;font-weight:600;color:var(--brand2);background:var(--inputBg);border:1px solid var(--border);padding:1px 6px;border-radius:6px}
-  /* 加入按钮（复用 .primary）：小号化 */
-  .sr-plaza-join-btn{grid-area:btn;flex:0 0 auto;padding:7px 18px;font-size:13px}
-
-  /* 热力图格子点击详情行：固定一行高约 18px，空态占位防跳动 */
-  .sr-day-detail{height:18px;line-height:18px;margin-top:8px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-  /* ===== 深色模式：内嵌凹槽盒统一 --input/--input-border 口径，配细边框，避免框消失或发黄 ===== */
-  html[data-theme="dark"] .sr-entry-card,
-  html[data-theme="dark"] .sr-member-card,
-  html[data-theme="dark"] .sr-stat-card,
-  html[data-theme="dark"] .sr-plaza-card{background:var(--input);border-color:var(--input-border)}
-  html[data-theme="dark"] .sr-room-info{background:var(--input);border:1px solid var(--input-border)}
-  html[data-theme="dark"] .sr-visibility-badge{background:var(--input);border-color:var(--input-border);color:var(--brand)}
-  html[data-theme="dark"] .sr-plaza-full{background:var(--input);border-color:var(--input-border);color:var(--brand2)}
-  /* 踢人按钮文字色在深色 ghost-btn 下重声明为危险色 */
-  html[data-theme="dark"] .sr-kick-btn{color:var(--bad)}
-  html[data-theme="dark"] .sr-detail-avatar{background:var(--input);border-color:var(--input-border)}
-  html[data-theme="dark"] .sr-owner-badge{background:#2c3a4e;color:#83bca9}
-  html[data-theme="dark"] .sr-status-ok{color:#78baa0}
-  html[data-theme="dark"] .sr-form-error{background:#3a3040;border-color:#5a4048;color:#e3a0a4}
-  html[data-theme="dark"] .sr-fullmask{background:rgba(10,15,28,.65)}
-
-  /* ===== 响应式：PC/平板优先；窄屏 <560px 广场卡片纵向堆叠、视图最小高下调 ===== */
-  @media (max-width:560px){
-    #srWelcomeView,#srRoomView,#srPlazaView{min-height:280px}
-    .sr-plaza-card{grid-template-columns:1fr;grid-template-areas:"name" "meta" "btn";row-gap:6px}
-    .sr-plaza-join-btn{width:100%}
-  }
+/* ===== 响应式：PC/平板优先，窄屏 <560px ===== */
+@media (max-width:560px){
+  #srWelcomeView,#srRoomView,#srPlazaView{min-height:280px}
+  .sr-stats-grid{grid-template-columns:repeat(2,1fr)}
+  .sr-plaza-card{grid-template-columns:1fr;grid-template-areas:"name" "meta" "btn";row-gap:6px}
+  .sr-plaza-join-btn{width:100%}
+  .sr-member-card{gap:8px;padding:9px 12px}
+  .sr-member-avatar{width:38px;height:38px;font-size:19px}
+  .sr-detail-avatar{width:48px;height:48px;font-size:24px}
+  .sr-room-info{padding:12px 14px}
+}

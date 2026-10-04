@@ -110,10 +110,23 @@ function invalidate(userId) {
   cache.delete(userId);
 }
 
+/**
+ * 批量失效多个用户的缓存（解散自习室 / 批量踢人后调用）。
+ * 逐个 delete，跳过非法项；空数组安全返回。
+ * @param {number[]} userIds
+ */
+function invalidateMany(userIds) {
+  if (!Array.isArray(userIds)) return;
+  for (const uid of userIds) {
+    if (typeof uid === 'number' && Number.isInteger(uid)) cache.delete(uid);
+  }
+}
+
 module.exports = {
   get,
   set,
   invalidate,
+  invalidateMany,
   TTL_MS,
   SWEEP_INTERVAL_MS,
   MAX_ENTRIES,

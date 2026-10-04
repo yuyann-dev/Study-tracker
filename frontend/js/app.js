@@ -12679,6 +12679,11 @@ async function loadStudyRoomMe() {
   // 诚实提示，统一说「房间已不可用」，不编造具体原因。
   if (hadRoom && !studyRoomState.room) {
     showToast('ℹ️', '房间已不可用', '你已被移出该房间或房间已解散', 3000);
+    // 若此时正停留在广场视图，加入按钮仍停留在「已在其他自习室」禁用态，需重新拉取广场
+    var plazaView = $('#srPlazaView');
+    if (plazaView && !plazaView.hidden) {
+      loadStudyRoomPlaza();
+    }
   }
 }
 
@@ -12690,6 +12695,14 @@ function renderStudyRoomViews() {
   if (!welcomeView || !roomView) return;
   var plazaOpen = !!(plazaView && !plazaView.hidden);
   if (!studyRoomState.room) {
+    // 不在房间时必须隐藏房主操作行并重置房主标记，避免解散/被踢后按钮残留
+    var ownerActions0 = $('#srOwnerActions');
+    if (ownerActions0) ownerActions0.hidden = true;
+    studyRoomState.iAmOwner = false;
+    // 轮询检测到 room=null 时（被踢/解散），可能有子弹窗叠加在引导页上，逐一关闭避免残留
+    ['srMemberDetailMask','srPrivateMask','srRoomSettingsMask','srKickConfirmMask','srLeaveConfirmMask','srDisbandConfirmMask','srCreateMask','srJoinMask'].forEach(function(mid){
+      var m = $('#' + mid); if (m) m.hidden = true;
+    });
     if (!plazaOpen) { welcomeView.hidden = false; roomView.hidden = true; }
     return;
   }
@@ -12708,7 +12721,7 @@ function renderStudyRoomViews() {
   renderMemberList();
 }
 
-// 渲染成员列表（G2：头像 / 用户名+房主·我标记 / 连续打卡 streak / 今日区 / 房主踢人按钮）
+// 渲染成员列表（紧凑两行：第一行 名字+房主/我标记；第二行 连续·今日状态 内联合一）
 function renderMemberList() {
   var listEl = $('#srMemberList');
   if (!listEl) return;
@@ -12721,17 +12734,17 @@ function renderMemberList() {
     // 连续打卡 streak（基础社交信息，对所有成员可见，后端已真实返回）
     var streak = (typeof m.streak === 'number') ? m.streak : 0;
     var streakHtml = streak > 0
-      ? '🔥 连续 ' + streak + ' 天'
-      : '<span class="sr-streak-zero">暂未形成连续打卡</span>';
-    // 今日区：仅 publicData||isSelf 才真实；未公开者后端返回 null
+      ? '<span class="sr-meta-streak">🔥 连续 ' + streak + ' 天</span>'
+      : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
+    // 今日状态：仅 publicData||isSelf 才真实；未公开者后端返回 null
     var todayHtml;
-    if (m.publicData || m.isSelf) {
+    if (!(m.publicData || m.isSelf)) {
+      todayHtml = '<span class="sr-meta-today sr-today-private">🔒 数据已隐藏</span>';
+    } else {
       var n = m.todayReviewCount || 0;
       todayHtml = n > 0
-        ? '<span class="sr-status-ok">✅ 今日复习 ' + n + ' 次</span>'
-        : '<span class="sr-status-zero">⚪ 今日还未打卡</span>';
-    } else {
-      todayHtml = '<span class="sr-status-private">🔒 今日数据已隐藏</span>';
+        ? '<span class="sr-meta-today sr-today-ok">✅ 今日复习 ' + n + ' 次</span>'
+        : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
     }
     var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
     var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
@@ -12742,9 +12755,15 @@ function renderMemberList() {
     return '<div class="sr-member-card" data-user-id="' + m.userId + '">'
       + '<div class="sr-member-avatar" data-user-id="' + m.userId + '" title="点击查看详情">' + avatarHtml + '</div>'
       + '<div class="sr-member-info">'
-      +   '<div class="sr-member-name">' + esc(m.username || '匿名') + ownerBadge + selfTag + '</div>'
-      +   '<div class="sr-member-streak">' + streakHtml + '</div>'
-      +   '<div class="sr-member-today">' + todayHtml + '</div>'
+      +   '<div class="sr-member-name-row">'
+      +     '<span class="sr-member-name">' + esc(m.username || '匿名') + '</span>'
+      +     ownerBadge + selfTag
+      +   '</div>'
+      +   '<div class="sr-member-meta">'
+      +     streakHtml
+      +     '<span class="sr-meta-divider">·</span>'
+      +     todayHtml
+      +   '</div>'
       + '</div>' + kickBtn + '</div>';
     // 头像点击 / 踢人按钮统一由 initStudyRoomUI 中的事件委托处理，避免重复绑定
   }).join('');
@@ -12778,7 +12797,7 @@ async function openMemberDetail(userId) {
   }
 }
 
-// 渲染成员详情（头像 + 热力图 + 4 个统计卡片）
+// 渲染成员详情（头像 + 最近学习动态 + 4 个统计卡片）
 function renderMemberDetail(profile) {
   var avatarEl = $('#srDetailAvatar');
   if (avatarEl) {
@@ -12788,8 +12807,21 @@ function renderMemberDetail(profile) {
   }
   var unEl = $('#srDetailUsername');
   if (unEl) unEl.textContent = profile.username || '';
-  // 热力图
-  renderMemberHeatmap(profile.heatmap || {}, $('#srDetailHeatmap'), $('#srDetailHeatMonths'));
+  // 最近学习动态（替代原热力图；后端 GET /member 已不再返回 heatmap）
+  var recent = profile.recentActivity || [];
+  var recentEl = $('#srDetailRecentList');
+  if (recentEl) {
+    if (!recent.length) {
+      recentEl.innerHTML = '<div class="sr-recent-empty">暂无学习记录</div>';
+    } else {
+      recentEl.innerHTML = recent.map(function(a) {
+        return '<div class="sr-recent-item">'
+          + '<span class="sr-recent-date">' + esc((a.date || '').slice(5)) + ' ' + esc(a.dayOfWeek || '') + '</span>'
+          + '<span class="sr-recent-count">复习 ' + (a.reviewCount || 0) + ' 次</span>'
+          + '</div>';
+      }).join('');
+    }
+  }
   // 统计卡片
   var week = profile.weekReviewCount || [];
   var weekSum = week.reduce(function(a,b){ return (a||0) + (b||0); }, 0);
@@ -12965,6 +12997,33 @@ async function confirmLeaveRoom() {
   }
 }
 
+// 房主解散自习室：先弹确认，再 DELETE /api/study-room
+function askDisbandRoom() {
+  if (!studyRoomState.room) return;
+  var tEl = $('#srDisbandConfirmText');
+  if (tEl) tEl.textContent = '⚠️ 解散后所有成员将被移出，不可恢复。确定解散？';
+  var dm = $('#srDisbandConfirmMask'); if (dm) dm.hidden = false;
+}
+
+async function confirmDisbandRoom() {
+  try {
+    await STAuth.apiRequest('/api/study-room', { method: 'DELETE' });
+    var dm = $('#srDisbandConfirmMask'); if (dm) dm.hidden = true;
+    // 清空房间状态并重置房主标记
+    studyRoomState.room = null;
+    studyRoomState.members = [];
+    studyRoomState.iAmOwner = false;
+    // 解散时可能有子弹窗叠加在引导页上，逐一关闭避免残留
+    ['srMemberDetailMask','srPrivateMask','srRoomSettingsMask','srKickConfirmMask','srLeaveConfirmMask'].forEach(function(mid){
+      var m = $('#' + mid); if (m) m.hidden = true;
+    });
+    renderStudyRoomViews();
+    showToast('🗑️', '已解散', '自习室已解散，所有成员已移出', 2600);
+  } catch (e) {
+    showToast('⚠️', '解散失败', e.message || '请稍后重试', 2600);
+  }
+}
+
 // 复制房间号
 function copyRoomCode() {
   var code = studyRoomState.room && studyRoomState.room.roomCode;
@@ -13029,18 +13088,23 @@ function renderPlazaList(rooms) {
     return;
   }
   if (empty) empty.hidden = true;
+  // 已在房间中的用户：所有「加入」按钮禁用并提示，后端 /join 仍会二次兜底
+  var iAmInRoom = !!studyRoomState.room;
   list.innerHTML = rooms.map(function(r) {
     var isFull = !!r.isFull;
     // 已满：显示「已满」徽章，按钮 disabled 且文案改为「已满」
-    var fullBadge = isFull
-      ? '<span class="sr-plaza-full">已满</span>'
-      : '<span class="sr-plaza-full" hidden>已满</span>';
-    var joinBtn = isFull
-      ? '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" disabled type="button">已满</button>'
-      : '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" type="button">加入</button>';
+    var fullBadge = isFull ? '<span class="sr-plaza-full">已满</span>' : '';
+    var joinBtn;
+    if (isFull) {
+      joinBtn = '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" disabled type="button">已满</button>';
+    } else if (iAmInRoom) {
+      joinBtn = '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" disabled type="button">已在其他自习室</button>';
+    } else {
+      joinBtn = '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" type="button">加入</button>';
+    }
     return '<div class="sr-plaza-card">'
-      + '<div class="sr-plaza-name">' + esc(r.name || '未命名房间') + ' ' + fullBadge + '</div>'
-      + '<div class="sr-plaza-meta">成员 ' + (r.memberCount || 0) + '/' + SR_MAX_MEMBERS + ' · 房主 ' + esc(r.ownerName || '匿名') + '</div>'
+      + '<div class="sr-plaza-name"><span class="sr-plaza-name-text">' + esc(r.name || '未命名房间') + '</span>' + fullBadge + '</div>'
+      + '<div class="sr-plaza-meta">' + (r.memberCount || 0) + '/' + SR_MAX_MEMBERS + ' 人 · 房主 ' + esc(r.ownerName || '匿名') + '</div>'
       + joinBtn
       + '</div>';
   }).join('');
@@ -13207,6 +13271,7 @@ function initStudyRoomUI() {
 
   // 公开自习室广场
   bind('#srPlazaBtn', 'click', openStudyRoomPlaza);
+  bind('#srPlazaBtnInRoom', 'click', openStudyRoomPlaza);
   bind('#srPlazaBackBtn', 'click', closeStudyRoomPlaza);
 
   // 房主：房间设置
@@ -13219,6 +13284,12 @@ function initStudyRoomUI() {
   bind('#srKickCancelBtn', 'click', function(){ var m = $('#srKickConfirmMask'); if (m) m.hidden = true; studyRoomState.pendingKickUserId = null; });
   bind('#srKickCancelBtn2', 'click', function(){ var m = $('#srKickConfirmMask'); if (m) m.hidden = true; studyRoomState.pendingKickUserId = null; });
   bind('#srKickConfirmBtn', 'click', confirmKickMember);
+
+  // 房主：解散自习室确认
+  bind('#srDisbandBtn', 'click', askDisbandRoom);
+  bind('#srDisbandCancelBtn', 'click', function(){ var m = $('#srDisbandConfirmMask'); if (m) m.hidden = true; });
+  bind('#srDisbandCancelBtn2', 'click', function(){ var m = $('#srDisbandConfirmMask'); if (m) m.hidden = true; });
+  bind('#srDisbandConfirmBtn', 'click', confirmDisbandRoom);
 
   bind('#srDetailCloseBtn', 'click', function(){ var m = $('#srMemberDetailMask'); if (m) m.hidden = true; });
   bind('#srPrivateOkBtn', 'click', function(){ var m = $('#srPrivateMask'); if (m) m.hidden = true; });
@@ -13250,7 +13321,7 @@ function initStudyRoomUI() {
   }
 
   // 点击遮罩空白处关闭弹窗（自习室主页面除外；子弹窗只 hidden，不重复 lock/unlock）
-  ['srMemberDetailMask','srPrivateMask','srLeaveConfirmMask','srCreateMask','srJoinMask','srKickConfirmMask','srRoomSettingsMask'].forEach(function(mid){
+  ['srMemberDetailMask','srPrivateMask','srLeaveConfirmMask','srCreateMask','srJoinMask','srKickConfirmMask','srRoomSettingsMask','srDisbandConfirmMask'].forEach(function(mid){
     var m = $('#' + mid);
     if (m) m.addEventListener('click', function(e){ if (e.target === m) m.hidden = true; });
   });
@@ -13271,7 +13342,7 @@ window.addEventListener('popstate', function() {
   var main = $('#studyRoomMask');
   if (!main || main.hidden) return; // 自习室层未打开，交给通用处理器/默认行为
   // 自习室子弹窗按层级从上到下排列，取最上层可见者关闭
-  var subIds = ['srKickConfirmMask','srRoomSettingsMask','srLeaveConfirmMask','srMemberDetailMask','srPrivateMask','srCreateMask','srJoinMask'];
+  var subIds = ['srDisbandConfirmMask','srKickConfirmMask','srRoomSettingsMask','srLeaveConfirmMask','srMemberDetailMask','srPrivateMask','srCreateMask','srJoinMask'];
   for (var i = 0; i < subIds.length; i++) {
     var m = $('#' + subIds[i]);
     if (m && !m.hidden) {

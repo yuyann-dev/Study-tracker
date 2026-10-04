@@ -9,7 +9,8 @@
  *   POST   /create             创建房间（自动生成 6 位房间号，默认私有）
  *   POST   /join               通过房间号加入（私有房只能凭房间号加入）
  *   POST   /leave              退出（房主退出自动转让给最早加入者，或解散房间）
- *   GET    /member/:userId     成员公开学习数据（热力图 + 统计，需同房间）
+ *   DELETE /                   房主解散整个自习室（ON DELETE CASCADE 清成员）
+ *   GET    /member/:userId     成员公开学习数据（统计 + 最近学习动态，需同房间）
  *   PATCH  /privacy            切换「公开学习数据到自习室」开关
  *   POST   /kick               房主踢出某成员（body: {userId}）
  *   PATCH  /settings           房主修改房间名 / 是否公开到广场（body: {name?, isPublic?}）
@@ -57,6 +58,15 @@ function shiftDate(dateStr, deltaDays) {
 function mondayIndex(dateStr) {
   const dow = new Date(dateStr + 'T00:00:00Z').getUTCDay(); // 0=周日
   return (dow + 6) % 7;
+}
+
+/** UTC 星期索引 → 中文星期（与 new Date(dateStr+'T00:00:00Z').getUTCDay() 对应） */
+const DAY_NAMES_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+/** 'YYYY-MM-DD' → 中文星期（周日~周六），按 UTC 解析避免本地时区偏差 */
+function dayOfWeekCn(dateStr) {
+  const dow = new Date(dateStr + 'T00:00:00Z').getUTCDay(); // 0=周日
+  return DAY_NAMES_CN[dow] || '';
 }
 
 /**
@@ -354,7 +364,41 @@ router.post('/leave', (req, res) => {
   }
 });
 
-// GET /api/study-room/member/:userId —— 成员公开学习数据（热力图 + 统计）
+// DELETE /api/study-room —— 房主解散整个自习室
+// 仅房主可调用；事务内删 study_rooms 行（ON DELETE CASCADE 自动清成员），
+// 解散后批量失效所有成员的 statsCache，并写审计。
+router.delete('/', (req, res) => {
+  try {
+    const me = req.user.id;
+    const room = myRoomRow(me);
+    if (!room) return fail(res, '你不在任何自习室中', 400);
+    if (me !== room.ownerId) return fail(res, '只有房主可以解散自习室', 403);
+
+    let memberUserIds = [];
+    const tx = db.transaction(() => {
+      // 先取成员列表：删房间后 CASCADE 会清掉成员行，缓存清理名单必须在此之前拿到
+      memberUserIds = db
+        .prepare('SELECT user_id AS userId FROM study_room_members WHERE room_id = ?')
+        .all(room.roomId)
+        .map((r) => r.userId);
+      db.prepare('DELETE FROM study_rooms WHERE id = ?').run(room.roomId);
+    });
+    tx();
+
+    // 缓存按 userId 维度存（与房间无关），解散后逐人失效，避免脏数据残留
+    statsCache.invalidateMany(memberUserIds);
+
+    writeAudit(me, 'study_room_disband', 'study_room', room.roomId,
+      { memberCount: memberUserIds.length }, req);
+
+    return ok(res, { ok: true, disbanded: true });
+  } catch (e) {
+    console.error('DELETE /api/study-room error:', e.message);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
+  }
+});
+
+// GET /api/study-room/member/:userId —— 成员公开学习数据（统计 + 最近学习动态）
 // 权限：请求者与目标必须在同一房间；目标未公开则返回 profile:null（不报错）
 router.get('/member/:userId', (req, res) => {
   try {
@@ -383,12 +427,16 @@ router.get('/member/:userId', (req, res) => {
     const { byDate, total } = getUserStats(targetUserId);
 
     const today = todayStr();
-    // 热力图：最近一年（含今天往前 365 天）每日 review 数
-    const heatmap = {};
-    const cutoff = shiftDate(today, -364);
-    for (const [date, count] of Object.entries(byDate)) {
-      if (date >= cutoff) heatmap[date] = count;
-    }
+    // 最近学习动态：最近 3 条有打卡记录的日期（按日期降序，不含今天之后的日期）
+    const recentActivity = Object.entries(byDate)
+      .filter(([date, count]) => date <= today && count > 0)
+      .sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0))
+      .slice(0, 3)
+      .map(([date, count]) => ({
+        date,
+        reviewCount: count,
+        dayOfWeek: dayOfWeekCn(date),
+      }));
 
     // 本周复习数：周一→周日 7 个数
     const monday = shiftDate(today, -mondayIndex(today));
@@ -406,7 +454,7 @@ router.get('/member/:userId', (req, res) => {
         userId: targetUserId,
         username: target.username,
         avatar: target.avatar,
-        heatmap,
+        recentActivity,
         weekReviewCount,
         currentStreak,
         totalReviews: total,

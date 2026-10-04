@@ -2,9 +2,10 @@
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
    v32：全局多视角审查修复——删除条目/记录墓碑机制防同步复活、深色模式全量适配、热力图紧凑化、术语按类型感知、自习室返回键/广场返回键/自看详情修复、邮箱枚举防护、wrongStreak退档归零。
+   v33：自习室 UI 重设计——房主解散自习室(DELETE /api/study-room)、房间内广场入口、成员列表紧凑两行布局、成员详情以最近学习动态替代热力图、深浅色/窄屏适配。
    重要：静态资源靠 index.html 里的 ?v= 版本号 cache-busting，
    每次改 JS/CSS 必须同时升 ?v= 版本号，否则 SW 会一直返回旧缓存。 */
-var CACHE = 'yystudy-v32';
+var CACHE = 'yystudy-v33';
 var CORE = [
   './',
   './index.html',

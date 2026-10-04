@@ -59,7 +59,7 @@ if ('serviceWorker' in navigator) {
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=3">
-<link rel="stylesheet" href="css/style.css?v=20261004f">
+<link rel="stylesheet" href="css/style.css?v=20261004g">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -886,7 +886,7 @@ if ('serviceWorker' in navigator) {
       <input id="settingStudyRoomPublic" type="checkbox" style="width:auto;margin:0">
       <span style="font-size:13.5px;color:var(--text)">公开我的学习数据到自习室</span>
     </label>
-    <p class="hint" style="margin-top:0;margin-bottom:10px">开启后，自习室成员可看到你的今日打卡状态和学习图表（热力图、连续打卡等）。关闭则仅头像和用户名可见。默认关闭。</p>
+    <p class="hint" style="margin-top:0;margin-bottom:10px">开启后，自习室成员可看到你的今日打卡状态、连续打卡和最近学习动态。关闭则仅头像和用户名可见。默认关闭。</p>
 
     <div class="sec-title">安装为应用</div>
     <button class="soft-btn" id="btnInstallApp" type="button" style="width:100%;justify-content:center">📱 安装到电脑 / 手机，像 App 一样独立打开</button>
@@ -1835,8 +1835,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/auth.js?v=20261004f"></script>
-<script src="js/app.js?v=20261004f"></script>
+<script src="js/auth.js?v=20261004g"></script>
+<script src="js/app.js?v=20261004g"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -1908,7 +1908,10 @@ if (document.readyState === 'loading') {
       <!-- 房主操作行（仅房主可见，JS 控制 hidden） -->
       <div class="sr-owner-actions" id="srOwnerActions" hidden>
         <button class="ghost-btn" id="srRoomSettingsBtn" type="button">⚙️ 房间设置</button>
+        <button class="danger-btn sr-disband-btn" id="srDisbandBtn" type="button">🗑️ 解散自习室</button>
       </div>
+
+      <button class="ghost-btn sr-plaza-room-btn" id="srPlazaBtnInRoom" type="button">🌍 自习室广场</button>
 
       <div class="sr-member-list-title">成员列表</div>
       <div class="sr-member-list" id="srMemberList"></div>
@@ -1978,25 +1981,9 @@ if (document.readyState === 'loading') {
       <div class="sr-detail-avatar" id="srDetailAvatar"></div>
       <div class="sr-detail-username" id="srDetailUsername"></div>
     </div>
-    <div class="wb-heatmap-wrap">
-      <div class="wb-heatmap-months" id="srDetailHeatMonths"></div>
-      <div style="display:flex;gap:6px;align-items:flex-start">
-        <div class="wb-heatmap-dow">
-          <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
-        </div>
-        <div class="wb-heatmap-scroll">
-          <div class="wb-heatmap" id="srDetailHeatmap"></div>
-        </div>
-      </div>
-      <!-- 固定一行：点击格子显示 日期 周X · 复习 N 次 -->
-      <div class="sr-day-detail" id="srDetailDay">&nbsp;</div>
-      <div class="wb-heatmap-legend">
-        <span class="legend-item"><span class="hm-cell hm-0"></span><span class="legend-num">0</span></span>
-        <span class="legend-item"><span class="hm-cell hm-1"></span><span class="legend-num">1</span></span>
-        <span class="legend-item"><span class="hm-cell hm-2"></span><span class="legend-num">2-3</span></span>
-        <span class="legend-item"><span class="hm-cell hm-3"></span><span class="legend-num">4-6</span></span>
-        <span class="legend-item"><span class="hm-cell hm-4"></span><span class="legend-num">7+</span></span>
-      </div>
+    <div class="sr-detail-recent">
+      <div class="sr-detail-recent-title">最近学习动态</div>
+      <div class="sr-recent-list" id="srDetailRecentList"></div>
     </div>
     <div class="sr-stats-grid">
       <div class="sr-stat-card">
@@ -2044,6 +2031,21 @@ if (document.readyState === 'loading') {
       <div class="spacer"></div>
       <button class="ghost-btn" id="srLeaveCancelBtn2" type="button">取消</button>
       <button class="danger-btn" id="srLeaveConfirmBtn" type="button">确认退出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 解散自习室确认弹窗（仅房主） ============ -->
+<div class="mask" id="srDisbandConfirmMask" hidden>
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head">
+      <h2>解散自习室</h2>
+      <button class="x-btn" id="srDisbandCancelBtn">×</button>
+    </div>
+    <p class="sr-disband-text" id="srDisbandConfirmText">⚠️ 解散后所有成员将被移出，不可恢复。确定解散？</p>
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button class="ghost-btn" id="srDisbandCancelBtn2" type="button" style="flex:1">取消</button>
+      <button class="danger-btn" id="srDisbandConfirmBtn" type="button" style="flex:1">确认解散</button>
     </div>
   </div>
 </div>
