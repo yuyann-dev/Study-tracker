@@ -1,10 +1,11 @@
 ﻿/* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v30：自习室全面完善——房主踢人、房间公开/私有、公开自习室广场按热度排序、成员连续打卡、进阶信息隐私分级；
-   热力图重构——按容器宽度自适应周数与格子尺寸、彻底去除横向滚动与页面跳变、当天详情区固定高度；
-   纸感学院派视觉（无渐变、无悬停动态、深浅色与 PC/平板/手机适配）。 */
-var CACHE = 'yystudy-v30';
+   v31：修复自习室 apiRequest 未暴露与按钮绑定时机错误；
+   个人热力图重构为月历视图（默认当月、可切换、未来计划全部列出、掌握状态徽章）。
+   重要：静态资源靠 index.html 里的 ?v= 版本号 cache-busting，
+   每次改 JS/CSS 必须同时升 ?v= 版本号，否则 SW 会一直返回旧缓存。 */
+var CACHE = 'yystudy-v31';
 var CORE = [
   './',
   './index.html',
@@ -68,6 +69,24 @@ self.addEventListener('fetch', function (e) {
         return res;
       }).catch(function () {
         return caches.match(req).then(function (r) { return r || caches.match('./index.html'); });
+      })
+    );
+    return;
+  }
+
+  // JS/CSS/HTML 用 network-first：部署后用户立即拿到新版，离线时回退缓存
+  var url = req.url;
+  var isJsCss = url.indexOf('.js') !== -1 || url.indexOf('.css') !== -1;
+  if (isJsCss) {
+    e.respondWith(
+      fetch(req).then(function (res) {
+        if (res && res.status === 200) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        }
+        return res;
+      }).catch(function () {
+        return caches.match(req);
       })
     );
     return;
