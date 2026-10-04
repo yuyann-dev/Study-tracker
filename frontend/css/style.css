@@ -976,7 +976,48 @@
   .wb-heatmap-legend .legend-item{display:inline-flex;align-items:center;gap:3px}
   .wb-heatmap-legend .hm-cell{cursor:default;width:12px;height:12px}
   .wb-heatmap-legend .legend-num{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
-  .wb-heat-detail{margin-top:12px;padding:16px;background:var(--card);border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow);max-width:880px}
+  /* === 月历热力图（个人薄弱点看板）：默认当月、可切换、固定6行不跳变 === */
+  .wb-heatmap-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 10px}
+  .wb-heat-month-label{font-size:15px;font-weight:700;min-width:110px;text-align:center;font-variant-numeric:tabular-nums}
+  .wb-heat-nav-btn{width:34px;height:34px;padding:0;font-size:20px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+  .wb-calendar-dow{display:grid!important;grid-template-columns:repeat(7,1fr);gap:4px;width:auto!important;flex-direction:row!important;text-align:center!important;padding:0!important;line-height:1.4!important;font-size:11.5px!important;color:var(--muted)!important;margin-bottom:4px}
+  .wb-calendar-dow span{padding:2px 0}
+  .wb-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-height:300px}
+  .wb-cal-cell{position:relative;aspect-ratio:1/1;border-radius:8px;background:var(--hm-0);border:1px solid var(--border);display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px;cursor:pointer;box-sizing:border-box}
+  .wb-cal-cell.wb-cal-empty{background:transparent;border:none;cursor:default}
+  .wb-cal-cell.hm-1{background:var(--hm-1)}
+  .wb-cal-cell.hm-2{background:var(--hm-2)}
+  .wb-cal-cell.hm-3{background:var(--hm-3)}
+  .wb-cal-cell.hm-4{background:var(--hm-4)}
+  .wb-cal-num{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;color:rgba(41,36,29,.6)}
+  .wb-cal-cell.hm-3 .wb-cal-num{color:rgba(41,36,29,.75)}
+  .wb-cal-cell.hm-4 .wb-cal-num{color:#fff}
+  .wb-cal-today{outline:2px solid var(--brand);outline-offset:-2px}
+  .wb-cal-future{opacity:.35}
+  .wb-cal-cell:active{transform:scale(.96)}
+  html[data-theme="dark"] .wb-cal-num{color:rgba(231,237,246,.6)}
+  html[data-theme="dark"] .wb-cal-cell.hm-3 .wb-cal-num{color:rgba(231,237,246,.85)}
+  html[data-theme="dark"] .wb-cal-cell.hm-4 .wb-cal-num{color:#1a2540}
+  .wb-heat-detail{margin-top:12px;padding:16px;background:var(--card);border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow);max-width:880px;min-height:200px}
+  /* 计划圆点标记（未来/过去有计划复习的日期） */
+  .wb-cal-plan-dot{position:absolute;bottom:4px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.7}
+  .wb-cal-cell.wb-cal-future .wb-cal-plan-dot{opacity:.5}
+  /* 掌握状态徽章 */
+  .hm-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;margin-right:6px;vertical-align:middle;line-height:1.5}
+  .hm-badge-done{background:#d4ede0;color:#1e5638}
+  .hm-badge-overdue{background:#f5d9d0;color:#8a3a1e}
+  .hm-badge-learning{background:#e3ddc8;color:#6b5a1e}
+  .hm-badge-new{background:#e0e0e0;color:#666}
+  html[data-theme="dark"] .hm-badge-done{background:#2a4a3a;color:#a8dcc8}
+  html[data-theme="dark"] .hm-badge-overdue{background:#4a2a2a;color:#f0b8a8}
+  html[data-theme="dark"] .hm-badge-learning{background:#3a3a2a;color:#e0d090}
+  html[data-theme="dark"] .hm-badge-new{background:#3a3a3a;color:#aaa}
+  /* 未来7天计划预览 */
+  .hd-future-day{display:flex;align-items:baseline;gap:8px;padding:6px 10px;border-radius:8px;background:var(--inputBg);margin-bottom:4px;font-size:12.5px}
+  .hd-future-date{font-weight:600;color:var(--text);min-width:72px;font-variant-numeric:tabular-nums}
+  .hd-future-count{color:var(--brand);font-weight:700;min-width:32px}
+  .hd-future-preview{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wb-heat-plan-note{font-size:11px;color:var(--muted);margin-bottom:8px;font-style:italic}
   .wb-heat-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:700;font-size:15px}
   .wb-heat-detail-section{margin-bottom:14px}
   .wb-heat-detail-section:last-child{margin-bottom:0}

@@ -2159,6 +2159,7 @@
   }
 
   return {
+    apiRequest: apiRequest,
     isLoggedIn: isLoggedIn,
     getUsername: getUsername,
     getUser: getUser,

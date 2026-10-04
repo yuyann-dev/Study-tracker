@@ -1485,17 +1485,18 @@ if ('serviceWorker' in navigator) {
         <div class="hstat"><div class="hstat-num" id="wbHeatStatReviews">0</div><div class="hstat-lab">复习次数</div></div>
         <div class="hstat"><div class="hstat-num" id="wbHeatStatStreak">0</div><div class="hstat-lab">连续打卡</div></div>
       </div>
-      <!-- 月份标签行（JS使用列内标签时隐藏此行） -->
-      <div class="wb-heatmap-months" id="wbHeatMonths"></div>
-      <!-- 星期标签 + 热力图 -->
-      <div style="display:flex;gap:6px;align-items:flex-start">
-        <div class="wb-heatmap-dow">
-          <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
-        </div>
-        <div class="wb-heatmap-scroll">
-          <div class="wb-heatmap" id="wbHeatmap"></div>
-        </div>
+      <!-- 月份导航 -->
+      <div class="wb-heatmap-nav" id="wbHeatMonths">
+        <button class="ghost-btn wb-heat-nav-btn" id="wbHeatPrevMonth" type="button">‹</button>
+        <span class="wb-heat-month-label" id="wbHeatMonthLabel"></span>
+        <button class="ghost-btn wb-heat-nav-btn" id="wbHeatNextMonth" type="button">›</button>
       </div>
+      <!-- 星期标签 -->
+      <div class="wb-heatmap-dow wb-calendar-dow">
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+      </div>
+      <!-- 日历网格 -->
+      <div class="wb-calendar-grid" id="wbHeatmap"></div>
       <!-- 空状态 -->
       <div class="wb-heatmap-empty" id="wbHeatEmpty" hidden>
         <div class="empty-icon">📖</div>
