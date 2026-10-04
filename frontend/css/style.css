@@ -940,7 +940,7 @@
     --hm-cell:16px;--hm-gap:3px;--hm-radius:4px;--hm-today-ring:var(--brand);
   }
   html[data-theme="dark"]{
-    --hm-0:#3a4a6b;--hm-1:#3d6b5c;--hm-2:#5a9a82;--hm-3:#78baa0;--hm-4:#a8dcc8;--hm-today-ring:#83bca9;
+    --hm-0:#45587f;--hm-1:#3d6b5c;--hm-2:#5a9a82;--hm-3:#78baa0;--hm-4:#a8dcc8;--hm-today-ring:#bfe8d6;
   }
   .wb-heatmap-wrap{margin:0 0 16px;padding:16px 14px;background:var(--inputBg);border-radius:14px;border:1px solid var(--border);max-width:880px}
   .wb-heat-stats{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
