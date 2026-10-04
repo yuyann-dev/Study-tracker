@@ -147,6 +147,7 @@ if ('serviceWorker' in navigator) {
       <button class="ghost-btn" id="btnMistakeGuide" title="错题本使用说明" hidden>❓ 使用说明</button>
       <button class="ghost-btn" id="btnSwitch">📚 切换</button>
       <button class="ghost-btn" id="btnSettings">⚙️ 设置</button>
+      <button class="ghost-btn" id="studyRoomNavBtn" title="自习室">🏫 自习室</button>
       <button class="ghost-btn" id="btnAdmin" title="管理员后台" hidden>🛡️ 管理</button>
       <span id="syncIndicator" class="sync-indicator" hidden title="同步状态"></span>
       <button id="btnUser" class="user-avatar-wrap" title="账号" aria-label="账号中心"><span class="user-avatar-btn" aria-hidden="true">👤</span></button>
@@ -891,6 +892,13 @@ if ('serviceWorker' in navigator) {
       <div id="comfortAdvice" class="hint" style="display:none;margin-top:8px;padding:10px 12px;border-radius:10px;background:#f0f7ff;border:1px solid #d0e4ff;font-size:12.5px;line-height:1.6"></div>
     </div>
 
+    <div class="sec-title">自习室隐私</div>
+    <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px">
+      <input id="settingStudyRoomPublic" type="checkbox" style="width:auto;margin:0">
+      <span style="font-size:13.5px;color:var(--text)">公开我的学习数据到自习室</span>
+    </label>
+    <p class="hint" style="margin-top:0;margin-bottom:10px">开启后，自习室成员可看到你的今日打卡状态和学习图表（热力图、连续打卡等）。关闭则仅头像和用户名可见。默认关闭。</p>
+
     <div class="sec-title">安装为应用</div>
     <button class="soft-btn" id="btnInstallApp" type="button" style="width:100%;justify-content:center">📱 安装到电脑 / 手机，像 App 一样独立打开</button>
     <p class="hint" style="margin-top:8px;margin-bottom:0">安装后从桌面图标独立打开、没有浏览器地址栏；网页更新时应用自动同步，无需重新安装。</p>
@@ -1482,13 +1490,30 @@ if ('serviceWorker' in navigator) {
       <span style="font-size:11px;color:var(--muted);font-weight:normal">数据随每日计划实时更新 · 点击格子查看当天详情</span>
     </div>
     <div class="wb-heatmap-wrap">
+      <!-- 统计卡片行 -->
+      <div class="wb-heat-stats" id="wbHeatStats">
+        <div class="hstat"><div class="hstat-num" id="wbHeatStatTotal">0</div><div class="hstat-lab">打卡天数</div></div>
+        <div class="hstat"><div class="hstat-num" id="wbHeatStatReviews">0</div><div class="hstat-lab">复习次数</div></div>
+        <div class="hstat"><div class="hstat-num" id="wbHeatStatStreak">0</div><div class="hstat-lab">连续打卡</div></div>
+      </div>
+      <!-- 月份标签行（JS使用列内标签时隐藏此行） -->
       <div class="wb-heatmap-months" id="wbHeatMonths"></div>
+      <!-- 星期标签 + 热力图 -->
       <div style="display:flex;gap:6px;align-items:flex-start">
         <div class="wb-heatmap-dow">
-          <div>一</div><div style="visibility:hidden">三</div><div>五</div><div style="visibility:hidden">日</div>
+          <div>一</div><div style="visibility:hidden">二</div><div>三</div><div style="visibility:hidden">四</div><div>五</div><div style="visibility:hidden">六</div><div>日</div>
         </div>
-        <div class="wb-heatmap" id="wbHeatmap"></div>
+        <div class="wb-heatmap-scroll">
+          <div class="wb-heatmap" id="wbHeatmap"></div>
+        </div>
       </div>
+      <!-- 空状态 -->
+      <div class="wb-heatmap-empty" id="wbHeatEmpty" hidden>
+        <div class="empty-icon">📖</div>
+        <div>还没有复习记录</div>
+        <div class="empty-hint">开始第一次复习后，这里会显示你的打卡热力图</div>
+      </div>
+      <!-- 图例 -->
       <div class="wb-heatmap-legend">
         <span>少</span>
         <div class="hm-cell hm-0"></div>
@@ -1497,7 +1522,12 @@ if ('serviceWorker' in navigator) {
         <div class="hm-cell hm-3"></div>
         <div class="hm-cell hm-4"></div>
         <span>多</span>
-        <span style="margin-left:12px;color:var(--muted);font-size:11px" id="wbHeatStats"></span>
+        <span class="legend-gap">|</span>
+        <span class="legend-num">0</span><div class="hm-cell hm-1" style="width:10px;height:10px"></div>
+        <span class="legend-num">1</span><div class="hm-cell hm-2" style="width:10px;height:10px"></div>
+        <span class="legend-num">2-3</span><div class="hm-cell hm-3" style="width:10px;height:10px"></div>
+        <span class="legend-num">4-6</span><div class="hm-cell hm-4" style="width:10px;height:10px"></div>
+        <span class="legend-num">7+</span>
       </div>
     </div>
     <div id="wbHeatDetail" class="wb-heat-detail" hidden>
@@ -1823,8 +1853,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/auth.js?v=20261003e"></script>
-<script src="js/app.js?v=20261003e"></script>
+<script src="js/auth.js?v=20261004b"></script>
+<script src="js/app.js?v=20261004b"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -1842,5 +1872,175 @@ if (document.readyState === 'loading') {
   </div>
 </div>
 <style>@keyframes busySlide{0%{margin-left:-30%}100%{margin-left:100%}}</style>
+
+<!-- ============ 自习室主页面（全屏 mask） ============ -->
+<div class="mask sr-fullmask" id="studyRoomMask" hidden>
+  <div class="modal sr-modal sr-room-modal">
+    <div class="modal-head">
+      <h2>🏫 自习室</h2>
+      <button class="x-btn" id="srBackBtn">← 返回</button>
+    </div>
+
+    <!-- 未加入房间引导页 -->
+    <div id="srWelcomeView">
+      <div class="sr-welcome-hero">📚</div>
+      <div class="sr-welcome-title">加入自习室，和小伙伴一起坚持复习</div>
+      <button class="sr-entry-card" id="srCreateBtn" type="button">
+        <div class="sr-entry-icon">🏠</div>
+        <div class="sr-entry-text">
+          <div class="sr-entry-title">创建自习室</div>
+          <div class="sr-entry-sub">创建房间，邀请朋友加入</div>
+        </div>
+      </button>
+      <button class="sr-entry-card" id="srJoinBtn" type="button">
+        <div class="sr-entry-icon">🔑</div>
+        <div class="sr-entry-text">
+          <div class="sr-entry-title">加入自习室</div>
+          <div class="sr-entry-sub">输入房间号加入房间</div>
+        </div>
+      </button>
+    </div>
+
+    <!-- 已加入房间主页 -->
+    <div id="srRoomView" hidden>
+      <div class="sr-room-info">
+        <div class="sr-room-name-row">
+          <span class="sr-room-name" id="srRoomName"></span>
+          <span class="sr-member-count" id="srMemberCount"></span>
+        </div>
+        <div class="sr-room-code-row">
+          <span class="sr-room-code-label">房间号：</span>
+          <span class="sr-room-code" id="srRoomCode"></span>
+          <button class="ghost-btn sr-copy-btn" id="srCopyCodeBtn" type="button">📋 复制</button>
+        </div>
+      </div>
+
+      <div class="sr-member-list-title">成员列表</div>
+      <div class="sr-member-list" id="srMemberList"></div>
+
+      <button class="danger-btn sr-leave-btn" id="srLeaveBtn" type="button">退出自习室</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 创建房间弹窗 ============ -->
+<div class="mask" id="srCreateMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>创建自习室</h2>
+      <button class="x-btn" id="srCreateCancelBtn">×</button>
+    </div>
+    <label>房间名
+      <input id="srCreateNameInput" type="text" maxlength="20" placeholder="最多 20 个字">
+    </label>
+    <p class="hint" style="margin-top:0;margin-bottom:10px">创建后自动生成 6 位房间号，可分享给朋友加入。</p>
+    <div class="sr-form-error" id="srCreateError" hidden></div>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="srCreateCancelBtn2" type="button">取消</button>
+      <button class="primary" id="srCreateConfirmBtn" type="button">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 加入房间弹窗 ============ -->
+<div class="mask" id="srJoinMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>加入自习室</h2>
+      <button class="x-btn" id="srJoinCancelBtn">×</button>
+    </div>
+    <label>输入房间号
+      <input id="srJoinCodeInput" type="text" maxlength="6" placeholder="如 K7M2PQ" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;font-family:monospace;text-align:center;font-size:18px">
+    </label>
+    <p class="hint" style="margin-top:0;margin-bottom:10px">6 位字母或数字，向已在房间的朋友询问房间号。</p>
+    <div class="sr-form-error" id="srJoinError" hidden></div>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="srJoinCancelBtn2" type="button">取消</button>
+      <button class="primary" id="srJoinConfirmBtn" type="button">加入</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 成员详情弹窗（公开数据） ============ -->
+<div class="mask" id="srMemberDetailMask" hidden>
+  <div class="modal sr-detail-modal">
+    <div class="modal-head">
+      <span></span>
+      <button class="x-btn" id="srDetailCloseBtn">×</button>
+    </div>
+    <div class="sr-detail-head">
+      <div class="sr-detail-avatar" id="srDetailAvatar"></div>
+      <div class="sr-detail-username" id="srDetailUsername"></div>
+    </div>
+    <div class="wb-heatmap-wrap">
+      <div class="wb-heatmap-months" id="srDetailHeatMonths"></div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <div class="wb-heatmap-dow">
+          <div>一</div><div style="visibility:hidden">三</div><div>五</div><div style="visibility:hidden">日</div>
+        </div>
+        <div class="wb-heatmap" id="srDetailHeatmap"></div>
+      </div>
+      <div class="wb-heatmap-legend">
+        <span>少</span>
+        <div class="hm-cell hm-0"></div>
+        <div class="hm-cell hm-1"></div>
+        <div class="hm-cell hm-2"></div>
+        <div class="hm-cell hm-3"></div>
+        <div class="hm-cell hm-4"></div>
+        <span>多</span>
+      </div>
+    </div>
+    <div class="sr-stats-grid">
+      <div class="sr-stat-card">
+        <div class="sr-stat-icon">📊</div>
+        <div class="sr-stat-value" id="srDetailWeekCount">–</div>
+        <div class="sr-stat-label">本周复习数</div>
+      </div>
+      <div class="sr-stat-card">
+        <div class="sr-stat-icon">⚡</div>
+        <div class="sr-stat-value" id="srDetailStreak">–</div>
+        <div class="sr-stat-label">连续打卡</div>
+      </div>
+      <div class="sr-stat-card">
+        <div class="sr-stat-icon">📚</div>
+        <div class="sr-stat-value" id="srDetailTotal">–</div>
+        <div class="sr-stat-label">总复习数</div>
+      </div>
+      <div class="sr-stat-card">
+        <div class="sr-stat-icon">📁</div>
+        <div class="sr-stat-value" id="srDetailProjects">–</div>
+        <div class="sr-stat-label">项目数</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 未公开数据提示弹窗 ============ -->
+<div class="mask" id="srPrivateMask" hidden>
+  <div class="modal sr-private-modal">
+    <div class="sr-private-icon">🔒</div>
+    <div class="sr-private-text">该用户未公开学习数据</div>
+    <button class="primary" id="srPrivateOkBtn" type="button" style="width:100%">知道了</button>
+  </div>
+</div>
+
+<!-- ============ 退出确认弹窗 ============ -->
+<div class="mask" id="srLeaveConfirmMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>退出自习室</h2>
+      <button class="x-btn" id="srLeaveCancelBtn">×</button>
+    </div>
+    <p class="sr-leave-confirm-text" id="srLeaveConfirmText" style="line-height:1.7;margin:0 0 10px"></p>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="srLeaveCancelBtn2" type="button">取消</button>
+      <button class="danger-btn" id="srLeaveConfirmBtn" type="button">确认退出</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

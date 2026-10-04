@@ -9253,28 +9253,66 @@ function renderWeaknessBoard(p) {
   (function renderHeatmap(){
     const hmEl = $('#wbHeatmap'); if (!hmEl) return;
     const monthsEl = $('#wbHeatMonths');
-    const statsEl = $('#wbHeatStats');
     const WEEKS = 14; // 显示14周（约3.5个月）
     const todayDate = new Date();
     const todayStrVal = todayStr();
 
-    // 收集每天实际复习记录：{ date: [{item, quality}] }
+    // 收集每天实际复习记录：{ date: [{item, quality, retention}] }
     const dailyActual = {};
     // 收集每天计划复习：{ date: [item] }
     const dailyPlanned = {};
     items.forEach(function(it){
-      // 实际复习记录
+      // 常规复习记录 it.reviews: {date, quality}
       (it.reviews || []).forEach(function(rv){
         if (!rv || !rv.date) return;
         if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
         dailyActual[rv.date].push({ item: it, quality: rv.quality || rv.result || 'review' });
       });
-      // 计划复习（nextReviewDate）
+      // 保持模式复习记录 it.retentionReviews: {date, result: pass/fail}
+      (it.retentionReviews || []).forEach(function(rv){
+        if (!rv || !rv.date) return;
+        if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
+        dailyActual[rv.date].push({ item: it, quality: rv.result || 'review', retention: true });
+      });
+      // 计划复习（nextReviewDate），已攻克条目不纳入计划
       if (it.nextReviewDate && !isMastered(it)) {
         if (!dailyPlanned[it.nextReviewDate]) dailyPlanned[it.nextReviewDate] = [];
         dailyPlanned[it.nextReviewDate].push(it);
       }
     });
+
+    // 统计：总打卡天数、总复习次数（含保持模式复习 retentionReviews）
+    const allDates = Object.keys(dailyActual).filter(function(d){ return d <= todayStrVal; }).sort();
+    const totalReviews = allDates.reduce(function(s, d){ return s + dailyActual[d].length; }, 0);
+
+    // 辅助：写入三个统计卡片
+    function setStats(total, reviews, streak){
+      const t = $('#wbHeatStatTotal'), r = $('#wbHeatStatReviews'), s = $('#wbHeatStatStreak');
+      if (t) t.textContent = total;
+      if (r) r.textContent = reviews;
+      if (s) s.textContent = streak;
+    }
+    // 辅助：显示/隐藏热力图主体与空状态
+    function showEmpty(empty){
+      const emp = $('#wbHeatEmpty');
+      const scroll = document.querySelector('.wb-heatmap-scroll');
+      const legend = document.querySelector('.wb-heatmap-legend');
+      const dow = document.querySelector('.wb-heatmap-dow');
+      if (emp) emp.hidden = !empty;
+      if (scroll) scroll.style.display = empty ? 'none' : '';
+      if (legend) legend.style.display = empty ? 'none' : '';
+      if (dow) dow.style.display = empty ? 'none' : '';
+      if (monthsEl) monthsEl.style.display = empty ? 'none' : '';
+    }
+
+    // 空数据状态：无任何复习记录时显示友好提示
+    if (totalReviews === 0) {
+      setStats(0, 0, 0);
+      showEmpty(true);
+      hmEl.innerHTML = '';
+      return;
+    }
+    showEmpty(false);
 
     // 找到最近的周一（作为热力图最后一列的开始）
     const dayOfWeek = todayDate.getDay(); // 0=周日, 1=周一, ...
@@ -9291,17 +9329,17 @@ function renderWeaknessBoard(p) {
       for (let d = 0; d < 7; d++) {
         const dt = new Date(colStart);
         dt.setDate(colStart.getDate() + d);
-        const ds = dt.toISOString().slice(0, 10);
+        const ds = fmtDate(dt); // 本地时间格式化，修复 UTC 时区偏移导致日期少一天
         const actualN = (dailyActual[ds] || []).length;
         const plannedN = (dailyPlanned[ds] || []).length;
         const isFuture = ds > todayStrVal;
         const isToday = ds === todayStrVal;
-        days.push({ date: ds, actualN, plannedN, isFuture, isToday, dt });
+        days.push({ date: ds, actualN, plannedN, isFuture, isToday });
       }
       columns.push({ start: colStart, days });
     }
 
-    // 颜色等级：0, 1, 2-3, 4-6, 7+
+    // 颜色等级：0=无, 1=1次, 2=2-3次, 3=4-6次, 4=7次及以上
     function levelOf(n){
       if (n <= 0) return 0;
       if (n === 1) return 1;
@@ -9310,58 +9348,61 @@ function renderWeaknessBoard(p) {
       return 4;
     }
 
-    // 渲染月份标签
-    if (monthsEl) {
-      const monthLabels = [];
-      let lastMonth = -1;
-      columns.forEach(function(col, ci){
-        const m = col.start.getMonth();
-        if (m !== lastMonth) {
-          monthLabels.push({ idx: ci, label: (m + 1) + '月' });
-          lastMonth = m;
-        }
-      });
-      monthsEl.innerHTML = monthLabels.map(function(ml){
-        return '<span style="margin-left:' + (ml.idx * (13 + 3)) + 'px">' + ml.label + '</span>';
-      }).join('');
+    // 月份标签：在每列顶部条件性渲染（该列周一跨月时显示），彻底消除 margin-left 硬编码错位
+    let lastMonth = null, lastYear = null;
+    columns.forEach(function(col){
+      const y = col.start.getFullYear(), m = col.start.getMonth();
+      let label = '';
+      if (lastMonth === null || y !== lastYear || m !== lastMonth) {
+        label = (lastYear !== null && y !== lastYear) ? (y + '年' + (m + 1) + '月') : ((m + 1) + '月');
+      }
+      lastMonth = m; lastYear = y;
+      col.monthLabel = label;
+    });
+    // 顶部月份行已废弃（改用列内标签），隐藏
+    if (monthsEl) { monthsEl.innerHTML = ''; monthsEl.style.display = 'none'; }
+
+    // 每列顶部有 14px 月份标签位，让左侧星期标签列同步下移，保持行对齐
+    const dowEl = document.querySelector('.wb-heatmap-dow');
+    if (dowEl && !dowEl.querySelector('.hm-dow-spacer')) {
+      const sp = document.createElement('div');
+      sp.className = 'hm-dow-spacer';
+      sp.style.height = '14px';
+      dowEl.insertBefore(sp, dowEl.firstChild);
     }
 
-    // 渲染热力图格子
+    // 渲染热力图格子（每列顶部先放月份标签，再放 7 天格子）
     hmEl.innerHTML = columns.map(function(col){
-      return '<div class="wb-heatmap-col">' + col.days.map(function(d){
+      const labelHtml = '<div class="hm-col-label">' + esc(col.monthLabel) + '</div>';
+      return '<div class="wb-heatmap-col">' + labelHtml + col.days.map(function(d){
         const lv = d.isFuture ? 0 : levelOf(d.actualN);
         const cls = 'hm-cell hm-' + lv + (d.isToday ? ' hm-today' : '') + (d.isFuture ? ' hm-future' : '');
         const title = d.isFuture
-          ? d.date + '（未来）计划' + d.plannedN + '题'
+          ? '未来日期' + (d.plannedN ? '（计划复习' + d.plannedN + '题）' : '')
           : d.date + ' 复习' + d.actualN + '题' + (d.plannedN ? ' / 计划' + d.plannedN + '题' : '');
         return '<div class="' + cls + '" data-date="' + d.date + '" title="' + title + '"></div>';
       }).join('') + '</div>';
     }).join('');
 
-    // 统计：总打卡天数、总复习次数、连续打卡
-    const allDates = Object.keys(dailyActual).filter(function(d){ return d <= todayStrVal; }).sort();
-    const totalReviews = allDates.reduce(function(s, d){ return s + dailyActual[d].length; }, 0);
-    // 连续打卡（从今天往前数）
+    // 连续打卡：从今天往前；今天没打卡则从昨天开始（今天不算断签），遇到首个无记录日停止
     let streak = 0;
-    let checkDate = new Date(todayDate);
+    const cursor = parseDate(todayStrVal);
+    if ((dailyActual[fmtDate(cursor)] || []).length === 0) {
+      cursor.setDate(cursor.getDate() - 1);
+    }
     while (true) {
-      const ds = checkDate.toISOString().slice(0, 10);
+      const ds = fmtDate(cursor);
       if ((dailyActual[ds] || []).length > 0) {
         streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
+        cursor.setDate(cursor.getDate() - 1);
       } else {
-        // 今天还没打卡不算断，从昨天开始算
-        if (ds === todayStrVal && streak === 0) {
-          checkDate.setDate(checkDate.getDate() - 1);
-          continue;
-        }
         break;
       }
-      if (streak > 365) break;
+      if (streak > 3650) break;
     }
-    if (statsEl) statsEl.textContent = '共' + allDates.length + '天 · ' + totalReviews + '次复习 · 连续' + streak + '天';
+    setStats(allDates.length, totalReviews, streak);
 
-    // 点击格子显示详情
+    // 点击格子显示详情（未来日期不可点击）
     hmEl.querySelectorAll('.hm-cell:not(.hm-future)').forEach(function(cell){
       cell.addEventListener('click', function(){
         const ds = cell.getAttribute('data-date');
@@ -9376,9 +9417,15 @@ function renderWeaknessBoard(p) {
         const weekdayNames = ['日','一','二','三','四','五','六'];
         dateEl.textContent = ds + ' 周' + weekdayNames[dt.getDay()];
 
-        const rate = planned.length > 0
-          ? '完成率 <b>' + Math.min(100, Math.round(actual.length / planned.length * 100)) + '%</b>（实际' + actual.length + '/计划' + planned.length + '）'
-          : '当天无计划任务，实际复习' + actual.length + '题';
+        // 完成率：实际可能多于计划（超额完成），不再截断到 100%
+        let rateHtml;
+        if (planned.length > 0) {
+          const pct = Math.round(actual.length / planned.length * 100);
+          rateHtml = '完成率 <b>' + pct + '%</b>' + (pct > 100 ? '（超额完成）' : '') +
+                     '（实际' + actual.length + '/计划' + planned.length + '）';
+        } else {
+          rateHtml = '当天无计划任务，实际复习' + actual.length + '题';
+        }
 
         function itemHtml(it, tag){
           const loc = fmtItemLocator(p, it);
@@ -9396,15 +9443,26 @@ function renderWeaknessBoard(p) {
           ? '<div class="wb-heat-detail-list">' + planned.map(function(it){ return itemHtml(it, '计划'); }).join('') + '</div>'
           : '<div class="wb-heat-detail-empty">当天无计划复习任务</div>';
 
-        const actualHtml = actual.length
-          ? '<div class="wb-heat-detail-list">' + actual.map(function(r){
-              const qMap = { remember: '记得', fuzzy: '模糊', forgot: '忘记', review: '复习' };
-              return itemHtml(r.item, qMap[r.quality] || r.quality);
+        // 实际复习：同一条目当天多次复习合并为一条，并标注次数与评价
+        const qMap = { remember: '记得', fuzzy: '模糊', forgot: '忘记', review: '复习', pass: '记得', fail: '忘记' };
+        const actualMap = new Map();
+        actual.forEach(function(r){
+          if (!actualMap.has(r.item)) actualMap.set(r.item, { item: r.item, qualities: [], count: 0 });
+          const g = actualMap.get(r.item);
+          g.qualities.push(r.quality);
+          g.count++;
+        });
+        const actualGroups = Array.from(actualMap.values());
+        const actualHtml = actualGroups.length
+          ? '<div class="wb-heat-detail-list">' + actualGroups.map(function(g){
+              const uniqQ = Array.from(new Set(g.qualities.map(function(q){ return qMap[q] || q; })));
+              const tag = g.count > 1 ? (uniqQ.join('/') + ' ×' + g.count) : (qMap[g.qualities[0]] || g.qualities[0]);
+              return itemHtml(g.item, tag);
             }).join('') + '</div>'
           : '<div class="wb-heat-detail-empty">当天没有复习记录</div>';
 
         bodyEl.innerHTML =
-          '<div class="wb-heat-detail-rate">' + rate + '</div>' +
+          '<div class="wb-heat-detail-rate">' + rateHtml + '</div>' +
           '<div class="wb-heat-detail-section"><h4>📋 当天计划复习</h4>' + plannedHtml + '</div>' +
           '<div class="wb-heat-detail-section"><h4>✅ 当天实际复习</h4>' + actualHtml + '</div>';
 
@@ -12490,7 +12548,7 @@ window.addEventListener('resize', () => {
   try {
   // 版本强制下线机制：大版本更新时清除登录态（仅 token/user，学习数据完整保留）
   // 每次需要强制全员重新登录时，修改下方 APP_VERSION 的值即可
-  const APP_VERSION = '20261004a';
+  const APP_VERSION = '20261004b';
   const VER_KEY = 'st_app_version';
   try {
     const lastVer = localStorage.getItem(VER_KEY);
@@ -12543,3 +12601,399 @@ window.addEventListener('resize', () => {
 })();
 
 /* ============ 账号系统 & 云端同步模块（STAuth） ============ */
+
+/* ============ 自习室（Study Room）前端模块 ============ */
+/* 严格按 docs/study-room-design.md 实现。所有 API 走 apiRequest，自动带 token。 */
+var studyRoomState = {
+  room: null,        // {id, roomCode, name, isOwner}
+  members: [],       // 成员数组
+  pollTimer: null
+};
+
+// 打开自习室主页面（导航按钮入口）
+async function openStudyRoomPage() {
+  var mask = $('#studyRoomMask');
+  if (!mask) return;
+  mask.hidden = false;
+  try { modalTop(mask); } catch (e) {}
+  try {
+    await loadStudyRoomMe();
+  } catch (e) {
+    showToast('⚠️', '加载失败', e.message || '请稍后重试', 2500);
+    studyRoomState.room = null;
+    studyRoomState.members = [];
+    renderStudyRoomViews();
+  }
+  startStudyRoomPolling();
+}
+
+// 关闭自习室主页面（返回按钮）
+function closeStudyRoomPage() {
+  var mask = $('#studyRoomMask');
+  if (mask) mask.hidden = true;
+  stopStudyRoomPolling();
+}
+
+// 拉取 GET /api/study-room/me 并渲染
+async function loadStudyRoomMe() {
+  var data = await apiRequest('/api/study-room/me');
+  studyRoomState.room = data.room || null;
+  studyRoomState.members = data.members || [];
+  renderStudyRoomViews();
+}
+
+// 根据是否在房间切换引导页 / 房间主页
+function renderStudyRoomViews() {
+  var welcomeView = $('#srWelcomeView');
+  var roomView = $('#srRoomView');
+  if (!welcomeView || !roomView) return;
+  if (!studyRoomState.room) {
+    welcomeView.hidden = false;
+    roomView.hidden = true;
+    return;
+  }
+  welcomeView.hidden = true;
+  roomView.hidden = false;
+  $('#srRoomName').textContent = studyRoomState.room.name || '';
+  $('#srRoomCode').textContent = studyRoomState.room.roomCode || '';
+  $('#srMemberCount').textContent = (studyRoomState.members.length || 0) + '/10';
+  renderMemberList();
+}
+
+// 渲染成员列表
+function renderMemberList() {
+  var listEl = $('#srMemberList');
+  if (!listEl) return;
+  var members = studyRoomState.members || [];
+  listEl.innerHTML = members.map(function(m) {
+    var avatarHtml = m.avatar
+      ? '<img src="' + esc(m.avatar) + '" alt="">'
+      : '<span class="sr-avatar-fallback">👤</span>';
+    var statusHtml;
+    if (m.publicData) {
+      var n = m.todayReviewCount || 0;
+      statusHtml = '<span class="sr-status-ok">✅ 今日复习 ' + n + ' 次</span>';
+    } else {
+      statusHtml = '<span class="sr-status-private">🔒 数据已隐藏</span>';
+    }
+    var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
+    var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
+    return '<div class="sr-member-card" data-user-id="' + m.userId + '">'
+      + '<div class="sr-member-avatar" data-user-id="' + m.userId + '" title="点击查看详情">' + avatarHtml + '</div>'
+      + '<div class="sr-member-info">'
+      +   '<div class="sr-member-name">' + esc(m.username || '匿名') + ownerBadge + selfTag + '</div>'
+      +   '<div class="sr-member-status">' + statusHtml + '</div>'
+      + '</div></div>';
+  }).join('');
+  // 绑定头像点击
+  listEl.querySelectorAll('.sr-member-avatar').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var uid = parseInt(el.getAttribute('data-user-id'), 10);
+      onMemberAvatarClick(uid);
+    });
+  });
+}
+
+// 点击成员头像：未公开直接弹提示；公开则拉详情
+function onMemberAvatarClick(userId) {
+  var m = (studyRoomState.members || []).find(function(x){ return x.userId === userId; });
+  if (!m) return;
+  if (!m.publicData) {
+    var pm = $('#srPrivateMask'); if (pm) pm.hidden = false;
+    return;
+  }
+  openMemberDetail(userId);
+}
+
+// 拉取 GET /api/study-room/member/:userId 并渲染详情弹窗
+async function openMemberDetail(userId) {
+  try {
+    var data = await apiRequest('/api/study-room/member/' + userId);
+    if (!data.profile) {
+      var pm = $('#srPrivateMask'); if (pm) pm.hidden = false;
+      return;
+    }
+    renderMemberDetail(data.profile);
+    var dm = $('#srMemberDetailMask');
+    if (dm) { dm.hidden = false; try { modalTop(dm); } catch(e){} }
+  } catch (e) {
+    showToast('⚠️', '加载失败', e.message || '请稍后重试', 2500);
+  }
+}
+
+// 渲染成员详情（头像 + 热力图 + 4 个统计卡片）
+function renderMemberDetail(profile) {
+  var avatarEl = $('#srDetailAvatar');
+  if (avatarEl) {
+    avatarEl.innerHTML = profile.avatar
+      ? '<img src="' + esc(profile.avatar) + '" alt="">'
+      : '<span class="sr-avatar-fallback">👤</span>';
+  }
+  var unEl = $('#srDetailUsername');
+  if (unEl) unEl.textContent = profile.username || '';
+  // 热力图
+  renderMemberHeatmap(profile.heatmap || {}, $('#srDetailHeatmap'), $('#srDetailHeatMonths'));
+  // 统计卡片
+  var week = profile.weekReviewCount || [];
+  var weekSum = week.reduce(function(a,b){ return (a||0) + (b||0); }, 0);
+  var wc = $('#srDetailWeekCount'); if (wc) wc.textContent = weekSum;
+  var st = $('#srDetailStreak'); if (st) st.textContent = (profile.currentStreak || 0) + '天';
+  var tt = $('#srDetailTotal'); if (tt) tt.textContent = profile.totalReviews || 0;
+  var pj = $('#srDetailProjects'); if (pj) pj.textContent = profile.projectCount || 0;
+}
+
+// 复用现有热力图 CSS 类（wb-heatmap-col / hm-cell / hm-0~hm-4）渲染后端返回的 {date: count} 数据
+function renderMemberHeatmap(heatmapData, containerEl, monthsEl) {
+  if (!containerEl) return;
+  var WEEKS = 52; // 最近一年
+  var todayDate = new Date();
+  var todayStrVal = todayStr();
+  var dayOfWeek = todayDate.getDay(); // 0=周日
+  var daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  var lastMonday = new Date(todayDate);
+  lastMonday.setDate(todayDate.getDate() - daysSinceMonday);
+
+  var columns = [];
+  for (var w = WEEKS - 1; w >= 0; w--) {
+    var colStart = new Date(lastMonday);
+    colStart.setDate(lastMonday.getDate() - w * 7);
+    var days = [];
+    for (var d = 0; d < 7; d++) {
+      var dt = new Date(colStart);
+      dt.setDate(colStart.getDate() + d);
+      var ds = fmtDate(dt); // 本地时间格式化，修复 UTC 时区偏移
+      var n = heatmapData[ds] || 0;
+      var isFuture = ds > todayStrVal;
+      var isToday = ds === todayStrVal;
+      days.push({ date: ds, n: n, isFuture: isFuture, isToday: isToday });
+    }
+    columns.push({ start: colStart, days: days });
+  }
+
+  function levelOf(n) {
+    if (n <= 0) return 0;
+    if (n === 1) return 1;
+    if (n <= 3) return 2;
+    if (n <= 6) return 3;
+    return 4;
+  }
+
+  if (monthsEl) {
+    var monthLabels = [];
+    var lastMonth = -1;
+    columns.forEach(function(col, ci) {
+      var m = col.start.getMonth();
+      if (m !== lastMonth) {
+        monthLabels.push({ idx: ci, label: (m + 1) + '月' });
+        lastMonth = m;
+      }
+    });
+    monthsEl.innerHTML = monthLabels.map(function(ml) {
+      return '<span style="margin-left:' + (ml.idx * (15 + 3)) + 'px">' + ml.label + '</span>';
+    }).join('');
+  }
+
+  containerEl.innerHTML = columns.map(function(col) {
+    return '<div class="wb-heatmap-col">' + col.days.map(function(d) {
+      var lv = d.isFuture ? 0 : levelOf(d.n);
+      var cls = 'hm-cell hm-' + lv + (d.isToday ? ' hm-today' : '') + (d.isFuture ? ' hm-future' : '');
+      var title = d.isFuture ? '未来日期' : (d.date + ' 复习' + d.n + '次');
+      return '<div class="' + cls + '" title="' + title + '"></div>';
+    }).join('') + '</div>';
+  }).join('');
+}
+
+// 创建房间：POST /api/study-room/create
+async function submitCreateRoom() {
+  var nameInput = $('#srCreateNameInput');
+  var errEl = $('#srCreateError');
+  var name = (nameInput.value || '').trim();
+  if (!name) { if (errEl){ errEl.textContent = '请输入房间名'; errEl.hidden = false; } return; }
+  try {
+    await apiRequest('/api/study-room/create', { method: 'POST', body: { name: name } });
+    var cm = $('#srCreateMask'); if (cm) cm.hidden = true;
+    nameInput.value = '';
+    if (errEl) errEl.hidden = true;
+    await loadStudyRoomMe();
+    showToast('🎉', '创建成功', '房间号已生成，可分享给朋友', 2500);
+  } catch (e) {
+    if (errEl) { errEl.textContent = e.message || '创建失败'; errEl.hidden = false; }
+  }
+}
+
+// 加入房间：POST /api/study-room/join
+async function submitJoinRoom() {
+  var codeInput = $('#srJoinCodeInput');
+  var errEl = $('#srJoinError');
+  var code = (codeInput.value || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{6}$/.test(code)) {
+    if (errEl) { errEl.textContent = '请输入 6 位房间号'; errEl.hidden = false; }
+    return;
+  }
+  try {
+    await apiRequest('/api/study-room/join', { method: 'POST', body: { roomCode: code } });
+    var jm = $('#srJoinMask'); if (jm) jm.hidden = true;
+    codeInput.value = '';
+    if (errEl) errEl.hidden = true;
+    await loadStudyRoomMe();
+    showToast('✅', '加入成功', '欢迎来到自习室', 2500);
+  } catch (e) {
+    if (errEl) { errEl.textContent = e.message || '加入失败'; errEl.hidden = false; }
+  }
+}
+
+// 退出房间：先弹确认，再 POST /api/study-room/leave
+function askLeaveRoom() {
+  var room = studyRoomState.room;
+  if (!room) return;
+  var members = studyRoomState.members || [];
+  var self = members.find(function(m){ return m.isSelf; });
+  var isOwner = !!(room.isOwner || (self && self.isOwner));
+  var others = members.filter(function(m){ return !m.isSelf; });
+  var text;
+  if (isOwner && others.length > 0) {
+    var nextOwner = others[0];
+    text = '退出后，房间将自动转让给最早加入的成员「' + (nextOwner ? nextOwner.username : '新成员') + '」。确定退出？';
+  } else if (isOwner && others.length === 0) {
+    text = '退出后房间将解散。确定退出？';
+  } else {
+    text = '确定退出这个自习室？';
+  }
+  var tEl = $('#srLeaveConfirmText'); if (tEl) tEl.textContent = text;
+  var lm = $('#srLeaveConfirmMask'); if (lm) lm.hidden = false;
+}
+
+async function confirmLeaveRoom() {
+  try {
+    var data = await apiRequest('/api/study-room/leave', { method: 'POST' });
+    var lm = $('#srLeaveConfirmMask'); if (lm) lm.hidden = true;
+    studyRoomState.room = null;
+    studyRoomState.members = [];
+    renderStudyRoomViews();
+    var msg = '已退出自习室';
+    if (data && data.roomDisbanded) msg = '房间已解散';
+    else if (data && data.transferredTo) msg = '已退出，房间转让给 ' + data.transferredTo;
+    showToast('👋', '退出成功', msg, 2500);
+  } catch (e) {
+    showToast('⚠️', '退出失败', e.message || '请稍后重试', 2500);
+  }
+}
+
+// 复制房间号
+function copyRoomCode() {
+  var code = studyRoomState.room && studyRoomState.room.roomCode;
+  if (!code) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(function(){
+      showToast('📋', '已复制', '房间号 ' + code + ' 已复制到剪贴板', 2000);
+    }).catch(function(){ fallbackCopyRoomCode(code); });
+  } else {
+    fallbackCopyRoomCode(code);
+  }
+}
+function fallbackCopyRoomCode(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); showToast('📋', '已复制', text, 2000); }
+  catch(e){ showToast('⚠️', '复制失败', '请手动复制：' + text, 3000); }
+  document.body.removeChild(ta);
+}
+
+// 轮询：进入自习室页面后每 30 秒刷新成员状态
+function startStudyRoomPolling() {
+  stopStudyRoomPolling();
+  studyRoomState.pollTimer = setInterval(function() {
+    var mask = $('#studyRoomMask');
+    if (!mask || mask.hidden) return;
+    loadStudyRoomMe().catch(function(){});
+  }, 30000);
+}
+function stopStudyRoomPolling() {
+  if (studyRoomState.pollTimer) {
+    clearInterval(studyRoomState.pollTimer);
+    studyRoomState.pollTimer = null;
+  }
+}
+
+// 隐私开关：PATCH /api/study-room/privacy
+async function saveStudyRoomPublic(val) {
+  try {
+    await apiRequest('/api/study-room/privacy', { method: 'PATCH', body: { public: !!val } });
+    showToast('✅', '隐私设置已保存', val ? '已公开学习数据到自习室' : '已关闭学习数据公开', 2200);
+  } catch (e) {
+    showToast('⚠️', '保存失败', e.message || '请稍后重试', 2500);
+    var cb = $('#settingStudyRoomPublic');
+    if (cb) cb.checked = !val; // 回滚
+  }
+}
+
+// 打开设置时刷新隐私开关状态（从 /me 中找自己的 publicData）
+async function refreshStudyRoomPrivacyToggle() {
+  var cb = $('#settingStudyRoomPublic');
+  if (!cb) return;
+  try {
+    var data = await apiRequest('/api/study-room/me');
+    var self = (data.members || []).find(function(m){ return m.isSelf; });
+    cb.checked = !!(self && self.publicData);
+  } catch (e) { /* 未登录或出错时保持原状 */ }
+}
+
+// 初始化所有事件绑定
+function initStudyRoomUI() {
+  function bind(id, evt, fn) {
+    var el = $(id); if (el) el.addEventListener(evt, fn);
+  }
+  bind('#studyRoomNavBtn', 'click', openStudyRoomPage);
+  bind('#srBackBtn', 'click', closeStudyRoomPage);
+
+  bind('#srCreateBtn', 'click', function() {
+    var m = $('#srCreateMask'); if (m) m.hidden = false;
+    setTimeout(function(){ var i = $('#srCreateNameInput'); if (i) i.focus(); }, 50);
+  });
+  bind('#srJoinBtn', 'click', function() {
+    var m = $('#srJoinMask'); if (m) m.hidden = false;
+    setTimeout(function(){ var i = $('#srJoinCodeInput'); if (i) i.focus(); }, 50);
+  });
+
+  bind('#srCreateCancelBtn', 'click', function(){ var m = $('#srCreateMask'); if (m) m.hidden = true; });
+  bind('#srCreateCancelBtn2', 'click', function(){ var m = $('#srCreateMask'); if (m) m.hidden = true; });
+  bind('#srCreateConfirmBtn', 'click', submitCreateRoom);
+
+  bind('#srJoinCancelBtn', 'click', function(){ var m = $('#srJoinMask'); if (m) m.hidden = true; });
+  bind('#srJoinCancelBtn2', 'click', function(){ var m = $('#srJoinMask'); if (m) m.hidden = true; });
+  bind('#srJoinConfirmBtn', 'click', submitJoinRoom);
+
+  // 房间号输入：自动大写、过滤非法字符、限 6 位
+  var joinInput = $('#srJoinCodeInput');
+  if (joinInput) {
+    joinInput.addEventListener('input', function(e) {
+      e.target.value = (e.target.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    });
+  }
+
+  bind('#srCopyCodeBtn', 'click', copyRoomCode);
+  bind('#srLeaveBtn', 'click', askLeaveRoom);
+  bind('#srLeaveCancelBtn', 'click', function(){ var m = $('#srLeaveConfirmMask'); if (m) m.hidden = true; });
+  bind('#srLeaveCancelBtn2', 'click', function(){ var m = $('#srLeaveConfirmMask'); if (m) m.hidden = true; });
+  bind('#srLeaveConfirmBtn', 'click', confirmLeaveRoom);
+
+  bind('#srDetailCloseBtn', 'click', function(){ var m = $('#srMemberDetailMask'); if (m) m.hidden = true; });
+  bind('#srPrivateOkBtn', 'click', function(){ var m = $('#srPrivateMask'); if (m) m.hidden = true; });
+
+  // 点击遮罩空白处关闭弹窗（自习室主页面除外）
+  ['srMemberDetailMask','srPrivateMask','srLeaveConfirmMask','srCreateMask','srJoinMask'].forEach(function(mid){
+    var m = $('#' + mid);
+    if (m) m.addEventListener('click', function(e){ if (e.target === m) m.hidden = true; });
+  });
+
+  // 隐私开关：change 时立即保存
+  var privacyCb = $('#settingStudyRoomPublic');
+  if (privacyCb) {
+    privacyCb.addEventListener('change', function(){ saveStudyRoomPublic(this.checked); });
+  }
+  // 打开设置时刷新开关状态
+  bind('#btnSettings', 'click', function(){ setTimeout(refreshStudyRoomPrivacyToggle, 100); });
+}
+
+// 启动绑定（app.js 在 body 末尾加载，DOM 已就绪）
+initStudyRoomUI();

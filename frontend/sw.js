@@ -1,8 +1,8 @@
 ﻿/* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v28：邀请码支持多用户使用（max_uses/used_count）；错题本薄弱点看板新增打卡热力图（点击查看当天计划/实际复习详情） */
-var CACHE = 'yystudy-v28';
+   v29：打卡热力图全面修复——UTC时区偏移导致日期错位、遗漏保持模式复习retentionReviews、连续打卡计算、月份标签对齐、详情多次复习合并、超额完成率显示；视觉重设计——蓝绿渐变配色、深色模式适配、统计卡片、今天脉冲动画、未来日期虚线边框、空状态提示、响应式优化 */
+var CACHE = 'yystudy-v29';
 var CORE = [
   './',
   './index.html',
