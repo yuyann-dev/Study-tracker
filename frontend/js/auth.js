@@ -585,11 +585,14 @@
   //   3) 仍打平则保留先入者（base），避免抖动。
   // 这是「LWW + 墓碑」的工程变体，不是 CRDT/OT。已知局限（thesis-62）：updatedAt 用客户端
   // wall-clock，设备时钟漂移会误判；同一条目两端同时改不同字段会丢一个修改（未来工作：per-item 逻辑时钟）。
-  function mergeItems(aItems, bItems){
+  function mergeItems(aItems, bItems, tombstones){
     var byId = {};   // id -> item（字段整体胜出者）
     var order = [];  // 保持先到顺序
     function consider(it){
       if (!it || !it.id) return;
+      // item 级墓碑：条目删除即终态，不支持复活（条目无 updatedAt 字段，删除胜出）；
+      // 只要 tombstones 中存在该 id，就直接丢弃，防止删除后同步复活。
+      if (tombstones && tombstones[it.id]) return;
       var existing = byId[it.id];
       if (!existing){
         byId[it.id] = JSON.parse(JSON.stringify(it));
@@ -639,7 +642,7 @@
       var mergedP = JSON.parse(JSON.stringify(base));
       if(Array.isArray(base.records) && Array.isArray(other.records)){
         var have = new Set(base.records.map(function(r){return r.rid;}).filter(Boolean));
-        var extra = other.records.filter(function(r){ return r.rid && !have.has(r.rid); });
+        var extra = other.records.filter(function(r){ return r.rid && !have.has(r.rid) && !(out.tombstones[r.rid]); });
         if(extra.length){
           mergedP.records = base.records.concat(extra);
           mergedP.records.sort(function(a,b){
@@ -651,7 +654,7 @@
       }
       // items：按 id union + 字段级 LWW（thesis-57，防两端改不同 item 互相覆盖；与后端 mergeProjects 同构）
       if(Array.isArray(base.items) || Array.isArray(other.items)){
-        mergedP.items = mergeItems(base.items, other.items);
+        mergedP.items = mergeItems(base.items, other.items, out.tombstones);
         mergedP.updatedAt = Math.max(lu, cu);
       }
       out.projects[id] = mergedP;

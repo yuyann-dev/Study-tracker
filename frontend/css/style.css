@@ -77,7 +77,7 @@
   /* 评价真实性永久提醒：常驻、低打扰、不指责 */
   .honest-hint{
     font-size:12px;line-height:1.65;color:#6d5a36;
-    background:fdf6e3;border:1px solid #f0e2b8;border-radius:10px;
+    background:#fdf6e3;border:1px solid #f0e2b8;border-radius:10px;
     padding:8px 12px;margin:10px 0 0;
   }
   html[data-theme="dark"] .honest-hint{
@@ -168,6 +168,7 @@
   }
   .primary:active{transform:scale(.98)}
   .primary:disabled{background:#d8cfc0;box-shadow:none;color:#fff;opacity:1;cursor:not-allowed;filter:none}
+  html[data-theme="dark"] .primary:disabled{background:#4a628e;color:#8aa0c0}
   .danger-btn{
     background:var(--card);border:1px solid #e8c4bd;color:var(--bad);
     padding:8px 16px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;
@@ -672,7 +673,6 @@
     position:fixed;inset:0;background:rgba(44,38,32,.45);
     display:flex;align-items:center;justify-content:center;
     padding:20px;z-index:100;overscroll-behavior:contain;
-    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
   }
   .modal{
     background:var(--elevated);border-radius:20px;padding:26px;width:100%;max-width:520px;
@@ -811,6 +811,7 @@
     z-index:200;pointer-events:none;
   }
   .toast.show{opacity:1;transform:translate(-50%, 0)}
+  html[data-theme="dark"] .toast{box-shadow:0 20px 50px -12px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06)}
   .toast-icon{font-size:32px;flex:0 0 auto;line-height:1}
   .toast-body{min-width:0}
   .toast-title{font-weight:700;font-size:15px;margin-bottom:3px}
@@ -940,9 +941,9 @@
     --hm-cell:16px;--hm-gap:3px;--hm-radius:4px;--hm-today-ring:var(--brand);
   }
   html[data-theme="dark"]{
-    --hm-0:#45587f;--hm-1:#3d6b5c;--hm-2:#5a9a82;--hm-3:#78baa0;--hm-4:#a8dcc8;--hm-today-ring:#bfe8d6;
+    --hm-0:#3c5078;--hm-1:#3d6b5c;--hm-2:#5a9a82;--hm-3:#78baa0;--hm-4:#a8dcc8;--hm-today-ring:#bfe8d6;
   }
-  .wb-heatmap-wrap{margin:0 0 16px;padding:16px 14px;background:var(--inputBg);border-radius:14px;border:1px solid var(--border);max-width:880px}
+  .wb-heatmap-wrap{margin:0 0 24px;padding:16px 14px;background:var(--inputBg);border-radius:14px;border:1px solid var(--border);max-width:880px}
   .wb-heat-stats{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
   /* 统计卡：无悬停动态，仅静态凹槽，数字 tabular-nums */
   .wb-heat-stats .hstat{flex:1;min-width:80px;padding:10px 12px;background:var(--card);border-radius:10px;border:1px solid var(--border);text-align:center}
@@ -982,9 +983,9 @@
   .wb-heat-nav-btn{width:34px;height:34px;padding:0;font-size:20px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
   .wb-calendar-dow{display:grid!important;grid-template-columns:repeat(7,1fr);gap:4px;width:auto!important;flex-direction:row!important;text-align:center!important;padding:0!important;line-height:1.4!important;font-size:11.5px!important;color:var(--muted)!important;margin-bottom:4px}
   .wb-calendar-dow span{padding:2px 0}
-  .wb-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-height:300px}
-  .wb-cal-cell{position:relative;aspect-ratio:1/1;border-radius:8px;background:var(--hm-0);border:1px solid var(--border);display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px;cursor:pointer;box-sizing:border-box}
-  .wb-cal-cell.wb-cal-empty{background:transparent;border:none;cursor:default}
+  .wb-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;min-height:240px}
+  .wb-cal-cell{position:relative;height:60px;border-radius:8px;background:var(--hm-0);border:1px solid var(--border);display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px;cursor:pointer;box-sizing:border-box}
+  .wb-cal-cell.wb-cal-empty{background:var(--hm-0);border:1px solid var(--border);opacity:.3;cursor:default}
   .wb-cal-cell.hm-1{background:var(--hm-1)}
   .wb-cal-cell.hm-2{background:var(--hm-2)}
   .wb-cal-cell.hm-3{background:var(--hm-3)}
@@ -993,7 +994,7 @@
   .wb-cal-cell.hm-3 .wb-cal-num{color:rgba(41,36,29,.75)}
   .wb-cal-cell.hm-4 .wb-cal-num{color:#fff}
   .wb-cal-today{outline:2px solid var(--brand);outline-offset:-2px}
-  .wb-cal-future{opacity:.35}
+  .wb-cal-future .wb-cal-num{opacity:.5}
   .wb-cal-cell:active{transform:scale(.96)}
   html[data-theme="dark"] .wb-cal-num{color:rgba(231,237,246,.6)}
   html[data-theme="dark"] .wb-cal-cell.hm-3 .wb-cal-num{color:rgba(231,237,246,.85)}
@@ -1001,7 +1002,7 @@
   .wb-heat-detail{margin-top:12px;padding:16px;background:var(--card);border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow);max-width:880px;min-height:200px}
   /* 计划圆点标记（未来/过去有计划复习的日期） */
   .wb-cal-plan-dot{position:absolute;bottom:4px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.7}
-  .wb-cal-cell.wb-cal-future .wb-cal-plan-dot{opacity:.5}
+  .wb-cal-cell.wb-cal-future .wb-cal-plan-dot{opacity:.9}
   /* 掌握状态徽章 */
   .hm-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;margin-right:6px;vertical-align:middle;line-height:1.5}
   .hm-badge-done{background:#d4ede0;color:#1e5638}
@@ -1032,6 +1033,11 @@
   html[data-theme="dark"] .wb-heat-stats .hstat{background:var(--card);border-color:var(--line)}
   html[data-theme="dark"] .wb-heat-detail{background:var(--card);border-color:var(--line)}
   html[data-theme="dark"] .wb-heat-detail-list .hd-item{background:var(--input)}
+  html[data-theme="dark"] .hd-future-day{background:var(--input);color:var(--text)}
+  html[data-theme="dark"] .hd-future-day .hd-future-date{color:var(--text)}
+  html[data-theme="dark"] .hd-future-day .hd-future-preview{color:var(--muted)}
+  html[data-theme="dark"] .wb-cal-cell{border-color:var(--input-border)}
+  html[data-theme="dark"] .wb-cal-cell.wb-cal-empty{border-color:var(--input-border)}
   @media (max-width:480px){
     .wb-heatmap-wrap{padding:12px 10px}
     .wb-heat-stats{gap:6px}
@@ -1040,10 +1046,12 @@
     .wb-heat-stats .hstat .hstat-lab{font-size:10px}
     .wb-heat-detail{padding:12px}
     .wb-heatmap-legend{font-size:10px}
+    .wb-cal-cell{height:48px;padding:3px 4px}
+    .wb-cal-num{font-size:10px}
   }
 
   .skip-btn{
-    background:none;border:none;color:#8a8175;cursor:pointer;
+    background:none;border:none;color:var(--muted);cursor:pointer;
     font-size:11.5px;padding:4px 8px;border-radius:6px;font-family:inherit;
     transition:.15s;flex:0 0 auto;white-space:nowrap;
   }
@@ -1052,6 +1060,7 @@
     background:#e4ecd5;color:#096f4e;flex:0 0 auto;white-space:nowrap;
   }
   .review-done-tag .edit-hint{opacity:.7;font-weight:400;margin-left:4px;cursor:pointer;text-decoration:underline}
+  html[data-theme="dark"] .review-done-tag{background:#2c4450;color:#78baa0}
 
   .warn-icon{font-size:40px;text-align:center;margin-bottom:10px}
   .warn-text{font-size:14px;line-height:1.7;color:var(--text);margin-bottom:16px}
@@ -1471,9 +1480,9 @@
 
   /* === 账号系统 & 云端同步 CSS === */
   .sync-indicator{display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;border-radius:50%;margin-left:2px;flex:0 0 auto}
-  .sync-indicator.sync-ok{background:#096f4e;box-shadow:0 0 6px rgba(14,164,114,.5)}
-  .sync-indicator.sync-ing{background:var(--brand);box-shadow:0 0 6px rgba(46,107,79,.45);animation:syncPulse 1.2s ease-in-out infinite}
-  .sync-indicator.sync-fail{background:#e5484d;box-shadow:0 0 6px rgba(229,72,77,.5)}
+  .sync-indicator.sync-ok{background:#096f4e}
+  .sync-indicator.sync-ing{background:var(--brand);animation:syncPulse 1.2s ease-in-out infinite}
+  .sync-indicator.sync-fail{background:#e5484d}
   @keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.4}}
   .auth-tabs{display:flex;gap:0;margin-bottom:20px;border-radius:12px;background:var(--bg);padding:4px}
   .auth-tab{flex:1;text-align:center;padding:10px 0;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);transition:.15s;border:none;background:none;font-family:inherit}
@@ -1885,6 +1894,11 @@
   html[data-theme="dark"] .sr-plaza-full{background:var(--input);border-color:var(--input-border);color:var(--brand2)}
   /* 踢人按钮文字色在深色 ghost-btn 下重声明为危险色 */
   html[data-theme="dark"] .sr-kick-btn{color:var(--bad)}
+  html[data-theme="dark"] .sr-detail-avatar{background:var(--input);border-color:var(--input-border)}
+  html[data-theme="dark"] .sr-owner-badge{background:#2c3a4e;color:#e0c870}
+  html[data-theme="dark"] .sr-status-ok{color:#78baa0}
+  html[data-theme="dark"] .sr-form-error{background:#3a3040;border-color:#5a4048;color:#e3a0a4}
+  html[data-theme="dark"] .sr-fullmask{background:rgba(10,15,28,.65)}
 
   /* ===== 响应式：PC/平板优先；窄屏 <560px 广场卡片纵向堆叠、视图最小高下调 ===== */
   @media (max-width:560px){

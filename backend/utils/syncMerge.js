@@ -10,8 +10,9 @@
  *     · projects          —— 项目级 updatedAt LWW：两端都有同一项目时以 updatedAt 较新者为基底；
  *     · records（打卡记录）—— 按 rid 做集合 union（两端各补对方没有的 rid）；
  *     · items（背书条目/错题）—— 按 id 做集合 union；同一 id 两端都有时按
- *           item.updatedAt（缺失则比 reviews 数组长度，再缺失保留 base）做字段级 LWW，
- *           保证「两台设备改不同 item」互不覆盖（thesis-57 / items 合并）。
+ *           item.updatedAt（缺失则比 reviews 数组长度，再缺失保留 base）做整对象 LWW
+ *           （选 updatedAt 较新的整条 item 覆盖，不是字段级合并），并按 tombstones
+ *           过滤已删条目；保证「两台设备改不同 item」互不覆盖（thesis-57 / items 合并）。
  *
  * ── 已知局限（thesis-62，仅在文档/注释承认，不改协议）──
  *   1. 项目级字段冲突（两端同时改项目名）会丢一个修改——项目字段整体随 LWW 基底走；
@@ -72,21 +73,28 @@ function mergeTemplates(a, b) {
 }
 
 /**
- * 合并同一项目两端的 items：按 id 做集合 union；同 id 两端都存在时做字段级 LWW。
+ * 合并同一项目两端的 items：按 id 做集合 union；同 id 两端都存在时做整对象 LWW
+ * （选 updatedAt 较新的整条 item 覆盖，不是字段级合并）。
  * LWW 比较优先级：
  *   1) item.updatedAt 较大者胜（都没有 updatedAt 时视为 0，打平进入下一步）；
  *   2) reviews 数组较长者胜（复习评价更多，状态更新）；
  *   3) 仍打平则保留已积累的 base（先入为主，避免抖动）。
+ * 墓碑过滤：条目删除即终态，不支持复活（条目无 updatedAt 字段，删除胜出）；
+ *   只要 tombstones 中存在该 item.id，就抑制，不进入结果。
  * @param {Array} aItems 基底一端的 items
  * @param {Array} bItems 另一端的 items
+ * @param {Object} [tombstones] 按 itemId 索引的删除墓碑（epoch 毫秒）
  * @returns {Array} 合并后的 items（新数组）
  */
-function mergeItems(aItems, bItems) {
+function mergeItems(aItems, bItems, tombstones) {
   var byId = new Map();
   var order = [];
 
   function consider(it) {
     if (!it || !it.id) return;
+    // 墓碑过滤：条目删除即终态，不支持复活（条目无 updatedAt 字段，删除胜出）；
+    // 只要 tombstones 中存在该 id，就抑制，不进入合并结果（防已删 item 同步时复活）。
+    if (tombstones && tombstones[it.id]) return;
     if (!byId.has(it.id)) {
       var fresh = clone(it);
       byId.set(it.id, fresh);
@@ -148,7 +156,10 @@ function mergeProjects(existingProjects, incomingProjects, tombstones) {
     // records：按 rid 集合 union，按日期排序
     if (Array.isArray(base.records) && Array.isArray(other.records)) {
       var have = new Set(base.records.map(function (r) { return r.rid; }).filter(Boolean));
-      var extra = other.records.filter(function (r) { return r.rid && !have.has(r.rid); });
+      // 记录无 updatedAt，墓碑即永久抑制（记录不可编辑，删除即终态）
+      var extra = other.records.filter(function (r) {
+        return r.rid && !have.has(r.rid) && !(tombstones && tombstones[r.rid]);
+      });
       if (extra.length) {
         mergedP.records = base.records.concat(extra);
         mergedP.records.sort(function (x, y) {
@@ -159,9 +170,9 @@ function mergeProjects(existingProjects, incomingProjects, tombstones) {
       }
     }
 
-    // items：按 id 集合 union + 字段级 LWW（thesis-57，防两端改不同 item 互相覆盖）
+    // items：按 id 集合 union + 整对象 LWW（thesis-57，防两端改不同 item 互相覆盖）+ 墓碑过滤
     if (Array.isArray(base.items) || Array.isArray(other.items)) {
-      mergedP.items = mergeItems(base.items, other.items);
+      mergedP.items = mergeItems(base.items, other.items, tombstones);
       bumped = true;
     }
 

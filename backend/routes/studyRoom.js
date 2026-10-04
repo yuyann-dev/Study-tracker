@@ -37,7 +37,7 @@ const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
  */
 const MAX_ROOM_MEMBERS = 20;
 /** 房间号格式：6 位大写字母数字（I/L/O/0/1 已排除） */
-const ROOM_CODE_RE = /^[A-Z2-9]{6}$/;
+const ROOM_CODE_RE = /^[A-HJKMNP-Z2-9]{6}$/;
 
 // ── 日期 / 统计小工具 ──────────────────────────────────────────────────────
 
@@ -374,8 +374,9 @@ router.get('/member/:userId', (req, res) => {
       .get(targetUserId);
     if (!target) return fail(res, '用户不存在', 404);
 
-    // 未公开：不返回任何学习统计数字（前端弹"未公开"提示）
-    if (target.publicFlag !== 1) return ok(res, { profile: null });
+    // 未公开：不返回任何学习统计数字（前端弹"未公开"提示）；
+    // 但自己看自己不受隐私开关限制（自己点自己头像仍能拿到自己的数据）。
+    if (target.publicFlag !== 1 && targetUserId !== me) return ok(res, { profile: null });
 
     // 统计走统一缓存取数；project_count 仍单独取（admin 列表冗余列，不在缓存内）
     const row = db.prepare('SELECT project_count FROM user_data WHERE user_id = ?').get(targetUserId);

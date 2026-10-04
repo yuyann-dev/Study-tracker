@@ -1,11 +1,10 @@
 ﻿/* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v31：修复自习室 apiRequest 未暴露与按钮绑定时机错误；
-   个人热力图重构为月历视图（默认当月、可切换、未来计划全部列出、掌握状态徽章）。
+   v32：全局多视角审查修复——删除条目/记录墓碑机制防同步复活、深色模式全量适配、热力图紧凑化、术语按类型感知、自习室返回键/广场返回键/自看详情修复、邮箱枚举防护、wrongStreak退档归零。
    重要：静态资源靠 index.html 里的 ?v= 版本号 cache-busting，
    每次改 JS/CSS 必须同时升 ?v= 版本号，否则 SW 会一直返回旧缓存。 */
-var CACHE = 'yystudy-v31';
+var CACHE = 'yystudy-v32';
 var CORE = [
   './',
   './index.html',

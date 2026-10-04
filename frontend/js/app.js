@@ -1,3 +1,13 @@
+/* ============ 术语口径约定（维护时务必遵守） ============
+   用户可见文案中，「攻克/掌握」必须按项目类型动态选择，不可一个词用到底：
+   - 错题类（p.type === 'mistake'）：已攻克、攻克了 X 道、攻克度、攻克率、确认攻克了吗
+   - 背书类（p.type === 'recite'）：已掌握、掌握了 X 条、掌握度、掌握率、确认掌握了吗
+   - 刷题类（p.type === 'exercise'）：已完成、完成了 X 页
+   - 混合统计或无法区分类型时：用中性词「完成」或分别表述
+   - 代码变量名/函数名 isMastered / mastered 保持不变（技术实现，非用户可见文案）
+   - 「已熟知」是手动跳过/标记的独立概念，跨类型通用，不在此列
+   新增用户可见文案时，先确认当前上下文能否拿到 p.type，能拿到就必须分支。 */
+
 /* ============ 工具 ============ */
 const $ = s => document.querySelector(s);
 const pad2 = n => String(n).padStart(2, '0');
@@ -232,7 +242,7 @@ function openReasonPopover(anchor, itemId) {
       if (nm && nm.trim()) {
         const v = nm.trim().slice(0, 20);
         if (ERROR_REASONS.includes(v) || (p.customErrorReasons||[]).some(x => x.name === v)) {
-          alert('这个错因已经存在啦～'); return;
+          alert('这个错因已经存在'); return;
         }
         pendingNewReason = v;
         pendingNewReasonItemId = itemId;
@@ -3428,8 +3438,9 @@ function transitionReview(intervals, s0, wrongStreak0, quality, isFirstLearn, ro
     return { stage, gap, wrongStreak: 0 };
   }
   // forgot
-  const wrongStreak = wrongStreak0 + 1;
-  const stage = wrongStreak >= rollbackAfter ? Math.max(0, s0 - 1) : s0;
+  var wrongStreak = wrongStreak0 + 1;
+  var stage = s0;
+  if (wrongStreak >= rollbackAfter) { stage = Math.max(0, s0 - 1); wrongStreak = 0; }
   return { stage, gap: firstGap, wrongStreak };
 }
 
@@ -3570,6 +3581,9 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   const mask = $('#confirmMasterMask');
   const text = $('#confirmMasterText');
   const opts = $('#confirmMasterOptions');
+  // 标题按项目类型动态选择：错题用「攻克」、背书用「掌握」
+  const titleEl = mask.querySelector('.cm-title');
+  if (titleEl) titleEl.textContent = p.type === 'mistake' ? '确认攻克了吗？' : '确认掌握了吗？';
   $('#skipConfirmMask').hidden = true;
 
   const qLabels = p.type === 'mistake'
@@ -6084,7 +6098,7 @@ function renderUnits(p, m) {
             <span class="unit-name">${level > 0 ? '└ ' : ''}${esc(u.name || '未命名单元')}
               <span class="m-badge ${mi.cls}"><span class="dot-sm"></span>${mi.label}</span>
             </span>
-            <span class="unit-range">掌握度 ${pct}% · 已掌握 ${masteredCnt}/${cnt} 条</span>
+            <span class="unit-range">${p.type === 'mistake' ? '攻克度' : '掌握度'} ${pct}% · ${p.type === 'mistake' ? '已攻克' : '已掌握'} ${masteredCnt}/${cnt} 条</span>
           </div>
           <div class="unit-bar"><div class="unit-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
           <div class="unit-progress">${rangeTxt}共 ${cnt} 条内容${childInfo}</div>
@@ -9396,8 +9410,7 @@ function renderWeaknessBoard(p) {
         ? '待复习 <b>' + planned.length + '</b> 题（计划日期）'
         : '当天无计划任务';
     } else if (planned.length > 0) {
-      var pct = Math.round(actual.length / planned.length * 100);
-      rateHtml = '完成率 <b>' + pct + '%</b>' + (pct > 100 ? '（超额完成）' : '') + '（实际' + actual.length + '/计划' + planned.length + '）';
+      // 完成率分子在 actualGroups（按题目去重）计算后填充，见下方
     } else {
       rateHtml = '当天无计划任务，实际复习' + actual.length + '题';
     }
@@ -9407,10 +9420,11 @@ function renderWeaknessBoard(p) {
       if (loc) meta.push(loc);
       if (it.errTags && it.errTags.length) meta.push(it.errTags.slice(0,2).join('/'));
       if (tag) meta.push(tag);
-      // 掌握状态徽章：已攻克 / 逾期 / 学习中 / 未复习
+      // 掌握状态徽章：错题用「攻克」、背书用「掌握」，根据项目类型动态选择
+      var doneWord = (pRef && pRef.type === 'mistake') ? '已攻克' : '已掌握';
       var badge;
       if (isMastered(it)) {
-        badge = '<span class="hm-badge hm-badge-done">已攻克</span>';
+        badge = '<span class="hm-badge hm-badge-done">' + doneWord + '</span>';
       } else if (it.nextReviewDate && it.nextReviewDate < _hmCache.todayVal) {
         badge = '<span class="hm-badge hm-badge-overdue">逾期</span>';
       } else if (it.nextReviewDate) {
@@ -9418,7 +9432,8 @@ function renderWeaknessBoard(p) {
       } else {
         badge = '<span class="hm-badge hm-badge-new">未复习</span>';
       }
-      return '<div class="hd-item">' + badge + esc(it.content).slice(0,80) + (it.content.length>80?'…':'') + (meta.length ? '<span class="hd-meta">'+meta.join(' · ')+'</span>' : '') + '</div>';
+      var c = esc(it.content || '');
+      return '<div class="hd-item">' + badge + c.slice(0,80) + (c.length>80?'…':'') + (meta.length ? '<span class="hd-meta">'+meta.join(' · ')+'</span>' : '') + '</div>';
     }
     var plannedHtml = planned.length
       ? '<div class="wb-heat-detail-list">' + planned.map(function(it){ return itemHtml(it,'计划'); }).join('') + '</div>'
@@ -9430,6 +9445,10 @@ function renderWeaknessBoard(p) {
       var g = aMap.get(r.item); g.qualities.push(r.quality); g.count++;
     });
     var actualGroups = Array.from(aMap.values());
+    if (!isFutureDay && planned.length > 0) {
+      var pct = Math.round(actualGroups.length / planned.length * 100);
+      rateHtml = '完成率 <b>' + pct + '%</b>' + (pct > 100 ? '（超额完成）' : '') + '（实际' + actualGroups.length + '/计划' + planned.length + '）';
+    }
     var actualHtml = actualGroups.length
       ? '<div class="wb-heat-detail-list">' + actualGroups.map(function(g){
           var uq = Array.from(new Set(g.qualities.map(function(q){ return qMap[q]||q; })));
@@ -9437,10 +9456,10 @@ function renderWeaknessBoard(p) {
           return itemHtml(g.item, tag);
         }).join('') + '</div>'
       : '<div class="wb-heat-detail-empty">当天没有复习记录</div>';
-    // 未来复习计划（全部：从今天起所有有计划的日期，按日期升序；间隔重复算法下计划会随复习动态变化）
+    // 未来复习计划（全部：从明天起所有有计划的日期，按日期升序；今天已在"当天计划复习"展示；间隔重复算法下计划会随复习动态变化）
     var futureDays = [];
     Object.keys(_hmCache.dailyPlanned).forEach(function(d){
-      if (d >= _hmCache.todayVal && _hmCache.dailyPlanned[d].length > 0) {
+      if (d > _hmCache.todayVal && _hmCache.dailyPlanned[d].length > 0) {
         var _fp = _hmCache.dailyPlanned[d];
         futureDays.push({ date: d, count: _fp.length, preview: _fp.slice(0,3).map(function(it){ return esc(it.content).slice(0,28); }).join('、') + (_fp.length > 3 ? '…' : '') });
       }
@@ -11612,7 +11631,7 @@ $('#reasonDDAdd').addEventListener('click', () => {
     const v = name.trim().slice(0, 20);
     const p = cur();
     if (ERROR_REASONS.includes(v) || (p.customErrorReasons||[]).some(r => r.name === v)) {
-      alert('这个错因已经存在啦～'); return;
+      alert('这个错因已经存在'); return;
     }
     pendingNewReason = v;
     pendingNewReasonItemId = null; // 从录入表单来的，不走条目挂载
@@ -12023,12 +12042,14 @@ $('#recordList').addEventListener('click', e => {
         (!r.rid && r.date === date && String(r.set) === String(setNo)));
       if (idx >= 0) {
         const [removed] = p.records.splice(idx, 1);
+        if (removed && removed.rid) store.tombstones[removed.rid] = Date.now();
         p.updatedAt = Date.now();
         saveStore();
         render();
         showUndo('已删除 1 条套卷记录', () => {
           if (!store.projects[p.id]) return;
           p.records.splice(Math.min(idx, p.records.length), 0, removed);
+          if (removed && removed.rid) delete store.tombstones[removed.rid];
           p.updatedAt = Date.now();
           saveStore();
           render();
@@ -12042,12 +12063,14 @@ $('#recordList').addEventListener('click', e => {
       const idx = (p.records || []).findIndex(r => r.rid === rid);
       if (idx >= 0) {
         const [removed] = p.records.splice(idx, 1);
+        if (removed && removed.rid) store.tombstones[removed.rid] = Date.now();
         p.updatedAt = Date.now();
         saveStore();
         render();
         showUndo('已删除 1 条打卡记录', () => {
           if (!store.projects[p.id]) return;
           p.records.splice(Math.min(idx, p.records.length), 0, removed);
+          if (removed && removed.rid) delete store.tombstones[removed.rid];
           p.updatedAt = Date.now();
           saveStore();
           render();
@@ -12060,11 +12083,13 @@ $('#recordList').addEventListener('click', e => {
     if (confirm(`删除 ${fmtCN(date)} 的打卡记录？`)) {
       const removed = (p.records || []).filter(r => r.date === date);
       p.records = (p.records || []).filter(r => r.date !== date);
+      removed.forEach(function(r){ if (r.rid) store.tombstones[r.rid] = Date.now(); });
       p.updatedAt = Date.now();
       saveStore();
       render();
       showUndo(`已删除 ${removed.length} 条打卡记录`, () => {
         if (!store.projects[p.id]) return;
+        removed.forEach(function(r){ if (r.rid) delete store.tombstones[r.rid]; });
         p.records = (p.records || []).concat(removed);
         p.updatedAt = Date.now();
         saveStore();
@@ -12079,12 +12104,14 @@ $('#recordList').addEventListener('click', e => {
       const idx = (p.items || []).findIndex(it => it.id === id);
       if (idx >= 0) {
         const [removed] = p.items.splice(idx, 1);
+        if (removed && removed.id) store.tombstones[removed.id] = Date.now();
         p.updatedAt = Date.now();
         saveStore();
         render();
         showUndo(`已删除「${removed.content.slice(0, 12)}…」`, () => {
           if (!store.projects[p.id]) return;
           p.items.splice(Math.min(idx, p.items.length), 0, removed);
+          if (removed && removed.id) delete store.tombstones[removed.id];
           p.updatedAt = Date.now();
           saveStore();
           render();
@@ -12320,7 +12347,7 @@ function fillDataSecurityContent() {
     // iOS 版：暖黄色提醒卡片（柔和不刺眼）
     body.innerHTML = `
       <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">${greetLine}</p>
-      <p style="margin-bottom:14px">你的学习数据<strong>全部存储在浏览器本地</strong>，不会上传到任何服务器。</p>
+      <p style="margin-bottom:14px">未登录时，你的学习数据仅保存在本设备浏览器中；登录后会自动同步到云端以便跨设备使用。</p>
       <div style="background:#e9ebdb;border:1px solid #b9d2c4;border-radius:10px;padding:12px 14px;margin-bottom:14px">
         <p style="font-weight:600;color:#2a6ab0;margin-bottom:8px">${title}</p>
         <p style="color:#3a5a8a;font-size:13.5px;line-height:1.8">
@@ -12338,13 +12365,12 @@ function fillDataSecurityContent() {
         </p>
       </div>
       <p style="color:var(--muted);font-size:13px">导出的备份文件可在换设备、换浏览器或数据异常时导入恢复。</p>
-      <p style="text-align:center;margin-top:16px;font-size:14px;color:var(--text)">祝你学习进步，每天都有新收获 🌟</p>
     `;
   } else {
     // 非 iOS 版：浅蓝色丢失场景卡片（柔和好看）
     body.innerHTML = `
       <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px">${greetLine}</p>
-      <p style="margin-bottom:14px">你的学习数据<strong>全部存储在浏览器本地</strong>，不会上传到任何服务器。</p>
+      <p style="margin-bottom:14px">未登录时，你的学习数据仅保存在本设备浏览器中；登录后会自动同步到云端以便跨设备使用。</p>
       <div style="background:#e9ebdb;border:1px solid #b9d2c4;border-radius:10px;padding:12px 14px;margin-bottom:14px">
         <p style="font-weight:600;color:#2a6ab0;margin-bottom:8px">${title}</p>
         <p style="color:#3a5a8a;font-size:13.5px;line-height:1.8">
@@ -12359,7 +12385,6 @@ function fillDataSecurityContent() {
         </p>
       </div>
       <p style="color:var(--muted);font-size:13px">建议定期到「设置 → 导出备份」保存一份 JSON 文件，换设备或清理缓存后可导入恢复。</p>
-      <p style="text-align:center;margin-top:16px;font-size:14px;color:var(--text)">祝你学习进步，每天都有新收获 🌟</p>
     `;
   }
 }
@@ -12729,11 +12754,11 @@ function renderMemberList() {
   }).join('');
 }
 
-// 点击成员头像：未公开直接弹提示；公开则拉详情
+// 点击成员头像：未公开且非自己则弹提示；公开或自己则拉详情
 function onMemberAvatarClick(userId) {
   var m = (studyRoomState.members || []).find(function(x){ return x.userId === userId; });
   if (!m) return;
-  if (!m.publicData) {
+  if (!m.publicData && !m.isSelf) {
     var pm = $('#srPrivateMask'); if (pm) pm.hidden = false;
     return;
   }
@@ -12891,7 +12916,7 @@ async function submitJoinRoom() {
   var codeInput = $('#srJoinCodeInput');
   var errEl = $('#srJoinError');
   var code = (codeInput.value || '').trim().toUpperCase();
-  if (!/^[A-Z0-9]{6}$/.test(code)) {
+  if (!/^[A-HJKMNP-Z2-9]{6}$/.test(code)) {
     if (errEl) { errEl.textContent = '请输入 6 位房间号'; errEl.hidden = false; }
     return;
   }
@@ -13174,7 +13199,7 @@ function initStudyRoomUI() {
   var joinInput = $('#srJoinCodeInput');
   if (joinInput) {
     joinInput.addEventListener('input', function(e) {
-      e.target.value = (e.target.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      e.target.value = (e.target.value || '').toUpperCase().replace(/[^A-HJKMNP-Z2-9]/g, '').slice(0, 6);
     });
   }
 
@@ -13260,7 +13285,13 @@ window.addEventListener('popstate', function() {
       return;
     }
   }
-  // 没有子弹窗可见：关闭自习室主页面（内部已 hidden + clearInterval + unlockBodyScroll，这里不重复解锁）
+  // 没有子弹窗可见：检查是否在广场视图，是则先退回引导页/房间主页
+  var plaza = $('#srPlazaView');
+  if (plaza && !plaza.hidden) {
+    closeStudyRoomPlaza();
+    return;
+  }
+  // 关闭自习室主页面（内部已 hidden + clearInterval + unlockBodyScroll，这里不重复解锁）
   closeStudyRoomPage();
 });
 

@@ -97,49 +97,55 @@ router.post('/send-code', async (req, res) => {
       return fail(res, '请输入有效的邮箱地址');
     }
     const emailNorm = String(email).trim().toLowerCase();
+
+    // 邀请码校验（仅 register 且非首个用户）必须先于 createCode：
+    // 邀请码无效直接拒绝，不创建验证码，避免被用来枚举邮箱/无谓占用验证码记录。
+    if (purpose === 'register' && !isFirstUser()) {
+      const inviteCheck = checkInviteCode(inviteCode);
+      if (!inviteCheck.valid) return fail(res, inviteCheck.reason);
+    }
+
+    // 防邮箱枚举（核心）：对所有目的（register/reset/delete）、所有邮箱状态都先创建验证码，
+    // 使 60s 重发冷却对“已注册/未注册”邮箱完全对称——
+    //   ① 已注册与未注册邮箱都会命中 createCode 的重发冷却；
+    //   ② 消除“已注册提前 return 不建码、未注册建码”造成的第二次响应预言机差异。
+    const { code, cooldown } = createCode(emailNorm, purpose);
+    if (cooldown > 0) {
+      // 冷却响应的状态码(429)与文案，对所有目的、所有邮箱状态完全一致
+      return fail(res, `发送太频繁，请 ${cooldown} 秒后再试`, 429);
+    }
+
+    // 建码之后再查邮箱存在性：仅用于决定“是否真发信”，不再影响响应形态
     const existingUser = db
       .prepare('SELECT id, deleted_at FROM users WHERE email = ?')
       .get(emailNorm);
+    const isActive = existingUser && existingUser.deleted_at == null;
 
-    if (purpose === 'register') {
-      // 非首个用户需要验证邀请码（先校验邀请码，避免无邀请码时被用来枚举邮箱）
-      if (!isFirstUser()) {
-        const inviteCheck = checkInviteCode(inviteCode);
-        if (!inviteCheck.valid) return fail(res, inviteCheck.reason);
-      }
-      // 防邮箱枚举：若邮箱已被活跃账号注册，不实际发送验证码，仍返回统一成功提示
-      if (existingUser && existingUser.deleted_at == null) {
-        return ok(res, { message: '验证码已发送至邮箱，5 分钟内有效', cooldown: 60 });
-      }
-    } else {
-      // 防邮箱枚举：无论邮箱是否存在，都返回统一提示；不存在/已注销则不实际发送
-      if (!existingUser || existingUser.deleted_at != null) {
-        return ok(res, { message: '如果该邮箱已注册，验证码已发送' });
-      }
-    }
-
-    // 创建验证码
-    const { code, cooldown } = createCode(emailNorm, purpose);
-    if (cooldown > 0) {
-      return fail(res, `发送太频繁，请 ${cooldown} 秒后再试`);
-    }
+    // 是否真正发信：
+    //   - register：仅当邮箱未注册（或已软注销）时才发注册验证码；已注册活跃邮箱不发信
+    //     （但验证码记录已创建，5 分钟自动过期，可接受）；
+    //   - reset/delete：仅当存在活跃账号时才发信；未注册/已注销邮箱不实际发信，
+    //     但验证码记录已创建，响应与成功路径完全一致。
+    const shouldSend = purpose === 'register' ? !isActive : isActive;
 
     // 发送邮件：区分"SMTP 未配置(503)"与"发送失败(502)"；发送失败不占用 60s 重发冷却
-    try {
-      const sent = await sendVerificationCode(emailNorm, code, purpose);
-      if (!sent) {
-        // SMTP 未配置（mailer 返回 false）
-        invalidateCode(emailNorm, purpose);
-        return fail(res, '邮件服务未配置，请联系管理员', 503);
+    if (shouldSend) {
+      try {
+        const sent = await sendVerificationCode(emailNorm, code, purpose);
+        if (!sent) {
+          // SMTP 未配置（mailer 返回 false）
+          invalidateCode(emailNorm, purpose);
+          return fail(res, '邮件服务未配置，请联系管理员', 503);
+        }
+      } catch (e) {
+        console.error('sendVerificationCode failed:', e.code || e.message, 'responseCode=', e.responseCode);
+        invalidateCode(emailNorm, purpose); // 撤销刚下发的验证码，允许立即重试
+        return fail(res, '验证码邮件发送失败，请稍后重试（邮件服务暂时不可用）', 502);
       }
-    } catch (e) {
-      console.error('sendVerificationCode failed:', e.code || e.message, 'responseCode=', e.responseCode);
-      invalidateCode(emailNorm, purpose); // 撤销刚下发的验证码，允许立即重试
-      return fail(res, '验证码邮件发送失败，请稍后重试（邮件服务暂时不可用）', 502);
     }
 
     return ok(res, {
-      message: '验证码已发送至邮箱，5 分钟内有效',
+      message: '如果该邮箱已注册，验证码已发送',
       cooldown: 60,
     });
   } catch (e) {
@@ -342,11 +348,12 @@ router.post('/reset-password', (req, res) => {
     const emailNorm = String(email).trim().toLowerCase();
 
     const row = db.prepare('SELECT * FROM users WHERE email = ?').get(emailNorm);
-    if (!row || row.deleted_at != null) return fail(res, '该邮箱未注册');
+    // 防邮箱枚举：不区分"邮箱不存在/已注销"与"验证码错误"，统一提示（与 send-code 口径一致）
+    if (!row || row.deleted_at != null) return fail(res, '验证码错误或已过期，请重新获取', 400);
 
     // 验证验证码
     const codeCheck = verifyCode(emailNorm, 'reset', code);
-    if (!codeCheck.valid) return fail(res, codeCheck.reason);
+    if (!codeCheck.valid) return fail(res, '验证码错误或已过期，请重新获取', 400);
 
     // 校验新密码
     if (typeof newPassword !== 'string' || newPassword.length < RULES.password.minLen) {
