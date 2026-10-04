@@ -9249,11 +9249,40 @@ function renderWeaknessBoard(p) {
   }).join('');
   $('#wbDist').innerHTML = distSegs || '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:8px">暂无数据</div>';
 
+  /* —— 热力图自适应布局 ——
+     按滚动容器真实可用宽度决定"显示多少周 + 格子尺寸"，让格子刚好填满、
+     不出现横向滚动（配合 CSS overflow-x:hidden），从而：
+     ① 消除窄屏横滑、滚动位置重置造成的跳变；② 宽屏格子不过小、不挤在一侧。
+     @param maxWeeks 宽屏最多显示周数；@param minWeeks 窄屏最少显示周数。
+     返回 {weeks, cell, gap}，并把尺寸写入 wrap 作用域的 CSS 变量。 */
+  function planHeatmapLayout(scrollEl, wrapEl, maxWeeks, minWeeks) {
+    maxWeeks = maxWeeks || 40; minWeeks = minWeeks || 8;
+    var DOW_W = 26;                 // 左侧星期标签列宽（20 + 6 gap）
+    var avail = ((scrollEl && scrollEl.clientWidth) ? scrollEl.clientWidth : 860) - 10;
+    var cellsW = Math.max(60, avail - DOW_W);
+    // 目标格子尺寸：越宽越大（保证点按面积，又不至于粗笨）
+    var target = cellsW >= 720 ? 17 : (cellsW >= 520 ? 16 : (cellsW >= 360 ? 14 : 12));
+    var gap = 3;
+    var weeks = Math.floor((cellsW + gap) / (target + gap));
+    weeks = Math.max(minWeeks, Math.min(maxWeeks, weeks));
+    // 微调格子尺寸，使整数周恰好填满可用宽度（比目标大不超过 4px）
+    var cell = (cellsW - (weeks - 1) * gap) / weeks;
+    cell = Math.max(target, Math.min(target + 4, Math.round(cell * 10) / 10));
+    if (wrapEl) {
+      wrapEl.style.setProperty('--hm-cell', cell + 'px');
+      wrapEl.style.setProperty('--hm-gap', gap + 'px');
+    }
+    return { weeks: weeks, cell: cell, gap: gap };
+  }
+
   // —— 打卡热力图 ——
   (function renderHeatmap(){
     const hmEl = $('#wbHeatmap'); if (!hmEl) return;
     const monthsEl = $('#wbHeatMonths');
-    const WEEKS = 14; // 显示14周（约3.5个月）
+    const hmScrollEl = hmEl.closest('.wb-heatmap-scroll');
+    const hmWrapEl = hmEl.closest('.wb-heatmap-wrap');
+    // 周数与格子尺寸按容器宽度自适应（宽屏最多约 9 个月），不横向滚动
+    const WEEKS = planHeatmapLayout(hmScrollEl, hmWrapEl, 40, 8).weeks;
     const todayDate = new Date();
     const todayStrVal = todayStr();
 
@@ -9467,7 +9496,8 @@ function renderWeaknessBoard(p) {
           '<div class="wb-heat-detail-section"><h4>✅ 当天实际复习</h4>' + actualHtml + '</div>';
 
         detailEl.hidden = false;
-        detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // 仅在详情区不完全可见时做瞬时最小滚动（不用 smooth，避免平板上画面平滑晃动感）
+        detailEl.scrollIntoView({ block: 'nearest' });
       });
     });
   })();
@@ -12604,18 +12634,23 @@ window.addEventListener('resize', () => {
 
 /* ============ 自习室（Study Room）前端模块 ============ */
 /* 严格按 docs/study-room-design.md 实现。所有 API 走 apiRequest，自动带 token。 */
+// 房间成员上限，与后端 MAX_ROOM_MEMBERS=20 保持一致
+var SR_MAX_MEMBERS = 20;
 var studyRoomState = {
-  room: null,        // {id, roomCode, name, isOwner}
+  room: null,        // {id, roomCode, name, isOwner, isPublic}
   members: [],       // 成员数组
-  pollTimer: null
+  pollTimer: null,
+  pendingKickUserId: null // 踢人确认弹窗暂存的目标成员 id
 };
 
 // 打开自习室主页面（导航按钮入口）
 async function openStudyRoomPage() {
   var mask = $('#studyRoomMask');
   if (!mask) return;
-  mask.hidden = false;
+  // 必须在弹窗仍处于 hidden 时调用 modalTop：其内部幂等判断会在「已可见」时早退，
+  // 若先 hidden=false 再调用，lockBodyScroll 不会执行，背景滚动将锁不住。
   try { modalTop(mask); } catch (e) {}
+  mask.hidden = false;
   try {
     await loadStudyRoomMe();
   } catch (e) {
@@ -12632,66 +12667,89 @@ function closeStudyRoomPage() {
   var mask = $('#studyRoomMask');
   if (mask) mask.hidden = true;
   stopStudyRoomPolling();
+  unlockBodyScroll(); // openStudyRoomPage 经 modalTop 锁过 body，关闭时必须解锁，否则背景永久锁死
 }
 
 // 拉取 GET /api/study-room/me 并渲染
 async function loadStudyRoomMe() {
+  var hadRoom = !!studyRoomState.room; // 刷新前是否在房间内，用于检测被踢/解散
   var data = await apiRequest('/api/study-room/me');
   studyRoomState.room = data.room || null;
   studyRoomState.members = data.members || [];
   renderStudyRoomViews();
+  // 轮询/刷新时房间由有变无（被踢或解散，后端 /me 不返回原因，无法区分）：
+  // 诚实提示，统一说「房间已不可用」，不编造具体原因。
+  if (hadRoom && !studyRoomState.room) {
+    showToast('ℹ️', '房间已不可用', '你已被移出该房间或房间已解散', 3000);
+  }
 }
 
 // 根据是否在房间切换引导页 / 房间主页
 function renderStudyRoomViews() {
   var welcomeView = $('#srWelcomeView');
   var roomView = $('#srRoomView');
+  var plazaView = $('#srPlazaView');
   if (!welcomeView || !roomView) return;
+  var plazaOpen = !!(plazaView && !plazaView.hidden);
   if (!studyRoomState.room) {
-    welcomeView.hidden = false;
-    roomView.hidden = true;
+    if (!plazaOpen) { welcomeView.hidden = false; roomView.hidden = true; }
     return;
   }
-  welcomeView.hidden = true;
-  roomView.hidden = false;
+  if (!plazaOpen) { welcomeView.hidden = true; roomView.hidden = false; }
   $('#srRoomName').textContent = studyRoomState.room.name || '';
   $('#srRoomCode').textContent = studyRoomState.room.roomCode || '';
-  $('#srMemberCount').textContent = (studyRoomState.members.length || 0) + '/10';
+  $('#srMemberCount').textContent = (studyRoomState.members.length || 0) + '/' + SR_MAX_MEMBERS;
+  // 公开/私有徽章
+  var badge = $('#srVisibilityBadge');
+  if (badge) badge.textContent = studyRoomState.room.isPublic ? '🌍 公开' : '🔒 私有';
+  // 是否房主：房间标记优先，否则从成员里找自己的 isOwner
+  var selfMember = (studyRoomState.members || []).find(function(m){ return m.isSelf; });
+  studyRoomState.iAmOwner = !!(studyRoomState.room.isOwner || (selfMember && selfMember.isOwner));
+  var ownerActions = $('#srOwnerActions');
+  if (ownerActions) ownerActions.hidden = !studyRoomState.iAmOwner;
   renderMemberList();
 }
 
-// 渲染成员列表
+// 渲染成员列表（G2：头像 / 用户名+房主·我标记 / 连续打卡 streak / 今日区 / 房主踢人按钮）
 function renderMemberList() {
   var listEl = $('#srMemberList');
   if (!listEl) return;
   var members = studyRoomState.members || [];
+  var iAmOwner = !!studyRoomState.iAmOwner;
   listEl.innerHTML = members.map(function(m) {
     var avatarHtml = m.avatar
       ? '<img src="' + esc(m.avatar) + '" alt="">'
       : '<span class="sr-avatar-fallback">👤</span>';
-    var statusHtml;
-    if (m.publicData) {
+    // 连续打卡 streak（基础社交信息，对所有成员可见，后端已真实返回）
+    var streak = (typeof m.streak === 'number') ? m.streak : 0;
+    var streakHtml = streak > 0
+      ? '🔥 连续 ' + streak + ' 天'
+      : '<span class="sr-streak-zero">暂未形成连续打卡</span>';
+    // 今日区：仅 publicData||isSelf 才真实；未公开者后端返回 null
+    var todayHtml;
+    if (m.publicData || m.isSelf) {
       var n = m.todayReviewCount || 0;
-      statusHtml = '<span class="sr-status-ok">✅ 今日复习 ' + n + ' 次</span>';
+      todayHtml = n > 0
+        ? '<span class="sr-status-ok">✅ 今日复习 ' + n + ' 次</span>'
+        : '<span class="sr-status-zero">⚪ 今日还未打卡</span>';
     } else {
-      statusHtml = '<span class="sr-status-private">🔒 数据已隐藏</span>';
+      todayHtml = '<span class="sr-status-private">🔒 今日数据已隐藏</span>';
     }
     var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
     var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
+    // 房主对非本人显示「踢出」按钮
+    var kickBtn = (iAmOwner && !m.isSelf)
+      ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
+      : '';
     return '<div class="sr-member-card" data-user-id="' + m.userId + '">'
       + '<div class="sr-member-avatar" data-user-id="' + m.userId + '" title="点击查看详情">' + avatarHtml + '</div>'
       + '<div class="sr-member-info">'
       +   '<div class="sr-member-name">' + esc(m.username || '匿名') + ownerBadge + selfTag + '</div>'
-      +   '<div class="sr-member-status">' + statusHtml + '</div>'
-      + '</div></div>';
+      +   '<div class="sr-member-streak">' + streakHtml + '</div>'
+      +   '<div class="sr-member-today">' + todayHtml + '</div>'
+      + '</div>' + kickBtn + '</div>';
+    // 头像点击 / 踢人按钮统一由 initStudyRoomUI 中的事件委托处理，避免重复绑定
   }).join('');
-  // 绑定头像点击
-  listEl.querySelectorAll('.sr-member-avatar').forEach(function(el) {
-    el.addEventListener('click', function() {
-      var uid = parseInt(el.getAttribute('data-user-id'), 10);
-      onMemberAvatarClick(uid);
-    });
-  });
 }
 
 // 点击成员头像：未公开直接弹提示；公开则拉详情
@@ -12714,8 +12772,9 @@ async function openMemberDetail(userId) {
       return;
     }
     renderMemberDetail(data.profile);
+    // 子弹窗不重复 lock：主全屏 studyRoomMask 已锁 body 滚动，这里仅 hidden 切换
     var dm = $('#srMemberDetailMask');
-    if (dm) { dm.hidden = false; try { modalTop(dm); } catch(e){} }
+    if (dm) dm.hidden = false;
   } catch (e) {
     showToast('⚠️', '加载失败', e.message || '请稍后重试', 2500);
   }
@@ -12743,9 +12802,13 @@ function renderMemberDetail(profile) {
 }
 
 // 复用现有热力图 CSS 类（wb-heatmap-col / hm-cell / hm-0~hm-4）渲染后端返回的 {date: count} 数据
+// 与个人版 renderHeatmap 一致：列内 hm-col-label 月份标签 + dow hm-dow-spacer，废弃 monthsEl 的 margin-left 硬编码
 function renderMemberHeatmap(heatmapData, containerEl, monthsEl) {
   if (!containerEl) return;
-  var WEEKS = 52; // 最近一年
+  var mmScrollEl = containerEl.closest('.wb-heatmap-scroll');
+  var mmWrapEl = containerEl.closest('.wb-heatmap-wrap');
+  // 周数与格子尺寸按弹窗容器宽度自适应（宽屏可多显示），不横向滚动
+  var WEEKS = planHeatmapLayout(mmScrollEl, mmWrapEl, 52, 8).weeks;
   var todayDate = new Date();
   var todayStrVal = todayStr();
   var dayOfWeek = todayDate.getDay(); // 0=周日
@@ -12778,29 +12841,54 @@ function renderMemberHeatmap(heatmapData, containerEl, monthsEl) {
     return 4;
   }
 
-  if (monthsEl) {
-    var monthLabels = [];
-    var lastMonth = -1;
-    columns.forEach(function(col, ci) {
-      var m = col.start.getMonth();
-      if (m !== lastMonth) {
-        monthLabels.push({ idx: ci, label: (m + 1) + '月' });
-        lastMonth = m;
-      }
-    });
-    monthsEl.innerHTML = monthLabels.map(function(ml) {
-      return '<span style="margin-left:' + (ml.idx * (15 + 3)) + 'px">' + ml.label + '</span>';
-    }).join('');
+  // 列内月份标签：该列周一进入新的月份/年份时在列顶显示，彻底消除 margin-left 硬编码错位
+  var lastMonth = -1, lastYear = -1;
+  columns.forEach(function(col) {
+    var y = col.start.getFullYear(), m = col.start.getMonth();
+    var label = '';
+    if (lastMonth === -1 || y !== lastYear || m !== lastMonth) {
+      label = (lastYear !== -1 && y !== lastYear) ? (y + '年' + (m + 1) + '月') : ((m + 1) + '月');
+    }
+    lastMonth = m; lastYear = y;
+    col.monthLabel = label;
+  });
+  // 顶部月份行已废弃，清空并隐藏
+  if (monthsEl) { monthsEl.innerHTML = ''; monthsEl.style.display = 'none'; }
+
+  // dow 行顶部补 14px 标签占位，与列内月份标签位对齐（只补一次）
+  var dowEl = document.querySelector('#srMemberDetailMask .wb-heatmap-dow');
+  if (dowEl && !dowEl.querySelector('.hm-dow-spacer')) {
+    var sp = document.createElement('div');
+    sp.className = 'hm-dow-spacer';
+    sp.style.height = '14px';
+    dowEl.insertBefore(sp, dowEl.firstChild);
   }
 
+  // 只替换固定尺寸容器内部内容，不操作 body 滚动、不改变页面整体高度
   containerEl.innerHTML = columns.map(function(col) {
-    return '<div class="wb-heatmap-col">' + col.days.map(function(d) {
+    var labelHtml = '<div class="hm-col-label">' + esc(col.monthLabel) + '</div>';
+    return '<div class="wb-heatmap-col">' + labelHtml + col.days.map(function(d) {
       var lv = d.isFuture ? 0 : levelOf(d.n);
       var cls = 'hm-cell hm-' + lv + (d.isToday ? ' hm-today' : '') + (d.isFuture ? ' hm-future' : '');
       var title = d.isFuture ? '未来日期' : (d.date + ' 复习' + d.n + '次');
-      return '<div class="' + cls + '" title="' + title + '"></div>';
+      return '<div class="' + cls + '" data-date="' + d.date + '" title="' + title + '"></div>';
     }).join('') + '</div>';
   }).join('');
+
+  // 固定一行详情：初始占位空行
+  var dayEl = $('#srDetailDay');
+  if (dayEl) dayEl.innerHTML = '&nbsp;';
+
+  // 点击非未来格子：在 srDetailDay 显示「日期 周X · 复习 N 次」；未来格子（hm-future）不可点
+  containerEl.querySelectorAll('.hm-cell:not(.hm-future)').forEach(function(cell) {
+    cell.addEventListener('click', function() {
+      var ds = cell.getAttribute('data-date');
+      var n = heatmapData[ds] || 0;
+      var dt = new Date(ds + 'T00:00:00');
+      var weekNames = ['日', '一', '二', '三', '四', '五', '六'];
+      if (dayEl) dayEl.textContent = ds + ' 周' + weekNames[dt.getDay()] + ' · 复习 ' + n + ' 次';
+    });
+  });
 }
 
 // 创建房间：POST /api/study-room/create
@@ -12899,6 +12987,148 @@ function fallbackCopyRoomCode(text) {
   document.body.removeChild(ta);
 }
 
+// ============ 公开自习室广场 ============
+// 打开广场：隐藏引导页/房间主页，显示广场视图并拉取 GET /api/study-room/plaza
+async function openStudyRoomPlaza() {
+  var welcomeView = $('#srWelcomeView');
+  var roomView = $('#srRoomView');
+  var plazaView = $('#srPlazaView');
+  if (!plazaView) return;
+  if (welcomeView) welcomeView.hidden = true;
+  if (roomView) roomView.hidden = true;
+  plazaView.hidden = false;
+  await loadStudyRoomPlaza();
+}
+
+// 拉取并渲染广场房间列表
+async function loadStudyRoomPlaza() {
+  var loading = $('#srPlazaLoading');
+  var list = $('#srPlazaList');
+  var empty = $('#srPlazaEmpty');
+  if (loading) loading.hidden = false;
+  if (list) list.innerHTML = '';
+  if (empty) empty.hidden = true;
+  try {
+    var data = await apiRequest('/api/study-room/plaza');
+    renderPlazaList((data && data.rooms) || []);
+  } catch (e) {
+    showToast('⚠️', '加载失败', e.message || '请稍后重试', 2500);
+    if (list) list.innerHTML = '';
+    if (empty) empty.hidden = false; // 出错时落到空态，避免白屏
+  } finally {
+    if (loading) loading.hidden = true;
+  }
+}
+
+// 渲染广场房间卡片列表
+function renderPlazaList(rooms) {
+  var list = $('#srPlazaList');
+  var empty = $('#srPlazaEmpty');
+  if (!list) return;
+  if (!rooms || !rooms.length) {
+    list.innerHTML = '';
+    if (empty) empty.hidden = false;
+    return;
+  }
+  if (empty) empty.hidden = true;
+  list.innerHTML = rooms.map(function(r) {
+    var isFull = !!r.isFull;
+    // 已满：显示「已满」徽章，按钮 disabled 且文案改为「已满」
+    var fullBadge = isFull
+      ? '<span class="sr-plaza-full">已满</span>'
+      : '<span class="sr-plaza-full" hidden>已满</span>';
+    var joinBtn = isFull
+      ? '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" disabled type="button">已满</button>'
+      : '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" type="button">加入</button>';
+    return '<div class="sr-plaza-card">'
+      + '<div class="sr-plaza-name">' + esc(r.name || '未命名房间') + ' ' + fullBadge + '</div>'
+      + '<div class="sr-plaza-meta">成员 ' + (r.memberCount || 0) + '/' + SR_MAX_MEMBERS + ' · 房主 ' + esc(r.ownerName || '匿名') + '</div>'
+      + joinBtn
+      + '</div>';
+  }).join('');
+}
+
+// 广场点「加入」：POST /api/study-room/join；后端错误（如「已在某个自习室中」）直接 toast 原消息
+async function joinPlazaRoom(roomCode) {
+  if (!roomCode) return;
+  try {
+    await apiRequest('/api/study-room/join', { method: 'POST', body: { roomCode: roomCode } });
+    closeStudyRoomPlaza(); // 关闭广场，回到引导页/房间主页
+    await loadStudyRoomMe();
+    showToast('✅', '加入成功', '欢迎来到自习室', 2500);
+  } catch (e) {
+    // 不吞错：后端原消息（如已在某个自习室、房间人数已满）原样提示，引导用户先退出
+    showToast('⚠️', '加入失败', e.message || '请稍后重试', 2800);
+  }
+}
+
+// 从广场返回：隐藏广场视图，按是否在房间切回引导页或房间主页
+function closeStudyRoomPlaza() {
+  var plazaView = $('#srPlazaView');
+  if (plazaView) plazaView.hidden = true;
+  renderStudyRoomViews();
+}
+
+// ============ 房主：踢人 ============
+// 打开踢人确认弹窗，暂存目标成员 id
+function askKickMember(userId) {
+  var m = (studyRoomState.members || []).find(function(x){ return x.userId === userId; });
+  var name = m ? (m.username || '该成员') : '该成员';
+  var t = $('#srKickConfirmText');
+  if (t) t.textContent = '确定将成员「' + name + '」踢出房间吗？TA 将回到未加入状态。';
+  studyRoomState.pendingKickUserId = userId;
+  var km = $('#srKickConfirmMask'); if (km) km.hidden = false;
+}
+
+// 确认踢人：POST /api/study-room/kick，成功后刷新成员列表
+async function confirmKickMember() {
+  var uid = studyRoomState.pendingKickUserId;
+  if (!uid) return;
+  try {
+    await apiRequest('/api/study-room/kick', { method: 'POST', body: { userId: uid } });
+    var km = $('#srKickConfirmMask'); if (km) km.hidden = true;
+    studyRoomState.pendingKickUserId = null;
+    await loadStudyRoomMe();
+    showToast('👢', '已踢出', '该成员已被移出房间', 2200);
+  } catch (e) {
+    showToast('⚠️', '操作失败', e.message || '请稍后重试', 2500);
+  }
+}
+
+// ============ 房主：房间设置 ============
+// 打开设置弹窗，用当前 room 状态预填房间名与公开开关
+function openRoomSettings() {
+  var room = studyRoomState.room;
+  if (!room) return;
+  var nameInput = $('#srSettingsNameInput');
+  var pubCb = $('#srSettingsIsPublic');
+  var errEl = $('#srSettingsError');
+  if (nameInput) nameInput.value = room.name || '';
+  if (pubCb) pubCb.checked = !!room.isPublic;
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+  var m = $('#srRoomSettingsMask'); if (m) m.hidden = false;
+}
+
+// 保存设置：前端校验后 PATCH /api/study-room/settings；错误内联显示，不关闭弹窗
+async function saveRoomSettings() {
+  var room = studyRoomState.room;
+  var nameInput = $('#srSettingsNameInput');
+  var pubCb = $('#srSettingsIsPublic');
+  var errEl = $('#srSettingsError');
+  if (!room || !nameInput || !pubCb) return;
+  var name = (nameInput.value || '').trim();
+  if (!name) { if (errEl){ errEl.textContent = '房间名不能为空'; errEl.hidden = false; } nameInput.focus(); return; }
+  if (name.length > 20) { if (errEl){ errEl.textContent = '房间名最多 20 个字'; errEl.hidden = false; } nameInput.focus(); return; }
+  try {
+    await apiRequest('/api/study-room/settings', { method: 'PATCH', body: { name: name, isPublic: !!pubCb.checked } });
+    var m = $('#srRoomSettingsMask'); if (m) m.hidden = true;
+    await loadStudyRoomMe();
+    showToast('✅', '已保存', '房间设置已更新', 2000);
+  } catch (e) {
+    if (errEl) { errEl.textContent = e.message || '保存失败'; errEl.hidden = false; }
+  }
+}
+
 // 轮询：进入自习室页面后每 30 秒刷新成员状态
 function startStudyRoomPolling() {
   stopStudyRoomPolling();
@@ -12977,11 +13207,52 @@ function initStudyRoomUI() {
   bind('#srLeaveCancelBtn2', 'click', function(){ var m = $('#srLeaveConfirmMask'); if (m) m.hidden = true; });
   bind('#srLeaveConfirmBtn', 'click', confirmLeaveRoom);
 
+  // 公开自习室广场
+  bind('#srPlazaBtn', 'click', openStudyRoomPlaza);
+  bind('#srPlazaBackBtn', 'click', closeStudyRoomPlaza);
+
+  // 房主：房间设置
+  bind('#srRoomSettingsBtn', 'click', openRoomSettings);
+  bind('#srSettingsCancelBtn', 'click', function(){ var m = $('#srRoomSettingsMask'); if (m) m.hidden = true; });
+  bind('#srSettingsCancelBtn2', 'click', function(){ var m = $('#srRoomSettingsMask'); if (m) m.hidden = true; });
+  bind('#srSettingsConfirmBtn', 'click', saveRoomSettings);
+
+  // 房主：踢人确认
+  bind('#srKickCancelBtn', 'click', function(){ var m = $('#srKickConfirmMask'); if (m) m.hidden = true; studyRoomState.pendingKickUserId = null; });
+  bind('#srKickCancelBtn2', 'click', function(){ var m = $('#srKickConfirmMask'); if (m) m.hidden = true; studyRoomState.pendingKickUserId = null; });
+  bind('#srKickConfirmBtn', 'click', confirmKickMember);
+
   bind('#srDetailCloseBtn', 'click', function(){ var m = $('#srMemberDetailMask'); if (m) m.hidden = true; });
   bind('#srPrivateOkBtn', 'click', function(){ var m = $('#srPrivateMask'); if (m) m.hidden = true; });
 
-  // 点击遮罩空白处关闭弹窗（自习室主页面除外）
-  ['srMemberDetailMask','srPrivateMask','srLeaveConfirmMask','srCreateMask','srJoinMask'].forEach(function(mid){
+  // 成员列表事件委托：头像看详情 + 房主踢人按钮（列表内容动态渲染，绑定一次即可）
+  var memberListEl = $('#srMemberList');
+  if (memberListEl) {
+    memberListEl.addEventListener('click', function(e) {
+      var kickBtn = e.target.closest ? e.target.closest('.sr-kick-btn') : null;
+      if (kickBtn) {
+        askKickMember(parseInt(kickBtn.getAttribute('data-user-id'), 10));
+        return;
+      }
+      var avatar = e.target.closest ? e.target.closest('.sr-member-avatar') : null;
+      if (avatar) {
+        onMemberAvatarClick(parseInt(avatar.getAttribute('data-user-id'), 10));
+      }
+    });
+  }
+  // 广场列表事件委托：点加入按钮
+  var plazaListEl = $('#srPlazaList');
+  if (plazaListEl) {
+    plazaListEl.addEventListener('click', function(e) {
+      var joinBtn = e.target.closest ? e.target.closest('.sr-plaza-join-btn') : null;
+      if (joinBtn && !joinBtn.disabled) {
+        joinPlazaRoom(joinBtn.getAttribute('data-code'));
+      }
+    });
+  }
+
+  // 点击遮罩空白处关闭弹窗（自习室主页面除外；子弹窗只 hidden，不重复 lock/unlock）
+  ['srMemberDetailMask','srPrivateMask','srLeaveConfirmMask','srCreateMask','srJoinMask','srKickConfirmMask','srRoomSettingsMask'].forEach(function(mid){
     var m = $('#' + mid);
     if (m) m.addEventListener('click', function(e){ if (e.target === m) m.hidden = true; });
   });
@@ -12994,6 +13265,27 @@ function initStudyRoomUI() {
   // 打开设置时刷新开关状态
   bind('#btnSettings', 'click', function(){ setTimeout(refreshStudyRoomPrivacyToggle, 100); });
 }
+
+// 安卓/物理返回键：专门处理自习室层。
+// 注意：不把自习室 mask 加进 ALL_MODAL_IDS——它们的锁/解锁口径与通用弹窗不同，
+// 通用 popstate 处理器对 openIds（来自 ALL_MODAL_IDS）为空时会早退，二者不冲突。
+window.addEventListener('popstate', function() {
+  var main = $('#studyRoomMask');
+  if (!main || main.hidden) return; // 自习室层未打开，交给通用处理器/默认行为
+  // 自习室子弹窗按层级从上到下排列，取最上层可见者关闭
+  var subIds = ['srKickConfirmMask','srRoomSettingsMask','srLeaveConfirmMask','srMemberDetailMask','srPrivateMask','srCreateMask','srJoinMask'];
+  for (var i = 0; i < subIds.length; i++) {
+    var m = $('#' + subIds[i]);
+    if (m && !m.hidden) {
+      m.hidden = true; // 子弹窗只 hidden，不重复 lock/unlock（主页面已锁 body）
+      // 子弹窗原本没压栈，补偿一个历史栈：这样下一次返回键才能继续关闭主页面
+      try { history.pushState({}, ''); } catch (e) {}
+      return;
+    }
+  }
+  // 没有子弹窗可见：关闭自习室主页面（内部已 hidden + clearInterval + unlockBodyScroll，这里不重复解锁）
+  closeStudyRoomPage();
+});
 
 // 启动绑定（app.js 在 body 末尾加载，DOM 已就绪）
 initStudyRoomUI();

@@ -112,6 +112,25 @@ function runMigrations(db) {
       ip          TEXT,
       created_at  TEXT DEFAULT (datetime('now'))
     );
+
+    -- 自习室（轻量学习小组）：一个用户同时只能在 1 个房间；房间没人时物理删除，不留空房
+    CREATE TABLE IF NOT EXISTS study_rooms (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_code   TEXT NOT NULL UNIQUE,               -- 6 位房间号（大写，去除 I/L/O/0/1 易混淆字符）
+      name        TEXT NOT NULL,                      -- 房间名（≤20 字）
+      owner_id    INTEGER NOT NULL REFERENCES users(id),
+      is_public   INTEGER NOT NULL DEFAULT 0,        -- 0=私有（默认，只能凭房间号加入），1=公开（进入公开广场）
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS study_room_members (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id     INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      joined_at   TEXT DEFAULT (datetime('now')),    -- 房主退出时按此升序选最早加入者继承
+      UNIQUE(room_id, user_id),                 -- 一个用户在一个房间只有一条记录
+      UNIQUE(user_id)                           -- 全表唯一：一个用户同时只能加入一个自习室
+    );
   `);
 
   // ---- 幂等补列：老库缺哪列补哪列（重复执行安全）----
@@ -133,6 +152,10 @@ function runMigrations(db) {
   ensureColumn(db, 'users', 'deleted_at', 'TEXT');
   // v6: 注销原因（self=用户自助注销，admin=管理员软删除），用于管理员面板区分
   ensureColumn(db, 'users', 'delete_reason', 'TEXT');
+  // v8: 自习室隐私开关——0=未公开（默认），1=公开今日打卡状态+学习图表给同房间成员
+  ensureColumn(db, 'users', 'study_room_public', 'INTEGER NOT NULL DEFAULT 0');
+  // v1.1: 自习室是否公开到广场——0=私有（默认，只能凭房间号加入），1=公开（广场可见可加入）
+  ensureColumn(db, 'study_rooms', 'is_public', 'INTEGER NOT NULL DEFAULT 0');
   // v5: user_data 项目数冗余列
   ensureColumn(db, 'user_data', 'project_count', 'INTEGER NOT NULL DEFAULT 0');
   // v5: 邀请码渠道 / 软作废
@@ -155,6 +178,10 @@ function runMigrations(db) {
     CREATE INDEX IF NOT EXISTS idx_login_logs_created ON login_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_admin ON audit_logs(admin_id);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_study_rooms_code ON study_rooms(room_code);
+    CREATE INDEX IF NOT EXISTS idx_study_rooms_owner ON study_rooms(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_members_room ON study_room_members(room_id);
+    CREATE INDEX IF NOT EXISTS idx_members_user ON study_room_members(user_id);
   `);
 }
 
@@ -172,6 +199,66 @@ function ensureColumn(db, table, column, def) {
   }
 }
 
+/**
+ * v7.1 表重建：老库 invite_codes.used_by 列定义是 `INTEGER REFERENCES users(id)`（带外键），
+ * 新设计该列存 JSON 数组（TEXT、无外键）。SQLite 无法 ALTER 列删外键，
+ * 用「建新表 → 拷数据并转换 used_by → 删旧表 → 改名 → 重建索引」完成，幂等。
+ * @param {import('better-sqlite3').Database} db
+ */
+function rebuildInviteCodesTable(db) {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='invite_codes'").get();
+  if (!row || !row.sql) return;
+  const line = row.sql.match(/used_by[^,\n]*/i);
+  // 仅当 used_by 列定义里仍带 REFERENCES（外键）才需要重建
+  if (!line || !/REFERENCES/i.test(line[0])) return;
+
+  const tx = db.transaction(() => {
+    db.exec('PRAGMA defer_foreign_keys = ON;');
+    db.exec(`
+      CREATE TABLE invite_codes_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        created_by INTEGER REFERENCES users(id),
+        used_by TEXT DEFAULT '[]',
+        used_count INTEGER NOT NULL DEFAULT 0,
+        max_uses INTEGER NOT NULL DEFAULT 1,
+        used_at TEXT,
+        expires_at TEXT,
+        note TEXT,
+        channel TEXT,
+        revoked_at TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+    `);
+    const rows = db.prepare('SELECT * FROM invite_codes').all();
+    const ins = db.prepare(`INSERT INTO invite_codes_new
+      (id,code,created_by,used_by,used_count,max_uses,used_at,expires_at,note,channel,revoked_at,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+    for (const r of rows) {
+      let arr = [];
+      const ub = r.used_by;
+      if (ub === null || ub === undefined || ub === '') arr = [];
+      else if (typeof ub === 'number' || /^\d+$/.test(String(ub))) arr = [Number(ub)];
+      else {
+        try { const p = JSON.parse(ub); arr = Array.isArray(p) ? p : (Number.isFinite(p) ? [p] : []); }
+        catch (e) { arr = []; }
+      }
+      const usedCount = Math.max(Number.isFinite(r.used_count) ? r.used_count : 0, arr.length);
+      ins.run(r.id, r.code, r.created_by, JSON.stringify(arr), usedCount,
+        Number.isFinite(r.max_uses) ? r.max_uses : 1,
+        r.used_at, r.expires_at, r.note, r.channel, r.revoked_at, r.created_at);
+    }
+    db.exec('DROP TABLE invite_codes;');
+    db.exec('ALTER TABLE invite_codes_new RENAME TO invite_codes;');
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+      CREATE INDEX IF NOT EXISTS idx_invite_codes_used_by ON invite_codes(used_by);
+      CREATE INDEX IF NOT EXISTS idx_invite_codes_created_by ON invite_codes(created_by);
+    `);
+  });
+  tx();
+}
+
 const db = new Database(config.dbFile);
 runMigrations(db);
 
@@ -184,23 +271,48 @@ try {
   console.warn('normalize invite_codes.expires_at skipped:', e.message);
 }
 
+// 先做表重建（去掉 used_by 列残留外键），重建后 used_by 即 TEXT 数组
+try { rebuildInviteCodesTable(db); }
+catch (e) { console.warn('rebuild invite_codes skipped:', e.message); }
+
 // v7 数据迁移：将旧格式 used_by（单用户 INTEGER 或 NULL）统一为 JSON 数组字符串，
 // 并根据是否被使用设置 used_count。幂等：只处理纯数字或 NULL 的行，已是 '[' 开头则跳过。
 try {
   const rows = db.prepare("SELECT id, used_by FROM invite_codes").all();
   const upd = db.prepare("UPDATE invite_codes SET used_by = ?, used_count = ? WHERE id = ?");
   for (const row of rows) {
-    const ub = row.used_by;
-    if (ub === null || ub === undefined || ub === '') {
-      upd.run('[]', 0, row.id);
-    } else if (typeof ub === 'number' || /^\d+$/.test(String(ub))) {
-      // 旧格式：单用户 ID → JSON 数组，已使用 1 次
-      upd.run('[' + Number(ub) + ']', 1, row.id);
+    try {
+      const ub = row.used_by;
+      if (ub === null || ub === undefined || ub === '') {
+        upd.run('[]', 0, row.id);
+      } else if (typeof ub === 'number' || /^\d+$/.test(String(ub))) {
+        // 旧格式：单用户 ID → JSON 数组，已使用 1 次
+        upd.run('[' + Number(ub) + ']', 1, row.id);
+      }
+      // 已是 '[' 开头的 JSON 数组格式，不处理
+    } catch (rowE) {
+      // 单行失败（如历史脏数据 created_by 外键指向已失效用户，UPDATE 会触发整行外键检查）
+      // 不阻断其余行迁移；该行由 admin.js 的数组兜底保护，不会再 5xx
+      console.warn('migrate used_by row id=' + row.id + ' skipped:', rowE.message);
     }
-    // 已是 '[' 开头的 JSON 数组格式，不处理
   }
 } catch (e) {
   console.warn('migrate invite_codes.used_by to JSON array skipped:', e.message);
+}
+
+// v7.2 修正 used_count：历史库可能 used_by 已记录使用者、但 used_count 未维护（为 0），
+// 这会让一次性邀请码被误判「还能使用」（注册判断 used_count < max_uses）。
+// 以 used_by 数组长度为准兜底，幂等。
+try {
+  const rows = db.prepare("SELECT id, used_by, used_count FROM invite_codes").all();
+  const fix = db.prepare("UPDATE invite_codes SET used_count = ? WHERE id = ?");
+  for (const r of rows) {
+    let n = 0;
+    try { const p = JSON.parse(r.used_by || '[]'); n = Array.isArray(p) ? p.length : 0; } catch (e) { n = 0; }
+    if (n > (r.used_count || 0)) fix.run(n, r.id);
+  }
+} catch (e) {
+  console.warn('fix invite_codes.used_count skipped:', e.message);
 }
 
 module.exports = db;

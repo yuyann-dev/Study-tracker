@@ -81,6 +81,8 @@ router.put('/', (req, res) => {
        ON CONFLICT(user_id) DO UPDATE SET store_json = excluded.store_json,
               project_count = excluded.project_count, updated_at = excluded.updated_at`
     ).run(req.user.id, json, projectCount);
+    // 用户推送了新数据，主动让其自习室统计缓存失效（其余 key 继续走 TTL）
+    require('../utils/statsCache').invalidate(req.user.id);
     const row = db.prepare('SELECT updated_at FROM user_data WHERE user_id = ?').get(req.user.id);
     return ok(res, { updatedAt: row.updatedAt, projectCount });
   } catch (e) {

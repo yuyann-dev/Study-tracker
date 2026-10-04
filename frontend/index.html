@@ -3,20 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=3">
 <script>
-/* 核选项：立即注销所有旧 Service Worker，防止旧SW安装失败/旧缓存死死控制页面导致更新不生效。
-   注销后页面不再被SW控制，浏览器直接从服务器拉取最新文件；后续正常加载时会重新注册最新版SW。 */
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(regs) {
-    if (regs.length > 0) {
-      // 等所有 SW 注销完成后再 reload，避免 fire-and-forget 导致刷新循环
-      Promise.all(regs.map(function(reg) { return reg.unregister(); })).then(function() {
-        window.location.reload();
-      });
-    }
-  }).catch(function(){});
-}
 /* 页面最早期阻止浏览器默认 PWA 安装气泡，改用自定义引导（只弹一次） */
 window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._deferredInstallEarly = e; });
 if ('serviceWorker' in navigator) {
@@ -70,7 +58,7 @@ if ('serviceWorker' in navigator) {
 <meta name="format-detection" content="telephone=no">
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
-<link rel="icon" type="image/png" href="favicon-64.png?v=2">
+<link rel="icon" type="image/png" href="favicon-64.png?v=3">
 <link rel="stylesheet" href="css/style.css">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
@@ -90,7 +78,7 @@ if ('serviceWorker' in navigator) {
 
 <!-- 首屏加载界面（消除白屏，渲染完成后自动隐藏） -->
 <div id="splashScreen">
-  <div class="splash-logo"><img src="icon-192.png?v=2" alt="Study Tracker"></div>
+  <div class="splash-logo"><img src="icon-192.png?v=3" alt="Study Tracker"></div>
   <div class="splash-text">Study Tracker 加载中…</div>
   <div class="splash-spinner"></div>
 </div>
@@ -112,7 +100,7 @@ if ('serviceWorker' in navigator) {
 <!-- ============ 欢迎页 ============ -->
 <div class="wrap" id="welcome" hidden>
   <div class="welcome">
-    <div class="welcome-badge"><img src="apple-touch-icon.png?v=2" alt="Study Tracker" style="width:100%;height:100%;border-radius:inherit;display:block"></div>
+    <div class="welcome-badge"><img src="apple-touch-icon.png?v=3" alt="Study Tracker" style="width:100%;height:100%;border-radius:inherit;display:block"></div>
     <h2>Study Tracker</h2>
     <p class="welcome-tagline">刷 题 · 背 书 · 错 题</p>
     <div class="welcome-feats">
@@ -395,7 +383,8 @@ if ('serviceWorker' in navigator) {
         <summary style="font-size:12px;color:var(--muted);cursor:pointer;opacity:.8;user-select:none;list-style:revert">怎么算的？</summary>
         <div class="status-desc" id="statusAlgoNote" style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.7;opacity:.9"></div>
       </details>
-      <div id="lazyWarning" class="lazy-warning" hidden>`n        <span class="lazy-warning-icon">💤</span>
+      <div id="lazyWarning" class="lazy-warning" hidden>
+        <span class="lazy-warning-icon">💤</span>
         <span id="lazyWarningText"></span>
       </div>
     </div>
@@ -953,7 +942,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="authMask" hidden>
   <div class="modal" style="max-width:400px">
     <div class="auth-brand">
-      <div class="auth-brand-icon"><img src="icon-192.png?v=2" alt="Study Tracker"></div>
+      <div class="auth-brand-icon"><img src="icon-192.png?v=3" alt="Study Tracker"></div>
       <div class="auth-brand-name">Study Tracker</div>
       <div class="auth-brand-sub">登录后云端备份你的学习数据</div>
     </div>
@@ -1036,7 +1025,7 @@ if ('serviceWorker' in navigator) {
   <div class="modal" style="max-width:380px">
     <button class="x-btn" id="forgotClose" style="position:absolute;right:16px;top:16px;z-index:2">×</button>
     <div class="auth-brand" style="margin-bottom:16px;margin-top:4px">
-      <div class="auth-brand-icon" style="width:56px;height:56px;border-radius:14px"><img src="icon-192.png?v=2" alt="Study Tracker"></div>
+      <div class="auth-brand-icon" style="width:56px;height:56px;border-radius:14px"><img src="icon-192.png?v=3" alt="Study Tracker"></div>
       <div class="auth-brand-name" style="font-size:17px;margin-top:10px">找回密码</div>
     </div>
     <!-- 步骤指示器 -->
@@ -1156,7 +1145,7 @@ if ('serviceWorker' in navigator) {
     </div>
     <div id="installInline" hidden>
       <div class="install-hero">
-        <img src="icon-192.png?v=2" alt="Study Tracker 图标" class="install-hero-icon">
+        <img src="icon-192.png?v=3" alt="Study Tracker 图标" class="install-hero-icon">
         <div class="install-hero-name">Study Tracker</div>
         <div class="install-hero-desc">独立窗口打开，自动保持最新版本</div>
       </div>
@@ -1501,7 +1490,7 @@ if ('serviceWorker' in navigator) {
       <!-- 星期标签 + 热力图 -->
       <div style="display:flex;gap:6px;align-items:flex-start">
         <div class="wb-heatmap-dow">
-          <div>一</div><div style="visibility:hidden">二</div><div>三</div><div style="visibility:hidden">四</div><div>五</div><div style="visibility:hidden">六</div><div>日</div>
+          <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
         </div>
         <div class="wb-heatmap-scroll">
           <div class="wb-heatmap" id="wbHeatmap"></div>
@@ -1513,21 +1502,13 @@ if ('serviceWorker' in navigator) {
         <div>还没有复习记录</div>
         <div class="empty-hint">开始第一次复习后，这里会显示你的打卡热力图</div>
       </div>
-      <!-- 图例 -->
+      <!-- 图例：单一数字口径，避免重复 -->
       <div class="wb-heatmap-legend">
-        <span>少</span>
-        <div class="hm-cell hm-0"></div>
-        <div class="hm-cell hm-1"></div>
-        <div class="hm-cell hm-2"></div>
-        <div class="hm-cell hm-3"></div>
-        <div class="hm-cell hm-4"></div>
-        <span>多</span>
-        <span class="legend-gap">|</span>
-        <span class="legend-num">0</span><div class="hm-cell hm-1" style="width:10px;height:10px"></div>
-        <span class="legend-num">1</span><div class="hm-cell hm-2" style="width:10px;height:10px"></div>
-        <span class="legend-num">2-3</span><div class="hm-cell hm-3" style="width:10px;height:10px"></div>
-        <span class="legend-num">4-6</span><div class="hm-cell hm-4" style="width:10px;height:10px"></div>
-        <span class="legend-num">7+</span>
+        <span class="legend-item"><span class="hm-cell hm-0"></span><span class="legend-num">0</span></span>
+        <span class="legend-item"><span class="hm-cell hm-1"></span><span class="legend-num">1</span></span>
+        <span class="legend-item"><span class="hm-cell hm-2"></span><span class="legend-num">2-3</span></span>
+        <span class="legend-item"><span class="hm-cell hm-3"></span><span class="legend-num">4-6</span></span>
+        <span class="legend-item"><span class="hm-cell hm-4"></span><span class="legend-num">7+</span></span>
       </div>
     </div>
     <div id="wbHeatDetail" class="wb-heat-detail" hidden>
@@ -1853,8 +1834,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/auth.js?v=20261004b"></script>
-<script src="js/app.js?v=20261004b"></script>
+<script src="js/auth.js?v=30261004b"></script>
+<script src="js/app.js?v=30261004b"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -1899,6 +1880,13 @@ if (document.readyState === 'loading') {
           <div class="sr-entry-sub">输入房间号加入房间</div>
         </div>
       </button>
+      <button class="sr-entry-card" id="srPlazaBtn" type="button">
+        <div class="sr-entry-icon">🌍</div>
+        <div class="sr-entry-text">
+          <div class="sr-entry-title">公开自习室广场</div>
+          <div class="sr-entry-sub">浏览公开房间，一键加入</div>
+        </div>
+      </button>
     </div>
 
     <!-- 已加入房间主页 -->
@@ -1907,6 +1895,7 @@ if (document.readyState === 'loading') {
         <div class="sr-room-name-row">
           <span class="sr-room-name" id="srRoomName"></span>
           <span class="sr-member-count" id="srMemberCount"></span>
+          <span class="sr-visibility-badge" id="srVisibilityBadge"></span>
         </div>
         <div class="sr-room-code-row">
           <span class="sr-room-code-label">房间号：</span>
@@ -1915,10 +1904,24 @@ if (document.readyState === 'loading') {
         </div>
       </div>
 
+      <!-- 房主操作行（仅房主可见，JS 控制 hidden） -->
+      <div class="sr-owner-actions" id="srOwnerActions" hidden>
+        <button class="ghost-btn" id="srRoomSettingsBtn" type="button">⚙️ 房间设置</button>
+      </div>
+
       <div class="sr-member-list-title">成员列表</div>
       <div class="sr-member-list" id="srMemberList"></div>
 
       <button class="danger-btn sr-leave-btn" id="srLeaveBtn" type="button">退出自习室</button>
+    </div>
+
+    <!-- 公开自习室广场视图（与引导页/房间主页同级切换） -->
+    <div id="srPlazaView" hidden>
+      <button class="ghost-btn" id="srPlazaBackBtn" type="button">← 返回</button>
+      <div class="sr-plaza-title">🌍 公开自习室广场</div>
+      <div class="hint" id="srPlazaLoading" style="margin:10px 0">加载中…</div>
+      <div class="sr-plaza-list" id="srPlazaList"></div>
+      <div id="srPlazaEmpty" hidden style="margin:20px 0;text-align:center;color:var(--muted)">暂时没有公开自习室，去创建一个吧</div>
     </div>
   </div>
 </div>
@@ -1978,18 +1981,20 @@ if (document.readyState === 'loading') {
       <div class="wb-heatmap-months" id="srDetailHeatMonths"></div>
       <div style="display:flex;gap:6px;align-items:flex-start">
         <div class="wb-heatmap-dow">
-          <div>一</div><div style="visibility:hidden">三</div><div>五</div><div style="visibility:hidden">日</div>
+          <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
         </div>
-        <div class="wb-heatmap" id="srDetailHeatmap"></div>
+        <div class="wb-heatmap-scroll">
+          <div class="wb-heatmap" id="srDetailHeatmap"></div>
+        </div>
       </div>
+      <!-- 固定一行：点击格子显示 日期 周X · 复习 N 次 -->
+      <div class="sr-day-detail" id="srDetailDay">&nbsp;</div>
       <div class="wb-heatmap-legend">
-        <span>少</span>
-        <div class="hm-cell hm-0"></div>
-        <div class="hm-cell hm-1"></div>
-        <div class="hm-cell hm-2"></div>
-        <div class="hm-cell hm-3"></div>
-        <div class="hm-cell hm-4"></div>
-        <span>多</span>
+        <span class="legend-item"><span class="hm-cell hm-0"></span><span class="legend-num">0</span></span>
+        <span class="legend-item"><span class="hm-cell hm-1"></span><span class="legend-num">1</span></span>
+        <span class="legend-item"><span class="hm-cell hm-2"></span><span class="legend-num">2-3</span></span>
+        <span class="legend-item"><span class="hm-cell hm-3"></span><span class="legend-num">4-6</span></span>
+        <span class="legend-item"><span class="hm-cell hm-4"></span><span class="legend-num">7+</span></span>
       </div>
     </div>
     <div class="sr-stats-grid">
@@ -2038,6 +2043,46 @@ if (document.readyState === 'loading') {
       <div class="spacer"></div>
       <button class="ghost-btn" id="srLeaveCancelBtn2" type="button">取消</button>
       <button class="danger-btn" id="srLeaveConfirmBtn" type="button">确认退出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 踢出成员确认弹窗 ============ -->
+<div class="mask" id="srKickConfirmMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>踢出成员</h2>
+      <button class="x-btn" id="srKickCancelBtn" type="button">×</button>
+    </div>
+    <p class="sr-leave-confirm-text" id="srKickConfirmText" style="line-height:1.7;margin:0 0 10px"></p>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="srKickCancelBtn2" type="button">取消</button>
+      <button class="danger-btn" id="srKickConfirmBtn" type="button">确认踢出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 房间设置弹窗（仅房主） ============ -->
+<div class="mask" id="srRoomSettingsMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>房间设置</h2>
+      <button class="x-btn" id="srSettingsCancelBtn" type="button">×</button>
+    </div>
+    <label>房间名
+      <input id="srSettingsNameInput" type="text" maxlength="20" placeholder="最多 20 个字">
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
+      <input id="srSettingsIsPublic" type="checkbox" style="width:auto">
+      公开到自习室广场
+    </label>
+    <p class="hint" style="margin-top:6px;margin-bottom:10px">公开后任何人可在广场看到并申请加入；私有只能凭房间号加入。</p>
+    <div class="sr-form-error" id="srSettingsError" hidden></div>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="srSettingsCancelBtn2" type="button">取消</button>
+      <button class="primary" id="srSettingsConfirmBtn" type="button">保存</button>
     </div>
   </div>
 </div>

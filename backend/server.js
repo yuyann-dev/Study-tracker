@@ -25,6 +25,7 @@ const authRoutes = require('./routes/auth');
 const dataRoutes = require('./routes/data');
 const userRoutes = require('./routes/user');
 const adminRoutes = require('./routes/admin');
+const studyRoomRoutes = require('./routes/studyRoom');
 
 const app = express();
 
@@ -120,6 +121,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/data', dataRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/study-room', studyRoomRoutes);
 
 // 上传的头像静态访问
 app.use('/uploads', express.static(config.uploadDir));

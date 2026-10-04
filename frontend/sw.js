@@ -1,8 +1,10 @@
 ﻿/* Study Tracker Service Worker
    导航请求 network-first：服务器更新后用户立即拿到新版；
    静态资源 cache-first：图标/清单/CSS/JS 离线可用。
-   v29：打卡热力图全面修复——UTC时区偏移导致日期错位、遗漏保持模式复习retentionReviews、连续打卡计算、月份标签对齐、详情多次复习合并、超额完成率显示；视觉重设计——蓝绿渐变配色、深色模式适配、统计卡片、今天脉冲动画、未来日期虚线边框、空状态提示、响应式优化 */
-var CACHE = 'yystudy-v29';
+   v30：自习室全面完善——房主踢人、房间公开/私有、公开自习室广场按热度排序、成员连续打卡、进阶信息隐私分级；
+   热力图重构——按容器宽度自适应周数与格子尺寸、彻底去除横向滚动与页面跳变、当天详情区固定高度；
+   纸感学院派视觉（无渐变、无悬停动态、深浅色与 PC/平板/手机适配）。 */
+var CACHE = 'yystudy-v30';
 var CORE = [
   './',
   './index.html',
@@ -10,10 +12,10 @@ var CORE = [
   './css/style.css',
   './js/app.js',
   './js/auth.js',
-  './icon-192.png?v=2',
-  './icon-512.png?v=2',
-  './apple-touch-icon.png?v=2',
-  './favicon-64.png?v=2',
+  './icon-192.png?v=3',
+  './icon-512.png?v=3',
+  './apple-touch-icon.png?v=3',
+  './favicon-64.png?v=3',
   './paper-warm.jpg',
   './paper-dark.jpg'
 ];

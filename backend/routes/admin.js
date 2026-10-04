@@ -653,7 +653,13 @@ router.get('/invite/list', (req, res) => {
     return ok(res, {
       codes: rows.map((r) => {
         let usedUserIds = [];
-        try { usedUserIds = JSON.parse(r.used_by || '[]'); } catch (e) { /* 非 JSON 格式 */ }
+        try {
+          // 兜底：历史脏数据可能是 JSON 数字/字符串（旧单值 used_by 未迁移成功），
+          // 必须归一化成数组，否则对数字调 .map 会 500（曾触发连续 5xx 告警）
+          const p = JSON.parse(r.used_by || '[]');
+          if (Array.isArray(p)) usedUserIds = p;
+          else if (Number.isFinite(p)) usedUserIds = [p];
+        } catch (e) { /* 非 JSON 格式，保持空数组 */ }
         return {
           code: r.code,
           createdBy: r.created_by,
