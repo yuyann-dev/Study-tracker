@@ -1810,23 +1810,23 @@
   .sr-copy-btn{margin-left:auto;padding:4px 10px;font-size:12px;white-space:nowrap}
 
   /* 成员列表 */
-  .sr-member-list-title{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 10px}
-  .sr-member-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
-  .sr-member-card{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--inputBg);border-radius:12px;border:1px solid var(--border)}
+  .sr-member-list-title{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 12px}
+  .sr-member-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+  .sr-member-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border)}
   /* 成员头像：无 hover 放大，保留 cursor:pointer */
-  .sr-member-avatar{width:42px;height:42px;border-radius:50%;background:var(--elevated);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex:0 0 auto;font-size:22px;border:1px solid var(--border)}
+  .sr-member-avatar{width:44px;height:44px;border-radius:50%;background:var(--elevated);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex:0 0 auto;font-size:22px;border:1px solid var(--border)}
   .sr-member-avatar img{width:100%;height:100%;object-fit:cover;display:block}
   .sr-avatar-fallback{line-height:1}
   .sr-member-info{flex:1;min-width:0}
   .sr-member-name{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .sr-owner-badge{font-size:10.5px;font-weight:600;color:#b45309;background:#fef3c7;padding:1px 6px;border-radius:6px}
+  .sr-owner-badge{font-size:10.5px;font-weight:600;color:#2e6b4f;background:#e6efe9;padding:2px 7px;border-radius:6px}
   .sr-self-tag{font-size:11px;color:var(--muted)}
-  .sr-member-status{font-size:12.5px;margin-top:3px}
+  .sr-member-status{font-size:12.5px;margin-top:4px}
   .sr-status-ok{color:#15803d}
   .sr-status-private{color:var(--muted)}
 
   /* 退出按钮 */
-  .sr-leave-btn{width:100%}
+  .sr-leave-btn{width:100%;margin-top:4px}
 
   /* 表单错误提示 */
   .sr-form-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12.5px;margin:0 0 10px;line-height:1.5}
@@ -1898,7 +1898,7 @@
   /* 踢人按钮文字色在深色 ghost-btn 下重声明为危险色 */
   html[data-theme="dark"] .sr-kick-btn{color:var(--bad)}
   html[data-theme="dark"] .sr-detail-avatar{background:var(--input);border-color:var(--input-border)}
-  html[data-theme="dark"] .sr-owner-badge{background:#2c3a4e;color:#e0c870}
+  html[data-theme="dark"] .sr-owner-badge{background:#2c3a4e;color:#83bca9}
   html[data-theme="dark"] .sr-status-ok{color:#78baa0}
   html[data-theme="dark"] .sr-form-error{background:#3a3040;border-color:#5a4048;color:#e3a0a4}
   html[data-theme="dark"] .sr-fullmask{background:rgba(10,15,28,.65)}

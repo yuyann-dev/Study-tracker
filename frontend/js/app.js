@@ -9201,6 +9201,28 @@ function openWeaknessBoard() {
 }
 function closeWeaknessBoard() { const m=$('#weaknessMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
 
+/* 热力图自适应布局（全局函数，供 renderWeaknessBoard 和 renderMemberHeatmap 共用）
+   按滚动容器真实可用宽度决定显示多少周+格子尺寸，使格子刚好填满、不横向滚动。
+   @param maxWeeks 宽屏最多显示周数；@param minWeeks 窄屏最少显示周数。
+   返回 {weeks, cell, gap}，并把尺寸写入 wrap 作用域的 CSS 变量。 */
+function planHeatmapLayout(scrollEl, wrapEl, maxWeeks, minWeeks) {
+  maxWeeks = maxWeeks || 40; minWeeks = minWeeks || 8;
+  var DOW_W = 26;
+  var avail = ((scrollEl && scrollEl.clientWidth) ? scrollEl.clientWidth : 860) - 10;
+  var cellsW = Math.max(60, avail - DOW_W);
+  var target = cellsW >= 720 ? 17 : (cellsW >= 520 ? 16 : (cellsW >= 360 ? 14 : 12));
+  var gap = 3;
+  var weeks = Math.floor((cellsW + gap) / (target + gap));
+  weeks = Math.max(minWeeks, Math.min(maxWeeks, weeks));
+  var cell = (cellsW - (weeks - 1) * gap) / weeks;
+  cell = Math.max(target, Math.min(target + 4, Math.round(cell * 10) / 10));
+  if (wrapEl) {
+    wrapEl.style.setProperty('--hm-cell', cell + 'px');
+    wrapEl.style.setProperty('--hm-gap', gap + 'px');
+  }
+  return { weeks: weeks, cell: cell, gap: gap };
+}
+
 function renderWeaknessBoard(p) {
   const items = p.items || [];
   const weakThreshold = p.weakThreshold || 0.4;
@@ -9262,32 +9284,6 @@ function renderWeaknessBoard(p) {
     return n > 0 ? `<div class="wb-dist-seg" style="flex:${n};background:${color}" title="${label}: ${n}"></div>` : '';
   }).join('');
   $('#wbDist').innerHTML = distSegs || '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:8px">暂无数据</div>';
-
-  /* —— 热力图自适应布局 ——
-     按滚动容器真实可用宽度决定"显示多少周 + 格子尺寸"，让格子刚好填满、
-     不出现横向滚动（配合 CSS overflow-x:hidden），从而：
-     ① 消除窄屏横滑、滚动位置重置造成的跳变；② 宽屏格子不过小、不挤在一侧。
-     @param maxWeeks 宽屏最多显示周数；@param minWeeks 窄屏最少显示周数。
-     返回 {weeks, cell, gap}，并把尺寸写入 wrap 作用域的 CSS 变量。 */
-  function planHeatmapLayout(scrollEl, wrapEl, maxWeeks, minWeeks) {
-    maxWeeks = maxWeeks || 40; minWeeks = minWeeks || 8;
-    var DOW_W = 26;                 // 左侧星期标签列宽（20 + 6 gap）
-    var avail = ((scrollEl && scrollEl.clientWidth) ? scrollEl.clientWidth : 860) - 10;
-    var cellsW = Math.max(60, avail - DOW_W);
-    // 目标格子尺寸：越宽越大（保证点按面积，又不至于粗笨）
-    var target = cellsW >= 720 ? 17 : (cellsW >= 520 ? 16 : (cellsW >= 360 ? 14 : 12));
-    var gap = 3;
-    var weeks = Math.floor((cellsW + gap) / (target + gap));
-    weeks = Math.max(minWeeks, Math.min(maxWeeks, weeks));
-    // 微调格子尺寸，使整数周恰好填满可用宽度（比目标大不超过 4px）
-    var cell = (cellsW - (weeks - 1) * gap) / weeks;
-    cell = Math.max(target, Math.min(target + 4, Math.round(cell * 10) / 10));
-    if (wrapEl) {
-      wrapEl.style.setProperty('--hm-cell', cell + 'px');
-      wrapEl.style.setProperty('--hm-gap', gap + 'px');
-    }
-    return { weeks: weeks, cell: cell, gap: gap };
-  }
 
   // —— 打卡热力图（月历视图，默认当月，可切换月份）——
   // 模块级状态：当前显示年月 + 缓存的每日数据（供月份切换重渲染，不重新收集）
