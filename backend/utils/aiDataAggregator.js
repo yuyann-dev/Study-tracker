@@ -68,10 +68,12 @@ function loadStore(userId) {
   }
 }
 
-/** 项目列表（数组），按 updatedAt 倒序 */
+/** 项目列表（数组），按 updatedAt 倒序，自动过滤已归档项目 */
 function projectList(store) {
   const ps = (store && store.projects) || {};
-  return Object.values(ps).sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+  return Object.values(ps)
+    .filter((p) => p && !p.archived)
+    .sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
 }
 
 /** 按 id 取项目 */

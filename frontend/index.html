@@ -59,7 +59,7 @@ if ('serviceWorker' in navigator) {
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=3">
-<link rel="stylesheet" href="css/style.css?v=20261006-ai5">
+<link rel="stylesheet" href="css/style.css?v=20261006-ai6">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1909,7 +1909,7 @@ if ('serviceWorker' in navigator) {
 
 
 <script src="js/auth.js?v=20261005a"></script>
-<script src="js/app.js?v=20261006-ai5"></script>
+<script src="js/app.js?v=20261006-ai6"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2242,22 +2242,31 @@ if (document.readyState === 'loading') {
         <div class="ai-tutorial">
           <button class="ai-tutorial-toggle" id="aiTutorialToggle" type="button">如何获取 API key？</button>
           <div class="ai-tutorial-body" id="aiTutorialBody" hidden>
-            <p><b>为什么推荐 DeepSeek？</b></p>
-            <p>· 国内可直接注册使用，支付宝充值<br>
-               · 性价比极高，考研党充10块钱够用大半年<br>
-               · 回答质量好，中文理解强</p>
+            <p class="ai-tut-note">本系统不收取任何费用，API 调用产生的费用由服务商直接收取。以下以 DeepSeek 为例说明。</p>
+            <p><b>以 DeepSeek 为例</b></p>
+            <ul class="ai-tut-list">
+              <li>国内可直接注册使用，支付宝充值</li>
+              <li>性价比高，考研党充 10 元够用 3-6 个月</li>
+              <li>中文理解好，回答质量稳定</li>
+            </ul>
             <p><b>三步获取 API Key</b></p>
-            <p>1. 注册账号：打开 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">https://platform.deepseek.com/</a> ，用手机号注册，完成实名认证<br>
-               2. 创建密钥：登录后点左侧「API Keys」→「创建新密钥」→ 起个名字 → 点创建<br>
-               3. 复制密钥：密钥以 sk- 开头，只显示一次，立即复制保存好，然后粘贴到上面的输入框里</p>
+            <ol class="ai-tut-list">
+              <li>注册账号：打开 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">platform.deepseek.com</a>，用手机号注册并完成实名认证</li>
+              <li>创建密钥：登录后点左侧「API Keys」→「创建新密钥」→ 起个名字 → 点创建</li>
+              <li>复制密钥：密钥以 <code>sk-</code> 开头，只显示一次，立即复制保存，然后粘贴到上面的输入框</li>
+            </ol>
             <p><b>充值多少够用？</b></p>
-            <p>· 首次充10元即可，日常使用够用3-6个月<br>
-               · 系统会自动节约token，只传必要的学习数据摘要<br>
-               · 用多少扣多少，不用不扣钱，没有月租</p>
+            <ul class="ai-tut-list">
+              <li>首次充 10 元即可，日常使用够用 3-6 个月</li>
+              <li>系统会自动节约 token，只传必要的学习数据摘要</li>
+              <li>用多少扣多少，不用不扣钱，没有月租</li>
+            </ul>
             <p><b>安全提醒</b></p>
-            <p>· API Key 相当于你的钱包密码，不要分享给别人<br>
-               · 系统会加密存储你的Key，只用于调用AI<br>
-               · 可以随时在DeepSeek后台删除Key，旧Key立即失效</p>
+            <ul class="ai-tut-list">
+              <li>API Key 相当于你的钱包密码，不要分享给别人</li>
+              <li>系统会加密存储你的 Key，只用于调用 AI</li>
+              <li>可以随时在 DeepSeek 后台删除 Key，旧 Key 立即失效</li>
+            </ul>
           </div>
         </div>
 

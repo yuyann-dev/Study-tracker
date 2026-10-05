@@ -8,9 +8,10 @@
    v36：新增 AI 学习助手（右下角 FAB 入口 + 三 Tab 抽屉：对话/历史/设置，建议卡片应用与撤销，本地红点巡检）。
    v37：AI 助手收尾——多选视角支持、全局错题/背书诊断、历史对话重命名置顶、token统计口径统一、记忆管理开关与清空、Markdown渲染增强。
    v38：AI助手bug修复——历史对话is_pinned数据库列、推荐问题重写、全面UI审查。
+   v39：AI助手UI优化——API教程文案重写（以DeepSeek为例+费用说明）、可学时长输入框紧凑化、已归档项目过滤、prompt禁止反问句。
    重要：静态资源靠 index.html 里的 ?v= 版本号 cache-busting，
    每次改 JS/CSS 必须同时升 ?v= 版本号，否则 SW 会一直返回旧缓存。 */
-var CACHE = 'yystudy-v39';
+var CACHE = 'yystudy-v40';
 var CORE = [
   './',
   './index.html',
