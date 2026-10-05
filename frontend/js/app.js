@@ -6395,7 +6395,8 @@ function renderReciteRecords(p) {
       histHtml = `<div class="hist-panel" style="display:none">${rows}</div>`;
     }
 
-    const canEarlyReview = !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate > today;
+    const reviewedToday = (it.reviews || []).some(r => r.date === today);
+    const canEarlyReview = !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate > today && !reviewedToday;
     const earlyBtn = canEarlyReview
       ? `<button class="early-review-btn" data-early="${it.id}" title="提前复习这条">⏩ 提前复习</button>`
       : '';
