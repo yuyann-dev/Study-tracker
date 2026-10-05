@@ -59,7 +59,7 @@ if ('serviceWorker' in navigator) {
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=3">
-<link rel="stylesheet" href="css/style.css?v=20261004g">
+<link rel="stylesheet" href="css/style.css?v=20261005c">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -186,6 +186,21 @@ if ('serviceWorker' in navigator) {
         <button class="ob-btn" id="excessSpread3">3 天</button>
         <button class="ob-btn" id="excessSpread5">5 天</button>
         <button class="ob-btn" id="excessSpread7">7 天</button>
+      </div>
+    </div>
+
+    <!-- [v3] 独立建议行（方案A：A1-A6+D1） -->
+    <div class="ob-advice" id="excessAdvice" hidden style="margin-bottom:12px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px">
+      <span class="ob-advice-icon">💡</span>
+      <span class="ob-advice-text" id="excessAdviceText"></span>
+      <button class="ob-advice-btn" id="excessApplyAdvice">一键应用</button>
+    </div>
+
+    <div class="excess-banner" id="deadlinePassedBanner" hidden>
+      <div class="ob-text">
+        <span class="ob-icon">📌</span>
+        <span class="ob-main" id="deadlinePassedText"></span>
+        <span class="ob-sub">系统已切换为纯间隔复习节奏，不再赶进度。如需新目标可在设置里修改截止日。</span>
       </div>
     </div>
 
@@ -373,6 +388,9 @@ if ('serviceWorker' in navigator) {
       </div>
     </div>
   </section>
+
+  <!-- [v2 exercise] 刷题本专属提示挂载区（过期横幅/进度透明/中性提示/刹车/智能建议/临考策略/完成归档） -->
+  <div id="exerciseHintZone" style="display:none;margin-bottom:14px"></div>
 
   <section class="card status ok" id="statusCard">
     <div class="status-icon" id="statusIcon">✅</div>
@@ -694,7 +712,69 @@ if ('serviceWorker' in navigator) {
         <input id="sDeadline" type="date">
       </label>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin:-6px 0 8px">目标日是你希望完成的日子，可早于实际考试、留出缓冲。</p>
+    <p style="font-size:12px;color:var(--muted);margin:-6px 0 8px">这个日期越近，系统每天排的复习题越多。建议比真实考试日留2~4周余量。填错了随时可以改，系统会自动重排。</p>
+    <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;margin:0 0 10px">
+      <input id="sHardDeadline" type="checkbox" style="width:auto;margin:0">
+      <span style="font-size:13px;color:var(--text)">此截止日为硬约束/考试日，不要建议后移</span>
+    </label>
+
+    <!-- [v2 M1/M10] 刷题本：每日节奏区块 -->
+    <div class="sec-title" id="exercisePaceSectionTitle" hidden>📈 每日节奏（刷题本）</div>
+    <div id="exercisePaceSection" hidden style="border-top:1px dashed var(--border);padding-top:12px;margin-top:4px">
+      <label><span>每天舒适做（页/套）</span>
+        <input id="sExerciseComfort" type="number" min="1" placeholder="如 10">
+      </label>
+      <div style="margin:10px 0 6px;font-size:13px;color:var(--text)">节奏模式</div>
+      <label style="flex-direction:row;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:6px">
+        <input type="radio" name="sExerciseMode" value="avg" checked style="width:auto;margin-top:3px">
+        <span style="font-size:13px;line-height:1.5;color:var(--text)">均摊模式：剩余量÷剩余学习日，若摊到每天超过舒适量，就按你的舒适量推（不追高）</span>
+      </label>
+      <label style="flex-direction:row;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:10px">
+        <input type="radio" name="sExerciseMode" value="fixed" style="width:auto;margin-top:3px">
+        <span style="font-size:13px;line-height:1.5;color:var(--text)">固定容量模式：雷打不动每天就做这么多页，不随剩余量浮动</span>
+      </label>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+        目标日越近，系统算出的每天该做页数越多；如果这是考试日，记得勾选上面的硬约束。舒适量只是你的日常节奏建议，可随时调。
+      </div>
+      <button type="button" class="ghost-btn" id="btnOpenAbandon" style="width:100%">✂️ 战略放弃部分页/套（砍题保分）</button>
+    </div>
+
+    <!-- [v2 背书 M1/M10] 背书本：每日节奏区块 -->
+    <div class="sec-title" id="recitePaceSectionTitle" hidden>📈 每日节奏（背书本）</div>
+    <div id="recitePaceSection" hidden style="border-top:1px dashed var(--border);padding-top:12px;margin-top:4px">
+      <div style="margin:0 0 8px;font-size:13px;color:var(--text)">节奏模式</div>
+      <label style="flex-direction:row;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:6px">
+        <input type="radio" name="sReciteMode" value="smart" checked style="width:auto;margin-top:3px">
+        <span style="font-size:13px;line-height:1.5;color:var(--text)">智能节奏：按考试日自动均摊复习量。舒适量是地板，超出的部分会自动摊到未来。</span>
+      </label>
+      <label style="flex-direction:row;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:10px">
+        <input type="radio" name="sReciteMode" value="fixed" style="width:auto;margin-top:3px">
+        <span style="font-size:13px;line-height:1.5;color:var(--text)">固定复习容量：每天就做你设的这个量，不随剩余量浮动。</span>
+      </label>
+      <div id="sReciteFixedWrap" hidden>
+        <label><span>每天固定复习（条）</span>
+          <input id="sReciteFixed" type="number" min="1" max="50" placeholder="如 5">
+        </label>
+      </div>
+      <div id="sReciteSmartOpts">
+        <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;margin:0 0 10px">
+          <input id="sComfortAsHardCap" type="checkbox" style="width:auto;margin:0">
+          <span style="font-size:13px;color:var(--text)">把舒适量作为每日硬上限（超出自动往后排）</span>
+        </label>
+      </div>
+      <label><span>每天新学上限（条，留空=自动按考试日均摊）</span>
+        <input id="sNewLearnCap" type="number" min="0" max="100" placeholder="留空=自动">
+      </label>
+      <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;margin:8px 0 10px">
+        <input id="sPauseNewLearning" type="checkbox" style="width:auto;margin:0">
+        <span style="font-size:13px;color:var(--text)">⏸ 暂停新学（只复习已学内容）</span>
+      </label>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+        智能节奏：按考试日自动均摊复习量。勾选「硬上限」后每天最多只排舒适量那么多条，多余的自动往后排。固定复习容量：每天就做你设的这个量。新学上限：控制每天新背多少条，填了就按这个数来，留空则系统按考试日自动算。
+      </div>
+      <button type="button" class="ghost-btn" id="btnOpenReciteAbandon" style="width:100%">✂️ 战略放弃部分页段</button>
+    </div>
+
     <div id="sBookRangeRow" class="two-col" style="display:none">
       <label><span>正文起始页（选填）</span>
         <input id="sBookStart" type="number" min="1" placeholder="不填默认第 1 页">
@@ -1573,6 +1653,10 @@ if ('serviceWorker' in navigator) {
     </div>
     <div class="pp-summary" id="ppSummary"></div>
     <div id="ppBody"></div>
+    <div id="ppNotePadWrap" style="margin-top:16px">
+      <div class="wb-section-title">📌 我的注意事项</div>
+      <textarea id="ppNotePad" class="wb-notepad" placeholder="写点提醒自己的话，会一直显示在这里…&#10;例：线代第二问必用行列式展开；英语作文先列提纲"></textarea>
+    </div>
   </div>
 </div>
 
@@ -1835,8 +1919,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/auth.js?v=20261004g"></script>
-<script src="js/app.js?v=20261004h"></script>
+<script src="js/auth.js?v=20261005a"></script>
+<script src="js/app.js?v=20261005b"></script>
 <script>
 
 if (document.readyState === 'loading') {

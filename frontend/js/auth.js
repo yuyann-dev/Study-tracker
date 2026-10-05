@@ -1518,18 +1518,23 @@
       head.indeterminate = checkedN > 0 && checkedN < rows.length;
     }
   }
-  async function _batchDeleteInvites(){
-    var codes = Object.keys(adminState.selectedInvites || {});
-    if (!codes.length) return;
-    openConfirm({title:'批量清理邀请码', msg:'确定永久删除选中的 ' + codes.length + ' 个已用/已作废/已过期邀请码？此操作不可恢复。', onOk:function(){
-      apiRequest('/api/admin/invite/batch-delete', {method:'POST', body:{codes: codes}})
-        .then(function(d){
-          adminState.selectedInvites = {};
-          if (typeof showToast === 'function') showToast('✅', '已清理 ' + (d.deleted || codes.length) + ' 个邀请码');
-          loadInviteList(); loadAdminStats();
-        })
-        .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); });
-    }});
+  function _batchDeleteInvites(){
+    try {
+      var codes = Object.keys(adminState.selectedInvites || {});
+      if (!codes.length) { if (typeof showToast === 'function') showToast('⚠️', '请先勾选邀请码'); return; }
+      openConfirm({title:'批量清理邀请码', msg:'确定永久删除选中的 ' + codes.length + ' 个已用/已作废/已过期邀请码？此操作不可恢复。', onOk:function(){
+        apiRequest('/api/admin/invite/batch-delete', {method:'POST', body:{codes: codes}})
+          .then(function(d){
+            adminState.selectedInvites = {};
+            if (typeof showToast === 'function') showToast('✅', '已清理 ' + (d.deleted || codes.length) + ' 个邀请码');
+            loadInviteList(); loadAdminStats();
+          })
+          .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); });
+      }});
+    } catch(e) {
+      console.error('[batchDelete]', e);
+      if (typeof showToast === 'function') showToast('❌', e.message || '批量清理失败');
+    }
   }
   async function _deleteCode(code){
     openConfirm({title:'作废邀请码', msg:'确定作废未使用的邀请码 ' + code + '？', onOk:function(){

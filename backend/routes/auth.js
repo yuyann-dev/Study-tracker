@@ -321,6 +321,13 @@ router.get('/me', authRequired, (req, res) => {
   try {
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     if (!row) return fail(res, '未登录', 401);
+    // 活跃刷新：距上次 last_login_at 超过5分钟则更新，使"最后登录"反映真实活跃时间（token自动登录也会刷新）
+    try {
+      const lastTs = row.last_login_at ? new Date(row.last_login_at.replace(' ', 'T') + 'Z').getTime() : 0;
+      if (!lastTs || (Date.now() - lastTs) > 5 * 60 * 1000) {
+        db.prepare("UPDATE users SET last_login_at = datetime('now'), last_login_ip = ? WHERE id = ?").run(clientIp(req), row.id);
+      }
+    } catch (_) { /* 时间解析失败时跳过刷新，不影响主流程 */ }
     return ok(res, {
       user: {
         id: row.id,

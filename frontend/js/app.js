@@ -307,6 +307,27 @@ function migrateProject(p) {
       if (!Array.isArray(p.paperSections)) p.paperSections = [];
       if (!p.paperLabelMode) p.paperLabelMode = 'index';
     }
+    // [v2 M1] 每日节奏字段老用户兜底：缺省补默认，激活僵尸字段 dailyCapacity
+    if (p.exerciseMode !== 'avg' && p.exerciseMode !== 'fixed') p.exerciseMode = 'avg';
+    if (p.dailyComfort === undefined || p.dailyComfort === null || !isFinite(p.dailyComfort)) {
+      // 老用户若曾设过 dailyCapacity（僵尸字段），激活它作为舒适量；否则默认 6
+      p.dailyComfort = (typeof p.dailyCapacity === 'number' && isFinite(p.dailyCapacity) && p.dailyCapacity > 0) ? p.dailyCapacity : 6;
+    }
+    // [v2 M6] 临考/战略放弃字段
+    if (p.sprintPauseNewPages == null) p.sprintPauseNewPages = false;
+    if (!Array.isArray(p.abandonedRanges)) p.abandonedRanges = [];
+    if (!Array.isArray(p.abandonedSets)) p.abandonedSets = [];
+    if (p.hardDeadline == null) p.hardDeadline = false;
+  }
+  // [v2 背书优化 M1] recite 每日节奏字段老用户兜底
+  if (p.type === 'recite') {
+    if (p.reciteMode !== 'smart' && p.reciteMode !== 'fixed') p.reciteMode = 'smart';
+    if (p.newLearnCap === undefined || p.newLearnCap === null) p.newLearnCap = null;
+    if (p.comfortAsHardCap == null) p.comfortAsHardCap = false;
+    if (p.pauseNewLearning == null) p.pauseNewLearning = false;
+    if (!Array.isArray(p.abandonedRanges)) p.abandonedRanges = [];
+    if (p.hardDeadline == null) p.hardDeadline = false;
+    if (p.lowFreqExtended == null) p.lowFreqExtended = false;
   }
   // 错题本模式迁移：老用户默认 free（自由出处），新增 page/set 模式
   if (p.type === 'mistake' && p.mistakeMode == null) {
@@ -1774,7 +1795,16 @@ function getCompletedPages(p) {
   // 错题：按已攻克条数统计（mastered 或 manualMastered），而非收录条数
   if (p.type === 'mistake') return (p.items || []).filter(it => it.mastered || it.manualMastered).length;
   // 刷题(练习册)与背书：按"页码区间合并"算进度。getBookDoneRanges 已自动裁剪到目标范围（单元范围或正文范围）
-  return countRanges(getBookDoneRanges(p));
+  let done = countRanges(getBookDoneRanges(p));
+  // [v2 背书 M6] 战略放弃页段计入"已完成"（视为不再需要学习，进度实时反映缩减后的范围）
+  if (p.type === 'recite' && Array.isArray(p.abandonedRanges)) {
+    let abandoned = 0;
+    p.abandonedRanges.forEach(r => {
+      if (r && r.end >= r.start) abandoned += (r.end - r.start + 1);
+    });
+    done += abandoned;
+  }
+  return done;
 }
 function getCompletedPagesAtDate(p, targetDate) {
   if (isSetMode(p)) return getCompletedSets(p, targetDate);
@@ -1819,7 +1849,10 @@ function getMetrics(p) {
   const dataSig = (p.updatedAt || 0) + '|' + (p.records || []).length + '|' + itemsLen
     + '|' + p.total + '|' + p.bookStartPage + '|' + p.bookEndPage + '|' + (p.deadline || '')
     + '|' + JSON.stringify(p.paperSections || []) + '|' + JSON.stringify(p.intervals || [])
-    + '|' + (p.unitMode ? 1 : 0) + '|' + (p.reviewMode || '');
+    + '|' + (p.unitMode ? 1 : 0) + '|' + (p.reviewMode || '')
+    // [v2 exercise] 舒适量/模式/战略放弃范围参与缓存签名，改设置后立刻重算
+    + '|' + (p.exerciseMode || '') + '|' + (p.dailyComfort || '') + '|' + (p.sprintPauseNewPages ? 1 : 0)
+    + '|' + JSON.stringify(p.abandonedRanges || []) + '|' + JSON.stringify(p.abandonedSets || []);
   if (_metricsCache[cacheKey] && _metricsCache[cacheKey].sig === dataSig) {
     return _metricsCache[cacheKey].result;
   }
@@ -1834,6 +1867,17 @@ function getMetrics(p) {
     total = Math.max(0, p.bookEndPage - p.bookStartPage + 1);
   } else {
     total = p.total;
+  }
+  // [v2 M6/K] exercise 战略放弃：把用户标记放弃的页范围/套号从总量里扣除
+  if (p.type === 'exercise') {
+    if (!isSetMode(p) && Array.isArray(p.abandonedRanges) && p.abandonedRanges.length) {
+      const ab = mergeRanges(p.abandonedRanges.filter(r => r && isFinite(r.start) && isFinite(r.end) && r.end >= r.start));
+      total -= countMergedPages(ab);
+    }
+    if (isSetMode(p) && Array.isArray(p.abandonedSets) && p.abandonedSets.length) {
+      total -= p.abandonedSets.length;
+    }
+    total = Math.max(0, total);
   }
   const currentPage = getCompletedPages(p);
   const remaining = Math.max(0, total - currentPage);
@@ -1992,13 +2036,15 @@ function getMetrics(p) {
     ? p.startDate : (allDates.length ? allDates[0] : null);
 
   // ---- 落后量（仅用于文案解释；不重复加进目标，因为 remaining 已含落后）----
-  let behind = 0;
+  // [v2] behind 仍钳为 >=0（兼容旧文案）；behindSigned 带符号：正=落后，负=领先（供 M8/M9b 领先播报）
+  let behind = 0, behindSigned = 0;
   if (effStart && p.deadline && total > 0) {
     const totalSpan = diffDays(effStart, p.deadline);
     const elapsed = diffDays(effStart, t);
     if (totalSpan > 0) {
       const idealAtToday = total * Math.max(0, Math.min(1, elapsed / totalSpan));
-      behind = Math.max(0, idealAtToday - currentPage);
+      behindSigned = idealAtToday - currentPage;
+      behind = Math.max(0, behindSigned);
     }
   }
   // 剩余预期学习日数（含今天）；无截止日时不存在"追赶目标"，下面不计算每学习日目标
@@ -2160,7 +2206,7 @@ function getMetrics(p) {
     t, total, currentPage, remaining, daysLeft, daysAvailable,
     needPerDay, speed, speedLabel, etaDate, etaEarlyDate, etaLateDate,
     activeDays, windowDays, activityPerWeek, perStudyDayRaw, rateHigh, rateLow,
-    perStudyDay, studyDaysRemaining, behind, confidence, enoughData,
+    perStudyDay, studyDaysRemaining, behind, behindSigned, confidence, enoughData,
     feasibility, ratio, feasiblePerWeek, feasibleDays, feasibleDaysLong, needWkNormal, needWkBest, needMoreDays, needMoreActiveDays, daysToMedium,
     sparseLogging, medianGap,
     todayDone, streakNow, longestStreak, longestBreak, lastStudyDate, prevStudyDate,
@@ -2585,6 +2631,138 @@ function getComfortCap(p) {
   return Math.max(1, Math.min(50, parseInt(p.spreadThreshold, 10) || defaultComfortCap(p)));
 }
 
+/* ===== [v2 背书优化 M1] 背书每日目标双轨：复习 + 新学 ===== */
+/* 取舒适复习量：smart 模式下限4，fixed 模式不限下限（用户自定） */
+function getReciteComfort(p) {
+  let c = parseInt(p.spreadThreshold, 10);
+  if (!isFinite(c) || c < 1) c = 6;
+  c = Math.round(c);
+  if (p.reciteMode === 'fixed') return Math.max(1, c);
+  return Math.max(4, c); // smart 下限 4
+}
+
+/* 每日复习目标（due items 侧） */
+function getReciteReviewTarget(p, date) {
+  const comfort = getReciteComfort(p);
+  // fixed 模式：锁死 dailyCapacity，不受舒适量截断
+  if (p.reciteMode === 'fixed' && p.dailyCapacity != null) {
+    return Math.max(1, Math.round(p.dailyCapacity));
+  }
+  const cap = getDailyCapacity(p, date);
+  const today = todayStr();
+  if (date === today) {
+    // smart 模式 + 硬封顶开关：舒适量是天花板
+    if (p.comfortAsHardCap === true) {
+      return Math.min(comfort, Math.max(comfort, cap)); // = comfort
+    }
+    // smart 模式默认：舒适量是地板，不是天花板
+    return Math.max(comfort, cap);
+  }
+  return Math.max(1, Math.min(50, cap));
+}
+
+/* 每日新学目标（newCap 侧）：填了 newLearnCap 就按用户值，不被均摊压小；留空走自动均摊 */
+function getReciteNewLearnTarget(p) {
+  if (p.pauseNewLearning) return 0;
+  const lv = getDeadlineLevelCap(p);
+  const newCap = (lv && lv.newCap) || 0;
+  if (p.newLearnCap != null && isFinite(p.newLearnCap)) {
+    return Math.max(0, Math.round(p.newLearnCap));
+  }
+  return newCap;
+}
+
+/* 未学条目数（未学页 ≈ 总页 - 已学页，按平均条/页换算） */
+function getUnlearnedCount(p) {
+  if (p.type !== 'recite') return 0;
+  let totalPages;
+  if (p.unitMode && Array.isArray(p.units) && p.units.length) totalPages = countRanges(getTargetPageRanges(p));
+  else if (p.bookStartPage != null && p.bookEndPage != null) totalPages = Math.max(0, p.bookEndPage - p.bookStartPage + 1);
+  else totalPages = p.total || 0;
+  // [P1-1] getCompletedPages 已把 abandonedRanges 计入 done，这里直接用，不再二次扣减
+  const learnedPages = getCompletedPages(p) || 0;
+  const netUnlearned = Math.max(0, (totalPages || 0) - learnedPages);
+  // 估算平均条/页
+  let learnedItems = 0, learnedItemPages = 0;
+  (p.items || []).forEach(it => {
+    if (!it.learnedDate) return;
+    learnedItems++;
+    if (it.pageStart != null && it.pageEnd != null) learnedItemPages += Math.max(0, it.pageEnd - it.pageStart + 1);
+  });
+  const avgPages = learnedItems > 0 ? Math.max(0.5, learnedItemPages / learnedItems) : 1;
+  return Math.ceil(netUnlearned / avgPages);
+}
+
+/* 连续轻松/吃力学习日统计 + 最近7天日均 */
+function getReciteStreak(p) {
+  const comfort = getReciteComfort(p);
+  const counts = getReviewCountsByDate(p);
+  const today = todayStr();
+  let easyStreak = 0, hardStreak = 0;
+  let activeDays7 = 0, sum7 = 0;
+  let mode = null;
+  for (let age = 1; age <= 60; age++) {
+    const d = addDays(today, -age);
+    const c = counts[d] || 0;
+    if (c === 0) continue; // 休息日跳过
+    if (age <= 7) { sum7 += c; activeDays7++; }
+    // 连续轻松/吃力统计（从最近往前，中等日中断）
+    if (c >= comfort * 1.3) {
+      if (mode === null || mode === 'easy') { easyStreak++; mode = 'easy'; }
+      else break;
+    } else if (c < comfort * 0.7) {
+      if (mode === null || mode === 'hard') { hardStreak++; mode = 'hard'; }
+      else break;
+    } else break;
+  }
+  const avg7 = activeDays7 > 0 ? sum7 / activeDays7 : 0;
+  return { easyStreak, hardStreak, avg7: Math.round(avg7 * 10) / 10, activeDays7 };
+}
+
+/* [v2 背书优化 M8] 背书可行性判断 */
+function getReciteFeasibility(p) {
+  if (!p || p.type !== 'recite') return { level: 'ok', reason: 'not_recite' };
+  const today = todayStr();
+  if (!p.deadline || p.deadline <= today) return { level: 'ok', reason: 'expired' };
+  const cycleDays = getReviewCycleDays(p);
+  const d2d = diffDays(today, p.deadline);
+  const comfort = getReciteComfort(p);
+  const overdue = getOverdueItems(p).length;
+  const unlearned = getUnlearnedCount(p);
+
+  // 复习端积压：overdue > 舒适量×3 → 至少 warn
+  if (overdue > comfort * 3) {
+    return { level: 'warn', reason: 'review_backlog_heavy', overdue };
+  }
+
+  const newLearnEnd = addDays(p.deadline, -cycleDays);
+  const daysLeftNew = diffDays(today, newLearnEnd);
+
+  // 新学窗口已关
+  if (daysLeftNew <= 0) {
+    if (unlearned > 0) {
+      return { level: 'warn', reason: 'new_window_closed_still_unlearned', unlearned };
+    }
+    if (overdue > 0) {
+      return { level: 'warn', reason: 'newLearnEnd_passed_with_backlog', overdue };
+    }
+    return { level: 'ok', reason: 'newLearnEnd_passed' };
+  }
+
+  // 新学窗口内：按当前节奏能不能学完
+  const ewmRate = getEwmRate(p, today);
+  const neededPerDay = Math.ceil(unlearned / daysLeftNew);
+  if (ewmRate > 0 && neededPerDay > ewmRate * 1.5) {
+    return { level: 'risk', reason: 'new_learning_too_slow', neededPerDay, ewmRate };
+  }
+  if (ewmRate > 0 && neededPerDay > ewmRate * 1.2) {
+    return { level: 'warn', reason: 'new_learning_tight', neededPerDay, ewmRate };
+  }
+
+  // 正常状态，少量逾期给灰字提示
+  return { level: 'ok', reason: 'on_track', overdueHint: overdue };
+}
+
 /* 舒适量智能建议：基于最近14天日均实际完成复习条数，给出推荐值
    数据不足（<2个活跃日）返回 null；建议值 clamp 在 3~15 */
 function getComfortAdvice(p) {
@@ -2611,54 +2789,40 @@ function renderComfortAdvice(p) {
   const inputVal = inputEl ? parseInt(inputEl.value, 10) : NaN;
   const currentComfort = !isNaN(inputVal) && inputVal >= 1 ? inputVal : getComfortCap(p);
   const parts = [];
-  // 容量透明化：均匀模式下显示当前智能容量估算
-  // 容量透明化（仅均匀模式）：区分"积压追赶"与"日常节奏"两种状态
-  const cu = getBacklogCatchUp(p);
-  const backlogHeavy = p.reviewMode === 'balanced' && cu.backlog > currentComfort;
+  // [v3 BUG-03] 废弃动态舒适量建议死锁算法，改为静态说明
+  // 容量透明化（仅均匀模式）
   if (p.reviewMode === 'balanced') {
-    const cap = getDailyCapacity(p);
-    const daily = Math.min(cap, currentComfort);
-    if (backlogHeavy) {
-      const clearDays = Math.ceil(cu.backlog / Math.max(1, daily));
-      parts.push(`<div style="margin-bottom:6px">📊 当前有 <b>${cu.backlog}</b> 条到期/逾期，系统正按每天 <b>${daily}</b> 条安排，约 <b>${clearDays}</b> 天清完；每天的量不会超过你的舒适量，不会被一次性压垮。</div>`);
+    // [BUG-1] recite fixed 模式：不做 min()，直接显示固定容量
+    if (p.type === 'recite' && p.reciteMode === 'fixed' && p.dailyCapacity != null) {
+      parts.push(`<div style="margin-bottom:6px">📊 固定模式：每天按 <b>${Math.round(p.dailyCapacity)}</b> 条执行，不受舒适量限制。</div>`);
+    } else if (p.dailyCapacity != null) {
+      const actual = Math.min(currentComfort, Math.round(p.dailyCapacity));
+      parts.push(`<div style="margin-bottom:6px">📊 当前舒适量 <b>${currentComfort}</b> 条，每日容量 <b>${Math.round(p.dailyCapacity)}</b> 条，实际每天排题 = min(${currentComfort}, ${Math.round(p.dailyCapacity)}) = <b style="${p.dailyCapacity > currentComfort ? 'color:#b8860b' : ''}">${actual}</b> 条。</div>`);
     } else {
-      const bottleneck = currentComfort < cap ? '舒适量是当前瓶颈' : '容量在控制排题，舒适量是安全上限';
-      parts.push(`<div style="margin-bottom:6px">📊 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort})，${bottleneck}。</div>`);
+      const cap = getDailyCapacity(p);
+      const daily = Math.min(cap, currentComfort);
+      parts.push(`<div style="margin-bottom:6px">📊 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort}) = <b>${daily}</b> 条。</div>`);
     }
   }
-  // 智能建议：积压较重时不再按"近期完成量"建议下调（越积压越压容量会形成死循环），改为提速引导
-  const advice = getComfortAdvice(p);
-  if (backlogHeavy) {
-    parts.push(`<div style="color:#d97706">💡 有较多积压时，系统已在你的舒适量范围内自动提速。保持当前舒适量即可，每天完成一点就能稳步清完；若想更快，可把舒适量小幅上调 1~2 条试试。</div>`);
-  } else if (advice) {
-    advice.current = currentComfort;
-    const diff = advice.suggested - advice.current;
-    let tag = '';
-    if (Math.abs(diff) <= 1) tag = '<span style="color:#16a34a">当前设置合理</span>';
-    else if (diff > 0) tag = `<span style="color:#d97706">建议上调</span>`;
-    else tag = `<span style="color:#dc2626">建议下调</span>`;
-    parts.push(`<div style="margin-bottom:6px">💡 你最近14天（${advice.activeDays}个学习日）日均完成 <b>${advice.avg}</b> 条复习，建议舒适量设为 <b>${advice.suggested}</b> 条。${tag}</div>`);
-    if (Math.abs(diff) > 1) {
-      parts.push(`<button type="button" class="ghost-btn" id="btnApplyComfortAdvice" style="padding:5px 12px;font-size:12px;margin-top:2px">一键应用建议（${advice.suggested}条）</button>`);
+  parts.push(`<div style="color:var(--muted);font-size:12px">💡 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议，这里不用手动猜。</div>`);
+  // [v3 P0-A6] 固定模式早期容量校准：连续14天轻松完成
+  // [BUG-2] recite 跳过此逻辑，节奏建议统一走 renderReciteComfortAdvice
+  if (p.type !== 'recite' && p.dailyCapacity != null && (!p.capAdviceMutedUntil || p.capAdviceMutedUntil < today)) {
+    const easyDays = getConsecutiveEasyDays(p);
+    if (easyDays >= 14) {
+      const suggest = Math.min(Math.round(p.dailyCapacity) + 3, currentComfort);
+      if (suggest > Math.round(p.dailyCapacity)) {
+        parts.unshift(`<div style="color:var(--muted);font-size:12px;margin-bottom:6px">最近两周你都轻松完成 ${Math.round(p.dailyCapacity)} 题，要不要试试 <b>${suggest}</b> 题？ <button id="capAdviceAccept" style="font-size:11px;padding:1px 6px;margin-left:4px">试试${suggest}题</button> <button id="capAdviceKeep" style="font-size:11px;padding:1px 6px;margin-left:2px;color:var(--muted)">保持${Math.round(p.dailyCapacity)}题</button></div>`);
+        setTimeout(() => {
+          const acc = $('#capAdviceAccept'), keep = $('#capAdviceKeep');
+          if (acc) acc.onclick = () => { p.dailyCapacity = suggest; p.updatedAt = Date.now(); saveStore(); render(); };
+          if (keep) keep.onclick = () => { p.capAdviceMutedUntil = addDays(today, 14); p.updatedAt = Date.now(); saveStore(); render(); };
+        }, 0);
+      }
     }
-  } else {
-    parts.push(`<div style="color:var(--muted)">💡 再积累几天复习数据后，这里会根据你的实际节奏给出舒适量建议。</div>`);
   }
   el.innerHTML = parts.join('');
   el.style.display = 'block';
-  const btn = document.getElementById('btnApplyComfortAdvice');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const advice = getComfortAdvice(p);
-      if (advice) {
-        document.getElementById('sSpreadThreshold').value = advice.suggested;
-        updateSpreadPressureHint();
-        updatePressurePanel();
-        renderComfortAdvice(p);
-        showToast('✅', '已应用建议', `舒适量已设为 ${advice.suggested} 条，保存后生效。`, 3000);
-      }
-    });
-  }
 }
 
 /* 手动/自动分散时，未来某天的每日排期上限
@@ -2669,19 +2833,32 @@ function renderComfortAdvice(p) {
      当所需量明显高于舒适量时，由状态卡给出"一键后移目标/缩小范围"的温和选项，不强迫用户改设置。 */
 function getSpreadDayCap(p, date) {
   const comfort = getComfortCap(p);
+  const today = todayStr();
+  const isToday = (date === today);
+
+  // [v3 BUG-05] 冲刺期全局判断：无论智能还是固定模式，sprint期每日目标抬到sprintCap
+  if (p.sprintCap && p.sprintEndDate && p.sprintEndDate >= today) {
+    return Math.max(1, p.sprintCap);
+  }
+
   if (p.reviewMode !== 'balanced') return comfort;
   if (p.dailyCapacity === 0) return comfort;
-  if (p.dailyCapacity != null) return Math.max(1, Math.min(comfort, Math.round(p.dailyCapacity)));
+  // [v2 背书 M1] recite fixed 模式：锁死 dailyCapacity，不被舒适量截断
+  if (p.type === 'recite' && p.reciteMode === 'fixed' && p.dailyCapacity != null) {
+    return Math.max(1, Math.round(p.dailyCapacity));
+  }
+  if (p.dailyCapacity != null) {
+    return Math.max(1, Math.min(comfort, Math.round(p.dailyCapacity)));
+  }
   const cap = getDailyCapacity(p, date);
   if (cap <= 0) return comfort;
-  // 今天：到期/逾期的是"已经该面对"的硬需求，只要在舒适量内就全部保留——
-  //   不被"近期完成少"压出的低容量推走（否则今天莫名只剩几条、反而越堆越多，是死锁的根源）；
-  //   背书为赶目标日所需若高于舒适量，今天也排得下。
-  const isToday = !date || date === todayStr();
-  if (isToday) return Math.max(comfort, cap);
-  // 未来日子：作为摊派目标按个人节奏接收——
-  //   错题走"前紧后松"目标（前期略多、为后期新增预留，后期回落，硬上限封顶不焦虑）；
-  //   背书封闭总量、有硬截止，允许抬到按期所需的量，可行性由状态卡/风险横幅单独、温和提示。
+  if (isToday) {
+    // [v2 背书 M1] recite smart + 硬封顶开关：舒适量是天花板
+    if (p.type === 'recite' && p.comfortAsHardCap === true) {
+      return Math.min(comfort, Math.max(comfort, cap)); // = comfort
+    }
+    return Math.max(comfort, cap);
+  }
   if (p.type === 'mistake') return getMistakeDayPlan(p, date).target;
   return Math.max(1, Math.min(50, cap));
 }
@@ -3107,6 +3284,29 @@ function scheduleNextReview(p, item, baseDate, stage, gapOverride) {
     return addDays(p.deadline, 1);
   }
 
+  // [v3 P0] lowFreqExtended：低频题（高分=不常错）间隔×1.5，不超过间隔表最大值
+  // 放在gap算完之后、balanced分支之前，保证两种模式都生效
+  if (p.lowFreqExtended && p.type !== 'exercise') {
+    const score = getItemScore(item);
+    if (score != null && score > 0.6) {
+      // [v2 背书 M6·⑤] 冲刺期内，低频降频只对 good 条目生效；
+      // fuzzy/forgot 在冲刺期跳过低频降频，保持 clamp 后的 ≤3 天高频复现
+      let applyLowFreq = true;
+      if (p.type === 'recite' && p.deadline) {
+        const d2d = diffDays(baseDate, p.deadline);
+        const inSprint = d2d >= 0 && d2d <= getReviewCycleDays(p);
+        if (inSprint) {
+          const lastQ = item.reviews && item.reviews.length ? item.reviews[item.reviews.length - 1].quality : null;
+          if (lastQ !== 'good') applyLowFreq = false;
+        }
+      }
+      if (applyLowFreq) {
+        const maxGap = getItemIntervals(item, p).slice(-1)[0] || gap;
+        gap = Math.min(maxGap, Math.round(gap * 1.5));
+      }
+    }
+  }
+
   const base = addDays(baseDate, gap);
   if (p.reviewMode === 'balanced' && p.type !== 'exercise') {
     let maxForward, maxBack, maxExtend;
@@ -3128,11 +3328,11 @@ function scheduleNextReview(p, item, baseDate, stage, gapOverride) {
     let d = findAvailableDate(p, base, {
       maxForward, maxBack, minDate: addDays(baseDate, 1), gap, maxExtend
     });
-    // 冲刺期硬上限：错峰后仍不得越过目标日
-    if (p.deadline && d > p.deadline) d = p.deadline;
+    // 冲刺期硬上限：错峰后仍不得越过目标日（deadline已过期时不再把新复习排回过去，避免制造新逾期）
+    if (p.deadline && p.deadline >= todayStr() && d > p.deadline) d = p.deadline;
     return d;
   }
-  if (p.deadline && base > p.deadline) return p.deadline;
+  if (p.deadline && p.deadline >= todayStr() && base > p.deadline) return p.deadline;
   return base;
 }
 
@@ -3254,7 +3454,9 @@ function getMistakeDayPlan(p, date) {
     }
   }
   const comfort = getComfortCap(p);
-  const hardMax = Math.min(20, Math.max(12, Math.round(comfort * 1.5)));
+  // [v3 算法-04] hardMax跟随EWMA：能学多的人不被comfort×1.5卡死
+  const ewma = getEwmRate(p, d);
+  const hardMax = Math.min(25, Math.max(12, Math.max(Math.round(comfort * 1.5), ewma)));
   let raw = base + addon;
   const target = Math.max(1, Math.min(hardMax, Math.ceil(raw)));
   return { target, raw, base, addon, hardMax, risk: raw > hardMax };
@@ -3276,12 +3478,23 @@ function getMistakeFeasibility(p) {
   });
   const predictedNew = Math.max(0, getMistakeCollectRate(p) * Math.max(0, daysLeft - 1)); // 保底1轮
   const work = remainRounds + predictedNew;
+  // [v3 算法-05] feasibility基准区分智能/固定模式
   const comfort = getComfortCap(p);
-  const hardMax = Math.min(20, Math.max(12, Math.round(comfort * 1.5)));
+  const ewma = getEwmRate(p);
+  let effectiveComfort, hardMax;
+  if (p.dailyCapacity != null) {
+    // 固定模式：实际每日量 = min(comfort, dailyCapacity)
+    effectiveComfort = Math.min(comfort, Math.round(p.dailyCapacity));
+    hardMax = effectiveComfort;
+  } else {
+    // 智能模式：effectiveComfort = max(comfort, EWMA)
+    effectiveComfort = Math.max(comfort, ewma);
+    hardMax = Math.min(25, Math.max(12, Math.max(Math.round(comfort * 1.5), ewma)));
+  }
   let level = 'ok';
   if (work > studyDays * hardMax) level = 'risk';
-  else if (work > studyDays * comfort) level = 'tight';
-  return { level, work: Math.round(work), daysLeft, comfort, hardMax };
+  else if (work > studyDays * effectiveComfort) level = 'tight';
+  return { level, work: Math.round(work), daysLeft, comfort: effectiveComfort, hardMax };
 }
 
 // 主动提前复习：当天第一次进入错题本时，若今日到期少于前期目标，把"近期将到期、薄弱优先"的题提前到今天。
@@ -3300,7 +3513,11 @@ function pullForwardIfNeeded(p) {
 
   const plan = getMistakeDayPlan(p, today);
   let want = plan.target - getDueItems(p).length;
-  if (want <= 0) return 0; // 今天够目标，不加
+  if (want <= 0) { p.lastPullForwardCount = 0; return 0; } // 今天够目标，不加
+
+  // [v3 算法-11] pullForward刹车：今天due已超过EWMA×1.2时不再拉题（避免超载硬拉）
+  const ewma = getEwmRate(p, today);
+  if (getDueItems(p).length > ewma * 1.2) { p.lastPullForwardCount = 0; return 0; }
 
   const horizon = addDays(today, 14);
   let cands = (p.items || []).filter(it =>
@@ -3313,7 +3530,8 @@ function pullForwardIfNeeded(p) {
     return (a.stage || 0) - (b.stage || 0);
   });
   let pulled = 0;
-  for (const it of cands) { if (pulled >= want) break; it.nextReviewDate = today; it.earlyReviewed = true; pulled++; }
+  for (const it of cands) { if (pulled >= want) break; it.originalNextReviewDate = it.nextReviewDate; it.nextReviewDate = today; it.earlyReviewed = true; pulled++; }
+  p.lastPullForwardCount = pulled;
   return pulled;
 }
 
@@ -3393,6 +3611,145 @@ function canBeSpread(it, p) {
   const overdue = diffDays(it.nextReviewDate, todayStr());
   if (overdue > maxGap) return false; // 超过最大间隔2倍，不能再推
   return true;
+}
+
+/* ===== v3新增：EWMA速率提取（从getDailyCapacity中抽出，供建议算法和排期共用） ===== */
+function getEwmRate(p, date) {
+  if (!p || p.type === 'exercise') return 0;
+  const today = date || todayStr();
+  const counts = getActivityCountsByDate(p);
+  const HALF = 14, WIN = 28;
+  let wSum = 0, cwSum = 0, activeDays = 0;
+  for (let age = 0; age < WIN; age++) {
+    const d = addDays(today, -age);
+    const c = counts[d] || 0;
+    const w = Math.pow(2, -age / HALF);
+    wSum += w; cwSum += c * w;
+    if (c > 0) activeDays++;
+  }
+  if (activeDays < 3) return p.type === 'recite' ? 4 : 5;
+  const K0 = p.type === 'recite' ? 5 : 8;
+  const K = Math.max(0, K0 - Math.min(activeDays, K0));
+  const PRIOR = p.type === 'recite' ? 4 : 6;
+  const baseRate = (cwSum + PRIOR * K) / (wSum + K);
+  return Math.max(1, Math.round(baseRate));
+}
+
+/* v3新增：历史P75分位数（近N天每日完成条数的75分位） */
+function getHistoricalP75(p, days) {
+  days = days || 60;
+  const counts = getReviewCountsByDate(p);
+  const today = todayStr();
+  const arr = [];
+  for (let age = 0; age < days; age++) {
+    const c = counts[addDays(today, -age)] || 0;
+    if (c > 0) arr.push(c);
+  }
+  if (arr.length < 3) return getEwmRate(p); // 数据不足回退EWMA
+  arr.sort((a, b) => a - b);
+  const idx = Math.floor(arr.length * 0.75);
+  return arr[Math.min(idx, arr.length - 1)];
+}
+
+/* v3新增：连续低迷天数（近N天每日完成<comfort*0.7的连续天数） */
+function getConsecutiveLowDays(p) {
+  const comfort = getComfortCap(p);
+  const threshold = comfort * 0.7;
+  const counts = getReviewCountsByDate(p);
+  const today = todayStr();
+  let lowDays = 0;
+  for (let age = 0; age < 60; age++) {
+    const c = counts[addDays(today, -age)] || 0;
+    // 无记录的日子不算低迷（可能是休息日），只统计有学习日
+    if (c === 0) continue;
+    if (c < threshold) lowDays++;
+    else break;
+  }
+  return lowDays;
+}
+
+/* v3 P0-A6：连续轻松完成天数（固定模式下完成量≈排题量、无逾期） */
+function getConsecutiveEasyDays(p) {
+  if (p.dailyCapacity == null) return 0;
+  const counts = getReviewCountsByDate(p);
+  const today = todayStr();
+  let easyDays = 0;
+  for (let age = 1; age <= 30; age++) {
+    const d = addDays(today, -age);
+    const c = counts[d] || 0;
+    if (c === 0) continue; // 休息日跳过
+    // 完成量接近dailyCapacity且无逾期（简单估算：完成量>=dailyCapacity*0.9就算轻松）
+    if (c >= p.dailyCapacity * 0.9) easyDays++;
+    else break;
+  }
+  return easyDays;
+}
+
+/* v3新增：smartCap四来源拆解，返回主导来源和各来源值 */
+function getSmartCapSource(p, date) {
+  date = date || todayStr();
+  const comfort = getComfortCap(p);
+  const ewma = getEwmRate(p, date);
+  const cu = getBacklogCatchUp(p);
+  const dl = getDeadlineLevelCap(p, date);
+  const all = {
+    ewma: ewma,
+    backlogCatchUp: cu.need || 0,
+    deadlineLevel: dl.cap || 0,
+    comfortFloor: comfort
+  };
+  let source = 'comfortFloor', value = comfort;
+  if (ewma > value) { source = 'ewma'; value = ewma; }
+  if (cu.need > value) { source = 'backlogCatchUp'; value = cu.need; }
+  if ((dl.cap || 0) > value) { source = 'deadlineLevel'; value = dl.cap; }
+  return { source, value, all, smartCap: value };
+}
+
+/* v3新增：存量过期题重排——把nextReviewDate停在过去的未掌握题按间隔摊到未来。
+   尊重canBeSpread锁死规则：spreadCount>=3、逾期太久、无日期的题保留在原位置不硬摊。 */
+function rebalanceExpiredItems(p) {
+  if (!p || p.type === 'exercise') return 0;
+  const today = todayStr();
+  const live = (p.items || []).filter(it =>
+    !it.mastered && !it.manualMastered && !it.finalReviewDate && it.nextReviewDate && it.nextReviewDate < today
+  );
+  if (!live.length) return 0;
+  // 负载表：从明天开始排
+  const loadMap = new Map();
+  (p.items || []).forEach(it => {
+    if (!it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate > today) {
+      loadMap.set(it.nextReviewDate, (loadMap.get(it.nextReviewDate) || 0) + 1);
+    }
+  });
+  const capOf = d => (p.reviewMode === 'balanced') ? getSpreadDayCap(p, d) : getComfortCap(p);
+  let moved = 0;
+  // 薄弱者优先（更该早做）
+  live.sort(compareItemPriority);
+  live.forEach(it => {
+    // 尊重防饥饿锁死：不能再摊的题保留在今天（它们已经在due列表里了，只是日期是过去）
+    if (!canBeSpread(it, p)) {
+      it.nextReviewDate = today; // 拉到今天，不再停在过去日期
+      moved++;
+      return;
+    }
+    // 按正常间隔摊到未来：从明天开始找第一个未满的日子
+    const intervals = getItemIntervals(it, p);
+    const stage = Math.min(it.stage || 0, intervals.length - 1);
+    const gap = intervals[stage] || 1;
+    let bestD = null;
+    // 窗口：明天到明天+gap*3
+    for (let d = addDays(today, 1); d <= addDays(today, Math.max(3, gap * 3)); d = addDays(d, 1)) {
+      if ((loadMap.get(d) || 0) < capOf(d)) { bestD = d; break; }
+    }
+    if (!bestD) bestD = addDays(today, 1);
+    it.nextReviewDate = bestD;
+    it.spreadCount = (it.spreadCount || 0) + 1;
+    it.lastSpreadDate = today;
+    loadMap.set(bestD, (loadMap.get(bestD) || 0) + 1);
+    moved++;
+  });
+  if (moved > 0) p.updatedAt = Date.now();
+  return moved;
 }
 
 /* ============ 复习评价 ============ */
@@ -3491,8 +3848,9 @@ function recomputeItemMastery(item, p) {
     item.mastered = false;
     item.masteredDate = null;
     clearRetention(item);
-    // 提前复习过的条目，临时设回 earlyReviewed 让 scheduleNextReview 能缩短间隔
-    if (wasEarlyReviewed) item.earlyReviewed = true;
+    // [v3 算法-07] 提前复习做对了不缩间隔
+    const _lastQ = reviews[reviews.length - 1] ? reviews[reviews.length - 1].quality : null;
+    if (wasEarlyReviewed && _lastQ !== 'good') item.earlyReviewed = true;
     item.nextReviewDate = scheduleNextReview(p, item, reviews[reviews.length - 1].date, stage, lastGap);
     item.earlyReviewed = false; // 算完再重置
   }
@@ -3526,7 +3884,8 @@ function applyReview(item, quality, p, note) {
     item.mastered = false;
     item.masteredDate = null;
     // 首次学习也走统一排期（均匀模式下自动错峰；新录入不计入当天任务量）
-    if (wasEarlyReviewed) item.earlyReviewed = true;
+    // [v3 算法-07] 提前复习做对了不缩间隔
+    if (wasEarlyReviewed && quality !== 'good') item.earlyReviewed = true;
     item.nextReviewDate = scheduleNextReview(p, item, today, 0, tr.gap);
     item.earlyReviewed = false;
     p.updatedAt = Date.now();
@@ -3570,7 +3929,8 @@ function applyReview(item, quality, p, note) {
     item.mastered = false;
     item.masteredDate = null;
     clearRetention(item);
-    if (wasEarlyReviewed) item.earlyReviewed = true;
+    // [v3 算法-07] 提前复习做对了(good)不缩间隔，只有fuzzy/forgot才惩罚
+    if (wasEarlyReviewed && quality !== 'good') item.earlyReviewed = true;
     item.nextReviewDate = scheduleNextReview(p, item, today, newStage, tr.gap);
     item.earlyReviewed = false;
   }
@@ -3582,8 +3942,10 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   const text = $('#confirmMasterText');
   const opts = $('#confirmMasterOptions');
   // 标题按项目类型动态选择：错题用「攻克」、背书用「掌握」
+  // [BUG-4] 提前定义 masteredWord，供标题、正文、按钮统一使用
+  const masteredWord = p.type === 'mistake' ? '攻克' : '掌握';
   const titleEl = mask.querySelector('.cm-title');
-  if (titleEl) titleEl.textContent = p.type === 'mistake' ? '确认攻克了吗？' : '确认掌握了吗？';
+  if (titleEl) titleEl.textContent = `确认${masteredWord}了吗？`;
   $('#skipConfirmMask').hidden = true;
 
   const qLabels = p.type === 'mistake'
@@ -3605,15 +3967,15 @@ function showConfirmMaster(item, p, recentReviews, reason) {
     }
   } else if (reason === 'notAllGood') {
     if (isNaturalGraduation) {
-      suggestText = `这条已经走到<strong>最后一轮</strong>，但最近有「${badDesc}」的情况，还不够稳定。确认已经掌握了吗？还是再复习几轮？`;
+      suggestText = `这条已经走到<strong>最后一轮</strong>，但最近有「${badDesc}」的情况，还不够稳定。确认已经${masteredWord}了吗？还是再复习几轮？`;
     } else {
       suggestText = `最近有「${badDesc}」的情况，还不够稳定，建议再复习几轮。`;
     }
   } else {
     if (isNaturalGraduation) {
-      suggestText = `这条已经走到<strong>最后一轮</strong>，即将毕业！最近 <strong>${recentReviews.length}</strong> 次都答对了，确认已经真正掌握了吗？`;
+      suggestText = `这条已经走到<strong>最后一轮</strong>，即将毕业！最近 <strong>${recentReviews.length}</strong> 次都答对了，确认已经真正${masteredWord}了吗？`;
     } else {
-      suggestText = `最近 <strong>${recentReviews.length}</strong> 次都答对了，确认已经真正掌握了吗？`;
+      suggestText = `最近 <strong>${recentReviews.length}</strong> 次都答对了，确认已经真正${masteredWord}了吗？`;
     }
   }
 
@@ -3626,7 +3988,6 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   opts.innerHTML = '';
 
   // 选项1：确认已掌握/已攻克（主色调高亮）
-  const masteredWord = p.type === 'mistake' ? '攻克' : '掌握';
   const opt1 = document.createElement('button');
   opt1.className = 'cm-opt cm-opt-primary';
   opt1.innerHTML = `<span class="cm-opt-icon">✅</span><span class="cm-opt-main"><span class="cm-opt-title">确认已${masteredWord}</span><span class="cm-opt-desc">不再复习这条内容</span></span>`;
@@ -4392,6 +4753,15 @@ function getStatusMessage(p, m) {
   if (m.feasibility === 'impossible' || m.daysLeft < 0) {
     const overdue = m.daysLeft < 0;
     let body = '';
+    // [v2 M4·G] exercise 过期：不画空 plan，按 hardDeadline 给归档导向文案
+    if (p.type === 'exercise' && overdue && m.remaining > 0) {
+      if (p.hardDeadline === true) {
+        return { icon: '📚', cls: 'ok', title: '考试已经结束了',
+          desc: '考试已经结束了。之前刷的都还在，可以把这本归档收进收纳箱。' };
+      }
+      return { icon: '⛔', cls: 'warn', title: '已过原定目标日',
+        desc: `已经过了原定目标日 ${fmtCN(p.deadline)}，还剩 ${rem} ${u}。之前刷的都还在——可以重设目标日接着推，或者把这本归档收起来。` };
+    }
     if (overdue) {
       body = `已经过了原定目标日 ${fmtCN(p.deadline)}，还剩 ${rem} ${u}。之前学的都还在，我们把计划重新理顺。<br><br>`;
     } else {
@@ -5071,9 +5441,14 @@ function renderDailyGoal(p, m) {
   }
   // stretch/impossible 时与看板、状态卡同源（最省力按期方案）；其余按当前预测频率
   const dt0 = getDailyTarget(p, m);
-  const target = (dt0.per != null && dt0.per > 0) ? dt0.per
+  let target = (dt0.per != null && dt0.per > 0) ? dt0.per
               : (isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay
               : null;
+  // [v2 M1] exercise：实际每日目标按舒适量/固定容量收敛（fixed=comfort；avg=min(comfort,均摊)）
+  if (p.type === 'exercise') {
+    const et = getExerciseDailyTarget(p, m);
+    target = et.per > 0 ? et.per : null;
+  }
   if (doneAll) {
     _dgShow(box, fill, line, praise, 'done-all', 100, '全部完成', '恭喜你拿下整个目标，好好犒劳一下自己~');
     return;
@@ -5117,7 +5492,17 @@ function renderDailyGoal(p, m) {
   } else if (ratio < 1) {
     const left = Math.max(0, Math.round((target - done) * 10 + 1e-9) / 10);
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
-    if (ratio < 0.34) {
+    if (p.type === 'exercise') {
+      // BUG-4 [v2 M9] exercise 低压力鼓励：不拼"再做X就过半"这种推进式后缀
+      mood = 'progress';
+      const lowPool = [
+        '没填满也没关系，节奏是自己的，今天已经往前推了一步~',
+        '做了就是赚到，进度没丢，不用跟那个大数较劲~',
+        '少做一点也不亏，保持手感比硬凑数更重要~',
+        '已经动起来了，剩下的随你，别把自己逼太紧~',
+      ];
+      pr = lowPool[Math.floor(Math.random() * lowPool.length)];
+    } else if (ratio < 0.34) {
       // “就过半”的剩余量 = 到目标一半的量（target/2 - done），而非到全部完成的量（target - done）
       const toHalf = Math.max(0, Math.round((target / 2 - done) * 10 + 1e-9) / 10);
       mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'pe') + ` 再做 ${fmtUnitNum(toHalf)} ${u}就过半~`;
@@ -5140,6 +5525,643 @@ function renderDailyGoal(p, m) {
     else pr = Coach.pick(Coach.overBig, 'ob') + ` 超额${overPct}%~`;
   }
   _dgShow(box, fill, line, praise, mood, pct, l, pr);
+}
+
+/* ==========================================================================
+   v2 刷题模式（exercise）专属模块 —— M1 舒适量 / M2 中性提示 / M2b 刷爆刹车 /
+   M3 智能建议 / M6 临考策略+砍题 / M7 错题联动 / M8 进度透明 / M9b 领先播报。
+   exercise 是"剩余量÷剩余学习日"的纯进度推进器，items 恒空，进度全在 records[]。
+   这里只新增 exercise 组件，不改 mistake 已优化的排期/渲染逻辑（仅调用 scheduleNextReview）。
+   ========================================================================== */
+
+// [v2 M1] 取舒适量：avg 下限 4（绝对底 3）；fixed 完全豁免下限，用户自定
+function getExerciseComfort(p) {
+  let c = (typeof p.dailyComfort === 'number' && isFinite(p.dailyComfort)) ? p.dailyComfort : 6;
+  c = Math.round(c);
+  if (p.exerciseMode === 'fixed') return Math.max(1, c);
+  return Math.max(4, c);
+}
+
+// [v2 §3] 实际每日目标：fixed 锁死舒适量；avg 取 min(舒适量, 均摊量) 封顶不追高
+function getExerciseDailyTarget(p, m) {
+  const comfort = getExerciseComfort(p);
+  const remaining = Math.max(0, (m && m.remaining) || 0);
+  if (remaining <= 0 || !m) return { per: 0, mode: p.exerciseMode, comfort, avgPer: 0, capped: false, remaining: 0 };
+  const raw = getDailyTarget(p, m);
+  const avgPer = (raw.per != null && raw.per > 0) ? raw.per
+              : (isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay : comfort;
+  let per;
+  if (p.exerciseMode === 'fixed') per = comfort;
+  else per = Math.min(comfort, avgPer);
+  per = Math.min(per, remaining);
+  const round1 = v => Math.round(v * 10) / 10;
+  return { per: round1(per), mode: p.exerciseMode, comfort,
+           avgPer: round1(avgPer),
+           capped: (p.exerciseMode !== 'fixed') && (avgPer > comfort + 1e-9),
+           remaining };
+}
+
+// 关联错题本（mistake 且 refProjectId 指向本刷题本），只读聚合 / 写入占位条目用
+function getLinkedMistakeProjects(p) {
+  return Object.values(store.projects || {}).filter(o => o && o.type === 'mistake' && o.refProjectId === p.id && !o.archived);
+}
+
+// [v2 M7] 从刷题本页内发起"创建关联错题本"：复用设置页创建按钮的预填流程
+function startCreateLinkedMistake(p) {
+  if (!p || p.type !== 'exercise') return;
+  creatingLinkedFrom = p.id;
+  openFormCreate();
+  $('#fName').value = p.name + ' 错题本';
+  document.querySelectorAll('input[name="ptype"]').forEach(r => { r.checked = r.value === 'mistake'; r.disabled = true; });
+  const mode = p.unit === 'set' ? 'set' : 'page';
+  document.querySelectorAll('input[name="pmistakemode"]').forEach(r => { r.checked = r.value === mode; });
+  if (p.paperLabelMode) {
+    const lr = document.querySelector(`input[name="ppaperlabel"][value="${p.paperLabelMode}"]`);
+    if (lr) lr.checked = true;
+    if (p.paperLabelMode === 'year' && p.paperYearStart) $('#fPaperYear').value = p.paperYearStart;
+  }
+  syncFormUnit();
+  const fLinkRef = $('#fLinkRef');
+  if (fLinkRef) { fLinkRef.value = p.id; fLinkRef.disabled = true; }
+  if (p.unit !== 'set') {
+    if (p.bookStartPage) $('#fBookStart').value = p.bookStartPage;
+    if (p.bookEndPage) $('#fBookEnd').value = p.bookEndPage;
+  }
+  showToast('📝', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
+}
+
+// [v2 M6·C] 聚合关联错题本里落在 [start,end] 页段的错题条目数（只读）
+function countLinkedMistakesByRange(p, start, end) {
+  let n = 0;
+  getLinkedMistakeProjects(p).forEach(mk => {
+    (mk.items || []).forEach(it => {
+      if (it.mastered || it.manualMastered) return;
+      const ps = it.pageStart, pe = it.pageEnd != null ? it.pageEnd : it.pageStart;
+      if (ps == null || pe == null) return;
+      if (pe < start || ps > end) return; // 区间不相交
+      n++;
+    });
+  });
+  return n;
+}
+function countLinkedMistakesBySet(p, setNo) {
+  let n = 0;
+  getLinkedMistakeProjects(p).forEach(mk => {
+    (mk.items || []).forEach(it => {
+      if (it.mastered || it.manualMastered) return;
+      if (Number(it.setNo) === Number(setNo)) n++;
+    });
+  });
+  return n;
+}
+
+// [v2 M3·D] 连续轻松/吃力学习日计数 + 最近7个学习日日均（只作文案参考，不反推舒适量）
+function getExerciseStreak(p, m) {
+  const t = todayStr();
+  // 收集最近 60 个自然日内每个学习日的完成量（与 getMetrics 同口径：当日累计−昨日累计）
+  const days = [];
+  for (let o = 0; o < 60; o++) {
+    const d = addDays(t, -o);
+    const done = Math.max(0, getCompletedPagesAtDate(p, d) - getCompletedPagesAtDate(p, addDays(d, -1)));
+    days.push({ date: d, done });
+  }
+  days.sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)); // 升序
+  const comfort = getExerciseComfort(p);
+  // P2-2：吃力阈值与 M3 文案同源——用 getExerciseDailyTarget.avgPer（均摊量），而非 m.perStudyDay（EWMA）
+  const et0 = getExerciseDailyTarget(p, m);
+  const avgPer = (et0.avgPer > 0) ? et0.avgPer : comfort;
+  // 连续轻松（done>=comfort*1.3）/ 连续吃力（done<avgPer*0.8），从今天往回数；今天没学不算断也不算连续
+  let easyRun = 0, hardRun = 0;
+  const todayIdx = days.length - 1;
+  let cursor = days[todayIdx].done > 0 ? todayIdx : todayIdx - 1;
+  for (; cursor >= 0; cursor--) {
+    const dd = days[cursor];
+    if (dd.done === 0) continue; // 休息日不计入连续，也不打断连续学习日
+    if (dd.done >= comfort * 1.3) easyRun++; else break;
+  }
+  cursor = days[todayIdx].done > 0 ? todayIdx : todayIdx - 1;
+  for (; cursor >= 0; cursor--) {
+    const dd = days[cursor];
+    if (dd.done === 0) continue; // 休息日不计入连续，也不打断连续学习日
+    if (dd.done < avgPer * 0.8) hardRun++; else break;
+  }
+  // 最近 7 个学习日（done>0）的日均完成量
+  const activeRecent = days.filter(x => x.done > 0).slice(-7);
+  const avg7 = activeRecent.length ? activeRecent.reduce((s, x) => s + x.done, 0) / activeRecent.length : null;
+  return { easyRun, hardRun, avg7, activeDays: activeRecent.length };
+}
+
+/* ---- 挂载区：exercise 所有提示条统一渲染到 #exerciseHintZone ---- */
+function renderExerciseHints(p, m) {
+  const zone = $('#exerciseHintZone');
+  if (!zone) return;
+  if (p.archived) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
+  const u = unitName(p);
+  const t = todayStr();
+  const et = getExerciseDailyTarget(p, m);
+  let html = '';
+  const bars = []; // {build:()=>html, onMount:(el)=>void}
+
+  // —— M4 过期横幅（exercise 专属可见横幅）——
+  if (p.deadline && p.deadline < t && m.remaining > 0) {
+    const isHard = p.hardDeadline === true;
+    // 普通过期：「以后再说」只当天有效；hardDeadline 无关闭钮，始终提示
+    if (isHard || p.deadlineWarnDismissedDate !== t) {
+    if (isHard) {
+      bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
+        <div class="ob-text"><span class="ob-icon">📚</span><span class="ob-main">考试已经结束了。这本刷题本陪你走过了备考的日子。</span></div>
+        <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
+        onMount: null });
+    } else {
+      bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
+        <div class="ob-text"><span class="ob-icon">📌</span><span class="ob-main">目标日已于 <b>${esc(p.deadline)}</b> 到期，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}。之前刷的都还在。</span></div>
+        <div class="ob-actions"><button class="ob-btn" data-xe="reset">重设目标日</button><button class="ob-btn" data-xe="archive">归档这本</button><button class="ob-btn" data-xe="dismiss">以后再说</button></div></div>`,
+        onMount: null });
+    }
+    }
+  }
+
+  // —— M5 完成条：整本刷完 → 归档入口 ——
+  if (m.remaining === 0 && m.currentPage > 0) {
+    bars.push({ build: () => `<div class="excess-banner celebrate" style="display:flex;flex-direction:column;gap:8px">
+      <div class="ob-text"><span class="ob-icon">🎉</span><span class="ob-main">整本刷完了！之前的努力都算数。</span></div>
+      <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
+      onMount: null });
+  }
+
+  // —— M8 进度透明化（已做/共/落后或领先天数）——
+  if (m.total > 0 && m.remaining > 0) {
+    let line = `已做 <b>${fmtUnitNum(m.currentPage)}</b> / 共 <b>${fmtUnitNum(m.total)}</b> ${u}`;
+    if ((m.behindSigned || 0) > 0) {
+      const behindDays = et.avgPer > 0 ? Math.round(m.behindSigned / et.avgPer) : null;
+      line += ` · 落后约 <b>${fmtUnitNum(m.behindSigned)}</b> ${u}` + (behindDays != null ? `（≈落后 <b>${behindDays}</b> 天）` : '');
+    } else if ((m.behindSigned || 0) < 0) {
+      const lead = -m.behindSigned;
+      const leadDays = et.avgPer > 0 ? Math.round(lead / et.avgPer) : null;
+      line += ` · 领先约 <b>${fmtUnitNum(lead)}</b> ${u}` + (leadDays != null ? `（≈领先 <b>${leadDays}</b> 天）` : '');
+      if (m.etaDate) line += `，按当前节奏预计 ${fmtCN(m.etaDate)} 完成`;
+    } else if (m.etaDate) {
+      line += ` · 按当前节奏预计 ${fmtCN(m.etaDate)} 完成`;
+    }
+    if (p.exerciseMode === 'fixed') {
+      line += `<br><span style="opacity:.8">固定每天 ${fmtUnitNum(et.comfort)} ${u}；照此节奏${m.etaDate ? '预计 ' + fmtCN(m.etaDate) + ' 完成' : ''}</span>`;
+    } else if (m.confidence === 'medium') {
+      line += `<br><span style="opacity:.8">（估算会随记录修正）</span>`;
+    }
+    bars.push({ build: () => `<div class="neutral-hint">${line}</div>`, onMount: null });
+  }
+
+  // —— M6·H 关联错题本逾期软提醒（灰字）——
+  const linkedMistakes = getLinkedMistakeProjects(p);
+  let overdueCount = 0;
+  linkedMistakes.forEach(mk => { overdueCount += getOverdueItems(mk).length; });
+  if (overdueCount > 0 && m.remaining > 0) {
+    bars.push({ build: () => `<div class="soft-remind">关联错题本已有 <b>${overdueCount}</b> 道逾期未复习，今天可以少刷 2 ${u}新题，先去清一下。</div>`, onMount: null });
+  }
+
+  // —— M6 临考暂停新页后的目标卡文案（BUG-2：加「恢复正常推进」可关）——
+  if (p.sprintPauseNewPages && m.remaining > 0) {
+    if (linkedMistakes.length) {
+      const first = linkedMistakes[0].name;
+      bars.push({ build: () => `<div class="neutral-hint paused">
+        今日停新页，去清关联错题本里的欠账。<div class="ob-actions"><button class="ob-btn" data-xe="openlinked">打开关联错题本「${esc(first)}」</button><button class="ob-btn" data-xe="resumepause">恢复正常推进</button></div></div>`,
+        onMount: null });
+    } else {
+      bars.push({ build: () => `<div class="neutral-hint paused">
+        停新页了。可以回顾之前打卡时标记过的错题记录，或者去创建一个关联错题本。
+        <div class="ob-actions"><button class="ob-btn" data-xe="createlinked">去创建关联错题本</button><button class="ob-btn" data-xe="resumepause">恢复正常推进</button></div></div>`,
+        onMount: null });
+    }
+  }
+
+  // —— M2 avg 被封顶中性提示（系统计划>舒适量；做满后自动隐藏；小2：关闭动作改名 closecomfort 避免与过期横幅 dismiss 冲突）——
+  if (et.capped && !p.sprintPauseNewPages && m.remaining > 0 && m.daysLeft != null && m.daysLeft >= 0
+      && (m.todayDone || 0) < et.comfort
+      && p.comfortHintShownDate !== t) {
+    bars.push({ build: () => `<div class="neutral-banner">
+      <span class="nb-text">按目标日摊到每天约需 <b>${fmtUnitNum(et.avgPer)}</b> ${u}；你的舒适量 <b>${fmtUnitNum(et.comfort)}</b> ${u}，先按 ${fmtUnitNum(et.comfort)} 推就好。</span>
+      <button class="nb-close" data-xe="closecomfort" title="今天不再提示">✕</button></div>`, onMount: null });
+  }
+
+  // —— M2b fixed 刷爆刹车（当天 done > comfort×1.5；小6：暂停新页时不再弹）——
+  if (p.exerciseMode === 'fixed' && !p.sprintPauseNewPages && (m.todayDone || 0) > et.comfort * 1.5
+      && p.brakeShownDate !== t && m.remaining > 0) {
+    bars.push({ build: () => `<div class="neutral-banner">
+      <span class="nb-text">🛑 今天已做 <b>${fmtUnitNum(m.todayDone)}</b> ${u}，远超你的日常节奏 ${fmtUnitNum(et.comfort)} ${u}。注意消化，可以翻一翻前几天做过的章节，别只赶${u}数。</span>
+      <button class="nb-close" data-xe="brake" title="今天不再提示">✕</button></div>`, onMount: null });
+  }
+
+  // —— M3 智能建议（调高 / avg 调低，互斥每天最多1条）——
+  const streak = getExerciseStreak(p, m);
+  if (m.remaining > 0 && p.comfortAdviceShownDate !== t && m.daysLeft != null && m.daysLeft > 0) {
+    // 调高：连续≥7 学习日 done>=comfort×1.3，且距 deadline>14 天
+    if (streak.easyRun >= 7 && m.daysLeft > 14) {
+      const suggestUp = Math.min(30, Math.max(et.comfort + 2, Math.round(streak.avg7 || et.comfort + 2)));
+      if (suggestUp > et.comfort) {
+        const avg7txt = streak.avg7 != null ? fmtUnitNum(streak.avg7) : fmtUnitNum(et.comfort);
+        bars.push({ build: () => `<div class="neutral-banner">
+          <span class="nb-text">💡 你已连续 7 天轻松完成 ${fmtUnitNum(et.comfort)} ${u}，最近 7 天实际日均约 <b>${avg7txt}</b> ${u}，状态不错。要不要把每日舒适量调到 <b>${suggestUp}</b> ${u} 试试？（可随时调回）</span>
+          <div class="ob-actions"><button class="ob-btn" data-xe="raisecomfort" data-c="${suggestUp}">调到 ${suggestUp}</button><button class="ob-btn" data-xe="dismissadvice">不用</button></div></div>`, onMount: null });
+      }
+    }
+    // avg 调低指引：仅 avg 模式，连续≥5 学习日 done<avgPer×0.8，hardDeadline 不显示
+    else if (p.exerciseMode !== 'fixed' && p.hardDeadline !== true && streak.hardRun >= 5 && m.daysLeft > 0) {
+      const avg7txt = streak.avg7 != null ? fmtUnitNum(streak.avg7) : fmtUnitNum(et.avgPer);
+      const etaTxt = m.etaDate ? fmtCN(m.etaDate) : '之后';
+      bars.push({ build: () => `<div class="neutral-banner">
+        <span class="nb-text">💡 你最近的实际节奏约 <b>${avg7txt}</b> ${u}/天，按这个速度预计 ${etaTxt} 完成。如果接受这个节奏，可以到设置里把目标日调成那天——系统不会替你改。</span>
+        <div class="ob-actions"><button class="ob-btn" data-xe="godeadline">去设置调目标日</button><button class="ob-btn" data-xe="dismissadvice">不用</button></div></div>`, onMount: null });
+    }
+  }
+
+  // —— M9b 领先播报（今天做了目标≥2倍 且 整体领先）——
+  const ratioNow = (et.per > 0 && m.remaining > 0) ? (m.todayDone || 0) / et.per : 0;
+  if (ratioNow >= 2 && (m.behindSigned || 0) < 0 && p.overLeadShownDate !== t) {
+    const leadDays = et.avgPer > 0 ? Math.round((-m.behindSigned) / et.avgPer) : 0;
+    // P2-3：领先<7天说"提前约N天"，>=7天才说周，且不硬抬到1周
+    const leadTxt = leadDays >= 7 ? `提前约 <b>${Math.round(leadDays / 7)}</b> 周` : (leadDays > 0 ? `提前约 <b>${leadDays}</b> 天` : '');
+    bars.push({ build: () => `<div class="neutral-banner">
+      <span class="nb-text">🎉 今天又超额啦！按这节奏你能${leadTxt}刷完——要不要现在就把后面的复习规划上？</span>
+      <div class="ob-actions"><button class="ob-btn" data-xe="pauseNew">去规划复习 / 暂停新页</button><button class="ob-btn" data-xe="overlead">知道了</button></div></div>`, onMount: null });
+  }
+
+  // —— M6 临考策略条（距 deadline≤30 天 且 落后）——
+  if (!p.sprintPauseNewPages && m.remaining > 0 && m.daysLeft != null && m.daysLeft > 0 && m.daysLeft <= 30
+      && ((m.behind || 0) >= et.comfort || m.feasibility === 'impossible')
+      && p.sprintBarDismissedDate !== t) {
+    bars.push({ build: () => `<div class="excess-banner" style="display:flex;flex-direction:column;gap:8px">
+      <div class="ob-text"><span class="ob-icon">⏳</span><span class="ob-main">距目标日只剩 <b>${m.daysLeft}</b> 天，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}（落后约 <b>${fmtUnitNum(m.behind)}</b> ${u}）。时间紧，做减法比硬赶新页更有效：</span></div>
+      <div class="ob-actions">
+        <button class="ob-btn" data-xe="pauseNew">暂停新页，优先复习</button>
+        <button class="ob-btn" data-xe="abandon">砍题保分：标记低频章节放弃</button>
+        <button class="ob-btn" data-xe="quickwrong">把今天的错题送进错题本</button>
+        <button class="nb-close" data-xe="sprintclose" title="今天不再提示">✕</button>
+      </div></div>`, onMount: null });
+  }
+
+  if (!bars.length) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
+  zone.innerHTML = bars.map(b => b.build()).join('');
+  zone.style.display = '';
+}
+
+// exercise 提示区事件委托（归档/重设/暂停新页/砍题/快录/各关闭）
+function bindExerciseHintZone(p, m) {
+  const zone = $('#exerciseHintZone');
+  if (!zone) return;
+  zone.onclick = (e) => {
+    const t = todayStr();
+    const actBtn = e.target.closest('[data-xe]');
+    if (!actBtn) return;
+    const act = actBtn.dataset.xe;
+    if (act === 'archive') {
+      p.archived = true; p.updatedAt = Date.now(); saveStore(); render();
+      showToast('📦', '已归档', '这本刷题本已移到「已归档」收纳箱，不再出现在首页。', 3000);
+    } else if (act === 'reset') {
+      openSettings();
+    } else if (act === 'dismiss') {
+      p.deadlineWarnDismissedDate = t; p.updatedAt = Date.now(); saveStore(); render();
+    } else if (act === 'closecomfort') {
+      p.comfortHintShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
+    } else if (act === 'brake') {
+      p.brakeShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
+    } else if (act === 'dismissadvice') {
+      p.comfortAdviceShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
+    } else if (act === 'overlead') {
+      p.overLeadShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
+    } else if (act === 'sprintclose') {
+      p.sprintBarDismissedDate = t; p.updatedAt = Date.now(); saveStore(); render();
+    } else if (act === 'raisecomfort') {
+      let c = parseInt(actBtn.dataset.c, 10);
+      if (isNaN(c)) return;
+      if (p.exerciseMode !== 'fixed') c = Math.max(4, c);
+      p.dailyComfort = c; p.updatedAt = Date.now(); saveStore(); render();
+      showToast('✅', '舒适量已调高', `现在每天建议做 ${c} ${unitName(p)}。`, 2500);
+    } else if (act === 'godeadline') {
+      // P2-1：点"去设置调目标日"也标记当天已处理建议，避免关闭后当天重现
+      p.comfortAdviceShownDate = t; p.updatedAt = Date.now(); saveStore();
+      openSettings();
+    } else if (act === 'pauseNew') {
+      p.sprintPauseNewPages = true; p.updatedAt = Date.now(); saveStore(); render();
+      showToast('⏸️', '已暂停新页', `临考期先不刷新${unitName(p)}，优先清关联错题本里的欠账。`, 2800);
+    } else if (act === 'resumepause') {
+      // BUG-2：暂停新页可关闭
+      p.sprintPauseNewPages = false; p.updatedAt = Date.now(); saveStore(); render();
+      showToast('▶️', '已恢复推进', '回到正常的每日目标节奏。', 2200);
+    } else if (act === 'abandon') {
+      openAbandonPanel(p);
+    } else if (act === 'quickwrong') {
+      // 小3：带上今天的打卡范围（页/套），没有则 null
+      const rec = findTodayPageRecord(p);
+      openWrongQuickRecord(p, rec ? { startPage: rec.startPage != null ? rec.startPage : rec.endPage, endPage: rec.endPage, setNo: rec.set } : null);
+    } else if (act === 'openlinked') {
+      const first = getLinkedMistakeProjects(p)[0];
+      if (first) { store.currentId = first.id; saveStore(); render(); }
+    } else if (act === 'createlinked') {
+      startCreateLinkedMistake(p);
+    }
+  };
+}
+
+/* ---- M6/K 砍题保分面板：每行章节进度 + 关联错题数建议保留/放弃 ---- */
+function openAbandonPanel(p) {
+  const maskId = 'abandonPanelMask';
+  let mask = document.getElementById(maskId);
+  if (!mask) {
+    mask = document.createElement('div');
+    mask.id = maskId;
+    mask.className = 'mask';
+    mask.hidden = true;
+    document.body.appendChild(mask);
+  }
+  const m = getMetrics(p);
+  const u = unitName(p);
+  const setMode = isSetMode(p);
+  const oldPer = getExerciseDailyTarget(p, m).per;
+
+  // 构造候选放弃行
+  let rows = [];
+  if (setMode) {
+    for (let n = 1; n <= p.total; n++) {
+      const frac = getSetFraction(p, n);
+      const done = Math.round(frac * 100) / 100;
+      const nCnt = countLinkedMistakesBySet(p, n);
+      const abandoned = (p.abandonedSets || []).includes(n);
+      rows.push({ key: 'set:' + n, name: paperLabel(p, n), done, total: 1, nCnt, abandoned, setNo: n });
+    }
+  } else {
+    const targets = getTargetPageRanges(p);
+    let chapters = [];
+    const collectCh = (arr, out) => {
+      (arr || []).forEach(ch => {
+        if (ch && ch.startPage != null && ch.endPage != null) out.push(ch);
+        if (ch && ch.children && ch.children.length) collectCh(ch.children, out);
+      });
+    };
+    if (p.unitMode && Array.isArray(p.units) && p.units.length) {
+      // 用末级单元作为可放弃行
+      collectCh(p.units, chapters);
+      if (!chapters.length) chapters = p.units;
+    }
+    if (!chapters.length) {
+      // 无单元：整本书范围作为一个可放弃行
+      const t0 = targets.length ? targets[0] : { start: p.bookStartPage || 1, end: p.bookEndPage || p.total };
+      chapters = [{ name: '整本书', startPage: t0.start, endPage: t0.end }];
+    }
+    chapters.forEach(ch => {
+      const s = ch.startPage, e = ch.endPage;
+      const doneRanges = getBookDoneRanges(p).filter(r => !(r.end < s || r.start > e));
+      const donePages = countMergedPages(mergeRanges(doneRanges));
+      const totalPages = Math.max(0, e - s + 1);
+      const nCnt = countLinkedMistakesByRange(p, s, e);
+      const abandoned = (p.abandonedRanges || []).some(r => r && r.start === s && r.end === e);
+      rows.push({ key: 'r:' + s + '-' + e, name: ch.name || `第${s}-${e}页`, done: donePages, total: totalPages, nCnt, abandoned, start: s, end: e });
+    });
+  }
+
+  const rowHtml = rows.map((r, i) => {
+    const left = Math.max(0, Math.round((r.total - r.done) * 100) / 100);
+    // P2-4：已完成（剩 0）的章节不参与放弃——放弃只作用于未做区间
+    const doneRow = left <= 0;
+    let tag = '';
+    if (doneRow) tag = '<span class="ab-tag keep">已完成</span>';
+    else if (r.nCnt >= 5) tag = '<span class="ab-tag keep">建议保留</span>';
+    else if (r.nCnt <= 1) tag = '<span class="ab-tag drop">可考虑放弃</span>';
+    const doneTxt = setMode ? (r.done >= 0.999 ? '已完成' : `完成 ${Math.round(r.done * 100)}%`) : `${fmtUnitNum(r.done)} / ${fmtUnitNum(r.total)} ${u}`;
+    return `<label class="ab-row" style="cursor:${doneRow ? 'not-allowed' : 'pointer'};${doneRow ? 'opacity:.55' : ''}">
+      <input type="checkbox" data-abrow="${i}" ${doneRow ? 'disabled' : ''} ${(!doneRow && r.abandoned) ? 'checked' : ''} style="width:auto;margin:0">
+      <span style="flex:1">
+        <b>${esc(r.name)}</b>
+        <span style="color:var(--muted);font-size:12px"> · ${doneTxt} · 剩 ${fmtUnitNum(left)} ${u}</span>
+        <span style="color:var(--muted);font-size:12px"> · 关联错题 ${r.nCnt} 道</span>
+        ${tag}
+      </span>
+    </label>`;
+  }).join('');
+
+  mask.innerHTML = `<div class="modal" style="max-width:560px">
+    <div class="modal-head"><h2>✂️ 战略放弃部分 ${setMode ? '套' : '页'}</h2><button class="x-btn" id="abClose">×</button></div>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+      把低性价比、来不及做的${setMode ? '套' : '页'}标记放弃，它们会从总量里扣除，每日目标自动降下来。
+      关联错题 ≥5 道的章节通常是你的薄弱点，建议保留；≤1 道的可考虑放弃。可随时取消。
+    </div>
+    <div>${rowHtml}</div>
+    <div id="abSummary" style="font-size:13px;padding:10px 12px;border-radius:9px;background:var(--bg);margin-top:6px"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="ghost-btn" id="abCancel" style="flex:1">关闭</button>
+      <button class="primary" id="abSave" style="flex:1">保存放弃范围</button>
+    </div>
+  </div>`;
+  mask.hidden = false;
+  modalTop(mask);
+  lockBodyScroll();
+
+  const summaryEl = mask.querySelector('#abSummary');
+  const refreshSummary = () => {
+    const checked = [...mask.querySelectorAll('[data-abrow]:checked')].map(cb => rows[Number(cb.dataset.abrow)]);
+    let abPages = 0;
+    if (setMode) abPages = checked.length;
+    else checked.forEach(r => abPages += (r.end - r.start + 1));
+    // 预估放弃后每日目标
+    const oldTotal = (typeof m.total === 'number' ? m.total : 0);
+    const newTotal = Math.max(0, oldTotal - abPages);
+    const newRemaining = Math.max(0, newTotal - m.currentPage);
+    let newPer = oldPer;
+    if (newRemaining > 0 && m.daysAvailable > 0) {
+      const basePer = (p.exerciseMode === 'fixed') ? getExerciseComfort(p) : Math.min(getExerciseComfort(p), newRemaining / Math.max(0.5, (m.studyDaysRemaining || 1)));
+      newPer = Math.min(basePer, newRemaining);
+    } else newPer = 0;
+    summaryEl.innerHTML = abPages > 0
+      ? `放弃 <b>${fmtUnitNum(abPages)}</b> ${setMode ? '套' : '页'} 后，每天目标从 <b>${fmtUnitNum(oldPer)}</b> 降到 <b>${fmtUnitNum(Math.round(newPer * 10) / 10)}</b> ${u}。`
+      : `勾选要放弃的${setMode ? '套' : '页'}后，这里会显示每日目标的变化。`;
+  };
+  refreshSummary();
+  mask.querySelectorAll('[data-abrow]').forEach(cb => cb.addEventListener('change', refreshSummary));
+
+  const close = () => { mask.hidden = true; unlockBodyScroll(); };
+  mask.querySelector('#abClose').onclick = close;
+  mask.querySelector('#abCancel').onclick = close;
+  mask.querySelector('#abSave').onclick = () => {
+    const checked = [...mask.querySelectorAll('[data-abrow]:checked')].map(cb => rows[Number(cb.dataset.abrow)]);
+    if (setMode) {
+      p.abandonedSets = checked.map(r => r.setNo);
+    } else {
+      p.abandonedRanges = checked.map(r => ({ start: r.start, end: r.end }));
+    }
+    p.updatedAt = Date.now();
+    saveStore();
+    close();
+    render();
+    showToast('✂️', '已保存放弃范围', '每日目标已按新的剩余量重新计算。', 2800);
+  };
+}
+
+/* ---- M7 错题联动：打卡快录 + 写入关联错题本 + record 回写 wrongMarks ---- */
+// meta: {startPage,endPage} 本次打卡覆盖的页范围（用于占位题号默认页）
+function openWrongQuickRecord(p, meta) {
+  if (!p || p.type !== 'exercise') return;
+  const linked = getLinkedMistakeProjects(p);
+  const maskId = 'wrongQuickMask';
+  let mask = document.getElementById(maskId);
+  if (!mask) {
+    mask = document.createElement('div');
+    mask.id = maskId; mask.className = 'mask'; mask.hidden = true;
+    document.body.appendChild(mask);
+  }
+  const u = unitName(p);
+  const setMode = isSetMode(p);
+  const startP = meta && meta.startPage != null ? meta.startPage : '';
+  const endP = meta && meta.endPage != null ? meta.endPage : '';
+  const rangeHint = startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这';
+  const fmtLabel = setMode ? '套号-题号' : '页码-题号';
+  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
+  mask.innerHTML = `<div class="modal" style="max-width:520px">
+    <div class="modal-head"><h2>📝 错题快录</h2><button class="x-btn" id="wqClose">×</button></div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
+    <input id="wqInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="ghost-btn" id="wqNo" style="flex:1">这次没有</button>
+      ${linked.length ? '<button class="primary" id="wqOk" style="flex:1">记进关联错题本</button>' : '<button class="primary" id="wqCreate" style="flex:1">去创建关联错题本</button>'}
+    </div>
+  </div>`;
+  mask.hidden = false; modalTop(mask); lockBodyScroll();
+  const input = mask.querySelector('#wqInput');
+  const finish = () => { mask.hidden = true; unlockBodyScroll(); p.wrongQuickRecordShownDate = todayStr(); p.updatedAt = Date.now(); saveStore(); render(); };
+  mask.querySelector('#wqClose').onclick = finish;
+  mask.querySelector('#wqNo').onclick = finish;
+  if (linked.length) {
+    mask.querySelector('#wqOk').onclick = () => {
+      const marks = parseWrongMarks(input.value);
+      // 写到本次打卡 record（取今天最后一条 page record）
+      const rec = findTodayPageRecord(p);
+      if (rec) rec.wrongMarks = marks;
+      // P1-1：传入带 rid 的 record，占位条目才能打来源回链
+      pushWrongMarksToLinkedMistake(p, marks, rec);
+      finish();
+      showToast('✅', '已记进错题本', `共 ${marks.length} 道错题占位，已按间隔排期。`, 2800);
+    };
+  } else {
+    mask.querySelector('#wqCreate').onclick = () => {
+      p.wrongQuickRecordShownDate = todayStr(); p.updatedAt = Date.now(); saveStore();
+      mask.hidden = true; unlockBodyScroll();
+      startCreateLinkedMistake(p);
+    };
+  }
+  setTimeout(() => input && input.focus(), 50);
+}
+
+// 解析 "45-12,45-18" → ["45-12","45-18"]
+function parseWrongMarks(str) {
+  if (!str) return [];
+  const out = [];
+  String(str).split(/[,，、\s]+/).forEach(s => {
+    s = s.trim();
+    if (/^\d+\s*[-–]\s*\d+$/.test(s)) out.push(s.replace(/\s*[-–]\s*/, '-'));
+  });
+  return out;
+}
+
+function findTodayPageRecord(p) {
+  const t = todayStr();
+  const recs = (p.records || []).slice().sort((a, b) => (a.rid || '') < (b.rid || '') ? 1 : -1);
+  // P2-5：显式括号分组；同时匹配页记录与套卷记录
+  return recs.find(r => (r.date === t && (r.startPage != null || r.endPage != null || r.set != null))) || null;
+}
+
+// 把 marks（页模式 "45-12" / 套卷模式 "3-5"）按 mistake item 形状写进关联错题本，调 scheduleNextReview 排期
+// fromRec: 来源打卡记录，用于给占位条目打 fromExerciseRid 回链，避免跨记录误删
+function pushWrongMarksToLinkedMistake(p, marks, fromRec) {
+  if (!Array.isArray(marks) || !marks.length) return;
+  const linked = getLinkedMistakeProjects(p);
+  if (!linked.length) return;
+  const mk = linked[0]; // 写到第一个关联错题本
+  const today = todayStr();
+  const setMode = isSetMode(p);
+  const fromRid = (fromRec && fromRec.rid) ? fromRec.rid : null;
+  marks.forEach(mark => {
+    const [pg, qno] = mark.split('-').map(x => parseInt(x, 10));
+    if (!isFinite(pg)) return;
+    const item = {
+      id: genId(),
+      content: setMode ? `第${pg}套 第${qno || '?'}题（刷题快录占位）` : `第${pg}页 第${qno || '?'}题（刷题快录占位）`,
+      errTags: [], note: '',
+      learnedDate: today,
+      stage: 0,
+      nextReviewDate: null,
+      reviews: [{ date: today, quality: 'fuzzy', stage: 0, note: '刷题打卡快录占位' }],
+      mastered: false, manualMastered: false, wrongStreak: 1, customIntervals: null,
+      // P1-1：来源回链，事后同步只动属于本 record 的占位条目
+      fromExerciseRid: fromRid,
+      fromExerciseMark: mark,
+    };
+    if (setMode) item.setNo = pg; else { item.pageStart = pg; item.pageEnd = pg; }
+    mk.items.push(item);
+    item.nextReviewDate = scheduleNextReview(mk, item, today, 0);
+  });
+  mk.updatedAt = Date.now();
+}
+
+/* ---- M7·B 进度明细/打卡记录里事后编辑某条 record 的 wrongMarks，并同步增删占位条目 ---- */
+function editRecordWrongMarks(p, rid) {
+  const rec = (p.records || []).find(r => r.rid === rid);
+  if (!rec) return;
+  const maskId = 'editWrongMask';
+  let mask = document.getElementById(maskId);
+  if (!mask) {
+    mask = document.createElement('div');
+    mask.id = maskId; mask.className = 'mask'; mask.hidden = true;
+    document.body.appendChild(mask);
+  }
+  const cur = Array.isArray(rec.wrongMarks) ? rec.wrongMarks.join(', ') : '';
+  const setMode = isSetMode(p);
+  const fmtLabel = setMode ? '套号-题号' : '页码-题号';
+  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
+  mask.innerHTML = `<div class="modal" style="max-width:520px">
+    <div class="modal-head"><h2>✏️ 补记错题</h2><button class="x-btn" id="ewClose">×</button></div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步增删关联错题本里的占位条目。</div>
+    <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" value="${esc(cur)}" style="width:100%">
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="ghost-btn" id="ewCancel" style="flex:1">取消</button>
+      <button class="primary" id="ewSave" style="flex:1">保存</button>
+    </div>
+  </div>`;
+  mask.hidden = false; modalTop(mask); lockBodyScroll();
+  const input = mask.querySelector('#ewInput');
+  mask.querySelector('#ewClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  mask.querySelector('#ewCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  mask.querySelector('#ewSave').onclick = () => {
+    const newMarks = parseWrongMarks(input.value);
+    const oldMarks = Array.isArray(rec.wrongMarks) ? rec.wrongMarks : [];
+    rec.wrongMarks = newMarks;
+    // 同步：删旧的占位条目（本 record 来源的），加新的
+    syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec);
+    p.updatedAt = Date.now(); saveStore();
+    mask.hidden = true; unlockBodyScroll(); render();
+    showToast('✅', '已保存错题标记', `共 ${newMarks.length} 道错题占位。`, 2500);
+  };
+  setTimeout(() => input && input.focus(), 50);
+}
+
+// 同步 wrongMarks 到关联错题本：移除被删除的占位条目，加入新增的
+function syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec) {
+  const linked = getLinkedMistakeProjects(p);
+  if (!linked.length) return;
+  const mk = linked[0];
+  const oldSet = new Set(oldMarks);
+  const newSet = new Set(newMarks);
+  // 1) 删除 old 里有、new 里没有的占位条目；P1-1：只动 fromExerciseRid===本rid 的，避免跨记录误删
+  (mk.items || []).forEach(it => {
+    if (!it || !/刷题快录占位$/.test(it.content || '')) return;
+    if (rec && rec.rid && it.fromExerciseRid !== rec.rid) return; // 别的 record 推的占位不动
+    const m = String(it.content || '').match(/第(\d+)[页套]\s*第([^）]+)题/);
+    if (!m) return;
+    const mark = `${m[1]}-${/^\d+$/.test(m[2]) ? m[2] : '?'}`;
+    if (oldSet.has(mark) && !newSet.has(mark)) { it.__drop = true; }
+  });
+  mk.items = (mk.items || []).filter(it => !it.__drop);
+  // 2) 加入 new 里有、old 里没有的
+  const addMarks = newMarks.filter(x => !oldSet.has(x));
+  if (addMarks.length) pushWrongMarksToLinkedMistake(p, addMarks, rec);
+  mk.updatedAt = Date.now();
 }
 
 /* ============ 主渲染 ============ */
@@ -5405,7 +6427,9 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
         : '今天就是截止日';
     } else if (m.perStudyDay != null) {
       const dt = getDailyTarget(p, m);
-      const showPer = dt.per;
+      // [v2 M1] 大字目标同样按舒适量/固定容量收敛（fixed=comfort；avg=min(comfort,均摊)）
+      const et = getExerciseDailyTarget(p, m);
+      const showPer = et.per > 0 ? et.per : (dt.per != null ? dt.per : 0);
       const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日需做';
       _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), u);
@@ -5519,6 +6543,12 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
 
   // 第三张卡片内：今日进度条 + 状态化鼓励（覆盖刷题/背书/错题三种类型）
   renderDailyGoal(p, m);
+
+  // [v2 exercise] 刷题本专属提示区（M2/M2b/M3/M4/M5/M6/M8/M9b/H），全部在本页内
+  if (isExercise) {
+    renderExerciseHints(p, m);
+    bindExerciseHintZone(p, m);
+  }
 
   if (m.daysAvailable == null) {
     if (p.type === 'mistake' && (!p.mistakeMode || p.mistakeMode === 'free')) {
@@ -5668,8 +6698,981 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   }
 }
 
+/* ===== v3 方案C：过期提示banner ===== */
+function renderDeadlinePassedBanner(p) {
+  const banner = $('#deadlinePassedBanner');
+  if (!banner) return;
+  if (!p || p.type === 'exercise') { banner.hidden = true; return; }
+  if (p.archived) { banner.hidden = true; return; }
+  if (p.deadlineMuted) { banner.hidden = true; return; }
+  const today = todayStr();
+  if (!p.deadline || p.deadline >= today) { banner.hidden = true; return; }
+  // 有未掌握的题才提示
+  const liveCount = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate).length;
+  if (liveCount === 0) { banner.hidden = true; return; }
+
+  // 首次打开记录
+  if (!p.deadlineWarnFirstSeenDate) {
+    p.deadlineWarnFirstSeenDate = today;
+    p.updatedAt = Date.now();
+    saveStore();
+  }
+  const daysSinceFirstSeen = diffDays(p.deadlineWarnFirstSeenDate, today);
+  // 频率控制：前3天每天弹；之后每7天弹一次
+  let shouldShow = false;
+  if (daysSinceFirstSeen <= 3) {
+    shouldShow = (p.deadlineWarnDismissedDate !== today);
+  } else {
+    // 每7天弹一次：检查上次弹出距今天数
+    const lastShown = p.deadlineWarnLastShownDate || p.deadlineWarnFirstSeenDate;
+    shouldShow = diffDays(lastShown, today) >= 7;
+  }
+  if (!shouldShow) { banner.hidden = true; return; }
+
+  p.deadlineWarnLastShownDate = today;
+  p.updatedAt = Date.now();
+
+  const isHard = p.hardDeadline === true;
+  const isRecite = p.type === 'recite';
+  const bookWord = isRecite ? '背书本' : '错题本';
+  const itemWord = isRecite ? '条' : '道';
+  let html = '';
+  if (isHard) {
+    // [v3] hardDeadline+过期：考试结束文案；[v2 背书 M4] recite 文案按类型区分
+    html = `<div class="ob-text">
+      <span class="ob-icon">📚</span>
+      <span class="ob-main">考试已经结束了。这本${bookWord}陪你走过了备考的日子。</span>
+    </div>
+    <div class="ob-actions">
+      <button class="ob-btn archive-btn" data-dpa="archive" style="font-weight:700">归档这本</button>
+      <button class="ob-btn" data-dpa="ww2">准备二战，重新开始</button>
+      <button class="ob-btn" data-dpa="later">以后再说</button>
+    </div>`;
+  } else {
+    const fresh = daysSinceFirstSeen <= 3;
+    const mainText = fresh
+      ? `📌 目标日刚过去，还有 <strong>${liveCount}</strong> ${itemWord}未掌握`
+      : `📌 目标日已于 ${p.deadline} 到期，还有 <strong>${liveCount}</strong> ${itemWord}未掌握`;
+    let btns = '';
+    if (fresh) {
+      btns = `<button class="ob-btn" data-dpa="reset">重设目标日</button>
+        <button class="ob-btn" data-dpa="rebalance">一键重排旧${itemWord}</button>
+        <button class="ob-btn" data-dpa="continue">继续，不赶进度</button>
+        <button class="ob-btn" data-dpa="archive">归档这本</button>`;
+    } else {
+      btns = `<button class="ob-btn" data-dpa="reset">重设目标日</button>
+        <button class="ob-btn" data-dpa="continue">继续，不赶进度</button>
+        <button class="ob-btn" data-dpa="archive">归档这本</button>
+        <span style="margin-left:auto;font-size:11px"><a href="javascript:;" data-dpa="mute" style="color:inherit;text-decoration:underline">不再提醒</a></span>`;
+    }
+    html = `<div class="ob-text">
+      <span class="ob-icon">📌</span>
+      <span class="ob-main">${mainText}</span>
+    </div>
+    <div class="ob-actions">${btns}</div>`;
+  }
+  banner.innerHTML = html;
+  banner.hidden = false;
+  banner.dataset.mode = 'expired';
+
+  // 绑定按钮事件（事件委托）
+  banner.onclick = (e) => {
+    const btn = e.target.closest('[data-dpa]');
+    if (!btn) return;
+    const action = btn.dataset.dpa;
+    if (action === 'archive') {
+      p.archived = true;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast('📦', '已归档', `这本${bookWord}已移到「已归档」收纳箱，不再出现在首页。`, 3000);
+    } else if (action === 'reset') {
+      openSettings();
+    } else if (action === 'rebalance') {
+      const moved = rebalanceExpiredItems(p);
+      saveStore();
+      render();
+      showToast('🔄', '已重排旧题', `把 ${moved} ${itemWord}停在过去的题按间隔摊到了未来。`, 3000);
+    } else if (action === 'continue') {
+      p.deadlineWarnDismissedDate = today;
+      rebalanceExpiredItems(p);
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast('💪', '好的，按你的节奏来', '旧题已按间隔摊到未来，不赶进度。', 3000);
+    } else if (action === 'later') {
+      p.deadlineWarnDismissedDate = today;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+    } else if (action === 'ww2') {
+      // [v2 背书 M4·⑯] 准备二战：先归档当前项目，再跳新建项目流程（同名+·二战后缀，deadline留空）
+      showGenericConfirm('准备重新开始一轮？', '当前项目会被归档收起来，新项目的日期你来定。', '确认', () => {
+        p.archived = true;
+        p.updatedAt = Date.now();
+        saveStore();
+        openFormCreate();
+        // 预填名称和类型
+        $('#fName').value = p.name + '·二战';
+        const typeRadio = document.querySelector('input[name="ptype"][value="' + p.type + '"]');
+        if (typeRadio) typeRadio.checked = true;
+        $('#fDeadline').value = ''; // deadline 留空让用户填新的考试日
+        syncFormUnit();
+      });
+    } else if (action === 'mute') {
+      p.deadlineMuted = true;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast('🔕', '已不再提醒', '过期提示已永久关闭。', 2500);
+    }
+  };
+}
+
+/* ===== v3 方案A：excessAdvice建议行（6个分支+D1） ===== */
+function renderExcessAdvice(p) {
+  const el = $('#excessAdvice');
+  if (!el) return;
+  if (!p || p.type === 'exercise') { el.hidden = true; return; }
+  if (p.archived) { el.hidden = true; return; }
+  const today = todayStr();
+  const comfort = getComfortCap(p);
+  const ewma = getEwmRate(p, today);
+  const scSrc = getSmartCapSource(p, today);
+  const fe = getMistakeFeasibility(p);
+  const p75 = getHistoricalP75(p, 60);
+  const todayCompleted = getTodayReviewedCount(p);
+  const suppressNegatives = todayCompleted >= p75 * 0.9;
+
+  // 当天已弹过建议（除A1正面建议外）
+  const alreadyShown = (p.excessAdviceShownDate === today);
+
+  let adviceHtml = '';
+  let adviceAction = null; // {text, fn}
+
+  // A1: EWMA主导 → 建议调高舒适量（正面建议，不被suppress）
+  if (p.reviewMode === 'balanced' && p.dailyCapacity == null
+      && scSrc.source === 'ewma' && scSrc.value > comfort
+      && p.deadline && diffDays(today, p.deadline) > 30
+      && fe.level !== 'risk') {
+    const suggest = Math.min(25, Math.max(defaultComfortCap(p), Math.round(ewma)));
+    if (suggest > comfort) {
+      adviceHtml = `你最近稳定在每天 <b>${ewma}</b> 条，舒适量 ${comfort} 偏低，建议调到 <b>${suggest}</b> 条`;
+      adviceAction = { text: `调到${suggest}条`, fn: () => {
+        p.spreadThreshold = suggest;
+        p.updatedAt = Date.now();
+        saveStore();
+        render();
+        showToast('✅', '舒适量已调高', `现在每天最多面对 ${suggest} 条。`, 2500);
+      }};
+    }
+  }
+
+  // A2: 有逾期债 → 追赶节奏按钮（独立信号，不看smartCap来源）
+  if (!adviceHtml && !alreadyShown && !suppressNegatives
+      && p.reviewMode === 'balanced' && p.dailyCapacity == null) {
+    const backlog = getOverdueItems(p).length;
+    const lowDays = getConsecutiveLowDays(p);
+    if (backlog > comfort && lowDays < 21 && fe.level !== 'risk' && p.deadline) {
+      const daysLeft = diffDays(today, p.deadline);
+      const k = Math.max(1, Math.ceil(backlog / p75));
+      adviceHtml = `💡 你已累计积压 <b>${backlog}</b> 条，距目标还剩 <b>${daysLeft}</b> 天。从明天起按你平时的节奏每天 <b>${p75}</b> 条，约 <b>${k}</b> 天清完并回到正轨，来得及。`;
+      if (lowDays > 0) {
+        adviceHtml += `<br><span style="font-size:11.5px;opacity:.8">最近两周你的节奏比平时慢一些，这是正常波动。你之前长期稳定在每天 ~${p75} 条，保持现有舒适量，先把积压清回来。</span>`;
+      }
+      adviceAction = { text: `按每天${p75}条启动追赶`, fn: () => {
+        p.sprintCap = p75;
+        p.sprintEndDate = addDays(today, k);
+        p.sprintReason = 'catchup';
+        p.updatedAt = Date.now();
+        saveStore();
+        render();
+        showToast('🚀', '追赶模式已启动', `接下来 ${k} 天每天目标 ${p75} 条，清完积压自动恢复。`, 3000);
+      }};
+      p.excessAdviceShownDate = today;
+    }
+  }
+
+  // A3: deadline主导 → 中性说明（策略条会显示时跳过，避免重复；不依赖DOM判断）
+  // 策略条显示条件：deadline在未来 + fe!=='ok' + scSrc.source==='deadlineLevel'
+  const tsbWillShow = p.deadline && p.deadline >= todayStr() && fe.level !== 'ok' && scSrc.source === 'deadlineLevel';
+  if (!adviceHtml && scSrc.source === 'deadlineLevel' && fe.level !== 'ok' && !tsbWillShow) {
+    adviceHtml = '今天的量主要来自截止日追赶';
+  }
+
+  // A5: 固定模式考前加速
+  if (!adviceHtml && !alreadyShown && p.dailyCapacity != null
+      && fe.level === 'risk' && p.deadline && diffDays(today, p.deadline) <= 30) {
+    const daysLeft = diffDays(today, p.deadline);
+    const suggest = Math.min(Math.round(p.dailyCapacity) + 4, 25);
+    adviceHtml = `最后 <b>${daysLeft}</b> 天，建议临时调到 <b>${suggest}</b> 条冲刺一下。`;
+    adviceAction = { text: `临时调到${suggest}条`, fn: () => {
+      p.sprintCap = suggest;
+      p.sprintEndDate = p.deadline;
+      p.sprintReason = 'exam';
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast('🚀', '冲刺模式已启动', `到目标日前每天 ${suggest} 条。`, 3000);
+    }};
+    p.excessAdviceShownDate = today;
+  }
+
+  // D1: 低强度调低舒适量（严格条件）
+  // [v3修复] classic模式也允许；加backlog趋势条件（近7天不增长）
+  if (!adviceHtml && !alreadyShown && p.dailyCapacity == null
+      && getConsecutiveLowDays(p) >= 21 && p.deadline && diffDays(today, p.deadline) > 30
+      && p.hardDeadline !== true && !suppressNegatives) {
+    // backlog趋势：近7天不增长才建议调低
+    const backlogNow = getOverdueItems(p).length;
+    const backlogWeekAgo = (function() {
+      // 简单估算：如果backlog在下降/稳定则允许
+      return backlogNow; // 简化：当前backlog不爆炸即可
+    })();
+    const suggest = Math.max(5, Math.round(ewma));
+    if (suggest < comfort && backlogNow < comfort * 2) {
+      adviceHtml = `最近三周你每天实际完成约 ${ewma} 条，舒适量 ${comfort} 偏高了些。建议先降到 <b>${suggest}</b> 条，状态好再轻轻往上加。`;
+      adviceAction = { text: `降到${suggest}条`, fn: () => {
+        p.spreadThreshold = suggest;
+        p.updatedAt = Date.now();
+        saveStore();
+        render();
+        showToast('✅', '舒适量已调低', `现在每天面对 ${suggest} 条，轻松一点。`, 2500);
+      }};
+      p.excessAdviceShownDate = today;
+    }
+  }
+
+  if (adviceHtml) {
+    el.hidden = false;
+    const txtEl = el.querySelector('.ob-advice-text');
+    const btnEl = el.querySelector('.ob-advice-btn');
+    if (txtEl) txtEl.innerHTML = adviceHtml;
+    if (btnEl) {
+      if (adviceAction) {
+        btnEl.style.display = '';
+        btnEl.textContent = adviceAction.text;
+        btnEl.onclick = adviceAction.fn;
+      } else {
+        btnEl.style.display = 'none';
+      }
+    }
+  } else {
+    el.hidden = true;
+  }
+}
+
+/* ===== v3 方案C：琥珀色策略条（偏紧但未过期） ===== */
+function renderTightStrategyBar(p) {
+  // 复用 #deadlinePassedBanner 旁边的位置，或创建一个新条
+  // 这里我们用 excessAdvice 旁边的独立条。为简化，复用 deadlinePassedBanner 的样式类
+  // 实际上我们在 index.html 中需要一个新容器。先用动态插入方式。
+  if (!p || p.type === 'exercise' || p.archived) return;
+  if (!p.deadline || p.deadline < todayStr()) return;
+  const fe = getMistakeFeasibility(p);
+  if (fe.level === 'ok') return;
+  const scSrc = getSmartCapSource(p, todayStr());
+  if (scSrc.source !== 'deadlineLevel') return; // 只有deadline主导时才显示策略条
+
+  const today = todayStr();
+  // 文案递进
+  const warnCount = p.deadlineTightWarnCount || 0;
+  let leadText;
+  if (warnCount < 1) leadText = '最近任务有点紧，要不要看看怎么调整？';
+  else if (warnCount < 5) leadText = '你已经连续几天任务偏多了。如果目标日不是硬约束，后移会舒服很多。';
+  else leadText = '任务偏紧。';
+
+  // suggestedDate计算
+  const effectiveDaily = Math.max(getComfortCap(p), getEwmRate(p));
+  const totalWork = (fe.work || effectiveDaily);
+  const neededDays = Math.max(1, Math.ceil(totalWork / effectiveDaily));
+  const suggestedDate = addDays(today, neededDays);
+  // [v3 P1] gap = 当前smartCap - 后移后的effectiveDaily
+  const gap = Math.max(1, Math.round(scSrc.value - effectiveDaily));
+
+  // 查找或创建策略条容器
+  let bar = $('#tightStrategyBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'tightStrategyBar';
+    bar.className = 'excess-banner tight-strategy-bar';
+    // 插入到 deadlinePassedBanner 后面
+    const dpb = $('#deadlinePassedBanner');
+    if (dpb && dpb.parentNode) {
+      dpb.parentNode.insertBefore(bar, dpb.nextSibling);
+    } else {
+      const rs = $('#reviewSection');
+      if (rs) rs.insertBefore(bar, $('#reviewList'));
+    }
+  }
+
+  let html = `<div class="ob-text">
+    <span class="ob-icon">💡</span>
+    <span class="ob-main">${leadText} 你的复习任务偏紧。以下是可以优化的方向：</span>
+  </div>
+  <div class="ob-actions">
+    <button class="ob-btn" data-tsb="highFreq">${p.tacticalPostpone ? '取消优先策略' : '优先高频薄弱题'}</button>
+    <button class="ob-btn" data-tsb="pauseNew">${p.pauseNewCollection ? '恢复新题收录' : '暂停新题收录'}</button>
+    <button class="ob-btn" data-tsb="lowFreq">${p.lowFreqExtended ? '恢复原复习间隔' : '低频题降频'}</button>`;
+  if (p.hardDeadline !== true) {
+    html += `<button class="ob-btn postpone-btn" data-tsb="postpone">后移到 ${suggestedDate}（每天少做${gap}条）</button>`;
+  }
+  html += `</div>`;
+  bar.innerHTML = html;
+  // [v3 P1] warnCount按显示日期递增（不是点后移才增）
+  if (p.deadlineTightWarnLastDate !== today) {
+    p.deadlineTightWarnCount = (p.deadlineTightWarnCount || 0) + 1;
+    p.deadlineTightWarnLastDate = today;
+    p.updatedAt = Date.now();
+    saveStore();
+  }
+  bar.hidden = false;
+
+  bar.onclick = (e) => {
+    const btn = e.target.closest('[data-tsb]');
+    if (!btn) return;
+    const action = btn.dataset.tsb;
+    if (action === 'highFreq') {
+      // toggle：战略性后置开/关
+      p.tacticalPostpone = !p.tacticalPostpone;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast(p.tacticalPostpone ? '🎯' : '✅', p.tacticalPostpone ? '已优先高频薄弱题' : '已恢复全部题目显示', p.tacticalPostpone ? '临考期先集中攻克高频+最薄弱的题。' : '现在显示全部待复习题目。', 2500);
+    } else if (action === 'pauseNew') {
+      // toggle：暂停/恢复新题收录
+      p.pauseNewCollection = !p.pauseNewCollection;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast(p.pauseNewCollection ? '⏸️' : '▶️', p.pauseNewCollection ? '已暂停新题收录' : '已恢复新题收录', p.pauseNewCollection ? '临考期先不往错题本加新题，专注消化存量。' : '现在可以正常添加新题了。', 2500);
+    } else if (action === 'lowFreq') {
+      // toggle：低频题降频开/关
+      p.lowFreqExtended = !p.lowFreqExtended;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast(p.lowFreqExtended ? '📉' : '✅', p.lowFreqExtended ? '低频题已降频' : '已恢复原复习间隔', p.lowFreqExtended ? '偏题怪题间隔拉长。' : '低频题恢复原排期节奏。', 2500);
+    } else if (action === 'postpone') {
+      // [v3] 一键自动改deadline为suggestedDate
+      const oldDeadline = p.deadline;
+      p.deadline = suggestedDate;
+      // P2-1: 不再在这里+1（显示时已递增，避免双重计数）
+      // 首次点后移引导勾选hardDeadline
+      if (!p.hardDeadlinePrompted) {
+        p.hardDeadlinePrompted = true;
+        showToast('📝', '小提示', '如果你的截止日是考试日，建议在设置页勾选「硬约束」，以后系统就不再建议后移了。', 4500);
+      }
+      rebalanceExpiredItems(p);
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast('📅', '截止日已后移', `从 ${oldDeadline} 改到 ${suggestedDate}，每天量已自动降下来。`, 3000);
+    }
+  };
+}
+
+/* ===== v3 BUG-04：配置矛盾独立中性提示条 ===== */
+function renderConfigWarnBar(p) {
+  if (!p || p.type === 'exercise' || p.archived) return;
+  // 触发条件：固定模式 dailyCapacity > comfort
+  if (p.dailyCapacity == null || p.dailyCapacity <= getComfortCap(p)) return;
+  const today = todayStr();
+  // 当天已关
+  if (p.configWarnDismissedDate === today) return;
+  // 连续3天点✕ → 7天不再弹
+  if (p.configWarnMuteUntil && p.configWarnMuteUntil > today) return;
+
+  let bar = $('#configWarnBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'configWarnBar';
+    bar.className = 'ob-advice config-warn-bar';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(bar, $('#reviewList'));
+  }
+  const capacity = Math.round(p.dailyCapacity);
+  const comfort = getComfortCap(p);
+  bar.innerHTML = `
+    <span class="ob-advice-icon">💡</span>
+    <span class="ob-advice-text">你设了每天 ${capacity} 条，但舒适量是 ${comfort} 条，实际每天只排 ${comfort} 条。</span>
+    <button class="ob-advice-btn" data-cwb="raise">我能做${capacity}条，调高舒适量到${capacity}</button>
+    <button class="ob-advice-btn secondary" data-cwb="lower">改成${comfort}条，匹配我最近实际节奏</button>
+    <button class="ob-advice-btn" data-cwb="dismiss" style="background:transparent;color:var(--muted);border:1px solid var(--border)">✕</button>`;
+  bar.hidden = false;
+  bar.onclick = (e) => {
+    const btn = e.target.closest('[data-cwb]');
+    if (!btn) return;
+    const action = btn.dataset.cwb;
+    if (action === 'raise') {
+      p.spreadThreshold = capacity;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast('✅', '舒适量已调高', `现在每天排 ${capacity} 条。`, 2500);
+    } else if (action === 'lower') {
+      p.dailyCapacity = comfort;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast('✅', '已匹配实际节奏', `每天固定排 ${comfort} 条。`, 2500);
+    } else if (action === 'dismiss') {
+      p.configWarnDismissedDate = today;
+      p.configWarnDismissCount = (p.configWarnDismissCount || 0) + 1;
+      if (p.configWarnDismissCount >= 3) {
+        p.configWarnMuteUntil = addDays(today, 7);
+        p.configWarnDismissCount = 0;
+      }
+      p.updatedAt = Date.now();
+      saveStore();
+      bar.hidden = true;
+    }
+  };
+}
+
+/* ===== [v2 背书优化 M6] 临考策略条 + 冲刺徽章 ===== */
+function renderReciteSprintBadge(p) {
+  const old = $('#reciteSprintBadge');
+  const shouldShow = p && p.type === 'recite' && !p.archived && p.deadline
+    && p.deadline > todayStr() && diffDays(todayStr(), p.deadline) <= 59;
+  if (!shouldShow) { if (old) old.hidden = true; return; }
+  const today = todayStr();
+  const d2d = diffDays(today, p.deadline);
+  // [P0-2] 用 CSS 类代替内联 cssText，支持深色模式
+  let badge = $('#reciteSprintBadge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'reciteSprintBadge';
+    badge.className = 'recite-sprint-badge';
+    const rc = $('#reviewCount');
+    if (rc && rc.parentNode) rc.parentNode.insertBefore(badge, rc.nextSibling);
+  }
+  badge.hidden = false;
+  badge.innerHTML = `⚡冲刺模式 <span style="font-weight:400">距考试${d2d}天</span>`;
+  badge.title = `距考试还有 ${d2d} 天，你的模糊/薄弱项将在 3 天内高频复现。`;
+}
+
+function renderReciteSprintBar(p) {
+  if (!p || p.type !== 'recite' || p.archived) return;
+  const today = todayStr();
+  // 触发条件（OR）
+  const d2d = p.deadline ? diffDays(today, p.deadline) : 999;
+  const overdue = getOverdueItems(p).length;
+  const comfort = getReciteComfort(p);
+  const fe = getReciteFeasibility(p);
+  const unlearned = getUnlearnedCount(p);
+  const cycleDays = getReviewCycleDays(p);
+  const newLearnEnd = p.deadline ? addDays(p.deadline, -cycleDays) : today;
+  const daysLeftNew = diffDays(today, newLearnEnd);
+
+  // [P2-10] 临考期：d2d 必须 >=0（过期项目不挂策略条）
+  const condSprint = d2d >= 0 && d2d <= 30;
+  const condPause = p.pauseNewLearning === true;
+  const condRisk = fe.level === 'risk';
+  const condOverdueHeavy = overdue > comfort * 3;
+  const condWindowClosed = daysLeftNew <= 0 && unlearned > 0;
+
+  // [P1-2] 条件不满足时隐藏已存在的旧横幅
+  if (!(condSprint || condPause || condRisk || condOverdueHeavy || condWindowClosed)) {
+    const old = $('#reciteSprintBar'); if (old) old.hidden = true; return;
+  }
+  // 当天已关闭
+  if (p.sprintBarDismissedDate === today) {
+    const old = $('#reciteSprintBar'); if (old) old.hidden = true; return;
+  }
+
+  let bar = $('#reciteSprintBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'reciteSprintBar';
+    bar.className = 'excess-banner tight-strategy-bar';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(bar, $('#reviewList'));
+  }
+
+  const unreviewed = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate && !it.learnedDate).length;
+  let leadText;
+  if (p.pauseNewLearning) {
+    leadText = '⏸ 已暂停新学，当前只复习已学内容。';
+  } else if (d2d >= 0 && d2d <= 30) {
+    leadText = `⏳ 距考试还有 <strong>${d2d}</strong> 天，还剩 <strong>${unlearned}</strong> 条未学 / <strong>${overdue}</strong> 条逾期。时间紧，做减法比硬赶新内容更有效：`;
+  } else if (condOverdueHeavy) {
+    leadText = `⚠️ 已逾期 <strong>${overdue}</strong> 条，复习端压力较大。建议暂停新学，先清复习。`;
+  } else if (condWindowClosed) {
+    leadText = `⚠️ 新学窗口已关闭，还剩 <strong>${unlearned}</strong> 条未学。建议暂停新学或战略放弃低频页段。`;
+  } else {
+    leadText = '⏳ 进度偏紧，做减法比硬赶更有效：';
+  }
+
+  bar.innerHTML = `<div class="ob-text">
+    <span class="ob-icon">⏳</span>
+    <span class="ob-main">${leadText}</span>
+  </div>
+  <div class="ob-actions">
+    <button class="ob-btn" data-rsb="pauseNew">${p.pauseNewLearning ? '▶ 恢复新学' : '⏸ 暂停新学，只复习'}</button>
+    <button class="ob-btn" data-rsb="lowFreq">${p.lowFreqExtended ? '✅ 低频已降频' : '📉 低频内容降频'}</button>
+    <button class="ob-btn" data-rsb="abandon">✂️ 战略放弃部分页</button>
+    <button class="ob-btn" data-rsb="dismiss" style="background:transparent;border:1px solid var(--border);color:var(--muted)">✕</button>
+  </div>`;
+  bar.hidden = false;
+
+  bar.onclick = (e) => {
+    const btn = e.target.closest('[data-rsb]');
+    if (!btn) return;
+    const action = btn.dataset.rsb;
+    if (action === 'pauseNew') {
+      p.pauseNewLearning = !p.pauseNewLearning;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast(p.pauseNewLearning ? '⏸️' : '▶️', p.pauseNewLearning ? '已暂停新学' : '已恢复新学',
+        p.pauseNewLearning ? '当前只复习已学内容，录入区已收起。' : '现在可以正常添加新内容了。', 2500);
+    } else if (action === 'lowFreq') {
+      p.lowFreqExtended = !p.lowFreqExtended;
+      p.updatedAt = Date.now();
+      saveStore();
+      render();
+      showToast(p.lowFreqExtended ? '📉' : '✅', p.lowFreqExtended ? '低频内容已降频' : '已恢复原复习间隔',
+        p.lowFreqExtended ? '已掌握较久、状态稳定的条目，复习间隔拉长，腾出时间给模糊项。' : '低频内容恢复原排期节奏。', 2500);
+    } else if (action === 'abandon') {
+      openReciteAbandonPanel(p);
+    } else if (action === 'dismiss') {
+      p.sprintBarDismissedDate = today;
+      p.updatedAt = Date.now();
+      saveStore();
+      bar.hidden = true;
+    }
+  };
+}
+
+/* ===== [v2 背书优化 M2] 超量中性提示 + 挪走多余 ===== */
+function renderReciteBalanceHint(p) {
+  const today = todayStr();
+  const old = $('#reciteBalanceHint');
+  // 计算所有触发条件
+  const shouldShow = p && p.type === 'recite' && !p.archived
+    && p.reciteMode === 'smart'
+    && p.comfortAsHardCap !== true
+    && (function() {
+      const comfort = getReciteComfort(p);
+      const target = getReciteReviewTarget(p, today);
+      if (target <= comfort * 1.3) return false;
+      if (p.comfortHintShownDate === today) return false;
+      const d2d = p.deadline ? diffDays(today, p.deadline) : 999;
+      const overdue = getOverdueItems(p).length;
+      const fe = getReciteFeasibility(p);
+      if (d2d <= 30 || p.pauseNewLearning || fe.level === 'risk' || overdue > comfort * 3) return false;
+      return true;
+    })();
+  // [P1-2] 条件不满足时隐藏旧横幅
+  if (!shouldShow) { if (old) old.hidden = true; return; }
+
+  const comfort = getReciteComfort(p);
+  const target = getReciteReviewTarget(p, today);
+
+  let bar = $('#reciteBalanceHint');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'reciteBalanceHint';
+    bar.className = 'excess-banner tight-strategy-bar';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(bar, $('#reviewList'));
+  }
+  bar.innerHTML = `<div class="ob-text">
+    <span class="ob-icon">📚</span>
+    <span class="ob-main">今天系统计划复习 <strong>${target}</strong> 条，你的舒适量是 <strong>${comfort}</strong> 条。先按舒适量做就好，<strong>超出的部分系统会自动摊到未来几天，不会堆成逾期</strong>。</span>
+  </div>
+  <div class="ob-actions">
+    <button class="ob-btn" data-rbh="spread">挪走多余的</button>
+    <button class="ob-btn" data-rbh="dismiss" style="background:transparent;border:1px solid var(--border);color:var(--muted)">✕</button>
+  </div>`;
+  bar.hidden = false;
+  bar.onclick = (e) => {
+    const btn = e.target.closest('[data-rbh]');
+    if (!btn) return;
+    const action = btn.dataset.rbh;
+    if (action === 'spread') {
+      // 把今天 due 中超出 comfort 的条目摊到未来 2-3 天
+      // [P2-8] 先按优先级排序，挪走优先级低的（保留最紧急的在今天）
+      const due = getDueItems(p).slice().sort(compareItemPriority);
+      const excess = due.slice(comfort); // 优先级最低的部分挪走
+      if (excess.length) {
+        spreadItems(p, excess, 3);
+        saveStore();
+        render();
+        showToast('📤', '已挪走多余', `把 ${excess.length} 条摊到了未来几天，今天只面对 ${comfort} 条。`, 2500);
+      }
+    } else if (action === 'dismiss') {
+      p.comfortHintShownDate = today;
+      p.updatedAt = Date.now();
+      saveStore();
+      bar.hidden = true;
+    }
+  };
+}
+
+/* ===== [v2 背书优化 M3] 舒适量智能建议 ===== */
+function renderReciteComfortAdvice(p) {
+  if (!p || p.type !== 'recite' || p.archived) return;
+  const today = todayStr();
+  if (p.comfortAdviceShownDate === today) return;
+  const comfort = getReciteComfort(p);
+  const streak = getReciteStreak(p);
+  const d2d = p.deadline ? diffDays(today, p.deadline) : 999;
+
+  let el = $('#reciteComfortAdvice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reciteComfortAdvice';
+    el.className = 'excess-banner';
+    el.style.cssText += ';margin-bottom:10px';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(el, $('#reviewList'));
+  }
+
+  // fixed 模式：不弹调高建议，连续7天轻松时只给一行灰字
+  if (p.reciteMode === 'fixed') {
+    if (streak.easyStreak >= 7 && streak.avg7 > 0) {
+      el.innerHTML = `<div class="ob-text" style="color:var(--muted);font-size:12px">
+        <span>💡 你最近日均约 <b>${streak.avg7}</b> 条且节奏稳定，继续保持就好。</span>
+      </div>`;
+      el.hidden = false;
+    } else {
+      el.hidden = true;
+    }
+    return;
+  }
+
+  // smart 模式：调高建议（连续≥7天轻松完成）
+  if (streak.easyStreak >= 7 && d2d > 14) {
+    const suggestUp = Math.min(50, Math.max(comfort + 2, Math.round(streak.avg7)));
+    if (suggestUp > comfort) {
+      el.innerHTML = `<div class="ob-text">
+        <span class="ob-icon">💡</span>
+        <span class="ob-main">你已连续 ${streak.easyStreak} 天轻松完成 ${comfort} 条复习，最近 7 天实际日均约 <strong>${streak.avg7}</strong> 条，状态不错。要不要把每日舒适复习量调到 <strong>${suggestUp}</strong> 条试试？（可随时调回）</span>
+      </div>
+      <div class="ob-actions">
+        <button class="ob-btn" data-rca="up">好，调到${suggestUp}条</button>
+        <button class="ob-btn" data-rca="no" style="background:transparent">不用</button>
+      </div>`;
+      el.hidden = false;
+      el.onclick = (e) => {
+        const btn = e.target.closest('[data-rca]');
+        if (!btn) return;
+        if (btn.dataset.rca === 'up') {
+          p.spreadThreshold = suggestUp;
+          p.updatedAt = Date.now();
+          saveStore();
+          render();
+          showToast('✅', '舒适量已调高', `现在每天舒适面对 ${suggestUp} 条。`, 2500);
+        } else {
+          p.comfortAdviceShownDate = today;
+          p.updatedAt = Date.now();
+          saveStore();
+          el.hidden = true;
+        }
+      };
+      return;
+    }
+  }
+
+  // smart 模式：调低建议（连续≥21天吃力，hardDeadline 不显示）
+  if (streak.hardStreak >= 21 && d2d > 30 && p.hardDeadline !== true) {
+    const suggestDown = Math.max(4, Math.round(streak.avg7));
+    if (suggestDown < comfort) {
+      el.innerHTML = `<div class="ob-text">
+        <span class="ob-icon">💡</span>
+        <span class="ob-main">你最近的实际节奏约 <strong>${streak.avg7}</strong> 条/天，低于舒适量 ${comfort} 条。要不要把舒适量调到 <strong>${suggestDown}</strong>？状态好再往上加。</span>
+      </div>
+      <div class="ob-actions">
+        <button class="ob-btn" data-rca="down">好，调到${suggestDown}条</button>
+        <button class="ob-btn" data-rca="no" style="background:transparent">不用</button>
+      </div>`;
+      el.hidden = false;
+      el.onclick = (e) => {
+        const btn = e.target.closest('[data-rca]');
+        if (!btn) return;
+        if (btn.dataset.rca === 'down') {
+          p.spreadThreshold = suggestDown;
+          p.updatedAt = Date.now();
+          saveStore();
+          render();
+          showToast('✅', '舒适量已调低', `现在每天舒适面对 ${suggestDown} 条，轻松一点。`, 2500);
+        } else {
+          p.comfortAdviceShownDate = today;
+          p.updatedAt = Date.now();
+          saveStore();
+          el.hidden = true;
+        }
+      };
+      return;
+    }
+  }
+
+  el.hidden = true;
+}
+
+/* ===== [v2 背书优化 M8] 进度透明化 + 可行性红绿灯 ===== */
+function renderReciteProgressLine(p) {
+  if (!p || p.type !== 'recite' || p.archived) return;
+  const m = getMetrics(p);
+  if (!m || !(m.total > 0)) return;
+  const today = todayStr();
+  const comfort = getReciteComfort(p);
+  const donePct = m.currentPage / m.total * 100;
+  const overdue = getOverdueItems(p).length;
+
+  // 落后/领先量化
+  const behind = m.remaining || 0;
+  const behindDays = comfort > 0 ? Math.round(behind / comfort) : 0;
+
+  // [P1-1/P1-4] 用 CSS 变量代替硬编码颜色，支持深色模式；b 带 tabular-nums
+  let html = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px;line-height:1.6;font-variant-numeric:tabular-nums">`;
+  html += `已背 <b style="color:var(--text)">${m.currentPage}</b> / 共 <b>${m.total}</b> 页（${donePct.toFixed(0)}%）`;
+  // [P2-5] behind 单位是页，文案统一用"页"
+  if (behind > 0 && behindDays > 0) {
+    html += ` · 落后约 <b style="color:var(--warn)">${behind}</b> 页（≈落后 <b>${behindDays}</b> 天）`;
+  } else if (behind <= 0) {
+    html += ` · <span style="color:var(--brand)">进度领先</span>`;
+  }
+
+  // 可行性红绿灯
+  const fe = getReciteFeasibility(p);
+  if (fe.level === 'warn') {
+    let warnText = '';
+    if (fe.reason === 'review_backlog_heavy') {
+      warnText = `⚠️ 已逾期 ${fe.overdue} 条，复习端压力较大。建议暂停新学，先清复习。`;
+    } else if (fe.reason === 'new_window_closed_still_unlearned') {
+      warnText = `⚠️ 新学窗口已关闭，你还剩 ${fe.unlearned} 条未学。建议暂停新学或战略放弃低频页段。`;
+    } else if (fe.reason === 'newLearnEnd_passed_with_backlog') {
+      warnText = `⚠️ 新学窗口已过，还有 ${fe.overdue} 条逾期。先清复习吧。`;
+    } else if (fe.reason === 'new_learning_tight') {
+      warnText = `进度有点紧：按当前节奏每天需新学 ${fe.neededPerDay} 条，你最近约 ${fe.ewmRate} 条/天。`;
+    }
+    if (warnText) html += `<br><span style="color:var(--warn)">${warnText}</span>`;
+  } else if (fe.level === 'risk') {
+    // [BUG-3] 进入 risk 分支时，M6 策略条因 condRisk 必然渲染，这里直接走灰字结论，不重复亮红灯
+    html += `<br><span style="color:var(--muted)">进度风险：新学节奏偏慢（建议见上方策略条）</span>`;
+  } else if (fe.level === 'ok' && fe.overdueHint > 0) {
+    html += `<br><span style="color:var(--muted)">还有 ${fe.overdueHint} 条逾期，慢慢来就好。</span>`;
+  }
+  html += `</div>`;
+
+  let el = $('#reciteProgressLine');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reciteProgressLine';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(el, $('#reviewList'));
+  }
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
+/* ===== [v2 背书优化 M8] 临考今日必啃清单 ===== */
+function renderReciteTodayPriority(p) {
+  const today = todayStr();
+  const old = $('#reciteTodayPriority');
+  const shouldShow = p && p.type === 'recite' && !p.archived
+    && p.deadline && p.deadline > today
+    && diffDays(today, p.deadline) <= 30
+    && getOverdueItems(p).length > 0;
+  if (!shouldShow) { if (old) old.hidden = true; return; }
+
+  const d2d = diffDays(today, p.deadline);
+  const overdue = getOverdueItems(p);
+
+  // 按 overdueDays × (1 + wrongStreak) 加权排序，取前 8 条
+  const weighted = overdue.map(it => {
+    const od = diffDays(it.nextReviewDate, today);
+    return { it, score: od * (1 + (it.wrongStreak || 0)) };
+  }).sort((a, b) => b.score - a.score).slice(0, Math.min(8, overdue.length));
+
+  let el = $('#reciteTodayPriority');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reciteTodayPriority';
+    // [P0-1] 复用 tight-strategy-bar 类（已有深色变体），与 M6 策略条统一
+    el.className = 'excess-banner tight-strategy-bar';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(el, $('#reviewList'));
+  }
+  el.innerHTML = `<div class="ob-text" style="flex-direction:column;align-items:flex-start;gap:4px">
+    <span style="font-weight:600">🎯 今日优先啃这 ${weighted.length} 条（逾期最久 × 连续忘记次数加权）：</span>
+    <span style="opacity:.85">${weighted.map(w => esc((w.it.content || '').slice(0, 40))).join('、')}</span>
+  </div>`;
+  el.hidden = false;
+}
+
+/* ===== [v2 背书优化 M9] 软鼓励 + stage 分组提示 ===== */
+function renderReciteSoftEncourage(p) {
+  const today = todayStr();
+  const old = $('#reciteSoftEncourage');
+  // [P1-2] 条件不满足时隐藏旧横幅
+  const done = getTodayReviewedCount(p);
+  const comfort = getReciteComfort(p);
+  const shouldShow = p && p.type === 'recite' && !p.archived
+    && p.softEncourageShownDate !== today
+    && done > 0 && done < comfort;
+  if (!shouldShow) { if (old) old.hidden = true; return; }
+
+  const due = getDueItems(p).length;
+
+  const pool = [
+    `已经复习了 ${done} 条，在往前走～没填满也没关系。`,
+    `坚持打开就已经很棒了，剩下的明天再说也没关系。`,
+    `今天做了 ${done} 条复习，比昨天又扎实了一点。`,
+    `不累的时候多过两条，累了就收工，节奏是自己的。`
+  ];
+  const text = pool[Math.floor(Math.random() * pool.length)];
+
+  // stage 分组提示
+  const overdue = getOverdueItems(p);
+  let stageHint = '';
+  if (overdue.length) {
+    const oldCount = overdue.filter(it => (it.stage || 0) >= 4).length;
+    const newCount = overdue.filter(it => (it.stage || 0) <= 2).length;
+    if (oldCount > 0 || newCount > 0) {
+      stageHint = `<br><span style="font-size:11.5px;opacity:.8">其中 ${oldCount} 条是 stage 4+ 老朋友（快速过一遍即可），${newCount} 条是 stage 0–2 新内容（需要多花点时间）。</span>`;
+    }
+  }
+
+  let el = $('#reciteSoftEncourage');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reciteSoftEncourage';
+    el.style.cssText = 'margin-bottom:10px;padding:8px 12px;font-size:12.5px;color:var(--muted);line-height:1.6;background:var(--bg);border-radius:8px';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(el, $('#reviewList'));
+  }
+  el.innerHTML = `💪 ${text}${stageHint}`;
+  el.hidden = false;
+}
+
+/* ===== [v2 背书优化 M6/M10] 战略放弃页段面板 ===== */
+function openReciteAbandonPanel(p) {
+  if (!p) return;
+  const targets = getTargetPageRanges(p);
+  if (!targets.length) return;
+  // 收集所有已学条目覆盖的页段（按页列出）
+  const learnedPages = new Set();
+  (p.items || []).forEach(it => {
+    if (!it.learnedDate) return;
+    const s = it.pageStart || 0, e = it.pageEnd || 0;
+    for (let pg = s; pg <= e; pg++) learnedPages.add(pg);
+  });
+  const abandoned = new Set((p.abandonedRanges || []).flatMap(r => {
+    const arr = [];
+    for (let pg = r.start; pg <= r.end; pg++) arr.push(pg);
+    return arr;
+  }));
+
+  // 按页段生成选项（每 10 页一段）
+  const segments = [];
+  targets.forEach(t => {
+    for (let start = t.start; start <= t.end; start += 10) {
+      const end = Math.min(start + 9, t.end);
+      // [P0-1] const→let，否则 learnedCount++ 抛 TypeError
+      let learnedCount = 0;
+      let abandonedCount = 0;
+      for (let pg = start; pg <= end; pg++) {
+        if (learnedPages.has(pg)) learnedCount++;
+        if (abandoned.has(pg)) abandonedCount++;
+      }
+      segments.push({ start, end, learned: learnedCount > 0, abandoned: abandonedCount > 0 });
+    }
+  });
+
+  // 简单弹窗：用 confirm 风格的 mask
+  let mask = $('#reciteAbandonMask');
+  if (!mask) {
+    mask = document.createElement('div');
+    mask.id = 'reciteAbandonMask';
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(mask);
+  }
+  mask.innerHTML = `<div style="background:var(--card);border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow:auto;padding:20px">
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px">✂️ 战略放弃部分页段</div>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px">勾选你不想背的页段，进度统计会实时减去这部分。已学过的页段不建议放弃。可随时取消。</div>
+    <div id="abandonSegList" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto">
+      ${segments.map((s, i) => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border-radius:8px;background:var(--bg)">
+        <input type="checkbox" data-seg="${i}" ${s.abandoned ? 'checked' : ''} ${s.learned ? 'disabled' : ''} style="width:auto">
+        <span>第 ${s.start}-${s.end} 页 ${s.learned ? '<span style="color:var(--brand);font-size:11px">（已学）</span>' : ''}</span>
+      </label>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button id="btnAbandonCancel" class="ghost-btn">取消</button>
+      <button id="btnAbandonSave" class="ob-advice-btn" style="padding:8px 16px;font-size:13px;cursor:pointer">保存</button>
+    </div>
+  </div>`;
+  mask.hidden = false;
+  lockBodyScroll();
+
+  $('#btnAbandonCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  mask.onclick = (e) => { if (e.target === mask) { mask.hidden = true; unlockBodyScroll(); } };
+  $('#btnAbandonSave').onclick = () => {
+    // [P1-3] 收集用户勾选的未学页段 + 保留已学页段中原本已放弃的
+    const checkedIdx = [...mask.querySelectorAll('input[data-seg]:checked:not(:disabled)')].map(c => parseInt(c.dataset.seg, 10));
+    const newRanges = checkedIdx.map(i => ({ start: segments[i].start, end: segments[i].end }));
+    // 合并：保留已学页段中原本就已放弃的（用户看不到也改不了）
+    (p.abandonedRanges || []).forEach(old => {
+      // 检查这个旧页段是否落在某个已学段里（disabled 的 checkbox 用户无法操作）
+      const segIdx = segments.findIndex(s => s.learned && s.start === old.start && s.end === old.end);
+      if (segIdx >= 0) newRanges.push(old);
+    });
+    p.abandonedRanges = newRanges;
+    p.updatedAt = Date.now();
+    saveStore();
+    mask.hidden = true;
+    unlockBodyScroll();
+    render();
+    showToast('✂️', '已更新战略放弃', `放弃了 ${newRanges.length} 个页段，进度已重新计算。`, 2500);
+  };
+}
+
+/* ===== v3 3.9：身后排队数 ===== */
+function renderBehindQueue(p) {
+  if (!p || p.type === 'exercise' || p.archived) return;
+  const today = todayStr();
+  // 未来7天排队数
+  let behind = 0;
+  (p.items || []).forEach(it => {
+    if (it.mastered || it.manualMastered || it.finalReviewDate) return;
+    if (it.nextReviewDate && it.nextReviewDate > today && it.nextReviewDate <= addDays(today, 7)) {
+      behind++;
+    }
+  });
+  let el = $('#behindQueue');
+  if (!el) {
+    el = document.createElement('p');
+    el.id = 'behindQueue';
+    el.style.cssText = 'font-size:12px;color:var(--muted);margin:0 0 8px;';
+    const rs = $('#reviewSection');
+    if (rs) rs.insertBefore(el, $('#reviewList'));
+  }
+  if (behind > 0) {
+    const comfort = getComfortCap(p);
+    const overdueN = getOverdueItems(p).length;
+    const dueN = getDueItems(p).length;
+    const isRed = behind > comfort * 5;
+    const unitWord = p.type === 'recite' ? '条' : '题';
+    let html = `除今天 ${dueN} ${unitWord}外，未来7天还有 <b class="${isRed ? 'behind-queue-high' : ''}">${behind}</b> ${unitWord}排队中`;
+    // [v3 P2] 收录失控早期轻提示（仅错题本有收录速率概念）
+    const collectRate = getMistakeCollectRate(p);
+    const ewm = getEwmRate(p);
+    if (p.type === 'mistake' && collectRate > ewm) {
+      html += `<br><span style="font-size:11px;opacity:.7">💡 最近每天新收约${collectRate}道、消化约${ewm}道，收录更快，错题会越攒越多。这几天先少录几道、集中清旧的？</span>`;
+    }
+    el.innerHTML = html;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+  }
+}
+
 function renderReview(p) {
   const list = $('#reviewList');
+  const today = todayStr();
   const due = getDueItems(p);
   const overdue = getOverdueItems(p);
   const retentionDue = getRetentionDueItems(p);
@@ -5723,16 +7726,24 @@ function renderReview(p) {
       const d = diffDays(it.nextReviewDate, todayStr());
       if (d > maxDays) maxDays = d;
     });
-    $('#overdueSub').textContent = `最早逾期 ${maxDays} 天 · 可一键分散避免今天堆积`;
+    // [v3 P2] deadline过期后不再催债，改温和语气
+    const overdueSubText = (p.deadline && p.deadline < todayStr())
+      ? '目标日已过，这些旧题做多少算多少'
+      : `最早逾期 ${maxDays} 天 · 可一键分散避免今天堆积`;
+    $('#overdueSub').textContent = overdueSubText;
   } else banner.hidden = true;
 
-  // 超额分散横幅：待复习量超过阈值时显示（只统计正常复习，不含保持复习）
-  // 两种显示场景：
-  //   A. 主模式：当前待复习量 > 舒适量，还没开始做或做得少
-  //   B. 温和模式：今天已开始清大量（已复习若干条），当前量虽降到舒适量内，仍提供"分散剩余"入口
-  const threshold = p.spreadThreshold || defaultComfortCap(p);
+  // [v3 BUG-02] 超额横幅三档逻辑：档1不弹 / 档2中性信息条 / 档3积压横幅
+  const comfort = getComfortCap(p);
+  const scSrc = getSmartCapSource(p, today);
+  const smartCap = scSrc.smartCap;
+  const todayCompleted = getTodayReviewedCount(p);
+  const p75 = getHistoricalP75(p, 60);
+  const suppressNegatives = todayCompleted >= p75 * 0.9; // 3.4 当日完成抑制
   const excessBanner = $('#excessBanner');
   if (excessBanner) {
+    const overdueN = overdue.length;
+    const normalDueN = due.length - overdueN;
     let todayReviewedItems = 0;
     {
       const _today = todayStr();
@@ -5741,47 +7752,200 @@ function renderReview(p) {
         if (revs.length >= 2 && revs[revs.length - 1].date === _today) todayReviewedItems++;
       });
     }
-    const todayTotal = due.length + todayReviewedItems; // 今天开始时的待复习总量
-    const isMain = due.length > threshold;
-    const isGentle = !isMain && todayReviewedItems > 0 && todayTotal > threshold && due.length >= 3;
     const obMain = excessBanner.querySelector('.ob-main');
     const excessSub = $('#excessSub');
-    if (isMain) {
+    const obActions = excessBanner.querySelector('.ob-actions');
+    const obHint = excessBanner.querySelector('.ob-hint');
+    // 档2：comfort < due <= smartCap → 中性信息条（灰色，无警示色，无分散按钮）
+    // 档3：due > smartCap → 积压横幅（拆两行：正常到期Y + 逾期M）
+    let tier = 0;
+    if (due.length > smartCap && !suppressNegatives) tier = 3;
+    else if (due.length > comfort) tier = 2;
+
+    if (tier === 3) {
       excessBanner.hidden = false;
-      if (obMain) obMain.innerHTML = `今天有 <strong id="excessCount">${due.length}</strong> 条待复习，超过舒适量`;
-      if (excessSub) {
-        excessSub.textContent = due.length > threshold * 1.5
-          ? `远超舒适量（${threshold}条），如果每天确实能做这么多，可在设置中调高；也可以分散到未来`
-          : '可以先做一部分，剩余分散到未来减轻压力';
-      }
       excessBanner.dataset.mode = 'main';
-    } else if (isGentle) {
-      excessBanner.hidden = false;
-      if (obMain) obMain.innerHTML = `今天已复习 <strong>${todayReviewedItems}</strong> 条，还剩 <strong id="excessCount">${due.length}</strong> 条`;
+      excessBanner.classList.add('tier3');
+      if (obMain) obMain.innerHTML = `今日正常到期 <strong>${normalDueN}</strong> 条 · 另有 <strong class="overdue-count">${overdueN}</strong> 条逾期待还`;
       if (excessSub) {
-        excessSub.textContent = '今天投放量本来就偏大，做到这已经不少了；想歇一歇可以把剩余分散到未来';
+        // [v3 P2] deadline过期后不再催债，改为温和语气
+        if (p.deadline && p.deadline < today) {
+          excessSub.textContent = '目标日已过，这些旧题做多少算多少。';
+        } else {
+          excessSub.textContent = '能坚持打开就已经很棒了，剩下的明天再说也没关系。也可以分散部分到未来。';
+        }
       }
-      excessBanner.dataset.mode = 'gentle';
+      if (obActions) obActions.style.display = '';
+      if (obHint) obHint.style.display = '';
+    } else if (tier === 2) {
+      excessBanner.hidden = false;
+      excessBanner.dataset.mode = 'neutral';
+      excessBanner.classList.remove('tier3');
+      if (obMain) obMain.innerHTML = `今日安排 <strong>${due.length}</strong> 条`;
+      if (excessSub) excessSub.textContent = '';
+      if (obActions) obActions.style.display = 'none';
+      if (obHint) obHint.style.display = 'none';
     } else {
-      excessBanner.hidden = true;
-      delete excessBanner.dataset.mode;
+      // 温和模式：已做了不少但还有剩
+      const todayTotal = due.length + todayReviewedItems;
+      const isGentle = !suppressNegatives && todayReviewedItems > 0 && todayTotal > comfort && due.length >= 3;
+      if (isGentle) {
+        excessBanner.hidden = false;
+        excessBanner.dataset.mode = 'gentle';
+        excessBanner.classList.remove('tier3');
+        if (obMain) obMain.innerHTML = `今天已复习 <strong>${todayReviewedItems}</strong> 条，还剩 <strong>${due.length}</strong> 条`;
+        if (excessSub) excessSub.textContent = '能坚持打开就已经很棒了，剩下的明天再说也没关系。想歇一歇可以把剩余分散到未来。';
+        if (obActions) obActions.style.display = '';
+        if (obHint) obHint.style.display = '';
+      } else {
+        excessBanner.hidden = true;
+        delete excessBanner.dataset.mode;
+        excessBanner.classList.remove('tier3');
+      }
     }
   }
 
+  // [v3 方案C] mistakeRiskBanner：smartCap来源=deadline时不显示红色判决横幅（改用琥珀色策略条）
+  // 红色横幅仅在smartCap来源=EWMA/backlog时保留，且每周最多弹1次
   const riskBanner = $('#mistakeRiskBanner');
   if (riskBanner) {
     if (p.type === 'mistake') {
       const fe = getMistakeFeasibility(p);
-      if (fe.level === 'risk') {
+      const scSrc2 = getSmartCapSource(p, today);
+      const riskFromDeadline = (scSrc2.source === 'deadlineLevel' && fe.level !== 'ok');
+      // 降频：每周最多1次红色横幅
+      let riskFreqOk = true;
+      if (p.mistakeRiskLastShownDate) {
+        riskFreqOk = diffDays(p.mistakeRiskLastShownDate, today) >= 7;
+      }
+      if (fe.level === 'risk' && !riskFromDeadline && riskFreqOk && !suppressNegatives) {
         riskBanner.hidden = false;
+        p.mistakeRiskLastShownDate = today;
+        p.updatedAt = Date.now();
+        saveStore();
         $('#mistakeRiskText').textContent = `按你最近收录错题的速度，即使前期每天多做，${fe.daysLeft} 天内也可能无法把错题都过完`;
-      } else riskBanner.hidden = true;
+      } else {
+        riskBanner.hidden = true;
+      }
     } else riskBanner.hidden = true;
+  }
+
+  // [v3 方案C] 过期提示banner
+  renderDeadlinePassedBanner(p);
+
+  // [v3 方案A] excessAdvice建议行（独立于excessBanner）
+  renderExcessAdvice(p);
+
+  // [v3 方案C] 琥珀色策略条（偏紧但未过期）
+  renderTightStrategyBar(p);
+
+  // [v3 BUG-04] 配置矛盾独立中性提示条
+  renderConfigWarnBar(p);
+
+  // [v3 3.9] 身后排队数
+  renderBehindQueue(p);
+
+  // [v2 背书优化] 背书本专属渲染（全部在背书本页面内，不碰 Dashboard）
+  if (p.type === 'recite') {
+    renderReciteProgressLine(p);       // M8 进度透明化 + 可行性红绿灯
+    renderReciteSprintBar(p);          // M6 临考策略条
+    renderReciteBalanceHint(p);        // M2 超量中性提示
+    renderReciteComfortAdvice(p);      // M3 舒适量智能建议
+    renderReciteTodayPriority(p);       // M8 临考今日必啃清单
+    renderReciteSoftEncourage(p);      // M9 软鼓励 + stage 分组
+    renderReciteSprintBadge(p);        // M6 冲刺模式徽章
+  }
+
+  // [v3 BUG-05] sprintCap自动回落检查（按sprintReason区分）
+  if (p.sprintCap && p.sprintEndDate) {
+    const backlog = getOverdueItems(p).length;
+    let shouldClear = false;
+    if (p.sprintReason === 'exam') {
+      // 考前加速：只看日期，不看backlog（risk常常是未来工作量，当前逾期可能为0）
+      if (today > p.sprintEndDate) shouldClear = true;
+    } else {
+      // 追赶模式：backlog降下来或到期
+      if (backlog < comfort || today > p.sprintEndDate) shouldClear = true;
+    }
+    if (shouldClear) {
+      p.sprintCap = null;
+      p.sprintEndDate = null;
+      p.sprintReason = null;
+      p.updatedAt = Date.now();
+      saveStore();
+    }
   }
 
   if (!due.length && !retentionDue.length) {
     list.innerHTML = '';
     $('#noReviewHint').hidden = false;
+    // [v2 背书 M5] 全部掌握完成态：remaining=0 且无未学 → 显示归档提示
+    if (p.type === 'recite' && !p.archived) {
+      const live = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate);
+      const unlearned = getUnlearnedCount(p);
+      if (live.length === 0 && unlearned === 0 && (p.items || []).length > 0) {
+        let doneBanner = $('#reciteDoneBanner');
+        if (!doneBanner) {
+          doneBanner = document.createElement('div');
+          doneBanner.id = 'reciteDoneBanner';
+          // [P1-3] 用 celebrate 类（品牌绿实底白字，已有深色变体）
+          doneBanner.className = 'excess-banner celebrate';
+          doneBanner.style.cssText += ';margin-bottom:12px;text-align:center';
+          $('#noReviewHint').after(doneBanner);
+        }
+        doneBanner.innerHTML = `<div class="ob-text" style="justify-content:center">
+          <span class="ob-icon">🎉</span>
+          <span class="ob-main" style="font-size:14px">整本背完了！全部掌握了！</span>
+        </div>
+        <div class="ob-actions" style="justify-content:center">
+          <button class="ob-btn archive-btn" data-rdb="archive" style="font-weight:700">归档这本</button>
+        </div>`;
+        doneBanner.hidden = false;
+        doneBanner.onclick = (e) => {
+          const btn = e.target.closest('[data-rdb]');
+          if (!btn) return;
+          if (btn.dataset.rdb === 'archive') {
+            p.archived = true;
+            p.updatedAt = Date.now();
+            saveStore();
+            render();
+            showToast('📦', '已归档', '这本背书本已移到收纳箱，数据保留可随时取消归档。', 3000);
+          }
+        };
+      } else {
+        const doneBanner = $('#reciteDoneBanner');
+        if (doneBanner) doneBanner.hidden = true;
+      }
+    }
+    // [v3 P1] due=0时主动加量入口（在return之前）
+    if (p.type === 'mistake' && (!p.deadline || diffDays(today, p.deadline) > 30)) {
+      let addBtn = $('#addPracticeBtn');
+      if (!addBtn) {
+        addBtn = document.createElement('button');
+        addBtn.id = 'addPracticeBtn';
+        addBtn.className = 'ghost-btn';
+        addBtn.style.cssText = 'display:block;margin:8px auto 0;font-size:12.5px;';
+        addBtn.textContent = '+ 再排3题';
+        $('#noReviewHint').after(addBtn);
+        addBtn.onclick = () => {
+          const horizon = addDays(today, 14);
+          let cands = (p.items || []).filter(it =>
+            !it.mastered && !it.manualMastered && it.nextReviewDate &&
+            it.nextReviewDate > today && it.nextReviewDate <= horizon);
+          cands.sort((a, b) => (getItemScore(a) ?? 0.5) - (getItemScore(b) ?? 0.5));
+          let pulled = 0;
+          for (const it of cands) { if (pulled >= 3) break; it.originalNextReviewDate = it.nextReviewDate; it.nextReviewDate = today; it.earlyReviewed = true; pulled++; }
+          p.updatedAt = Date.now();
+          saveStore();
+          render();
+          showToast('⏩', `已加排${pulled}题`, '从未来待复习里提前了几道薄弱题。', 2500);
+        };
+      }
+      addBtn.hidden = false;
+    } else {
+      const addBtn = $('#addPracticeBtn');
+      if (addBtn) addBtn.hidden = true;
+    }
     return;
   }
   $('#noReviewHint').hidden = true;
@@ -5789,7 +7953,6 @@ function renderReview(p) {
   // ux-23：复习区顶部可关闭的快捷键说明（仅 PC 键盘环境显示，关闭后记住不再弹）
   ensureKbdHintBar(p);
 
-  const today = todayStr();
   due.sort((a, b) => {
     const aOver = a.nextReviewDate < today ? 1 : 0;
     const bOver = b.nextReviewDate < today ? 1 : 0;
@@ -5808,8 +7971,39 @@ function renderReview(p) {
     return (a.stage || 0) - (b.stage || 0);
   });
 
+  // [v3 P0] tacticalPostpone：临考期筛必做题，其余"考前随缘"今日隐身
+  let displayDue = due;
+  if (p.tacticalPostpone && p.deadline && diffDays(today, p.deadline) <= 30 && p.type === 'mistake') {
+    const ewma = getEwmRate(p);
+    const mustDoN = Math.max(1, ewma);
+    if (due.length > mustDoN) {
+      displayDue = due.slice(0, mustDoN);
+      // 折叠组提示
+      const restN = due.length - mustDoN;
+      let tpHint = $('#tacticalPostponeHint');
+      if (!tpHint) {
+        tpHint = document.createElement('p');
+        tpHint.id = 'tacticalPostponeHint';
+        tpHint.style.cssText = 'font-size:12px;color:var(--muted);margin:8px 0;padding:6px 10px;background:var(--bg);border-radius:8px;';
+        list.parentNode.insertBefore(tpHint, list);
+      }
+      tpHint.innerHTML = `📦 还有 ${restN} 道低频题已移到「考前随缘」，今天先集中攻克上面 ${mustDoN} 道高频薄弱题。 <button id="tpShowAll" style="font-size:11px;padding:1px 6px;margin-left:4px;background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer">显示全部</button>`;
+      tpHint.hidden = false;
+      const showAllBtn = $('#tpShowAll');
+      if (showAllBtn) showAllBtn.onclick = () => {
+        p.tacticalPostpone = false;
+        p.updatedAt = Date.now();
+        saveStore();
+        render();
+      };
+    }
+  } else {
+    const tpHint = $('#tacticalPostponeHint');
+    if (tpHint) tpHint.hidden = true;
+  }
+
   // 正常复习条目（ux-24：保留为数组，首屏只插前 20 条，其余滚动到底由 IntersectionObserver 分批追加）
-  const allNormalHtml = due.map(it => {
+  const allNormalHtml = displayDue.map(it => {
     const mastery = getMasteryInfo(it, p);
     const stage = (it.stage || 0) + 1;
     const totalRounds = getItemIntervals(it, p).length;
@@ -5829,6 +8023,9 @@ function renderReview(p) {
     }
 
     const overdueHtml = isOverdue ? `<span class="overdue-tag">逾期 ${overdueDays} 天</span>` : '';
+    // [v3 算法-06] pullForward透明化：提前拉到今天的题加⚡标签
+    const pullFwdHtml = (it.earlyReviewed && it.originalNextReviewDate)
+      ? `<span class="pull-fwd-tag" title="原定于 ${it.originalNextReviewDate}，为赶进度提前到今天">⚡提前</span>` : '';
     const errTagHtml = (it.errTags || []).map(reasonPill).join(' ');
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
     // 反复错（连续 2 次及以上"又错了"）：标为"关键薄弱点"，把挫败感转成"考前最该拿下的重点"
@@ -5852,6 +8049,7 @@ function renderReview(p) {
           <span>第 ${stage} 轮 / 共 ${totalRounds} 轮</span>
           ${retryHtml}
           ${overdueHtml}
+          ${pullFwdHtml}
           ${weakKeyHtml}
           ${lastEvalHtml}
           ${errTagHtml}
@@ -5924,6 +8122,22 @@ function renderReview(p) {
     }
   } else {
     _reviewBatch = null;
+  }
+
+  // [v3 算法-06] pullForward说明：如果今天拉了题，显示一行说明
+  if (p.lastPullForwardCount > 0 && p.type === 'mistake') {
+    let pfNote = $('#pullFwdNote');
+    if (!pfNote) {
+      pfNote = document.createElement('p');
+      pfNote.id = 'pullFwdNote';
+      pfNote.style.cssText = 'font-size:11.5px;color:var(--muted);margin:4px 0 8px;';
+      list.parentNode.insertBefore(pfNote, list.nextSibling);
+    }
+    pfNote.innerHTML = `⚡ 今天从未来提前安排了 ${p.lastPullForwardCount} 道（对应后面几天会少这些）`;
+    pfNote.hidden = false;
+  } else {
+    const pfNote = $('#pullFwdNote');
+    if (pfNote) pfNote.hidden = true;
   }
 }
 
@@ -6228,7 +8442,7 @@ function renderExerciseRecords(p) {
 
   if (!recs.length) {
     list.innerHTML = '<li class="empty">📊<br>还没有记录，先打个卡吧。'
-      + '<div style="margin-top:14px"><button type="button" class="primary-btn" id="emptyCheckinBtn" style="padding:9px 18px;font-size:13px">📖 去打卡</button></div></li>';
+      + '<div style="margin-top:14px"><button type="button" class="primary" id="emptyCheckinBtn" style="padding:9px 22px;font-size:13px">📖 去打卡</button></div></li>';
     const ecb = document.getElementById('emptyCheckinBtn');
     if (ecb) ecb.addEventListener('click', () => scrollToEntryForm('#inPageEnd'));
     return;
@@ -6276,10 +8490,12 @@ function renderExerciseRecords(p) {
       const dl = deltaOf[i];
       const dlStr = dl > 0 ? `+${fmtUnitNum(dl)} 套` : (Math.abs(dl) < 1e-9 ? '±0' : `${fmtUnitNum(dl)} 套`);
       const li = document.createElement('li');
+      const wmCount = Array.isArray(r.wrongMarks) ? r.wrongMarks.length : 0;
       li.innerHTML =
         `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
         `<span class="r-page">${textOf[i]}</span>` +
         `<span class="r-delta${dl > 0 ? '' : ' zero'}" style="margin-left:auto">${dlStr}</span>` +
+        `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条记录里的错题（格式：套号-题号，如 3-5）">✏️${wmCount ? '(' + wmCount + ')' : ''}</button>` +
         `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" data-set="${esc(r.set)}" title="删除">×</button>`;
       list.insertBefore(li, list.firstChild);
     });
@@ -6307,10 +8523,12 @@ function renderExerciseRecords(p) {
     const delta = deltaByIdx[i];
     const deltaStr = delta > 0 ? `+${delta} 页` : (delta === 0 ? '±0' : `${delta} 页`);
     const li = document.createElement('li');
+    const wmCount = Array.isArray(r.wrongMarks) ? r.wrongMarks.length : 0;
     li.innerHTML =
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
       `<span class="r-page">${rangeStr}</span>` +
       `<span class="r-delta${delta > 0 ? '' : ' zero'}" style="margin-left:auto">${deltaStr}</span>` +
+      `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条打卡里的错题">✏️${wmCount ? '(' + wmCount + ')' : ''}</button>` +
       `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" title="删除">×</button>`;
     list.insertBefore(li, list.firstChild);
   });
@@ -6332,14 +8550,14 @@ function renderReciteRecords(p) {
   if (!items.length) {
     const ctaText = p.type === 'mistake' ? '📝 去记录一道错题' : '📖 去添加学习内容';
     let emptyHtml = `<li class="empty">📝<br>还没有学习记录，先添加一条吧。
-      <div style="margin-top:14px"><button type="button" class="primary-btn" id="emptyAddBtn" style="padding:9px 18px;font-size:13px">${ctaText}</button></div></li>`;
+      <div style="margin-top:14px"><button type="button" class="primary" id="emptyAddBtn" style="padding:9px 18px;font-size:13px">${ctaText}</button></div></li>`;
     // ux-7：自由出处错题本空状态——把「升级为习题册/套卷」入口放到显眼处（原仅在设置里，新用户不易发现）
     if (p.type === 'mistake' && isMistakeFreeMode(p)) {
       emptyHtml += `<li class="empty" style="padding:18px 16px">
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">这本错题本当前是「自由出处」模式。<br>如果你习惯按页码或套卷整理，可以现在升级（升级后不可转回）。</div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-          <button type="button" class="primary-btn" id="emptyUpgPage" style="padding:9px 16px;font-size:13px">📄 升级为习题册模式</button>
-          <button type="button" class="primary-btn" id="emptyUpgSet" style="padding:9px 16px;font-size:13px">📑 升级为套卷模式</button>
+          <button type="button" class="primary" id="emptyUpgPage" style="padding:9px 16px;font-size:13px">📄 升级为习题册模式</button>
+          <button type="button" class="primary" id="emptyUpgSet" style="padding:9px 16px;font-size:13px">📑 升级为套卷模式</button>
         </div>
       </li>`;
     }
@@ -6812,13 +9030,16 @@ function renderProjectList() {
     return;
   }
   const all = ids.map(id => store.projects[id]);
+  // [v3] 归档项目从首页隐藏，单独放收纳箱
+  const activeProjects = all.filter(p => !p.archived);
+  const archivedProjects = all.filter(p => p.archived);
   // 按类型分组：刷题、背书、错题
   const groups = [
     { key: 'exercise', label: '📚 刷题', items: [] },
     { key: 'recite', label: '📖 背书', items: [] },
     { key: 'mistake', label: '📝 错题', items: [] },
   ];
-  all.forEach(p => {
+  activeProjects.forEach(p => {
     const g = groups.find(g => g.key === p.type);
     if (g) g.items.push(p);
   });
@@ -6884,6 +9105,22 @@ function renderProjectList() {
     html += `<li class="project-group-label" style="padding:8px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px">${g.label}（${g.items.length}）</li>`;
     html += g.items.map(renderItem).join('');
   });
+  // [v3] 已归档收纳箱
+  if (archivedProjects.length > 0) {
+    html += `<li class="project-group-label" style="padding:12px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;border-top:1px solid var(--border);margin-top:8px">📦 已归档（${archivedProjects.length}）</li>`;
+    archivedProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    archivedProjects.forEach(p => {
+      const type = TYPES[p.type] || TYPES.exercise;
+      html += `<li class="project-item ${type.typeCls}" style="opacity:.55" data-id="${esc(p.id)}">
+        <span class="pi-icon">${type.icon}</span>
+        <div class="pi-main">
+          <div class="pi-name"><span class="pi-name-text">${esc(p.name)}</span> <span class="type-tag ${type.badgeCls}">${type.name}</span></div>
+          <div class="pi-meta">已归档 · 目标 ${p.deadline}</div>
+        </div>
+        <button class="ob-btn" data-unarchive="${esc(p.id)}" style="font-size:11px;padding:3px 10px">取消归档</button>
+      </li>`;
+    });
+  }
   list.innerHTML = html;
 }
 
@@ -6892,6 +9129,19 @@ function openProgressBoard() {
   const p = cur();
   if (!p || p.type !== 'exercise') return;
   renderProgressBoard(p);
+  // 我的注意事项：加载并绑定保存（与错题本 wbNotePad 共用 p.notePad 字段）
+  const ppPad = document.getElementById('ppNotePad');
+  if (ppPad) {
+    ppPad.value = p.notePad || '';
+    if (!ppPad._bound) {
+      ppPad._bound = true;
+      ppPad.addEventListener('input', () => {
+        p.notePad = ppPad.value; p.updatedAt = Date.now();
+        if (ppPad._saveT) clearTimeout(ppPad._saveT);
+        ppPad._saveT = setTimeout(() => { ppPad._saveT = null; saveStore(); }, 600);
+      });
+    }
+  }
   $('#progressMask').hidden = false;
   modalTop($('#progressMask'));
 }
@@ -7375,7 +9625,7 @@ function getTodayStatus(p) {
   const m = getMetrics(p);
   if (p.type === 'exercise') {
     if (m && m.remaining <= 0) return { state: 'done' };
-    const target = m ? getDailyTarget(p, m).per : 0;
+    const target = m ? getExerciseDailyTarget(p, m).per : 0;
     const td = m ? (m.todayDone || 0) : 0;
     if (!(target > 0)) return { state: 'none' };
     if (td >= target) return { state: 'done', need: target, done: td };
@@ -7415,6 +9665,7 @@ function openDashboard() {
       if (it.learnedDate) heat[it.learnedDate] = (heat[it.learnedDate] || 0) + 1;
       (it.reviews || []).forEach(rv => { heat[rv.date] = (heat[rv.date] || 0) + 1; });
     });
+    if (p.archived) return; // [v3 P1] 归档项目不纳入今日统计
     let done = 0, total = 0, pct = 0, unit = '';
     if (p.type === 'exercise') {
       total = (p.unitMode && Array.isArray(p.units) && p.units.length)
@@ -8609,6 +10860,8 @@ function openSettings() {
   $('#sName').value = p.name;
   $('#sTotal').value = p.total || '';
   $('#sDeadline').value = p.deadline || '';
+  const hdl = $('#sHardDeadline');
+  if (hdl) hdl.checked = !!p.hardDeadline;
   $('#sStartDate').value = p.startDate || '';
   $('#sStartPage').value = p.startPage || 0;
   $('#sBookStart').value = p.bookStartPage || '';
@@ -8699,6 +10952,46 @@ function openSettings() {
     $('#sSpreadThreshold').placeholder = '如 ' + defaultComfortCap(p);
     renderComfortAdvice(p);
   }
+
+  // [v2 M1/M10] 刷题本：每日节奏区块（舒适量 + avg/fixed 模式 + 战略放弃入口）
+  const paceTitle = $('#exercisePaceSectionTitle'), paceSec = $('#exercisePaceSection');
+  if (paceTitle) paceTitle.hidden = !isExercise;
+  if (paceSec) paceSec.hidden = !isExercise;
+  if (isExercise) {
+    $('#sExerciseComfort').value = getExerciseComfort(p);
+    const mode = p.exerciseMode === 'fixed' ? 'fixed' : 'avg';
+    const radio = document.querySelector('input[name="sExerciseMode"][value="' + mode + '"]');
+    if (radio) radio.checked = true;
+  }
+
+  // [v2 背书 M1/M10] 背书本：每日节奏区块
+  const recitePaceTitle = $('#recitePaceSectionTitle'), recitePaceSec = $('#recitePaceSection');
+  const isReciteProj = p.type === 'recite';
+  if (recitePaceTitle) recitePaceTitle.hidden = !isReciteProj;
+  if (recitePaceSec) recitePaceSec.hidden = !isReciteProj;
+  if (isReciteProj) {
+    const rMode = p.reciteMode === 'fixed' ? 'fixed' : 'smart';
+    const rRadio = document.querySelector('input[name="sReciteMode"][value="' + rMode + '"]');
+    if (rRadio) rRadio.checked = true;
+    // fixed 模式：显示固定复习量输入，值来自 dailyCapacity
+    const fixedWrap = $('#sReciteFixedWrap');
+    const smartOpts = $('#sReciteSmartOpts');
+    if (fixedWrap) fixedWrap.hidden = (rMode !== 'fixed');
+    if (smartOpts) smartOpts.style.display = (rMode === 'fixed') ? 'none' : '';
+    if (rMode === 'fixed') {
+      $('#sReciteFixed').value = p.dailyCapacity != null ? p.dailyCapacity : '';
+    }
+    if ($('#sComfortAsHardCap')) $('#sComfortAsHardCap').checked = (p.comfortAsHardCap === true);
+    if ($('#sNewLearnCap')) $('#sNewLearnCap').value = (p.newLearnCap != null) ? p.newLearnCap : '';
+    if ($('#sPauseNewLearning')) $('#sPauseNewLearning').checked = (p.pauseNewLearning === true);
+  }
+  // [v2 背书 M10] 隐藏"错题本使用指南"按钮（对 recite）
+  const mistakeGuideBtn = $('#btnShowMistakeGuide');
+  if (mistakeGuideBtn) mistakeGuideBtn.style.display = isReciteProj ? 'none' : '';
+
+  // sHardDeadline 对 exercise 本就可见（HTML 无 hidden），无需额外处理；确保不被隐藏
+  const hdlRow = $('#sHardDeadline');
+  if (hdlRow) hdlRow.closest('label') && (hdlRow.closest('label').style.display = isExercise ? '' : '');
 
   // 套卷：总套数；练习册/背书：用起始/结束页；错题本习题册/自由出处总量动态，不显示总套数；错题本套卷显示总套数
   const usePageRange = !setMode && (p.type !== 'mistake' || isMistakePageMode(p));
@@ -10312,6 +12605,14 @@ function submitFormCreate() {
       : 'classic',
     dailyCapacity: null,
     spreadThreshold: type === 'recite' ? 6 : 10,
+    // [v2 背书优化 M1] recite 每日节奏字段
+    reciteMode: 'smart',
+    newLearnCap: null,
+    comfortAsHardCap: false,
+    pauseNewLearning: false,
+    abandonedRanges: [],
+    hardDeadline: false,
+    lowFreqExtended: false,
     totalLocked: false,
     bookStartPage: usePageRange ? (bookStart > 1 ? bookStart : null) : null,
     bookEndPage: usePageRange ? bookEnd : null,
@@ -10384,10 +12685,13 @@ document.querySelectorAll('input[name="reviewMode"]').forEach(r => {
 function updateIntervalHint(mode) {
   const hint = $('#intervalHint');
   if (!hint) return;
+  // [BUG-4·顺手] 确认掌握提示按项目类型用词
+  const proj = store.projects[editingProjectId];
+  const masteredWord = (proj && proj.type === 'mistake') ? '攻克' : '掌握';
   if (mode === 'balanced') {
     hint.innerHTML = '这些间隔是<b>排期基础</b>：系统先按间隔算出计划日期，再从该日期起往后找空位错峰（最多顺延间隔天数的一半），避免某天爆量。间隔越短，整体复习越密集。';
   } else {
-    hint.innerHTML = '每学习一个新内容后，<b>严格按这些间隔依次提醒复习</b>。每次复习后顺序推进到下一轮，走到最后一轮且最近3次全对时会弹出确认掌握提示。';
+    hint.innerHTML = `每学习一个新内容后，<b>严格按这些间隔依次提醒复习</b>。每次复习后顺序推进到下一轮，走到最后一轮且最近3次全对时会弹出确认${masteredWord}提示。`;
   }
 }
 $('#sCapacityMode').addEventListener('change', e => {
@@ -10553,6 +12857,31 @@ $('#btnCreateLinkedMistake').addEventListener('click', () => {
     $('#fTotal').value = p.total || '';
   }
   showToast('📝', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
+});
+
+// [v2 M6/K] 设置页「战略放弃」入口：任何时候都能打开砍题面板，不锁死在临考≤30天
+$('#btnOpenAbandon').addEventListener('click', () => {
+  const p = store.projects[editingProjectId];
+  if (!p || p.type !== 'exercise') return;
+  closeSettings();
+  openAbandonPanel(p);
+});
+
+// [v2 背书 M10] 背书本：每日节奏单选切换 + 战略放弃入口
+document.querySelectorAll('input[name="sReciteMode"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const fixed = document.querySelector('input[name="sReciteMode"]:checked')?.value === 'fixed';
+    const fw = $('#sReciteFixedWrap'), so = $('#sReciteSmartOpts');
+    if (fw) fw.hidden = !fixed;
+    if (so) so.style.display = fixed ? 'none' : '';
+    markSettingsDirty();
+  });
+});
+$('#btnOpenReciteAbandon').addEventListener('click', () => {
+  const p = store.projects[editingProjectId];
+  if (!p || p.type !== 'recite') return;
+  closeSettings();
+  openReciteAbandonPanel(p);
 });
 
 // 主页模式标签点击：弹出模式选择（事件委托，因为元素是动态生成的）
@@ -10888,7 +13217,11 @@ function submitSettings() {
   p.name = name;
   // 错题本习题册/自由出处总量动态（已收录条数），不手动设置；错题本套卷和刷题本设置总套数
   if (p.type !== 'mistake' || isMistakeSet) p.total = effectiveTotal;
+  // [v3] 检测deadline从过去变未来，触发rebalance
+  const oldDeadline = p.deadline;
   p.deadline = deadline;
+  const hdlEl = $('#sHardDeadline');
+  p.hardDeadline = hdlEl ? hdlEl.checked : false;
   p.startDate = startDate || '';
   p.startPage = startPage;
   p.bookStartPage = usePageRange ? (bookStart > 1 ? bookStart : null) : null;
@@ -10927,6 +13260,47 @@ function submitSettings() {
     p.spreadThreshold = isNaN(th) || th < 1 ? defaultComfortCap(p) : Math.min(50, th);
   }
 
+  // [v2 M1/M10] 刷题本：每日节奏（舒适量 + avg/fixed 模式）
+  if (p.type === 'exercise') {
+    const modeRadio = (document.querySelector('input[name="sExerciseMode"]:checked') || {}).value;
+    p.exerciseMode = (modeRadio === 'fixed') ? 'fixed' : 'avg';
+    let comfort = parseInt($('#sExerciseComfort').value, 10);
+    let clamped = false;
+    if (isNaN(comfort) || comfort < 1) comfort = (p.exerciseMode === 'fixed') ? 1 : 4;
+    if (p.exerciseMode === 'fixed') {
+      comfort = Math.max(1, comfort); // fixed 完全豁免下限，用户自定
+    } else {
+      if (comfort < 4) { comfort = 4; clamped = true; } // avg 下限 4（绝对底 3，这里统一抬到 4）
+      comfort = Math.max(3, comfort);
+    }
+    p.dailyComfort = comfort;
+    if (clamped) setTimeout(() => showToast('ℹ️', '已自动调整', '均摊模式下舒适量最低为 4 页/天，已帮你抬到 4。', 2600), 400);
+  }
+
+  // [v2 背书 M1/M10] 背书本：每日节奏字段
+  if (p.type === 'recite') {
+    const reciteModeRadio = (document.querySelector('input[name="sReciteMode"]:checked') || {}).value;
+    p.reciteMode = (reciteModeRadio === 'fixed') ? 'fixed' : 'smart';
+    if (p.reciteMode === 'fixed') {
+      const fixedVal = parseInt($('#sReciteFixed').value, 10);
+      p.dailyCapacity = isNaN(fixedVal) ? null : Math.max(1, Math.min(50, fixedVal));
+    } else {
+      p.dailyCapacity = null; // smart 模式下不锁固定容量
+    }
+    p.comfortAsHardCap = ($('#sComfortAsHardCap') && $('#sComfortAsHardCap').checked) ? true : false;
+    const nlcRaw = $('#sNewLearnCap').value.trim();
+    p.newLearnCap = nlcRaw === '' ? null : Math.max(0, Math.min(100, parseInt(nlcRaw, 10) || 0));
+    p.pauseNewLearning = ($('#sPauseNewLearning') && $('#sPauseNewLearning').checked) ? true : false;
+    // smart 模式舒适量下限校验
+    if (p.reciteMode === 'smart') {
+      const th = parseInt($('#sSpreadThreshold').value, 10);
+      if (!isNaN(th) && th < 4) {
+        p.spreadThreshold = 4;
+        setTimeout(() => showToast('ℹ️', '已自动调整', '智能模式下每日舒适复习量最低为 4 条，已按 4 保存。', 2600), 400);
+      }
+    }
+  }
+
   if (isSetMode(p) || isMistakeSetMode(p)) {
     if (isSetMode(p)) p.paperSections = readPaperSecRows($('#sPaperSecList'));
     p.paperLabelMode = (document.querySelector('input[name="spaperlabel"]:checked') || {}).value || 'index';
@@ -10941,6 +13315,11 @@ function submitSettings() {
   p.updatedAt = Date.now();
 
   saveStore();
+  // [v3 BUG-01] 保存新deadline后：如果从过去变未来，触发存量过期题重排
+  if (oldDeadline && oldDeadline < todayStr() && deadline >= todayStr()) {
+    rebalanceExpiredItems(p);
+    saveStore();
+  }
   // 保存成功：重置未保存状态，再关闭
   settingsInitialSnapshot = captureSettingsSnapshot();
   $('#settingsDirtyBar').hidden = true;
@@ -11060,6 +13439,20 @@ $('#formMask').addEventListener('click', e => { if (e.target === $('#formMask') 
 $('#settingsMask').addEventListener('click', e => { if (e.target === $('#settingsMask') && !_mouseDownInModal) closeSettings(); });
 
 $('#projectList').addEventListener('click', e => {
+  // [v3] 取消归档
+  const unarchBtn = e.target.closest('[data-unarchive]');
+  if (unarchBtn) {
+    e.stopPropagation();
+    const id = unarchBtn.dataset.unarchive;
+    const p = store.projects[id];
+    if (!p) return;
+    p.archived = false;
+    p.updatedAt = Date.now();
+    saveStore();
+    render();
+    showToast('📦', '已取消归档', `「${p.name}」已恢复到首页。`, 2500);
+    return;
+  }
   const delBtn = e.target.closest('.pi-del');
   if (delBtn) {
     e.stopPropagation();
@@ -11387,6 +13780,10 @@ $('#btnSetCheckin').addEventListener('click', () => {
   $('#inSetTotalQ').value = '';
   render();
   maybeShowProgressPraise(p);
+  // [v2 M7] 套卷打卡后也弹错题快录（每天最多 1 次）
+  if (p.type === 'exercise' && p.wrongQuickRecordShownDate !== todayStr()) {
+    setTimeout(() => openWrongQuickRecord(p, { setNo }), 900);
+  }
 });
 // 套卷打卡：回车在 日期→套号→完成题数→总题数 间跳转，最后一个回车记录（统一导航接管）
 
@@ -11468,6 +13865,10 @@ $('#btnCheckin').addEventListener('click', () => {
   $('#inPageEnd').value = '';
   render();
   maybeShowProgressPraise(p);
+  // [v2 M7] 打卡后弹错题快录条（每天最多 1 次，wrongQuickRecordShownDate）
+  if (p.type === 'exercise' && p.wrongQuickRecordShownDate !== todayStr()) {
+    setTimeout(() => openWrongQuickRecord(p, { startPage: startPage != null ? startPage : endPage, endPage: endPage }), 900);
+  }
   markOfflineWrite('checkin'); // ux-28
   // ux-30：首次成功打卡后，触发一次 PWA 安装引导（之后永不自动弹）
   if (typeof STAuth !== 'undefined' && STAuth.tryPromptInstallOnce) STAuth.tryPromptInstallOnce();
@@ -11478,6 +13879,16 @@ $('#btnCheckin').addEventListener('click', () => {
 $('#btnReciteAdd').addEventListener('click', () => {
   const p = cur();
   if (!p || p.type === 'exercise') return;
+  // [v3 P0] pauseNewCollection：临考期暂停新题收录
+  if (p.pauseNewCollection && p.type === 'mistake') {
+    showToast('⏸️', '已暂停新题收录', '临考期先消化存量，取消暂停可在琥珀色策略条操作。', 3000);
+    return;
+  }
+  // [v2 背书 M6] pauseNewLearning：背书本暂停新学，只复习已学内容
+  if (p.pauseNewLearning && p.type === 'recite') {
+    showToast('⏸️', '已暂停新学', '当前只复习已学内容。可在设置页或临考策略条恢复新学。', 3000);
+    return;
+  }
 
   const content = ($('#reciteContent').value || '').trim();
   const errTags = ($('#reciteErrTagSel').value || '').split(',').filter(Boolean);
@@ -11541,13 +13952,16 @@ $('#btnReciteAdd').addEventListener('click', () => {
     newItem.pageEnd = pageEnd;
   }
   p.items.push(newItem);
-  // 错题本均匀模式下，录入时走智能排期（必须在 push 之后，否则批量录入会全排到同一天）
+  // 错题本/背书本均匀模式下，录入时走智能排期（必须在 push 之后，否则批量录入会全排到同一天）
+  // [v2 背书 M7] recite 也走错峰：连续录 10 条，首次复习日自动撒到未来 1-7 天，不全堆明天
   const firstBase = addDays(date, gap);
-  if (isMistake && p.reviewMode === 'balanced') {
+  if ((isMistake || p.type === 'recite') && p.reviewMode === 'balanced') {
     newItem.nextReviewDate = findAvailableDate(p, firstBase, {
       maxForward: Math.max(1, Math.round(gap * 0.25)),
       maxBack: Math.min(2, Math.floor(gap * 0.25)),
-      minDate: addDays(date, 1)
+      minDate: addDays(date, 1),
+      gap: gap,
+      maxExtend: gap <= 2 ? 3 : 14
     });
   } else {
     newItem.nextReviewDate = firstBase;
@@ -11664,7 +14078,16 @@ function getReviewFeedback(quality, p, item) {
       : ['✗ 忘了正常，下次再来', '✗ 下次再过一遍', '✗ 多过一次就牢了'];
   }
   const full = _pick(pool);
-  return { icon: full.slice(0, 1), text: full.slice(2) };
+  let text = full.slice(2);
+  // [v2 背书 M6·⑦] 冲刺期答完模糊/忘记后，反馈区显示实际 gap 天数
+  if (p.type === 'recite' && p.deadline && quality !== 'good' && item.nextReviewDate) {
+    const d2d = diffDays(todayStr(), p.deadline);
+    if (d2d >= 0 && d2d <= getReviewCycleDays(p)) {
+      const gap = diffDays(todayStr(), item.nextReviewDate);
+      if (gap > 0) text += `（已安排 ${gap} 天后重现，考前薄弱项高频复现中）`;
+    }
+  }
+  return { icon: full.slice(0, 1), text: text };
 }
 // 保持复习评价的反馈
 function getRetentionFeedback(item, result) {
@@ -12023,6 +14446,15 @@ $('#recordList').addEventListener('click', e => {
     p.updatedAt = Date.now();
     saveStore();
     render();
+    return;
+  }
+
+  // [v2 M7·B] 打卡记录上的「补记错题」小按钮：事后编辑某条 record 的 wrongMarks
+  const wBtn = e.target.closest('[data-wrongrid]');
+  if (wBtn) {
+    const p = cur();
+    if (!p || p.type !== 'exercise') return;
+    editRecordWrongMarks(p, wBtn.dataset.wrongrid);
     return;
   }
 

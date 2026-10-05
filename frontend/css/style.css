@@ -522,6 +522,104 @@
   .excess-banner .ob-sub{color:#2e6b4f}
   .excess-banner .ob-hint{color:#2e6b4f}
   .excess-banner .ob-btn{background:#fff;border:1px solid #b9d2c4;color:#2e6b4f}
+  .excess-banner .ob-advice{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;padding-top:8px;border-top:1px dashed #b9d2c4;font-size:12.5px;color:#23533d;flex-wrap:wrap}
+  .excess-banner .ob-advice-text{flex:1;min-width:200px}
+  .excess-banner .ob-advice-btn{background:#2e6b4f;color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+  .excess-banner .ob-advice-btn:active{transform:scale(.96)}
+  html[data-theme="dark"] .excess-banner .ob-advice{border-top-color:#4a628e;color:#83bca9}
+  html[data-theme="dark"] .excess-banner .ob-advice-btn{background:#83bca9;color:#10302a}
+
+  /* [v3] 档2中性信息条（灰色，无警示色） */
+  .excess-banner[data-mode="neutral"]{background:var(--bg);border-color:var(--border)}
+  .excess-banner[data-mode="neutral"] .ob-text{color:var(--muted)}
+  .excess-banner[data-mode="neutral"] .ob-main strong{color:var(--text)}
+
+  /* [v3] 档3积压横幅（琥珀色系） */
+  .excess-banner.tier3{background:#fdf6e3;border-color:#e8d5a3}
+  .excess-banner.tier3 .ob-text{color:#8a6a12}
+  .excess-banner.tier3 .ob-main strong{color:#96600c}
+  .excess-banner.tier3 .ob-sub{color:#a8842c}
+  .excess-banner.tier3 .ob-btn{background:#fff;border-color:#e8d5a3;color:#a57010}
+  html[data-theme="dark"] .excess-banner.tier3{background:#3a3520;border-color:#6b5d30}
+  html[data-theme="dark"] .excess-banner.tier3 .ob-text{color:#d4b870}
+  html[data-theme="dark"] .excess-banner.tier3 .ob-main strong{color:#e8c878}
+
+  /* [v3] 琥珀色策略条 */
+  .tight-strategy-bar{background:#fdf6e3;border:1px solid #e8d5a3;margin-bottom:12px}
+  .tight-strategy-bar .ob-text{color:#8a6a12}
+  .tight-strategy-bar .ob-main{color:#8a6a12;font-size:12.5px;line-height:1.6}
+  .tight-strategy-bar .ob-btn{background:#fff;border:1px solid #e8d5a3;color:#a57010;font-size:11.5px;padding:4px 10px}
+  html[data-theme="dark"] .tight-strategy-bar{background:#3a3520;border-color:#6b5d30}
+  html[data-theme="dark"] .tight-strategy-bar .ob-text{color:#d4b870}
+  html[data-theme="dark"] .tight-strategy-bar .ob-main{color:#d4b870}
+  html[data-theme="dark"] .tight-strategy-bar .ob-btn{background:#2c2818;border-color:#6b5d30;color:#d4b870}
+
+  /* [v3] 配置矛盾独立条 */
+  .config-warn-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;font-size:12.5px;color:var(--text);flex-wrap:wrap}
+  .config-warn-bar .ob-advice-text{flex:1;min-width:200px}
+  .config-warn-bar .ob-advice-btn{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+  .config-warn-bar .ob-advice-btn:active{transform:scale(.96)}
+
+  /* [v3] 身后排队灰字 */
+  #behindQueue{font-size:12px;color:var(--muted)}
+
+  /* ===== M1-M6 + S1-S4 审美修复 ===== */
+  /* M1: excess-banner默认档深色覆盖（排除专用模式避免层叠冲突） */
+  html[data-theme="dark"] .excess-banner:not(.tight-strategy-bar):not(.tier3):not([data-mode="expired"]):not(.celebrate){background:#2c3f63;border-color:#556c94}
+  html[data-theme="dark"] .excess-banner:not(.tight-strategy-bar):not(.tier3):not([data-mode="expired"]):not(.celebrate) .ob-text{color:#b6c3d8}
+  html[data-theme="dark"] .excess-banner:not(.tight-strategy-bar):not(.tier3):not([data-mode="expired"]):not(.celebrate) .ob-main strong{color:#83bca9}
+  html[data-theme="dark"] .excess-banner:not(.tight-strategy-bar):not(.tier3):not([data-mode="expired"]):not(.celebrate) .ob-sub,
+  html[data-theme="dark"] .excess-banner:not(.tight-strategy-bar):not(.tier3):not([data-mode="expired"]):not(.celebrate) .ob-hint{color:#b6c3d8}
+  /* celebrate 完成条深色：回到品牌浅绿底，配深字 */
+  html[data-theme="dark"] .excess-banner.celebrate{background:var(--brand);border-color:var(--brand)}
+
+  /* M2: deadlinePassedBanner过期模式（琥珀色） */
+  .excess-banner[data-mode="expired"]{background:#fdf8ec;border-color:#f5e4b8}
+  .excess-banner[data-mode="expired"] .ob-text,
+  .excess-banner[data-mode="expired"] .ob-main strong,
+  .excess-banner[data-mode="expired"] .ob-sub{color:#8a6a12}
+  html[data-theme="dark"] .excess-banner[data-mode="expired"]{background:#2c2818;border-color:#5a4a20}
+  html[data-theme="dark"] .excess-banner[data-mode="expired"] .ob-text,
+  html[data-theme="dark"] .excess-banner[data-mode="expired"] .ob-main strong,
+  html[data-theme="dark"] .excess-banner[data-mode="expired"] .ob-sub{color:#d4b870}
+
+  /* M3: #excessAdvice flex布局 + 独立按钮样式 */
+  #excessAdvice{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ob-advice-btn{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit;flex:0 0 auto}
+  .ob-advice-btn:active{transform:scale(.96)}
+  html[data-theme="dark"] .ob-advice-btn{background:#83bca9;color:#10302a}
+
+  /* M4: 后移按钮/逾期数 class */
+  .ob-btn.postpone-btn{border-color:#b8860b;color:#b8860b}
+  html[data-theme="dark"] .ob-btn.postpone-btn{border-color:#d4b870;color:#d4b870}
+  .overdue-count{color:#b8860b}
+  html[data-theme="dark"] .overdue-count{color:#d4b870}
+
+  /* M5: .ob-btn全局深色兜底 */
+  html[data-theme="dark"] .ob-btn{background:#2c3f63;border-color:#556c94;color:#cdae70}
+
+  /* M6: ⚡提前标签 */
+  .pull-fwd-tag{background:#fdf6e3;color:#b8860b;border-radius:4px;padding:1px 4px;font-size:11px}
+  html[data-theme="dark"] .pull-fwd-tag{background:#2c3a4e;color:#d4b870}
+
+  /* [P0-2] M6 冲刺模式徽章 */
+  .recite-sprint-badge{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;color:#96600c;background:#fdf6e3;border:1px solid #e8d5a3;padding:2px 8px;border-radius:999px;vertical-align:middle}
+  html[data-theme="dark"] .recite-sprint-badge{background:#3a3520;color:#d4b870;border-color:#6b5d30}
+
+  /* S1: 次级按钮 */
+  .ob-advice-btn.secondary{background:transparent;color:var(--muted);border:1px solid var(--border)}
+  html[data-theme="dark"] .ob-advice-btn.secondary{color:#b6c3d8;border-color:#556c94}
+
+  /* S2: 归档实心按钮 */
+  .ob-btn.archive-btn{background:#b8860b;color:#fff}
+  html[data-theme="dark"] .ob-btn.archive-btn{background:#d4b870;color:#2c2818}
+
+  /* S3: behindQueue高积压数字 */
+  .behind-queue-high{color:#b8860b}
+  html[data-theme="dark"] .behind-queue-high{color:#d4b870}
+
+  /* S4: 数字tabular-nums统一 */
+  .excess-banner .ob-main strong, #behindQueue b, #pullFwdNote, .ob-advice-text b{font-variant-numeric:tabular-nums}
 
   /* ===== 顶部两张统计卡：统一三行骨架（标题 / 数据 / 底部），任何状态下左右等高、中心线对齐 ===== */
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
@@ -1160,7 +1258,7 @@
     /* 小屏 modal 内边距收紧，避免两侧留白挤压内容 */
     .modal{padding:18px 16px;max-height:calc(var(--vvh) * 0.94)}
     /* 触控目标 ≥44px（WCAG / iOS HIG），避免误触 */
-    .q-btn,.ob-btn,.pct-chip,.early-review-btn,.x-btn,.r-del{min-height:44px;min-width:44px}
+    .q-btn,.ob-btn,.pct-chip,.early-review-btn,.x-btn,.r-del,.r-wrong,.nb-close{min-height:44px;min-width:44px}
     .r-del{padding:0 14px}
     /* 移动端输入框 ≥16px，防止 iOS Safari 聚焦自动缩放页面 */
     input,textarea,select{font-size:16px !important}
@@ -1916,3 +2014,48 @@ html[data-theme="dark"] .sr-fullmask{background:rgba(10,15,28,.65)}
   .sr-detail-avatar{width:48px;height:48px;font-size:24px}
   .sr-room-info{padding:12px 14px}
 }
+
+/* ===== [v2 exercise] 刷题本专属提示样式 ===== */
+/* 中性提示条（avg 被封顶 / 智能建议 / 领先播报）：琥珀色 */
+.neutral-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;
+  background:#fdf6e3;border:1px solid #ecd9a8;border-radius:10px;font-size:13px;line-height:1.6;color:#6b5410}
+.neutral-banner .nb-text{flex:1}
+.neutral-banner .nb-text b{color:#96600c;font-variant-numeric:tabular-nums} /* S1 */
+.neutral-banner .ob-actions{margin-top:6px}
+.neutral-banner .nb-close{background:none;border:none;color:#b89a4a;cursor:pointer;font-size:15px;line-height:1;padding:2px 6px;border-radius:6px;flex:0 0 auto;transition:.15s}
+.neutral-banner .nb-close:active{transform:scale(.96)} /* M3：只保留:active，删:hover */
+html[data-theme="dark"] .neutral-banner{background:#2c2818;border-color:#6b5d30;color:#d4b870}
+html[data-theme="dark"] .neutral-banner .nb-text b{color:#e8c878}
+
+/* M1：整本刷完庆祝条——品牌实底配白字/深色字，避免对比度崩坏 */
+.excess-banner.celebrate{background:var(--brand);border-color:var(--brand)}
+.excess-banner.celebrate .ob-main{color:#fff}
+html[data-theme="dark"] .excess-banner.celebrate .ob-main{color:#10302a}
+
+/* 进度透明化一行（已做X/共Y + 落后/领先天数） */
+.neutral-hint{padding:9px 14px;margin-bottom:8px;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;font-size:12.5px;line-height:1.6;color:var(--text)}
+.neutral-hint b{font-variant-numeric:tabular-nums}
+/* M2：停新页提示——语义类 .paused，随主题走暖米绿，不再硬编码 #f0fdf4 */
+.neutral-hint.paused{background:#f3f6ec;border-color:#cdd9b8}
+html[data-theme="dark"] .neutral-hint.paused{background:#1f3a2d;border-color:#2e5a44;color:#cfe8d8}
+
+/* 关联错题逾期灰字软提醒 */
+.soft-remind{padding:7px 14px;margin-bottom:8px;font-size:12px;line-height:1.5;color:var(--muted)}
+.soft-remind b{color:var(--muted)}
+
+/* 打卡记录上的「补记错题」小按钮 */
+.r-wrong{background:none;border:none;color:#8aa0c0;cursor:pointer;font-size:13px;line-height:1;
+  padding:2px 7px;border-radius:7px;font-family:inherit;flex:0 0 auto;transition:.15s}
+.r-wrong:active{transform:scale(.96)} /* M3：只保留:active，删:hover */
+
+/* S5：砍题保分行（动态 cursor/opacity 仍由内联控制） */
+.ab-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);
+  border-radius:9px;margin-bottom:8px;cursor:pointer}
+
+/* 砍题保分面板标签 */
+.ab-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:11px;vertical-align:middle}
+.ab-tag.keep{background:#e6f4ec;color:#2e6b4f}
+.ab-tag.drop{background:#fdf6e3;color:#a57010} /* S4：与琥珀体系同源浅底 */
+html[data-theme="dark"] .ab-tag.keep{background:#1f3a2d;color:#78baa0}
+html[data-theme="dark"] .ab-tag.drop{background:#3a3018;color:#d4b870}
