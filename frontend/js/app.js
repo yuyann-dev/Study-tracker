@@ -16587,7 +16587,7 @@ if (document.readyState === 'loading') {
     if (!text) { addErrorBubble('EMPTY_INPUT', '请输入你的问题'); return; }
     // 清除编辑模式残留
     els.input.classList.remove('editing');
-    els.input.placeholder = '问问今天先救哪科、错题怎么排…';
+    els.input.placeholder = '问问学习规划、错题安排、进度分析…';
     hideEditHint();
     state.editingMsgEl = null;
 
