@@ -1914,6 +1914,8 @@
 .sr-plaza-room-btn{width:100%;margin:0 0 16px}
 
 /* 成员列表 */
+.sr-privacy-row{background:var(--inputBg);border-radius:10px;padding:10px 14px;margin-bottom:14px;border:1px solid var(--border)}
+html[data-theme="dark"] .sr-privacy-row{background:var(--input);border-color:var(--input-border)}
 .sr-member-list-title{font-size:13px;font-weight:600;color:var(--muted);margin:4px 0 10px}
 .sr-member-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
 .sr-member-card{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border)}
@@ -2024,6 +2026,10 @@ html[data-theme="dark"] .sr-fullmask{background:rgba(10,15,28,.65)}
 .neutral-banner .ob-actions{margin-top:6px}
 .neutral-banner .nb-close{background:none;border:none;color:#b89a4a;cursor:pointer;font-size:15px;line-height:1;padding:2px 6px;border-radius:6px;flex:0 0 auto;transition:.15s}
 .neutral-banner .nb-close:active{transform:scale(.96)} /* M3：只保留:active，删:hover */
+/* excess-banner 里的关闭按钮（与 neutral-banner 同风格） */
+.excess-banner .nb-close{background:none;border:none;color:inherit;opacity:.6;cursor:pointer;font-size:15px;line-height:1;padding:2px 6px;border-radius:6px;flex:0 0 auto;transition:.15s;margin-left:auto}
+.excess-banner .nb-close:hover{opacity:1}
+.excess-banner .nb-close:active{transform:scale(.96)}
 html[data-theme="dark"] .neutral-banner{background:#2c2818;border-color:#6b5d30;color:#d4b870}
 html[data-theme="dark"] .neutral-banner .nb-text b{color:#e8c878}
 

@@ -5651,37 +5651,34 @@ function getExerciseStreak(p, m) {
   return { easyRun, hardRun, avg7, activeDays: activeRecent.length };
 }
 
-/* ---- 挂载区：exercise 所有提示条统一渲染到 #exerciseHintZone ---- */
+/* ---- 挂载区：exercise 提示条统一渲染到 #exerciseHintZone（简化版：只保留基础进度与过期/完成提示） ---- */
 function renderExerciseHints(p, m) {
   const zone = $('#exerciseHintZone');
   if (!zone) return;
   if (p.archived) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
   const u = unitName(p);
   const t = todayStr();
-  const et = getExerciseDailyTarget(p, m);
-  let html = '';
-  const bars = []; // {build:()=>html, onMount:(el)=>void}
+  const bars = [];
 
-  // —— M4 过期横幅（exercise 专属可见横幅）——
+  // —— 过期横幅 ——
   if (p.deadline && p.deadline < t && m.remaining > 0) {
     const isHard = p.hardDeadline === true;
-    // 普通过期：「以后再说」只当天有效；hardDeadline 无关闭钮，始终提示
     if (isHard || p.deadlineWarnDismissedDate !== t) {
-    if (isHard) {
-      bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
-        <div class="ob-text"><span class="ob-icon">📚</span><span class="ob-main">考试已经结束了。这本刷题本陪你走过了备考的日子。</span></div>
-        <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
-        onMount: null });
-    } else {
-      bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
-        <div class="ob-text"><span class="ob-icon">📌</span><span class="ob-main">目标日已于 <b>${esc(p.deadline)}</b> 到期，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}。之前刷的都还在。</span></div>
-        <div class="ob-actions"><button class="ob-btn" data-xe="reset">重设目标日</button><button class="ob-btn" data-xe="archive">归档这本</button><button class="ob-btn" data-xe="dismiss">以后再说</button></div></div>`,
-        onMount: null });
-    }
+      if (isHard) {
+        bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
+          <div class="ob-text"><span class="ob-icon">📚</span><span class="ob-main">考试已经结束了。这本刷题本陪你走过了备考的日子。</span></div>
+          <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
+          onMount: null });
+      } else {
+        bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
+          <div class="ob-text"><span class="ob-icon">📌</span><span class="ob-main">目标日已于 <b>${esc(p.deadline)}</b> 到期，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}。之前刷的都还在。</span></div>
+          <div class="ob-actions"><button class="ob-btn" data-xe="reset">重设目标日</button><button class="ob-btn" data-xe="archive">归档这本</button><button class="ob-btn" data-xe="dismiss">以后再说</button></div></div>`,
+          onMount: null });
+      }
     }
   }
 
-  // —— M5 完成条：整本刷完 → 归档入口 ——
+  // —— 完成条：整本刷完 → 归档入口 ——
   if (m.remaining === 0 && m.currentPage > 0) {
     bars.push({ build: () => `<div class="excess-banner celebrate" style="display:flex;flex-direction:column;gap:8px">
       <div class="ob-text"><span class="ob-icon">🎉</span><span class="ob-main">整本刷完了！之前的努力都算数。</span></div>
@@ -5689,114 +5686,16 @@ function renderExerciseHints(p, m) {
       onMount: null });
   }
 
-  // —— M8 进度透明化（已做/共/落后或领先天数）——
+  // —— 简单进度显示（已做/共/剩余/距目标日/预计完成）——
   if (m.total > 0 && m.remaining > 0) {
-    let line = `已做 <b>${fmtUnitNum(m.currentPage)}</b> / 共 <b>${fmtUnitNum(m.total)}</b> ${u}`;
-    if ((m.behindSigned || 0) > 0) {
-      const behindDays = et.avgPer > 0 ? Math.round(m.behindSigned / et.avgPer) : null;
-      line += ` · 落后约 <b>${fmtUnitNum(m.behindSigned)}</b> ${u}` + (behindDays != null ? `（≈落后 <b>${behindDays}</b> 天）` : '');
-    } else if ((m.behindSigned || 0) < 0) {
-      const lead = -m.behindSigned;
-      const leadDays = et.avgPer > 0 ? Math.round(lead / et.avgPer) : null;
-      line += ` · 领先约 <b>${fmtUnitNum(lead)}</b> ${u}` + (leadDays != null ? `（≈领先 <b>${leadDays}</b> 天）` : '');
-      if (m.etaDate) line += `，按当前节奏预计 ${fmtCN(m.etaDate)} 完成`;
-    } else if (m.etaDate) {
-      line += ` · 按当前节奏预计 ${fmtCN(m.etaDate)} 完成`;
+    let line = `已做 <b>${fmtUnitNum(m.currentPage)}</b> / 共 <b>${fmtUnitNum(m.total)}</b> ${u}，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}`;
+    if (p.deadline && m.daysLeft != null && m.daysLeft >= 0) {
+      line += ` · 距目标日 <b>${m.daysLeft}</b> 天`;
     }
-    if (p.exerciseMode === 'fixed') {
-      line += `<br><span style="opacity:.8">固定每天 ${fmtUnitNum(et.comfort)} ${u}；照此节奏${m.etaDate ? '预计 ' + fmtCN(m.etaDate) + ' 完成' : ''}</span>`;
-    } else if (m.confidence === 'medium') {
-      line += `<br><span style="opacity:.8">（估算会随记录修正）</span>`;
+    if (m.etaDate && m.enoughData) {
+      line += ` · 按当前节奏预计 <b>${fmtCN(m.etaDate)}</b> 完成`;
     }
     bars.push({ build: () => `<div class="neutral-hint">${line}</div>`, onMount: null });
-  }
-
-  // —— M6·H 关联错题本逾期软提醒（灰字）——
-  const linkedMistakes = getLinkedMistakeProjects(p);
-  let overdueCount = 0;
-  linkedMistakes.forEach(mk => { overdueCount += getOverdueItems(mk).length; });
-  if (overdueCount > 0 && m.remaining > 0) {
-    bars.push({ build: () => `<div class="soft-remind">关联错题本已有 <b>${overdueCount}</b> 道逾期未复习，今天可以少刷 2 ${u}新题，先去清一下。</div>`, onMount: null });
-  }
-
-  // —— M6 临考暂停新页后的目标卡文案（BUG-2：加「恢复正常推进」可关）——
-  if (p.sprintPauseNewPages && m.remaining > 0) {
-    if (linkedMistakes.length) {
-      const first = linkedMistakes[0].name;
-      bars.push({ build: () => `<div class="neutral-hint paused">
-        今日停新页，去清关联错题本里的欠账。<div class="ob-actions"><button class="ob-btn" data-xe="openlinked">打开关联错题本「${esc(first)}」</button><button class="ob-btn" data-xe="resumepause">恢复正常推进</button></div></div>`,
-        onMount: null });
-    } else {
-      bars.push({ build: () => `<div class="neutral-hint paused">
-        停新页了。可以回顾之前打卡时标记过的错题记录，或者去创建一个关联错题本。
-        <div class="ob-actions"><button class="ob-btn" data-xe="createlinked">去创建关联错题本</button><button class="ob-btn" data-xe="resumepause">恢复正常推进</button></div></div>`,
-        onMount: null });
-    }
-  }
-
-  // —— M2 avg 被封顶中性提示（系统计划>舒适量；做满后自动隐藏；小2：关闭动作改名 closecomfort 避免与过期横幅 dismiss 冲突）——
-  if (et.capped && !p.sprintPauseNewPages && m.remaining > 0 && m.daysLeft != null && m.daysLeft >= 0
-      && (m.todayDone || 0) < et.comfort
-      && p.comfortHintShownDate !== t) {
-    bars.push({ build: () => `<div class="neutral-banner">
-      <span class="nb-text">按目标日摊到每天约需 <b>${fmtUnitNum(et.avgPer)}</b> ${u}；你的舒适量 <b>${fmtUnitNum(et.comfort)}</b> ${u}，先按 ${fmtUnitNum(et.comfort)} 推就好。</span>
-      <button class="nb-close" data-xe="closecomfort" title="今天不再提示">✕</button></div>`, onMount: null });
-  }
-
-  // —— M2b fixed 刷爆刹车（当天 done > comfort×1.5；小6：暂停新页时不再弹）——
-  if (p.exerciseMode === 'fixed' && !p.sprintPauseNewPages && (m.todayDone || 0) > et.comfort * 1.5
-      && p.brakeShownDate !== t && m.remaining > 0) {
-    bars.push({ build: () => `<div class="neutral-banner">
-      <span class="nb-text">🛑 今天已做 <b>${fmtUnitNum(m.todayDone)}</b> ${u}，远超你的日常节奏 ${fmtUnitNum(et.comfort)} ${u}。注意消化，可以翻一翻前几天做过的章节，别只赶${u}数。</span>
-      <button class="nb-close" data-xe="brake" title="今天不再提示">✕</button></div>`, onMount: null });
-  }
-
-  // —— M3 智能建议（调高 / avg 调低，互斥每天最多1条）——
-  const streak = getExerciseStreak(p, m);
-  if (m.remaining > 0 && p.comfortAdviceShownDate !== t && m.daysLeft != null && m.daysLeft > 0) {
-    // 调高：连续≥7 学习日 done>=comfort×1.3，且距 deadline>14 天
-    if (streak.easyRun >= 7 && m.daysLeft > 14) {
-      const suggestUp = Math.min(30, Math.max(et.comfort + 2, Math.round(streak.avg7 || et.comfort + 2)));
-      if (suggestUp > et.comfort) {
-        const avg7txt = streak.avg7 != null ? fmtUnitNum(streak.avg7) : fmtUnitNum(et.comfort);
-        bars.push({ build: () => `<div class="neutral-banner">
-          <span class="nb-text">💡 你已连续 7 天轻松完成 ${fmtUnitNum(et.comfort)} ${u}，最近 7 天实际日均约 <b>${avg7txt}</b> ${u}，状态不错。要不要把每日舒适量调到 <b>${suggestUp}</b> ${u} 试试？（可随时调回）</span>
-          <div class="ob-actions"><button class="ob-btn" data-xe="raisecomfort" data-c="${suggestUp}">调到 ${suggestUp}</button><button class="ob-btn" data-xe="dismissadvice">不用</button></div></div>`, onMount: null });
-      }
-    }
-    // avg 调低指引：仅 avg 模式，连续≥5 学习日 done<avgPer×0.8，hardDeadline 不显示
-    else if (p.exerciseMode !== 'fixed' && p.hardDeadline !== true && streak.hardRun >= 5 && m.daysLeft > 0) {
-      const avg7txt = streak.avg7 != null ? fmtUnitNum(streak.avg7) : fmtUnitNum(et.avgPer);
-      const etaTxt = m.etaDate ? fmtCN(m.etaDate) : '之后';
-      bars.push({ build: () => `<div class="neutral-banner">
-        <span class="nb-text">💡 你最近的实际节奏约 <b>${avg7txt}</b> ${u}/天，按这个速度预计 ${etaTxt} 完成。如果接受这个节奏，可以到设置里把目标日调成那天——系统不会替你改。</span>
-        <div class="ob-actions"><button class="ob-btn" data-xe="godeadline">去设置调目标日</button><button class="ob-btn" data-xe="dismissadvice">不用</button></div></div>`, onMount: null });
-    }
-  }
-
-  // —— M9b 领先播报（今天做了目标≥2倍 且 整体领先）——
-  const ratioNow = (et.per > 0 && m.remaining > 0) ? (m.todayDone || 0) / et.per : 0;
-  if (ratioNow >= 2 && (m.behindSigned || 0) < 0 && p.overLeadShownDate !== t) {
-    const leadDays = et.avgPer > 0 ? Math.round((-m.behindSigned) / et.avgPer) : 0;
-    // P2-3：领先<7天说"提前约N天"，>=7天才说周，且不硬抬到1周
-    const leadTxt = leadDays >= 7 ? `提前约 <b>${Math.round(leadDays / 7)}</b> 周` : (leadDays > 0 ? `提前约 <b>${leadDays}</b> 天` : '');
-    bars.push({ build: () => `<div class="neutral-banner">
-      <span class="nb-text">🎉 今天又超额啦！按这节奏你能${leadTxt}刷完——要不要现在就把后面的复习规划上？</span>
-      <div class="ob-actions"><button class="ob-btn" data-xe="pauseNew">去规划复习 / 暂停新页</button><button class="ob-btn" data-xe="overlead">知道了</button></div></div>`, onMount: null });
-  }
-
-  // —— M6 临考策略条（距 deadline≤30 天 且 落后）——
-  if (!p.sprintPauseNewPages && m.remaining > 0 && m.daysLeft != null && m.daysLeft > 0 && m.daysLeft <= 30
-      && ((m.behind || 0) >= et.comfort || m.feasibility === 'impossible')
-      && p.sprintBarDismissedDate !== t) {
-    bars.push({ build: () => `<div class="excess-banner" style="display:flex;flex-direction:column;gap:8px">
-      <div class="ob-text"><span class="ob-icon">⏳</span><span class="ob-main">距目标日只剩 <b>${m.daysLeft}</b> 天，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}（落后约 <b>${fmtUnitNum(m.behind)}</b> ${u}）。时间紧，做减法比硬赶新页更有效：</span></div>
-      <div class="ob-actions">
-        <button class="ob-btn" data-xe="pauseNew">暂停新页，优先复习</button>
-        <button class="ob-btn" data-xe="abandon">砍题保分：标记低频章节放弃</button>
-        <button class="ob-btn" data-xe="quickwrong">把今天的错题送进错题本</button>
-        <button class="nb-close" data-xe="sprintclose" title="今天不再提示">✕</button>
-      </div></div>`, onMount: null });
   }
 
   if (!bars.length) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
@@ -5804,7 +5703,7 @@ function renderExerciseHints(p, m) {
   zone.style.display = '';
 }
 
-// exercise 提示区事件委托（归档/重设/暂停新页/砍题/快录/各关闭）
+// exercise 提示区事件委托（简化版：只保留归档/重设/关闭过期提示）
 function bindExerciseHintZone(p, m) {
   const zone = $('#exerciseHintZone');
   if (!zone) return;
@@ -5820,44 +5719,6 @@ function bindExerciseHintZone(p, m) {
       openSettings();
     } else if (act === 'dismiss') {
       p.deadlineWarnDismissedDate = t; p.updatedAt = Date.now(); saveStore(); render();
-    } else if (act === 'closecomfort') {
-      p.comfortHintShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
-    } else if (act === 'brake') {
-      p.brakeShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
-    } else if (act === 'dismissadvice') {
-      p.comfortAdviceShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
-    } else if (act === 'overlead') {
-      p.overLeadShownDate = t; p.updatedAt = Date.now(); saveStore(); render();
-    } else if (act === 'sprintclose') {
-      p.sprintBarDismissedDate = t; p.updatedAt = Date.now(); saveStore(); render();
-    } else if (act === 'raisecomfort') {
-      let c = parseInt(actBtn.dataset.c, 10);
-      if (isNaN(c)) return;
-      if (p.exerciseMode !== 'fixed') c = Math.max(4, c);
-      p.dailyComfort = c; p.updatedAt = Date.now(); saveStore(); render();
-      showToast('✅', '舒适量已调高', `现在每天建议做 ${c} ${unitName(p)}。`, 2500);
-    } else if (act === 'godeadline') {
-      // P2-1：点"去设置调目标日"也标记当天已处理建议，避免关闭后当天重现
-      p.comfortAdviceShownDate = t; p.updatedAt = Date.now(); saveStore();
-      openSettings();
-    } else if (act === 'pauseNew') {
-      p.sprintPauseNewPages = true; p.updatedAt = Date.now(); saveStore(); render();
-      showToast('⏸️', '已暂停新页', `临考期先不刷新${unitName(p)}，优先清关联错题本里的欠账。`, 2800);
-    } else if (act === 'resumepause') {
-      // BUG-2：暂停新页可关闭
-      p.sprintPauseNewPages = false; p.updatedAt = Date.now(); saveStore(); render();
-      showToast('▶️', '已恢复推进', '回到正常的每日目标节奏。', 2200);
-    } else if (act === 'abandon') {
-      openAbandonPanel(p);
-    } else if (act === 'quickwrong') {
-      // 小3：带上今天的打卡范围（页/套），没有则 null
-      const rec = findTodayPageRecord(p);
-      openWrongQuickRecord(p, rec ? { startPage: rec.startPage != null ? rec.startPage : rec.endPage, endPage: rec.endPage, setNo: rec.set } : null);
-    } else if (act === 'openlinked') {
-      const first = getLinkedMistakeProjects(p)[0];
-      if (first) { store.currentId = first.id; saveStore(); render(); }
-    } else if (act === 'createlinked') {
-      startCreateLinkedMistake(p);
     }
   };
 }
@@ -6964,17 +6825,19 @@ function renderExcessAdvice(p) {
 
 /* ===== v3 方案C：琥珀色策略条（偏紧但未过期） ===== */
 function renderTightStrategyBar(p) {
-  // 复用 #deadlinePassedBanner 旁边的位置，或创建一个新条
-  // 这里我们用 excessAdvice 旁边的独立条。为简化，复用 deadlinePassedBanner 的样式类
-  // 实际上我们在 index.html 中需要一个新容器。先用动态插入方式。
   if (!p || p.type === 'exercise' || p.archived) return;
   if (!p.deadline || p.deadline < todayStr()) return;
   const fe = getMistakeFeasibility(p);
   if (fe.level === 'ok') return;
+  // 距截止日>20天不显示，只在临考紧迫时才提示（避免还有两个月就干扰正常复习）
+  if (fe.daysLeft > 20) return;
   const scSrc = getSmartCapSource(p, todayStr());
-  if (scSrc.source !== 'deadlineLevel') return; // 只有deadline主导时才显示策略条
+  if (scSrc.source !== 'deadlineLevel') return;
 
   const today = todayStr();
+  // 今天已关闭则不显示
+  if (p.tightBarDismissedDate === today) return;
+
   // 文案递进
   const warnCount = p.deadlineTightWarnCount || 0;
   let leadText;
@@ -6982,12 +6845,18 @@ function renderTightStrategyBar(p) {
   else if (warnCount < 5) leadText = '你已经连续几天任务偏多了。如果目标日不是硬约束，后移会舒服很多。';
   else leadText = '任务偏紧。';
 
-  // suggestedDate计算
+  // 后移日期：只有当按当前节奏确实无法在截止日前完成时才建议，且从截止日往后推
   const effectiveDaily = Math.max(getComfortCap(p), getEwmRate(p));
-  const totalWork = (fe.work || effectiveDaily);
-  const neededDays = Math.max(1, Math.ceil(totalWork / effectiveDaily));
-  const suggestedDate = addDays(today, neededDays);
-  // [v3 P1] gap = 当前smartCap - 后移后的effectiveDaily
+  const studyDays = Math.max(1, fe.daysLeft * getStudyDayRatio(p));
+  const canFinish = fe.work <= studyDays * effectiveDaily;
+  let suggestedDate = null;
+  if (!canFinish) {
+    const extraWork = fe.work - studyDays * effectiveDaily;
+    const extraStudyDays = Math.ceil(extraWork / effectiveDaily);
+    const ratio = getStudyDayRatio(p);
+    const extraCalDays = ratio > 0 ? Math.ceil(extraStudyDays / ratio) : extraStudyDays;
+    suggestedDate = addDays(p.deadline, Math.max(1, extraCalDays));
+  }
   const gap = Math.max(1, Math.round(scSrc.value - effectiveDaily));
 
   // 查找或创建策略条容器
@@ -7009,12 +6878,12 @@ function renderTightStrategyBar(p) {
   let html = `<div class="ob-text">
     <span class="ob-icon">💡</span>
     <span class="ob-main">${leadText} 你的复习任务偏紧。以下是可以优化的方向：</span>
+    <button class="nb-close" data-tsb="dismiss" title="今天不再提示">✕</button>
   </div>
   <div class="ob-actions">
     <button class="ob-btn" data-tsb="highFreq">${p.tacticalPostpone ? '取消优先策略' : '优先高频薄弱题'}</button>
-    <button class="ob-btn" data-tsb="pauseNew">${p.pauseNewCollection ? '恢复新题收录' : '暂停新题收录'}</button>
     <button class="ob-btn" data-tsb="lowFreq">${p.lowFreqExtended ? '恢复原复习间隔' : '低频题降频'}</button>`;
-  if (p.hardDeadline !== true) {
+  if (suggestedDate && p.hardDeadline !== true) {
     html += `<button class="ob-btn postpone-btn" data-tsb="postpone">后移到 ${suggestedDate}（每天少做${gap}条）</button>`;
   }
   html += `</div>`;
@@ -7032,6 +6901,13 @@ function renderTightStrategyBar(p) {
     const btn = e.target.closest('[data-tsb]');
     if (!btn) return;
     const action = btn.dataset.tsb;
+    if (action === 'dismiss') {
+      p.tightBarDismissedDate = today;
+      p.updatedAt = Date.now();
+      saveStore();
+      bar.hidden = true;
+      return;
+    }
     if (action === 'highFreq') {
       // toggle：战略性后置开/关
       p.tacticalPostpone = !p.tacticalPostpone;
@@ -7039,13 +6915,6 @@ function renderTightStrategyBar(p) {
       saveStore();
       render();
       showToast(p.tacticalPostpone ? '🎯' : '✅', p.tacticalPostpone ? '已优先高频薄弱题' : '已恢复全部题目显示', p.tacticalPostpone ? '临考期先集中攻克高频+最薄弱的题。' : '现在显示全部待复习题目。', 2500);
-    } else if (action === 'pauseNew') {
-      // toggle：暂停/恢复新题收录
-      p.pauseNewCollection = !p.pauseNewCollection;
-      p.updatedAt = Date.now();
-      saveStore();
-      render();
-      showToast(p.pauseNewCollection ? '⏸️' : '▶️', p.pauseNewCollection ? '已暂停新题收录' : '已恢复新题收录', p.pauseNewCollection ? '临考期先不往错题本加新题，专注消化存量。' : '现在可以正常添加新题了。', 2500);
     } else if (action === 'lowFreq') {
       // toggle：低频题降频开/关
       p.lowFreqExtended = !p.lowFreqExtended;
@@ -10463,7 +10332,11 @@ function renderProgressInsights(p, m) {
   }
   const etaBox = `<div class="pp-insight-title">🔮 完成预测</div><div class="pp-eta-box">${etaLines}</div>`;
 
-  return `<div class="pp-insight">${statGrid}${etaBox}</div>`;
+  const notePadHtml = `<div id="ppNotePadWrap" style="margin:16px 0">
+    <div class="wb-section-title">📌 我的注意事项</div>
+    <textarea id="ppNotePad" class="wb-notepad" placeholder="写点提醒自己的话，会一直显示在这里…&#10;例：线代第二问必用行列式展开；英语作文先列提纲"></textarea>
+  </div>`;
+  return `<div class="pp-insight">${statGrid}${notePadHtml}${etaBox}</div>`;
 }
 
 function renderSetGrid(p) {
@@ -15647,14 +15520,14 @@ async function saveStudyRoomPublic(val) {
     showToast('✅', '隐私设置已保存', val ? '已公开学习数据到自习室' : '已关闭学习数据公开', 2200);
   } catch (e) {
     showToast('⚠️', '保存失败', e.message || '请稍后重试', 2500);
-    var cb = $('#settingStudyRoomPublic');
+    var cb = $('#srStudyRoomPublic');
     if (cb) cb.checked = !val; // 回滚
   }
 }
 
-// 打开设置时刷新隐私开关状态（从 /me 中找自己的 publicData）
+// 打开自习室时刷新隐私开关状态（从 /me 中找自己的 publicData）
 async function refreshStudyRoomPrivacyToggle() {
-  var cb = $('#settingStudyRoomPublic');
+  var cb = $('#srStudyRoomPublic');
   if (!cb) return;
   try {
     var data = await STAuth.apiRequest('/api/study-room/me');
@@ -15760,12 +15633,18 @@ function initStudyRoomUI() {
   });
 
   // 隐私开关：change 时立即保存
-  var privacyCb = $('#settingStudyRoomPublic');
+  var privacyCb = $('#srStudyRoomPublic');
   if (privacyCb) {
     privacyCb.addEventListener('change', function(){ saveStudyRoomPublic(this.checked); });
   }
-  // 打开设置时刷新开关状态
-  bind('#btnSettings', 'click', function(){ setTimeout(refreshStudyRoomPrivacyToggle, 100); });
+  // 打开自习室时刷新开关状态
+  bind('#studyRoomNavBtn', 'click', function(){ setTimeout(refreshStudyRoomPrivacyToggle, 300); });
+  // 进入房间视图时也刷新一次
+  var origOpenRoom = window._srOpenRoom;
+  if (typeof openStudyRoom === 'function') {
+    var _orig = openStudyRoom;
+    window.openStudyRoom = function(){ _orig.apply(this, arguments); setTimeout(refreshStudyRoomPrivacyToggle, 300); };
+  }
 }
 
 // 安卓/物理返回键：专门处理自习室层。
