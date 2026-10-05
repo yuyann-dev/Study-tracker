@@ -558,7 +558,7 @@ router.post('/chat', async (req, res) => {
       llm = await aiProxy.callLLM(
         { baseUrl: cfg.base_url, model: cfg.model, apiKey, docsUrl: prov.docsUrl },
         messages,
-        { maxTokens: intent === 'mistake_diagnosis' ? 2500 : 2000 }
+        { maxTokens: intent === 'mistake_diagnosis' ? 4000 : 3000 }
       );
     } catch (e) {
       // 失败不计入系统消耗统计（bumpUsage 仅在成功后执行）；统一文案 + code，不泄露上游原文

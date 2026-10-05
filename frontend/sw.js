@@ -11,7 +11,7 @@
    v39：AI助手UI优化——API教程文案重写（以DeepSeek为例+费用说明）、可学时长输入框紧凑化、已归档项目过滤、prompt禁止反问句。
    重要：静态资源靠 index.html 里的 ?v= 版本号 cache-busting，
    每次改 JS/CSS 必须同时升 ?v= 版本号，否则 SW 会一直返回旧缓存。 */
-var CACHE = 'yystudy-v43';
+var CACHE = 'yystudy-v44';
 var CORE = [
   './',
   './index.html',

@@ -16484,12 +16484,18 @@ if (document.readyState === 'loading') {
       removeTyping();
       if (resp.conversationId) state.convId = resp.conversationId;
       var reply = resp.reply;
+      var hasActions = resp.actions && resp.actions.length;
       if (!reply || !String(reply).trim()) {
-        addErrorBubble(null, 'AI 返回了空回复，请重试');
+        if (hasActions) {
+          // 只有 actions 没有正文：不报错，直接显示建议卡片
+          addAiMsg('<div class="md"><p>以下是可以直接应用的建议：</p></div>');
+        } else {
+          addErrorBubble(null, 'AI 返回了空回复，请重试');
+        }
       } else {
         renderAiReply(reply);
       }
-      if (resp.actions && resp.actions.length) {
+      if (hasActions) {
         // 后端 chat 现返回 messageId，apply 时回传以建立动作日志
         var mid = resp.messageId || resp.id || null;
         renderSuggestionCard(resp.actions, mid);
