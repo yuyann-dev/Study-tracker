@@ -16142,7 +16142,6 @@ if (document.readyState === 'loading') {
   }
   function friendlyOpLabel(a){
     switch(a.op){
-      case 'adjust_daily_capacity': return '调整每日容量';
       case 'adjust_daily_comfort': return '调整舒适量';
       case 'adjust_deadline': return '调整截止日期';
       case 'create_project': return '新建项目';
@@ -16164,9 +16163,6 @@ if (document.readyState === 'loading') {
     var p = null;
     if (a.projectId && store.projects && store.projects[a.projectId]) p = store.projects[a.projectId];
     switch(a.op){
-      case 'adjust_daily_capacity':
-        if (p && typeof a.value === 'number' && isFinite(a.value)) p.dailyCapacity = Math.max(1, Math.round(a.value));
-        break;
       case 'adjust_daily_comfort':
         if (p && typeof a.value === 'number' && isFinite(a.value)) p.dailyComfort = Math.max(1, Math.round(a.value));
         break;
@@ -16335,9 +16331,6 @@ if (document.readyState === 'loading') {
   function prepareAction(a){
     var p = a.projectId ? store.projects[a.projectId] : null;
     switch(a.op){
-      case 'adjust_daily_capacity':
-        if (p) a.inverse = { op:'adjust_daily_capacity', projectId:a.projectId, value:p.dailyCapacity };
-        break;
       case 'adjust_daily_comfort':
         if (p) a.inverse = { op:'adjust_daily_comfort', projectId:a.projectId, value:p.dailyComfort };
         break;
