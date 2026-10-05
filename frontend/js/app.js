@@ -5444,11 +5444,7 @@ function renderDailyGoal(p, m) {
   let target = (dt0.per != null && dt0.per > 0) ? dt0.per
               : (isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay
               : null;
-  // [v2 M1] exercise：实际每日目标按舒适量/固定容量收敛（fixed=comfort；avg=min(comfort,均摊)）
-  if (p.type === 'exercise') {
-    const et = getExerciseDailyTarget(p, m);
-    target = et.per > 0 ? et.per : null;
-  }
+  // 刷题本恢复简洁版：不用舒适量收敛，直接用真实均摊目标
   if (doneAll) {
     _dgShow(box, fill, line, praise, 'done-all', 100, '全部完成', '恭喜你拿下整个目标，好好犒劳一下自己~');
     return;
@@ -5528,38 +5524,10 @@ function renderDailyGoal(p, m) {
 }
 
 /* ==========================================================================
-   v2 刷题模式（exercise）专属模块 —— M1 舒适量 / M2 中性提示 / M2b 刷爆刹车 /
-   M3 智能建议 / M6 临考策略+砍题 / M7 错题联动 / M8 进度透明 / M9b 领先播报。
+   刷题模式（exercise）专属模块 —— 关联错题本、砍题保分等工具函数。
    exercise 是"剩余量÷剩余学习日"的纯进度推进器，items 恒空，进度全在 records[]。
-   这里只新增 exercise 组件，不改 mistake 已优化的排期/渲染逻辑（仅调用 scheduleNextReview）。
+   舒适量/智能建议/临考策略等复杂排期已移除，保持简洁。
    ========================================================================== */
-
-// [v2 M1] 取舒适量：avg 下限 4（绝对底 3）；fixed 完全豁免下限，用户自定
-function getExerciseComfort(p) {
-  let c = (typeof p.dailyComfort === 'number' && isFinite(p.dailyComfort)) ? p.dailyComfort : 6;
-  c = Math.round(c);
-  if (p.exerciseMode === 'fixed') return Math.max(1, c);
-  return Math.max(4, c);
-}
-
-// [v2 §3] 实际每日目标：fixed 锁死舒适量；avg 取 min(舒适量, 均摊量) 封顶不追高
-function getExerciseDailyTarget(p, m) {
-  const comfort = getExerciseComfort(p);
-  const remaining = Math.max(0, (m && m.remaining) || 0);
-  if (remaining <= 0 || !m) return { per: 0, mode: p.exerciseMode, comfort, avgPer: 0, capped: false, remaining: 0 };
-  const raw = getDailyTarget(p, m);
-  const avgPer = (raw.per != null && raw.per > 0) ? raw.per
-              : (isFinite(m.needPerDay) && m.needPerDay > 0) ? m.needPerDay : comfort;
-  let per;
-  if (p.exerciseMode === 'fixed') per = comfort;
-  else per = Math.min(comfort, avgPer);
-  per = Math.min(per, remaining);
-  const round1 = v => Math.round(v * 10) / 10;
-  return { per: round1(per), mode: p.exerciseMode, comfort,
-           avgPer: round1(avgPer),
-           capped: (p.exerciseMode !== 'fixed') && (avgPer > comfort + 1e-9),
-           remaining };
-}
 
 // 关联错题本（mistake 且 refProjectId 指向本刷题本），只读聚合 / 写入占位条目用
 function getLinkedMistakeProjects(p) {
@@ -5615,42 +5583,6 @@ function countLinkedMistakesBySet(p, setNo) {
   return n;
 }
 
-// [v2 M3·D] 连续轻松/吃力学习日计数 + 最近7个学习日日均（只作文案参考，不反推舒适量）
-function getExerciseStreak(p, m) {
-  const t = todayStr();
-  // 收集最近 60 个自然日内每个学习日的完成量（与 getMetrics 同口径：当日累计−昨日累计）
-  const days = [];
-  for (let o = 0; o < 60; o++) {
-    const d = addDays(t, -o);
-    const done = Math.max(0, getCompletedPagesAtDate(p, d) - getCompletedPagesAtDate(p, addDays(d, -1)));
-    days.push({ date: d, done });
-  }
-  days.sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)); // 升序
-  const comfort = getExerciseComfort(p);
-  // P2-2：吃力阈值与 M3 文案同源——用 getExerciseDailyTarget.avgPer（均摊量），而非 m.perStudyDay（EWMA）
-  const et0 = getExerciseDailyTarget(p, m);
-  const avgPer = (et0.avgPer > 0) ? et0.avgPer : comfort;
-  // 连续轻松（done>=comfort*1.3）/ 连续吃力（done<avgPer*0.8），从今天往回数；今天没学不算断也不算连续
-  let easyRun = 0, hardRun = 0;
-  const todayIdx = days.length - 1;
-  let cursor = days[todayIdx].done > 0 ? todayIdx : todayIdx - 1;
-  for (; cursor >= 0; cursor--) {
-    const dd = days[cursor];
-    if (dd.done === 0) continue; // 休息日不计入连续，也不打断连续学习日
-    if (dd.done >= comfort * 1.3) easyRun++; else break;
-  }
-  cursor = days[todayIdx].done > 0 ? todayIdx : todayIdx - 1;
-  for (; cursor >= 0; cursor--) {
-    const dd = days[cursor];
-    if (dd.done === 0) continue; // 休息日不计入连续，也不打断连续学习日
-    if (dd.done < avgPer * 0.8) hardRun++; else break;
-  }
-  // 最近 7 个学习日（done>0）的日均完成量
-  const activeRecent = days.filter(x => x.done > 0).slice(-7);
-  const avg7 = activeRecent.length ? activeRecent.reduce((s, x) => s + x.done, 0) / activeRecent.length : null;
-  return { easyRun, hardRun, avg7, activeDays: activeRecent.length };
-}
-
 /* ---- 挂载区：exercise 提示条统一渲染到 #exerciseHintZone（简化版：只保留基础进度与过期/完成提示） ---- */
 function renderExerciseHints(p, m) {
   const zone = $('#exerciseHintZone');
@@ -5684,18 +5616,6 @@ function renderExerciseHints(p, m) {
       <div class="ob-text"><span class="ob-icon">🎉</span><span class="ob-main">整本刷完了！之前的努力都算数。</span></div>
       <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
       onMount: null });
-  }
-
-  // —— 简单进度显示（已做/共/剩余/距目标日/预计完成）——
-  if (m.total > 0 && m.remaining > 0) {
-    let line = `已做 <b>${fmtUnitNum(m.currentPage)}</b> / 共 <b>${fmtUnitNum(m.total)}</b> ${u}，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}`;
-    if (p.deadline && m.daysLeft != null && m.daysLeft >= 0) {
-      line += ` · 距目标日 <b>${m.daysLeft}</b> 天`;
-    }
-    if (m.etaDate && m.enoughData) {
-      line += ` · 按当前节奏预计 <b>${fmtCN(m.etaDate)}</b> 完成`;
-    }
-    bars.push({ build: () => `<div class="neutral-hint">${line}</div>`, onMount: null });
   }
 
   if (!bars.length) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
@@ -5737,7 +5657,7 @@ function openAbandonPanel(p) {
   const m = getMetrics(p);
   const u = unitName(p);
   const setMode = isSetMode(p);
-  const oldPer = getExerciseDailyTarget(p, m).per;
+  const oldPer = getDailyTarget(p, m).per || (isFinite(m.needPerDay) ? m.needPerDay : 0);
 
   // 构造候选放弃行
   let rows = [];
@@ -5828,7 +5748,8 @@ function openAbandonPanel(p) {
     const newRemaining = Math.max(0, newTotal - m.currentPage);
     let newPer = oldPer;
     if (newRemaining > 0 && m.daysAvailable > 0) {
-      const basePer = (p.exerciseMode === 'fixed') ? getExerciseComfort(p) : Math.min(getExerciseComfort(p), newRemaining / Math.max(0.5, (m.studyDaysRemaining || 1)));
+      const studyDays = Math.max(0.5, (m.studyDaysRemaining || m.daysAvailable));
+      const basePer = newRemaining / studyDays;
       newPer = Math.min(basePer, newRemaining);
     } else newPer = 0;
     summaryEl.innerHTML = abPages > 0
@@ -6288,9 +6209,8 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
         : '今天就是截止日';
     } else if (m.perStudyDay != null) {
       const dt = getDailyTarget(p, m);
-      // [v2 M1] 大字目标同样按舒适量/固定容量收敛（fixed=comfort；avg=min(comfort,均摊)）
-      const et = getExerciseDailyTarget(p, m);
-      const showPer = et.per > 0 ? et.per : (dt.per != null ? dt.per : 0);
+      // 刷题本恢复简洁版：不用舒适量收敛，直接显示真实均摊量，避免与状态卡数字打架
+      const showPer = dt.per != null ? dt.per : (m.perStudyDay != null ? m.perStudyDay : (isFinite(m.needPerDay) ? m.needPerDay : 0));
       const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日需做';
       _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), u);
@@ -9494,7 +9414,8 @@ function getTodayStatus(p) {
   const m = getMetrics(p);
   if (p.type === 'exercise') {
     if (m && m.remaining <= 0) return { state: 'done' };
-    const target = m ? getExerciseDailyTarget(p, m).per : 0;
+    const dt = m ? getDailyTarget(p, m) : null;
+    const target = dt && dt.per != null ? dt.per : (m && isFinite(m.needPerDay) ? m.needPerDay : 0);
     const td = m ? (m.todayDone || 0) : 0;
     if (!(target > 0)) return { state: 'none' };
     if (td >= target) return { state: 'done', need: target, done: td };
@@ -10826,16 +10747,10 @@ function openSettings() {
     renderComfortAdvice(p);
   }
 
-  // [v2 M1/M10] 刷题本：每日节奏区块（舒适量 + avg/fixed 模式 + 战略放弃入口）
+  // 刷题本恢复简洁版：移除舒适量设置区块
   const paceTitle = $('#exercisePaceSectionTitle'), paceSec = $('#exercisePaceSection');
-  if (paceTitle) paceTitle.hidden = !isExercise;
-  if (paceSec) paceSec.hidden = !isExercise;
-  if (isExercise) {
-    $('#sExerciseComfort').value = getExerciseComfort(p);
-    const mode = p.exerciseMode === 'fixed' ? 'fixed' : 'avg';
-    const radio = document.querySelector('input[name="sExerciseMode"][value="' + mode + '"]');
-    if (radio) radio.checked = true;
-  }
+  if (paceTitle) paceTitle.hidden = true;
+  if (paceSec) paceSec.hidden = true;
 
   // [v2 背书 M1/M10] 背书本：每日节奏区块
   const recitePaceTitle = $('#recitePaceSectionTitle'), recitePaceSec = $('#recitePaceSection');
@@ -13133,22 +13048,7 @@ function submitSettings() {
     p.spreadThreshold = isNaN(th) || th < 1 ? defaultComfortCap(p) : Math.min(50, th);
   }
 
-  // [v2 M1/M10] 刷题本：每日节奏（舒适量 + avg/fixed 模式）
-  if (p.type === 'exercise') {
-    const modeRadio = (document.querySelector('input[name="sExerciseMode"]:checked') || {}).value;
-    p.exerciseMode = (modeRadio === 'fixed') ? 'fixed' : 'avg';
-    let comfort = parseInt($('#sExerciseComfort').value, 10);
-    let clamped = false;
-    if (isNaN(comfort) || comfort < 1) comfort = (p.exerciseMode === 'fixed') ? 1 : 4;
-    if (p.exerciseMode === 'fixed') {
-      comfort = Math.max(1, comfort); // fixed 完全豁免下限，用户自定
-    } else {
-      if (comfort < 4) { comfort = 4; clamped = true; } // avg 下限 4（绝对底 3，这里统一抬到 4）
-      comfort = Math.max(3, comfort);
-    }
-    p.dailyComfort = comfort;
-    if (clamped) setTimeout(() => showToast('ℹ️', '已自动调整', '均摊模式下舒适量最低为 4 页/天，已帮你抬到 4。', 2600), 400);
-  }
+  // 刷题本恢复简洁版：不再保存舒适量/模式设置
 
   // [v2 背书 M1/M10] 背书本：每日节奏字段
   if (p.type === 'recite') {
