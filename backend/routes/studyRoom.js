@@ -218,12 +218,11 @@ router.get('/me', (req, res) => {
       const stats = getUserStats(m.userId);
       // streak 属基础社交信息（头像/用户名/房主标记/streak 全可见），对所有成员真实返回
       const streak = computeStreak(stats.byDate, today);
-      // 今日是否打卡与今日次数属进阶信息：未公开者（且非自己）一律 null
+      // 今日是否打卡属基础社交信息（全可见）；今日具体次数属进阶信息（未公开者 null）
+      const checkedInToday = (stats.byDate[today] || 0) > 0;
       let todayReviewCount = null;
-      let checkedInToday = null;
       if (visible) {
         todayReviewCount = stats.byDate[today] || 0;
-        checkedInToday = todayReviewCount > 0;
       }
       return {
         userId: m.userId,

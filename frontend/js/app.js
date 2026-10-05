@@ -14942,10 +14942,13 @@ function renderMemberList() {
     var streakHtml = streak > 0
       ? '<span class="sr-meta-streak">🔥 连续 ' + streak + ' 天</span>'
       : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
-    // 今日状态：仅 publicData||isSelf 才真实；未公开者后端返回 null
+    // 今日状态：publicData||isSelf 显示具体次数；未公开者只显示是否打卡（基础社交信息），不显示具体次数
     var todayHtml;
     if (!(m.publicData || m.isSelf)) {
-      todayHtml = '<span class="sr-meta-today sr-today-private">🔒 数据已隐藏</span>';
+      var hasToday = !!m.checkedInToday;
+      todayHtml = hasToday
+        ? '<span class="sr-meta-today sr-today-ok">✅ 今日已打卡</span>'
+        : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
     } else {
       var n = m.todayReviewCount || 0;
       todayHtml = n > 0
