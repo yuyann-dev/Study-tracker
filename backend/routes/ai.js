@@ -398,6 +398,8 @@ router.put('/conversations/:id', (req, res) => {
 // 注意：必须注册在 /:id 之前，否则 "all" 会被当成会话 id
 router.delete('/conversations/all', (req, res) => {
   try {
+    // 先删关联记忆（source_message_id 属于该用户的消息）
+    db.prepare('DELETE FROM ai_memory WHERE user_id=? AND source_message_id IN (SELECT id FROM ai_messages WHERE conversation_id IN (SELECT id FROM ai_conversations WHERE user_id=?))').run(req.user.id, req.user.id);
     db.prepare('DELETE FROM ai_conversations WHERE user_id = ?').run(req.user.id);
     return ok(res, { deleted: true });
   } catch (e) {
@@ -441,6 +443,8 @@ router.get('/conversations/:id/messages', (req, res) => {
 router.delete('/conversations/:id', (req, res) => {
   try {
     const convId = Number(req.params.id);
+    // 先删关联记忆
+    db.prepare('DELETE FROM ai_memory WHERE user_id=? AND source_message_id IN (SELECT id FROM ai_messages WHERE conversation_id=?)').run(req.user.id, convId);
     const info = db.prepare('DELETE FROM ai_conversations WHERE id=? AND user_id=?').run(convId, req.user.id);
     // messages 由外键 ON DELETE CASCADE 删除（已开 foreign_keys=ON）
     return info.changes > 0 ? ok(res, { deleted: true }) : fail(res, '会话不存在', 404);
@@ -554,7 +558,7 @@ router.post('/chat', async (req, res) => {
       llm = await aiProxy.callLLM(
         { baseUrl: cfg.base_url, model: cfg.model, apiKey, docsUrl: prov.docsUrl },
         messages,
-        { maxTokens: intent === 'mistake_diagnosis' ? 2000 : 1500 }
+        { maxTokens: intent === 'mistake_diagnosis' ? 2500 : 2000 }
       );
     } catch (e) {
       // 失败不计入系统消耗统计（bumpUsage 仅在成功后执行）；统一文案 + code，不泄露上游原文

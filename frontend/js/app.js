@@ -16495,6 +16495,8 @@ if (document.readyState === 'loading') {
         renderSuggestionCard(resp.actions, mid);
       }
       updateSamplesVisibility();
+      // 回复生成完成后，若面板已关闭则显示红点提醒
+      if (mask && mask.hidden && dot) dot.hidden = false;
     } catch(e) {
       removeTyping();
       addErrorBubble(e.code, e.message);
@@ -16777,56 +16779,6 @@ if (document.readyState === 'loading') {
     }
   }
 
-  /* ---- 主动触达红点：本地巡检（不调 AI） ---- */
-  function pingRedDot(){
-    try {
-      var today = todayStr();
-      // 收集所有项目的活跃日期
-      var dates = {};
-      var projs = store.projects || {};
-      for (var pid in projs) {
-        if (!projs.hasOwnProperty(pid)) continue;
-        var p = projs[pid];
-        // exercise: records[].date
-        if (Array.isArray(p.records)) {
-          for (var i = 0; i < p.records.length; i++) {
-            if (p.records[i] && p.records[i].date) dates[p.records[i].date] = true;
-          }
-        }
-        // recite/mistake: items learnedDate/masteredDate
-        if (Array.isArray(p.items)) {
-          for (var j = 0; j < p.items.length; j++) {
-            var it = p.items[j];
-            if (it && it.learnedDate) dates[it.learnedDate] = true;
-            if (it && it.masteredDate) dates[it.masteredDate] = true;
-          }
-        }
-      }
-      // 连续3天无打卡：今天、昨天、前天都没有记录
-      function addDaysStr(d, n){
-        var dt = new Date(d); dt.setDate(dt.getDate() + n);
-        return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
-      }
-      var t = new Date();
-      var yest = addDaysStr(t, -1), dayBefore = addDaysStr(t, -2);
-      if (!dates[today] && !dates[yest] && !dates[dayBefore]) {
-        dot.hidden = false;
-        return;
-      }
-      // 某项目严重落后：deadline 7天内 但几乎没有学习记录（粗略用记录数判断）
-      for (var pid2 in projs) {
-        if (!projs.hasOwnProperty(pid2)) continue;
-        var p2 = projs[pid2];
-        if (p2.deadline && p2.total > 0) {
-          var left = Math.round((new Date(p2.deadline) - t) / 86400000);
-          var recCount = (Array.isArray(p2.records) ? p2.records.length : 0)
-                       + (Array.isArray(p2.items) ? p2.items.length : 0);
-          if (left <= 7 && recCount < p2.total * 0.3) { dot.hidden = false; return; }
-        }
-      }
-    } catch(e) {}
-  }
-
   /* ---- 输入框自适应高度 ---- */
   function autoGrow(){
     var ta = els.input;
@@ -16956,9 +16908,6 @@ if (document.readyState === 'loading') {
       setAnchor: function(pid){ state.anchorProjectId = pid; updateAnchorChip(); },
       ping: function(){ dot.hidden = false; }
     };
-
-    // 本地巡检红点（延迟到 store 就绪后）
-    setTimeout(pingRedDot, 1500);
   }
 
   if (document.readyState === 'loading') {
