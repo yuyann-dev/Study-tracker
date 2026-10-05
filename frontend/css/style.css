@@ -2420,10 +2420,11 @@ html[data-theme="dark"] .ai-send{color:#10302a}
 /* 学习时长：自由输入 + 快捷按钮 */
 .ai-budget-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:nowrap}
 .ai-budget-num{
-  width:52px;min-width:52px;background:var(--ai-bubble-ai);border:1px solid var(--line);
-  border-radius:8px;padding:5px 6px;font-family:inherit;font-size:13.5px;color:var(--text);
+  width:48px !important;min-width:48px !important;max-width:48px !important;
+  background:var(--ai-bubble-ai);border:1px solid var(--line);
+  border-radius:8px;padding:5px 4px;font-family:inherit;font-size:13.5px;color:var(--text);
   box-sizing:border-box;text-align:center;font-variant-numeric:tabular-nums;
-  -moz-appearance:textfield;
+  -moz-appearance:textfield;flex:0 0 auto;
 }
 .ai-budget-num::-webkit-outer-spin-button,.ai-budget-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .ai-budget-num:focus{outline:none;box-shadow:0 0 0 3px var(--ai-ring);border-color:var(--brand)}
