@@ -15962,6 +15962,33 @@ if (document.readyState === 'loading') {
     var div = document.createElement('div');
     div.className = 'ai-msg ai' + (isProactive ? ' proactive' : '');
     div.innerHTML = html;
+    // 操作栏：复制 + 重新回答
+    var bar = document.createElement('div');
+    bar.className = 'ai-msg-actions';
+    bar.innerHTML = '<button class="ai-msg-btn ai-copy" type="button" title="复制回复">📋 复制</button>'
+                  + '<button class="ai-msg-btn ai-regen" type="button" title="重新回答">↻ 重新回答</button>';
+    // 复制
+    bar.querySelector('.ai-copy').onclick = function(){
+      var text = div.querySelector('.md') ? div.querySelector('.md').innerText : div.innerText;
+      var btn = this;
+      var done = function(){ btn.textContent = '✓ 已复制'; setTimeout(function(){ btn.textContent = '📋 复制'; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
+      } else { fallbackCopy(text, done); }
+    };
+    // 重新回答
+    bar.querySelector('.ai-regen').onclick = function(){
+      var userMsgs = els.msgs.querySelectorAll('.ai-msg.user');
+      if (userMsgs.length) {
+        var lastText = userMsgs[userMsgs.length - 1].textContent.trim();
+        if (lastText) {
+          div.remove();
+          els.input.value = lastText;
+          send();
+        }
+      }
+    };
+    div.appendChild(bar);
     els.msgs.appendChild(div);
     scrollBottom();
     return div;

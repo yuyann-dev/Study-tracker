@@ -2168,6 +2168,19 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 }
 .ai-msg-error .ai-err-actions{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
 
+/* AI消息操作栏 */
+.ai-msg-actions{
+  display:flex;gap:6px;margin-top:6px;opacity:0;transition:opacity .15s ease;
+}
+.ai-msg.ai:hover .ai-msg-actions{opacity:1}
+.ai-msg-btn{
+  background:none;border:none;color:var(--muted);font-size:12px;
+  font-family:inherit;cursor:pointer;padding:3px 8px;border-radius:6px;
+  transition:background .15s ease,color .15s ease;
+}
+.ai-msg-btn:hover{background:var(--ai-tint);color:var(--brand)}
+@media (max-width:768px){ .ai-msg-actions{opacity:1} }
+
 /* 建议卡片 */
 .ai-suggest{
   background:var(--card);border:1px solid var(--line);border-radius:12px;
