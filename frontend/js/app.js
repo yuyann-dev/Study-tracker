@@ -16004,17 +16004,6 @@ if (document.readyState === 'loading') {
   // 前端能真正一键应用的 op（其余 op 仍渲染为灰色「暂不支持」，不静默忽略）
   var SUPPORTED_OPS = {
     adjust_daily_capacity: 1,
-    adjust_deadline: 1,
-    create_project: 1,
-    add_recite_items: 1,
-    delete_project: 1,
-    remove_project: 1,
-    create_review_list: 1,
-    defer_low_risk_items: 1,
-    mark_units_optional: 1,
-    create_mock_paper_project: 1,
-    compress_intervals: 1,
-    lower_mastered_freq: 1
   };
 
   function renderSuggestionCard(actions, messageId){
