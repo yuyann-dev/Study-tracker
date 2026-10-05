@@ -16953,6 +16953,8 @@ if (document.readyState === 'loading') {
     mask = document.getElementById('aiMask');
     dot = document.getElementById('aiFabDot');
     if (!fab || !mask) return;
+    // 未登录时隐藏AI入口
+    if (typeof STAuth === 'undefined' || !STAuth.isLoggedIn()) { fab.style.display = 'none'; return; }
     drawer = mask.querySelector('.ai-drawer');
     els = {
       msgs: document.getElementById('aiMsgs'),

@@ -1081,6 +1081,7 @@
     if (mask) { mask.hidden = false; var c = document.getElementById('authClose'); if (c) c.style.display = 'none'; }
     var app = document.getElementById('app'); if (app) { app.style.visibility = 'hidden'; app.hidden = true; }
     var w = document.getElementById('welcome'); if (w) { w.style.visibility = 'hidden'; w.hidden = true; }
+    var aiFab = document.getElementById('aiFab'); if (aiFab) aiFab.style.display = 'none';
   }
   function disableLoginWall() {
     _loginWall = false;
@@ -1088,6 +1089,7 @@
     if (mask) { mask.hidden = true; var c = document.getElementById('authClose'); if (c) c.style.display = ''; }
     var app = document.getElementById('app'); if (app) { app.style.visibility = ''; app.hidden = false; }
     var w = document.getElementById('welcome'); if (w) { w.style.visibility = ''; w.hidden = false; }
+    var aiFab = document.getElementById('aiFab'); if (aiFab) aiFab.style.display = '';
   }
   function isLoginWallActive() { return _loginWall; }
   /* === 忘记密码（三步验证码） === */
