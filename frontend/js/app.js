@@ -6532,8 +6532,8 @@ function renderDeadlinePassedBanner(p) {
   } else {
     const fresh = daysSinceFirstSeen <= 3;
     const mainText = fresh
-      ? `📌 目标日刚过去，还有 <strong>${liveCount}</strong> ${itemWord}未掌握`
-      : `📌 目标日已于 ${p.deadline} 到期，还有 <strong>${liveCount}</strong> ${itemWord}未掌握`;
+      ? `目标日刚过去，还有 <strong>${liveCount}</strong> ${itemWord}未掌握`
+      : `目标日已于 ${p.deadline} 到期，还有 <strong>${liveCount}</strong> ${itemWord}未掌握`;
     let btns = '';
     if (fresh) {
       btns = `<button class="ob-btn" data-dpa="reset">重设目标日</button>
@@ -6980,21 +6980,21 @@ function renderReciteSprintBar(p) {
   }
 
   const unreviewed = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate && !it.learnedDate).length;
-  let leadText;
+  let leadText, leadIcon;
   if (p.pauseNewLearning) {
-    leadText = '⏸ 已暂停新学，当前只复习已学内容。';
+    leadText = '已暂停新学，当前只复习已学内容。'; leadIcon = '⏸';
   } else if (d2d >= 0 && d2d <= 30) {
-    leadText = `⏳ 距考试还有 <strong>${d2d}</strong> 天，还剩 <strong>${unlearned}</strong> 条未学 / <strong>${overdue}</strong> 条逾期。时间紧，做减法比硬赶新内容更有效：`;
+    leadText = `距考试还有 <strong>${d2d}</strong> 天，还剩 <strong>${unlearned}</strong> 条未学 / <strong>${overdue}</strong> 条逾期。时间紧，做减法比硬赶新内容更有效：`; leadIcon = '⏳';
   } else if (condOverdueHeavy) {
-    leadText = `⚠️ 已逾期 <strong>${overdue}</strong> 条，复习端压力较大。建议暂停新学，先清复习。`;
+    leadText = `已逾期 <strong>${overdue}</strong> 条，复习端压力较大。建议暂停新学，先清复习。`; leadIcon = '⚠️';
   } else if (condWindowClosed) {
-    leadText = `⚠️ 新学窗口已关闭，还剩 <strong>${unlearned}</strong> 条未学。建议暂停新学或战略放弃低频页段。`;
+    leadText = `新学窗口已关闭，还剩 <strong>${unlearned}</strong> 条未学。建议暂停新学或战略放弃低频页段。`; leadIcon = '⚠️';
   } else {
-    leadText = '⏳ 进度偏紧，做减法比硬赶更有效：';
+    leadText = '进度偏紧，做减法比硬赶更有效：'; leadIcon = '⏳';
   }
 
   bar.innerHTML = `<div class="ob-text">
-    <span class="ob-icon">⏳</span>
+    <span class="ob-icon">${leadIcon}</span>
     <span class="ob-main">${leadText}</span>
   </div>
   <div class="ob-actions">
@@ -7230,11 +7230,11 @@ function renderReciteProgressLine(p) {
   if (fe.level === 'warn') {
     let warnText = '';
     if (fe.reason === 'review_backlog_heavy') {
-      warnText = `⚠️ 已逾期 ${fe.overdue} 条，复习端压力较大。建议暂停新学，先清复习。`;
+      warnText = `已逾期 ${fe.overdue} 条，复习端压力较大。建议暂停新学，先清复习。`;
     } else if (fe.reason === 'new_window_closed_still_unlearned') {
-      warnText = `⚠️ 新学窗口已关闭，你还剩 ${fe.unlearned} 条未学。建议暂停新学或战略放弃低频页段。`;
+      warnText = `新学窗口已关闭，你还剩 ${fe.unlearned} 条未学。建议暂停新学或战略放弃低频页段。`;
     } else if (fe.reason === 'newLearnEnd_passed_with_backlog') {
-      warnText = `⚠️ 新学窗口已过，还有 ${fe.overdue} 条逾期。先清复习吧。`;
+      warnText = `新学窗口已过，还有 ${fe.overdue} 条逾期。先清复习吧。`;
     } else if (fe.reason === 'new_learning_tight') {
       warnText = `进度有点紧：按当前节奏每天需新学 ${fe.neededPerDay} 条，你最近约 ${fe.ewmRate} 条/天。`;
     }
