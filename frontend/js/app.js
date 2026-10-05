@@ -16071,7 +16071,6 @@ if (document.readyState === 'loading') {
   /* ---- 建议卡片 ---- */
   // 前端能真正一键应用的 op（其余 op 仍渲染为灰色「暂不支持」，不静默忽略）
   var SUPPORTED_OPS = {
-    adjust_daily_capacity: 1,
     adjust_daily_comfort: 1,
   };
 
