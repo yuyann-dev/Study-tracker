@@ -59,7 +59,7 @@ if ('serviceWorker' in navigator) {
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=3">
-<link rel="stylesheet" href="css/style.css?v=20261006-ai">
+<link rel="stylesheet" href="css/style.css?v=20261006-ai2">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1909,7 +1909,7 @@ if ('serviceWorker' in navigator) {
 
 
 <script src="js/auth.js?v=20261005a"></script>
-<script src="js/app.js?v=20261006-ai"></script>
+<script src="js/app.js?v=20261006-ai3"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2173,16 +2173,16 @@ if (document.readyState === 'loading') {
 </div>
 
 <!-- ============ AI 助手入口 FAB ============ -->
-<button id="aiFab" type="button" title="AI 学习助手" aria-label="打开 AI 学习助手">
-  ✨<span id="aiFabDot" class="ai-fab-dot" hidden></span>
+<button id="aiFab" type="button" title="AI学习助手" aria-label="打开 AI学习助手">
+  <span class="ai-fab-text">AI</span><span id="aiFabDot" class="ai-fab-dot" hidden></span>
 </button>
 
 <!-- ============ AI 助手抽屉 ============ -->
 <div class="drawer-mask ai-mask" id="aiMask" hidden>
-  <aside class="drawer ai-drawer" role="dialog" aria-label="AI 学习助手">
+  <aside class="drawer ai-drawer" role="dialog" aria-label="AI学习助手">
     <!-- ① 头部 -->
     <div class="ai-head">
-      <span class="ai-head-title">✨ AI 学习助手</span>
+      <span class="ai-head-title">AI学习助手</span>
       <span id="aiAnchorChip" class="type-badge ai-anchor-chip" hidden></span>
       <button class="x-btn" id="aiClose" type="button" aria-label="关闭">×</button>
     </div>
@@ -2201,7 +2201,7 @@ if (document.readyState === 'loading') {
         <div class="ai-msgs" id="aiMsgs"></div>
         <div class="ai-empty" id="aiEmpty" hidden>
           <div class="ai-empty-icon">🔑</div>
-          <p class="ai-empty-title">先配一个 API Key 才能开始</p>
+          <p class="ai-empty-title">配置 API Key，开始使用 AI学习助手</p>
           <p class="hint">Key 只存在你自己的账号里，AES 加密存储，不会上传他处。</p>
           <button class="primary" id="aiGoSettings" type="button">去设置 →</button>
         </div>
@@ -2272,6 +2272,15 @@ if (document.readyState === 'loading') {
         <div class="storage-bar ai-usage-bar"><div id="aiUsageFill" class="ai-usage-fill"></div></div>
         <p class="ai-field-note">消耗为系统估算值，真实扣费以服务商账单为准</p>
 
+        <div class="ai-sec">记忆管理</div>
+        <label class="ai-mem-toggle">
+          <input type="checkbox" id="aiMemEnabled" checked>
+          <span class="ai-mem-slider"></span>
+          <span class="ai-mem-label">允许AI记住历史信息 <span class="ai-tag-recommend">建议开启</span></span>
+        </label>
+        <p class="ai-field-note">开启后AI会记住你的学习习惯和偏好，给出更贴合的建议；关闭后每次对话相当于全新开始，历史对话记录仍保留</p>
+        <button class="ghost-btn ai-clear-mem" id="aiClearMem" type="button">清空AI记忆</button>
+
         <p class="ai-field-note ai-data-notice">你的学习数据会发送给AI服务商用于生成回答</p>
 
         <div class="ai-set-actions">
@@ -2284,14 +2293,28 @@ if (document.readyState === 'loading') {
 
     <!-- ④ 输入区（仅对话 Tab） -->
     <div class="ai-input-area" id="aiInputArea">
-      <div class="ai-anchor-hint" id="aiAnchorHint">未锚定项目 · 全局规划</div>
-      <div class="ai-timechips">
-        <span class="ai-tc-label">⏱ 今天可学</span>
-        <button class="pct-chip" type="button" data-min="60">1h</button>
-        <button class="pct-chip" type="button" data-min="120">2h</button>
-        <button class="pct-chip active" type="button" data-min="240">4h</button>
-        <button class="pct-chip" type="button" data-min="720">全天</button>
+      <!-- 视角切换 -->
+      <div class="ai-persp-bar">
+        <button class="ai-persp active" type="button" data-persp="global">全局</button>
+        <button class="ai-persp" type="button" data-persp="current">当前项目</button>
+        <button class="ai-persp" type="button" data-persp="multi">多选项目</button>
+        <span class="ai-persp-hint" id="aiPerspHint">全局（所有学习数据）</span>
       </div>
+      <div class="ai-multi-list" id="aiMultiList" hidden></div>
+
+      <!-- 学习时长：自由输入 + 快捷按钮 -->
+      <div class="ai-budget-row">
+        <input type="number" id="aiBudgetHours" class="ai-budget-num" min="0.5" max="16" step="0.5" value="4">
+        <span class="ai-budget-unit">小时</span>
+        <button class="ai-budget-chip" type="button" data-h="2">2h</button>
+        <button class="ai-budget-chip active" type="button" data-h="4">4h</button>
+        <button class="ai-budget-chip" type="button" data-h="6">6h</button>
+        <button class="ai-budget-chip" type="button" data-h="8">8h</button>
+      </div>
+
+      <!-- 示例问题（空对话时显示） -->
+      <div class="ai-samples" id="aiSamples"></div>
+
       <div class="ai-input-row">
         <textarea id="aiInput" rows="1" placeholder="问问今天先救哪科、错题怎么排…"></textarea>
         <button class="ai-send" id="aiSend" type="button" aria-label="发送">➤</button>

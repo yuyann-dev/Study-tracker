@@ -259,6 +259,12 @@ function runMigrations(db) {
   // AI 助手：用户自定义的 quick/deep 模型名（未自定义时由 PUT 时写入服务商默认推荐模型）
   ensureColumn(db, 'ai_configs', 'quick_model', 'TEXT');
   ensureColumn(db, 'ai_configs', 'deep_model', 'TEXT');
+  // AI 助手：用户默认每日可学分钟数（0.5h-16h），chat 未传 budgetMin 时作默认
+  ensureColumn(db, 'ai_configs', 'daily_study_minutes', 'INTEGER NOT NULL DEFAULT 240');
+  // AI 助手：是否允许AI读取长期记忆（默认开启）
+  ensureColumn(db, 'ai_configs', 'memory_enabled', 'INTEGER NOT NULL DEFAULT 1');
+  // AI 助手：会话置顶
+  ensureColumn(db, 'ai_conversations', 'is_pinned', 'INTEGER NOT NULL DEFAULT 0');
   // v5: 邀请码渠道 / 软作废
   ensureColumn(db, 'invite_codes', 'note', 'TEXT');
   ensureColumn(db, 'invite_codes', 'channel', 'TEXT');

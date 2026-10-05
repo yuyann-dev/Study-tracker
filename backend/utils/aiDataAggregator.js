@@ -241,10 +241,37 @@ function getProgressSummary(userId, projectId) {
  * 错题诊断数据：errTags 分布、按章节/题型/语义三维聚类、wrongStreak、
  * 伪掌握检测、跨年顽固检测。
  */
-function getMistakeReport(userId, projectId) {
+function getMistakeReport(userId, projectIdOrIds) {
   const store = loadStore(userId);
-  const p = findProject(store, projectId);
-  if (!p || p.type !== 'mistake') return { found: false, reason: '不是错题项目或项目不存在' };
+  let p;
+  if (Array.isArray(projectIdOrIds) && projectIdOrIds.length) {
+    // 多选视角：仅汇总用户勾选的错题本
+    const selected = projectIdOrIds
+      .map((id) => findProject(store, id))
+      .filter((x) => x && x.type === 'mistake');
+    if (!selected.length) return { found: false, reason: '所选项目中没有错题本' };
+    p = {
+      name: '多选错题',
+      type: 'mistake',
+      items: selected.flatMap((x) => Array.isArray(x.items) ? x.items : []),
+      units: selected.flatMap((x) => Array.isArray(x.units) ? x.units : []),
+      intervals: selected[0].intervals || null,
+    };
+  } else if (projectIdOrIds) {
+    p = findProject(store, projectIdOrIds);
+    if (!p || p.type !== 'mistake') return { found: false, reason: '不是错题项目或项目不存在' };
+  } else {
+    // 全局视角：聚合所有错题项目
+    const allMistake = projectList(store).filter((x) => x.type === 'mistake');
+    if (!allMistake.length) return { found: false, reason: '暂无错题项目' };
+    p = {
+      name: '全部错题',
+      type: 'mistake',
+      items: allMistake.flatMap((x) => Array.isArray(x.items) ? x.items : []),
+      units: allMistake.flatMap((x) => Array.isArray(x.units) ? x.units : []),
+      intervals: allMistake[0].intervals || null,
+    };
+  }
 
   const items = Array.isArray(p.items) ? p.items : [];
   const units = Array.isArray(p.units) ? p.units : [];
@@ -373,10 +400,34 @@ function getPaperTrend(userId, projectId) {
 /**
  * 背书状态：今日到期数、高危条目、积压情况、掌握率。
  */
-function getReciteStatus(userId, projectId) {
+function getReciteStatus(userId, projectIdOrIds) {
   const store = loadStore(userId);
-  const p = findProject(store, projectId);
-  if (!p || p.type !== 'recite') return { found: false, reason: '不是背书项目或项目不存在' };
+  let p;
+  if (Array.isArray(projectIdOrIds) && projectIdOrIds.length) {
+    // 多选视角：仅汇总用户勾选的背书本
+    const selected = projectIdOrIds
+      .map((id) => findProject(store, id))
+      .filter((x) => x && x.type === 'recite');
+    if (!selected.length) return { found: false, reason: '所选项目中没有背书本' };
+    p = {
+      name: '多选背书',
+      type: 'recite',
+      items: selected.flatMap((x) => Array.isArray(x.items) ? x.items : []),
+      intervals: selected[0].intervals || null,
+    };
+  } else if (projectIdOrIds) {
+    p = findProject(store, projectIdOrIds);
+    if (!p || p.type !== 'recite') return { found: false, reason: '不是背书项目或项目不存在' };
+  } else {
+    const allRecite = projectList(store).filter((x) => x.type === 'recite');
+    if (!allRecite.length) return { found: false, reason: '暂无背书项目' };
+    p = {
+      name: '全部背书',
+      type: 'recite',
+      items: allRecite.flatMap((x) => Array.isArray(x.items) ? x.items : []),
+      intervals: allRecite[0].intervals || null,
+    };
+  }
   const items = Array.isArray(p.items) ? p.items : [];
   const today = todayStr();
   let dueToday = 0;
@@ -501,14 +552,27 @@ function getTodayPlan(userId, budgetMin) {
   return { budgetMin: budget, allocatedMin: used, plan };
 }
 
-module.exports = {
-  getUserProfileSummary,
-  getProgressSummary,
-  getMistakeReport,
-  getPaperTrend,
-  getReciteStatus,
-  getMultiSubjectBalance,
-  getTodayPlan,
-  // 导出供路由复用
-  loadStore, findProject, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR,
-};
+module.exports = (function () {
+  // 防御：任一聚合函数内部出错都不允许把 chat 流水线打崩，返回安全空结果。
+  function safe(fn, fallback) {
+    return function () {
+      try {
+        return fn.apply(null, arguments);
+      } catch (e) {
+        console.error('[aiDataAggregator]', fn.name || 'agg', 'failed:', e.message);
+        return typeof fallback === 'function' ? fallback() : fallback;
+      }
+    };
+  }
+  return {
+    getUserProfileSummary: safe(getUserProfileSummary, () => ({ projectCount: 0, projects: [] })),
+    getProgressSummary: safe(getProgressSummary, () => ({ found: false })),
+    getMistakeReport: safe(getMistakeReport, () => ({ found: false })),
+    getPaperTrend: safe(getPaperTrend, () => ({ found: false })),
+    getReciteStatus: safe(getReciteStatus, () => ({ found: false })),
+    getMultiSubjectBalance: safe(getMultiSubjectBalance, () => ({ rows: [], behind: [], ahead: [] })),
+    getTodayPlan: safe(getTodayPlan, () => ({ budgetMin: 240, allocatedMin: 0, plan: [] })),
+    // 导出供路由复用
+    loadStore, findProject, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR,
+  };
+})();

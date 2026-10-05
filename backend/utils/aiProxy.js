@@ -94,7 +94,12 @@ async function assertSafeBaseUrl(baseUrl) {
  * @returns {Promise<{content:string, usage:{prompt_tokens:number, completion_tokens:number}}>}
  */
 async function callLLM(cfg, messages, opts = {}) {
-  const baseUrl = String(cfg.baseUrl || '').replace(/\/+$/, '');
+  let baseUrl = String(cfg.baseUrl || '').trim().replace(/\/+$/, '');
+  // 规范化：若 host 后无路径（或仅根路径），补 /v1，避免漏写版本段导致 404/路径错误
+  try {
+    const u = new URL(baseUrl);
+    if (!u.pathname || u.pathname === '/') baseUrl = `${baseUrl}/v1`;
+  } catch (_) { /* 保留原串，后续 assertSafeBaseUrl 会拦非法 */ }
   if (!baseUrl || !cfg.model || !cfg.apiKey) {
     const err = new Error('AI 配置不完整');
     err.kind = 'bad_config';

@@ -118,3 +118,24 @@
 | 🟠 审美 P1-2 | 触控目标不足 44px | CSS 追加：#aiFab 44px、.ai-send 44px、.ai-tab min-height 44px、.ai-eye / .hi-del ≥36~44px 命中区、checkbox 放大到 20px 并加 padding。 |
 
 复测：`node --check app.js` 通过；CSS 大括号 1575/1575 平衡；undo 路径（/api/ai/undo 返回 inverse → applyAction 回滚）对全部支持 op 闭环。
+
+---
+
+## 七、用户验收第三轮：体验+移动端修复（2026-10-05 第三轮，版本 v37 / ?v=20261006-ai2）
+
+| # | 问题 | 修复方式 |
+|---|---|---|
+| #3 | 发消息收不到回复 | `send()` 重构：新增 `renderAiReply(text)`，md() 包 try/catch 失败退化为纯文本；空 reply 判「AI 返回了空回复，请重试」；typing 在 try/catch/finally 路径都保证移除 |
+| #1 | 视角切换 | 输入区顶部加三按钮「全局/当前项目/多选项目」，state.perspective；send() 按视角组装 context：global 不传、current 传 projectId（无项目则提示）、multi 传 projectIds 数组；#aiPerspHint 实时显示当前视角，#aiMultiList 弹项目 checkbox 列表 |
+| #2 | Key 眼睛按钮 | 登录页密码框本就无眼睛，AI Key 保留单一 #aiKeyToggle 👁，无重复 |
+| #6 | FAB 图标 | ✨ 改为品牌底白字「AI」圆角按钮（.ai-fab-text），红点保留，hover 提示 |
+| #7 | 示例问题 | 内置 10 条考研场景问句，空对话时随机显示 3~4 个胶囊，点击直接 send；打开面板/新会话随机换一批（#aiSamples） |
+| #8 | 保存/测试反馈 | 保存成功按钮临时「✓ 已保存」2s + showToast「设置已保存」，停留设置页；测试连接按钮「测试中…」disabled 态 + 成功/失败 toast |
+| #9 | 学习时长 | 弃用固定 chips，改为自由数字输入框（0.5–16h，步进0.5，clamp）+ 2h/4h/6h/8h 快捷按钮；恰好命中快捷值才高亮；发送时 budgetMin = 小时×60 |
+| #10 | markdown 重写 | md() 改块级解析：标题 h1-h3、有序/嵌套列表、表格（边框+表头加粗）、引用 blockquote、斜体、分割线 hr、段落 p；代码块右上角「复制」按钮（事件委托，clipboard+execCommand 兜底）；长回复 >500 字折叠前 300px +「展开全文/收起」；配套排版 CSS 全部走变量（新增 --ai-code-bg，深浅色各一值） |
+| #11/#12 | 手机端收不到回复、时长点不动 | **根因**：基础 `.drawer` 为 `height:100%`（=整个布局视口，手机上含地址栏下方），导致 AI 抽屉比可视区高，底部输入区/时长行被顶到可视区外。修复：`.ai-drawer` 改 `height:100vh; height:100dvh; overflow:hidden`，只让 `.ai-body` 滚动；输入区已有 safe-area 底部留白 |
+| #13 | 推荐更高级模型 | 后端 aiProviders.js 推荐标记本已正确（deepseek-v4-pro / glm-4-air / qwen-plus / gpt-4o / kimi-k2-thinking）；前端 fillModels 增加 MODEL_DESC 短标签（推荐·质量高 / 省钱·速度快 等），默认选中推荐模型 |
+
+复测：`node --check app.js` 通过；CSS 大括号 1616/1616 平衡；新 ID（aiPerspHint/aiMultiList/aiBudgetHours/aiSamples 等）与 index.html 交叉核对全部存在；版本号 index.html `?v=20261006-ai2`、sw.js `yystudy-v37`。
+
+已知限制：md() 不支持深层嵌套列表缩进层级（只区分 ul/ol 一级）；打字机逐字效果按需求兜底为整段淡入显示（避免破坏 markdown 时序）；数据来源「📊来自你的数据」标签未实现（需后端标注）。

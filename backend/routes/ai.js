@@ -55,11 +55,12 @@ function failCode(res, message, code, status = 400, extra = {}) {
 
 // ── 内部工具 ────────────────────────────────────────────────────────────────
 
+// 固定东八区日期，避免服务器时区为 UTC 时跨日统计错乱（与 ai_usage_daily.date 口径一致）
 function todayLocal() {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
+  const d = new Date(Date.now() + 8 * 3600 * 1000); // 偏移到 UTC+8
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${m}-${day}`;
 }
 
 function getConfigRow(userId) {
@@ -116,15 +117,17 @@ function upsertProfile(userId, profileJson, editedFields) {
   ).run(userId, JSON.stringify(profileJson), JSON.stringify(editedFields || []));
 }
 
-/** 按意图取数（chat 流水线用） */
-function gatherDataByIntent(userId, intent, projectIdHint, budgetMin) {
+/** 按意图取数（chat 流水线用），支持多选视角 projectIds 数组 */
+function gatherDataByIntent(userId, intent, projectIdHint, budgetMin, projectIds) {
+  // 统一目标项目：优先用 projectIds 数组（多选/当前项目），空数组表示全局
+  const targetIds = Array.isArray(projectIds) && projectIds.length ? projectIds : null;
   switch (intent) {
     case 'progress_query':
       return { overview: aggregator.getUserProfileSummary(userId) };
     case 'mistake_diagnosis':
-      return aggregator.getMistakeReport(userId, projectIdHint);
+      return aggregator.getMistakeReport(userId, targetIds);
     case 'recite_help':
-      return aggregator.getReciteStatus(userId, projectIdHint);
+      return aggregator.getReciteStatus(userId, targetIds);
     case 'plan_generation':
       return { todayPlan: aggregator.getTodayPlan(userId, budgetMin) };
     case 'multi_subject_balance':
@@ -134,9 +137,10 @@ function gatherDataByIntent(userId, intent, projectIdHint, budgetMin) {
     case 'mindset_check':
       return { overview: aggregator.getUserProfileSummary(userId) };
     case 'data_interpretation':
-      return projectIdHint
-        ? { progress: aggregator.getProgressSummary(userId, projectIdHint), paper: aggregator.getPaperTrend(userId, projectIdHint) }
-        : { balance: aggregator.getMultiSubjectBalance(userId) };
+      if (targetIds && targetIds.length === 1) {
+        return { progress: aggregator.getProgressSummary(userId, targetIds[0]), paper: aggregator.getPaperTrend(userId, targetIds[0]) };
+      }
+      return { balance: aggregator.getMultiSubjectBalance(userId) };
     default:
       return { overview: aggregator.getUserProfileSummary(userId) };
   }
@@ -158,6 +162,8 @@ router.get('/config', (req, res) => {
       enabled: row.enabled === 1,
       keyPreview: row.key_preview || '',
       dailyTokenBudget: row.daily_token_budget,
+      dailyStudyMinutes: row.daily_study_minutes || 240,
+      memoryEnabled: row.memory_enabled !== 0,
     });
   } catch (e) {
     console.error('GET /api/ai/config error:', e.message);
@@ -211,13 +217,25 @@ router.put('/config', async (req, res) => {
       ? Math.floor(dailyTokenBudget)
       : (row ? row.daily_token_budget : 100000);
 
+    // 每日可学分钟数：30-960（0.5h-16h），不传则沿用已存
+    let newStudyMin = row ? (row.daily_study_minutes || 240) : 240;
+    if (body.dailyStudyMinutes != null && Number.isFinite(Number(body.dailyStudyMinutes))) {
+      newStudyMin = Math.max(30, Math.min(960, Math.floor(Number(body.dailyStudyMinutes))));
+    }
+
+    // 记忆开关：默认开启，传0关闭
+    let newMemEnabled = row ? (row.memory_enabled !== 0 ? 1 : 0) : 1;
+    if (body.memoryEnabled != null) {
+      newMemEnabled = body.memoryEnabled ? 1 : 0;
+    }
+
     // 配好 provider baseUrl + model + key 即视为开通；key 被删则停用
     const enabled = newBaseUrl && model && newEncKey ? 1 : 0;
 
     db.prepare(
       `INSERT INTO ai_configs (user_id, provider, base_url, model, encrypted_api_key, key_salt, key_preview,
-             daily_token_budget, enabled, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+             daily_token_budget, daily_study_minutes, memory_enabled, enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
        ON CONFLICT(user_id) DO UPDATE SET
          provider = excluded.provider,
          base_url = excluded.base_url,
@@ -226,13 +244,16 @@ router.put('/config', async (req, res) => {
          key_salt = excluded.key_salt,
          key_preview = excluded.key_preview,
          daily_token_budget = excluded.daily_token_budget,
+         daily_study_minutes = excluded.daily_study_minutes,
+         memory_enabled = excluded.memory_enabled,
          enabled = excluded.enabled,
          updated_at = excluded.updated_at`
-    ).run(req.user.id, provider, newBaseUrl, model, newEncKey, newSalt, newPreview, newBudget, enabled);
+    ).run(req.user.id, provider, newBaseUrl, model, newEncKey, newSalt, newPreview, newBudget, newStudyMin, newMemEnabled, enabled);
 
     return ok(res, {
       provider, model, enabled: enabled === 1,
       keyPreview: newPreview || '', dailyTokenBudget: newBudget,
+      dailyStudyMinutes: newStudyMin, memoryEnabled: newMemEnabled === 1,
     });
   } catch (e) {
     console.error('PUT /api/ai/config error:', e.message);
@@ -307,7 +328,7 @@ router.post('/config/test', async (req, res) => {
 
 // ══════════════ 会话接口 ═══════════════════════════════════════════════════
 
-// GET /api/ai/conversations — last_at 倒序，分页
+// GET /api/ai/conversations — 置顶优先，其余按最近更新倒序，分页
 router.get('/conversations', (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
@@ -315,13 +336,14 @@ router.get('/conversations', (req, res) => {
     let rows;
     if (before > 0) {
       rows = db.prepare(
-        'SELECT id, title, last_at, created_at FROM ai_conversations WHERE user_id=? AND id < ? ORDER BY id DESC LIMIT ?'
+        'SELECT id, title, is_pinned, last_at, created_at FROM ai_conversations WHERE user_id=? AND id < ? ORDER BY is_pinned DESC, last_at DESC, id DESC LIMIT ?'
       ).all(req.user.id, before, limit);
     } else {
       rows = db.prepare(
-        'SELECT id, title, last_at, created_at FROM ai_conversations WHERE user_id=? ORDER BY last_at DESC, id DESC LIMIT ?'
+        'SELECT id, title, is_pinned, last_at, created_at FROM ai_conversations WHERE user_id=? ORDER BY is_pinned DESC, last_at DESC, id DESC LIMIT ?'
       ).all(req.user.id, limit);
     }
+    rows = rows.map((r) => ({ id: r.id, title: r.title, isPinned: r.is_pinned === 1, lastAt: r.last_at, createdAt: r.created_at }));
     return ok(res, { conversations: rows });
   } catch (e) {
     console.error('GET /api/ai/conversations error:', e.message);
@@ -340,6 +362,35 @@ router.post('/conversations', (req, res) => {
   } catch (e) {
     console.error('POST /api/ai/conversations error:', e.message);
     return fail(res, '创建会话失败', 500);
+  }
+});
+
+// PUT /api/ai/conversations/:id — body {title?, isPinned?}，重命名 / 置顶
+router.put('/conversations/:id', (req, res) => {
+  try {
+    const convId = Number(req.params.id);
+    const conv = db.prepare('SELECT id FROM ai_conversations WHERE id=? AND user_id=?').get(convId, req.user.id);
+    if (!conv) return fail(res, '会话不存在', 404);
+    const body = req.body || {};
+    const sets = [];
+    const params = [];
+    if (body.title != null) {
+      sets.push('title = ?');
+      params.push(String(body.title).slice(0, 60));
+    }
+    if (body.isPinned != null) {
+      sets.push('is_pinned = ?');
+      params.push(body.isPinned ? 1 : 0);
+    }
+    if (!sets.length) return ok(res, { updated: false });
+    sets.push('updated_at = datetime(\'now\')');
+    params.push(convId);
+    db.prepare(`UPDATE ai_conversations SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+    const row = db.prepare('SELECT id, title, is_pinned FROM ai_conversations WHERE id=?').get(convId);
+    return ok(res, { id: row.id, title: row.title, isPinned: row.is_pinned === 1 });
+  } catch (e) {
+    console.error('PUT /api/ai/conversations/:id error:', e.message);
+    return fail(res, '更新会话失败', 500);
   }
 });
 
@@ -399,6 +450,17 @@ router.delete('/conversations/:id', (req, res) => {
   }
 });
 
+// DELETE /api/ai/memory — 清空当前用户的所有长期记忆（不影响历史对话记录）
+router.delete('/memory', (req, res) => {
+  try {
+    const info = db.prepare('DELETE FROM ai_memory WHERE user_id=?').run(req.user.id);
+    return ok(res, { deleted: info.changes || 0 });
+  } catch (e) {
+    console.error('DELETE memory error:', e.message);
+    return fail(res, '清空记忆失败', 500);
+  }
+});
+
 // ══════════════ 主对话接口 ═══════════════════════════════════════════════════
 
 // POST /api/ai/chat
@@ -408,13 +470,16 @@ router.post('/chat', async (req, res) => {
     const userMessage = String(body.message || '').trim();
     if (!userMessage) return failCode(res, '请输入你的问题', 'EMPTY_INPUT', 400);
     const ctx = body.context || {};
-    const budgetMin = ctx.budgetMin;
+    const ctxBudgetMin = ctx.budgetMin;
 
     // 1. 查配置
     const cfg = getConfigRow(req.user.id);
     if (!cfg || cfg.enabled !== 1 || !cfg.encrypted_api_key || !cfg.base_url || !cfg.provider || !cfg.model) {
       return failCode(res, '请先在AI设置中配置API key', 'NOT_CONFIGURED', 409, { needConfig: true });
     }
+
+    // 时间预算：前端传了用前端，否则用用户设置的默认每日可学分钟数
+    const budgetMin = (Number(ctxBudgetMin) > 0) ? Number(ctxBudgetMin) : (cfg.daily_study_minutes || 240);
 
     const date = todayLocal();
 
@@ -425,12 +490,17 @@ router.post('/chat', async (req, res) => {
     const budget = cfg.daily_token_budget || 100000;
     const overBudget = (usedIn + usedOut) >= budget;
 
-    // 3. 意图分类
+    // 3. 意图分类（支持多选视角：ctx.projectIds 数组）
     const { intent, projectIdHint } = aiIntent.classify(userMessage, ctx);
-    const projectId = ctx.projectId || projectIdHint;
+    const projectIds = Array.isArray(ctx.projectIds) && ctx.projectIds.length
+      ? ctx.projectIds.map(String)
+      : (ctx.projectId ? [String(ctx.projectId)] : (projectIdHint ? [String(projectIdHint)] : []));
+    const projectId = projectIds.length === 1 ? projectIds[0] : null;
+    console.log(`[ai/chat] user=${req.user.id} provider=${cfg.provider} model=${cfg.model} intent=${intent} overBudget=${overBudget} budgetMin=${budgetMin} projectIds=${projectIds.join(',') || '全局'}`);
 
-    // 4. 按意图取数聚合
-    const dataSummary = gatherDataByIntent(req.user.id, intent, projectId, budgetMin);
+    // 4. 按意图取数聚合（多选时聚合多个项目）
+    const dataSummary = gatherDataByIntent(req.user.id, intent, projectId, budgetMin, projectIds);
+    console.log(`[ai/chat] aggregated keys=${Object.keys(dataSummary || {}).join(',')} size=${JSON.stringify(dataSummary || {}).length}`);
 
     // 超预算降级：不调大模型，本地数据 + 提示
     if (overBudget) {
@@ -458,12 +528,16 @@ router.post('/chat', async (req, res) => {
       upsertProfile(req.user.id, profile, []);
       profileUpdated = true;
     }
-    const memories = db.prepare(
-      'SELECT content FROM ai_memory WHERE user_id=? ORDER BY strength DESC LIMIT 5'
-    ).all(req.user.id);
+    // 长期记忆：用户关闭记忆开关时不读取，每次对话相当于全新开始（历史对话仍保留）
+    const memories = (cfg.memory_enabled === 0)
+      ? []
+      : db.prepare(
+          'SELECT content FROM ai_memory WHERE user_id=? ORDER BY strength DESC LIMIT 5'
+        ).all(req.user.id);
 
     const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories);
-    const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, ctx);
+    const promptCtx = Object.assign({}, ctx, { budgetMin });
+    const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, promptCtx);
 
     // 历史近 10 轮
     const history = loadRecentMessages(req.user.id, body.conversationId, 10);
@@ -484,9 +558,11 @@ router.post('/chat', async (req, res) => {
       );
     } catch (e) {
       // 失败不计入系统消耗统计（bumpUsage 仅在成功后执行）；统一文案 + code，不泄露上游原文
+      console.log(`[ai/chat] LLM failed code=${e.aiCode || '?'} status=${e.status || '?'}`);
       const extra = Object.assign({ note: '调用失败，本次不计入系统消耗统计' }, e.aiDetail ? { detail: e.aiDetail } : {});
       return failCode(res, e.aiMessage || 'AI服务暂时不可用，请稍后再试', e.aiCode || 'UPSTREAM_ERROR', e.status || 502, extra);
     }
+    console.log(`[ai/chat] LLM ok tokensIn=${llm.usage.prompt_tokens} tokensOut=${llm.usage.completion_tokens} replyLen=${(llm.content || '').length}`);
 
     // 7. 解析回复（正文 + actions）；actions 解析失败降级为纯文本，actions 空数组
     const { body: replyBody, actions: rawActions } = aiPrompt.parseReply(llm.content);
@@ -722,11 +798,10 @@ router.get('/summary', (req, res) => {
   }
 });
 
-// GET /api/ai/mistake-report?projectId=
+// GET /api/ai/mistake-report?projectId=（不传则全局视角）
 router.get('/mistake-report', (req, res) => {
   try {
     const projectId = req.query.projectId ? String(req.query.projectId) : null;
-    if (!projectId) return fail(res, '请提供 projectId');
     return ok(res, aggregator.getMistakeReport(req.user.id, projectId));
   } catch (e) {
     console.error('GET /api/ai/mistake-report error:', e.message);
@@ -780,9 +855,15 @@ router.get('/usage', (req, res) => {
     ).get(req.user.id);
     const cfg = getConfigRow(req.user.id);
     const budget = cfg ? cfg.daily_token_budget : 100000;
+    const todayTok = { tokensIn: today.tokens_in || 0, tokensOut: today.tokens_out || 0, calls: today.calls || 0 };
+    let totalTok = { tokensIn: total.tin || 0, tokensOut: total.tout || 0, calls: total.calls || 0 };
+    // 不变量保护：累计 = 所有日期之和，必然 >= 今日；若历史数据/时区漂移导致倒挂，以累计为准兜底
+    if (totalTok.tokensIn < todayTok.tokensIn) totalTok.tokensIn = todayTok.tokensIn;
+    if (totalTok.tokensOut < todayTok.tokensOut) totalTok.tokensOut = todayTok.tokensOut;
+    if (totalTok.calls < todayTok.calls) totalTok.calls = todayTok.calls;
     return ok(res, {
-      today: { tokensIn: today.tokens_in, tokensOut: today.tokens_out, calls: today.calls },
-      total: { tokensIn: total.tin, tokensOut: total.tout, calls: total.calls },
+      today: todayTok,
+      total: totalTok,
       dailyBudget: budget,
       note: '消耗为系统估算值，真实扣费以服务商账单为准；调用失败不计入系统消耗统计',
     });

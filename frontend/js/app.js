@@ -15598,10 +15598,120 @@ if (document.readyState === 'loading') {
     budgetMin: 240,
     sending: false,
     currentTab: 'chat',
+    perspective: 'global',     // global | current | multi
+    multiProjects: [],         // 多选项目的 id 数组
     providers: [],
     config: null,
     suggestions: []   // 当前对话已渲染的建议卡，便于应用/撤销
   };
+
+  /* ---- 示例问题库 ---- */
+  var SAMPLE_QUESTIONS = [
+    '我数学进度落后了怎么办？',
+    '帮我分析最近的错题规律',
+    '距离考研还有多少天？怎么安排？',
+    '背书总是忘怎么办？',
+    '今天学什么比较好？',
+    '英语阅读正确率上不去怎么办？',
+    '政治现在开始背来得及吗？',
+    '专业课内容太多怎么规划？',
+    '最近学不进去怎么办？',
+    '帮我看看这周的学习情况'
+  ];
+  function pickSamples(){
+    var arr = SAMPLE_QUESTIONS.slice();
+    var out = [];
+    var n = 3 + Math.floor(Math.random() * 2); // 3~4 个
+    while (out.length < n && arr.length) {
+      var idx = Math.floor(Math.random() * arr.length);
+      out.push(arr.splice(idx, 1)[0]);
+    }
+    return out;
+  }
+  function renderSamples(){
+    var box = els.samples;
+    if (!box) return;
+    box.innerHTML = '';
+    pickSamples().forEach(function(q){
+      var b = document.createElement('button');
+      b.className = 'ai-sample';
+      b.type = 'button';
+      b.textContent = q;
+      b.onclick = function(){
+        els.input.value = q;
+        send();
+      };
+      box.appendChild(b);
+    });
+    updateSamplesVisibility();
+  }
+  function updateSamplesVisibility(){
+    if (!els.samples || !els.msgs) return;
+    // 空对话（没有任何消息/建议卡）时才显示示例
+    var hasContent = els.msgs.children && els.msgs.children.length > 0;
+    els.samples.style.display = hasContent ? 'none' : '';
+  }
+
+  /* ---- 视角切换 ---- */
+  function updatePerspHint(){
+    var hint = els.perspHint;
+    if (!hint) return;
+    if (state.perspective === 'global') hint.textContent = '全局（所有学习数据）';
+    else if (state.perspective === 'current') {
+      var p = state.anchorProjectId ? (store.projects && store.projects[state.anchorProjectId]) : null;
+      hint.textContent = p ? ('当前项目：' + (p.name || '')) : '当前项目：（未打开项目）';
+    } else {
+      hint.textContent = '多选：已选 ' + state.multiProjects.length + ' 个项目';
+    }
+  }
+  function renderMultiList(){
+    var box = els.multiList;
+    if (!box) return;
+    box.innerHTML = '';
+    var projs = store.projects || {};
+    var ids = Object.keys(projs);
+    if (!ids.length) {
+      box.innerHTML = '<div style="font-size:12.5px;color:var(--muted);padding:6px">还没有项目，先去主界面创建一个吧</div>';
+      return;
+    }
+    ids.forEach(function(pid){
+      var p = projs[pid];
+      var lab = document.createElement('label');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = state.multiProjects.indexOf(pid) !== -1;
+      cb.onchange = function(){
+        if (cb.checked) { if (state.multiProjects.indexOf(pid) === -1) state.multiProjects.push(pid); }
+        else { state.multiProjects = state.multiProjects.filter(function(x){ return x !== pid; }); }
+        updatePerspHint();
+      };
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(' ' + (p.name || '未命名')));
+      box.appendChild(lab);
+    });
+  }
+  function setPerspective(p){
+    state.perspective = p;
+    var bars = document.querySelectorAll('.ai-persp-bar .ai-persp');
+    for (var i = 0; i < bars.length; i++) bars[i].classList.toggle('active', bars[i].dataset.persp === p);
+    if (els.multiList) els.multiList.hidden = (p !== 'multi');
+    if (p === 'multi') renderMultiList();
+    updatePerspHint();
+  }
+
+  /* ---- 学习时长（自由输入 + 快捷按钮） ---- */
+  function setBudgetHours(h){
+    h = Number(h);
+    if (!isFinite(h)) h = 4;
+    h = Math.min(16, Math.max(0.5, h));
+    state.budgetMin = Math.round(h * 60);
+    if (els.budgetHours) els.budgetHours.value = h;
+    // 快捷按钮高亮：恰好等于某快捷值才高亮
+    var chips = document.querySelectorAll('.ai-budget-row .ai-budget-chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle('active', Number(chips[i].dataset.h) === h);
+    }
+  }
 
   /* ---- 读取 token（与 auth.js 同逻辑），自封装 fetch 以保留后端 code 字段 ---- */
   function aiToken(){
@@ -15652,40 +15762,113 @@ if (document.readyState === 'loading') {
     return data;
   }
 
-  /* ---- 轻量 markdown 渲染（先 esc 防注入，再做行级替换） ---- */
+  /* ---- markdown 渲染（先 esc 防注入，再做块级/行级解析） ---- */
   function md(src){
     if (src == null) return '';
-    var s = esc(String(src));
-    // 代码块 ```...```
-    s = s.replace(/```([\s\S]*?)```/g, function(m, code){
-      return '<pre><code>' + code.replace(/^\n/, '') + '</code></pre>';
+    var raw = String(src);
+    // 1) 先抽离代码块，用占位符保护，避免其它规则破坏代码内容
+    var codeStore = [];
+    var s = esc(raw).replace(/```([\s\S]*?)```/g, function(m, code){
+      code = code.replace(/^\n+/, '').replace(/\n+$/, '');
+      codeStore.push(code);
+      return '\u0000CODE' + (codeStore.length - 1) + '\u0000';
     });
-    // 行内代码 `x`
-    s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-    // 加粗
-    s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-    // 链接 [text](url)  （esc 后括号为原样）
-    s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-    // 无序列表（每行 - 或 · 开头）
-    var lines = s.split(/\r?\n/);
-    var inUl = false, out = [];
-    for (var i = 0; i < lines.length; i++) {
-      var ln = lines[i];
-      if (/^\s*[-•·]\s+/.test(ln)) {
-        if (!inUl) { out.push('<ul>'); inUl = true; }
-        out.push('<li>' + ln.replace(/^\s*[-•·]\s+/, '') + '</li>');
-      } else {
-        if (inUl) { out.push('</ul>'); inUl = false; }
-        out.push(ln);
-      }
+    // 行内代码也抽离
+    s = s.replace(/`([^`\n]+)`/g, function(m, code){
+      codeStore.push(code);
+      return '\u0000ICODE' + (codeStore.length - 1) + '\u0000';
+    });
+
+    // 2) 行内元素（在纯文本行上处理）
+    function inline(line){
+      // 加粗 **x**
+      line = line.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      // 斜体 *x* 或 _x_（避免和加粗冲突，加粗已先处理）
+      line = line.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+      line = line.replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
+      // 链接 [text](url)
+      line = line.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      return line;
     }
-    if (inUl) out.push('</ul>');
-    s = out.join('\n');
-    // 换行
-    s = s.replace(/\n/g, '<br>');
-    // 清理 <br> 紧贴块级元素的情况
-    s = s.replace(/<br>(<\/?(?:ul|ol|pre))/g, '$1').replace(/(<(?:ul|ol|pre)>)[\s\n]*<br>/g, '$1');
-    return s;
+
+    // 3) 块级解析
+    var lines = s.split(/\r?\n/);
+    var out = [];
+    var i = 0;
+    function flushList(listType){ if (listType) out.push('</' + listType + '>'); }
+    var openList = null; // 'ul' | 'ol'
+    while (i < lines.length) {
+      var ln = lines[i];
+      // 空行
+      if (/^\s*$/.test(ln)) { flushList(openList); openList = null; i++; continue; }
+      // 分割线 ---
+      if (/^\s{0,3}(-{3,}|\*{3,}|_{3,})\s*$/.test(ln)) { flushList(openList); openList = null; out.push('<hr>'); i++; continue; }
+      // 标题 # / ## / ###
+      var hm = ln.match(/^\s{0,3}(#{1,6})\s+(.*)$/);
+      if (hm) {
+        flushList(openList); openList = null;
+        var level = Math.min(hm[1].length, 3);
+        out.push('<h' + level + '>' + inline(hm[2]) + '</h' + level + '>');
+        i++; continue;
+      }
+      // 引用 >
+      if (/^\s*>\s?/.test(ln)) {
+        flushList(openList); openList = null;
+        var quoteLines = [];
+        while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+          quoteLines.push(lines[i].replace(/^\s*>\s?/, ''));
+          i++;
+        }
+        out.push('<blockquote>' + inline(quoteLines.join('<br>')) + '</blockquote>');
+        continue;
+      }
+      // 表格：当前行是 |...| 且下一行为 |---|
+      if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i+1])) {
+        flushList(openList); openList = null;
+        var header = ln.trim().replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); });
+        i += 2; // 跳过分隔行
+        var rows = [];
+        while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+          rows.push(lines[i].trim().replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); }));
+          i++;
+        }
+        var t = '<table><thead><tr>' + header.map(function(h){ return '<th>' + inline(h) + '</th>'; }).join('') + '</tr></thead><tbody>';
+        rows.forEach(function(r){
+          t += '<tr>' + r.map(function(c){ return '<td>' + inline(c) + '</td>'; }).join('') + '</tr>';
+        });
+        t += '</tbody></table>';
+        out.push(t);
+        continue;
+      }
+      // 无序列表 - / · / *
+      if (/^\s*[-•·]\s+/.test(ln)) {
+        if (openList !== 'ul') { flushList(openList); out.push('<ul>'); openList = 'ul'; }
+        out.push('<li>' + inline(ln.replace(/^\s*[-•·]\s+/, '')) + '</li>');
+        i++; continue;
+      }
+      // 有序列表 1.
+      if (/^\s*\d+\.\s+/.test(ln)) {
+        if (openList !== 'ol') { flushList(openList); out.push('<ol>'); openList = 'ol'; }
+        out.push('<li>' + inline(ln.replace(/^\s*\d+\.\s+/, '')) + '</li>');
+        i++; continue;
+      }
+      // 普通段落
+      flushList(openList); openList = null;
+      out.push('<p>' + inline(ln) + '</p>');
+      i++;
+    }
+    flushList(openList);
+    var html = out.join('\n');
+
+    // 4) 还原代码块占位符
+    html = html.replace(/\u0000CODE(\d+)\u0000/g, function(m, idx){
+      var code = codeStore[+idx];
+      return '<div class="ai-codeblock"><button class="ai-copy-btn" type="button">复制</button><pre><code>' + code + '</code></pre></div>';
+    });
+    html = html.replace(/\u0000ICODE(\d+)\u0000/g, function(m, idx){
+      return '<code>' + codeStore[+idx] + '</code>';
+    });
+    return html;
   }
 
   /* ---- 开合面板 ---- */
@@ -15693,6 +15876,7 @@ if (document.readyState === 'loading') {
     // 打开时把当前项目作为锚定
     try { state.anchorProjectId = (typeof store !== 'undefined' && store.currentId) ? store.currentId : null; } catch(e){}
     updateAnchorChip();
+    updatePerspHint();
     mask.hidden = false;
     if (typeof lockBodyScroll === 'function') lockBodyScroll();
     dot.hidden = true;   // 打开即消红点
@@ -15700,6 +15884,8 @@ if (document.readyState === 'loading') {
     ensureConfig();
     // 若未配置 key，对话 Tab 显示空态
     refreshChatEmptyState();
+    // 空对话时随机换一批示例问题
+    renderSamples();
   }
   function closePanel(){
     mask.hidden = true;
@@ -16254,10 +16440,44 @@ if (document.readyState === 'loading') {
     }
   }
 
+  function fallbackCopy(text, done){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (done) done();
+    } catch(e){}
+  }
+
+  /* ---- 安全渲染 AI 回复（md 失败退化为纯文本；长回复折叠） ---- */
+  function renderAiReply(text){
+    var html;
+    try { html = '<div class="md">' + md(text) + '</div>'; }
+    catch(e) { html = '<div class="md">' + esc(String(text == null ? '' : text)) + '</div>'; }
+    var div = addAiMsg(html);
+    // 长回复折叠：超过 500 字默认收起前 ~300px，提供展开/收起
+    var plainLen = (text || '').length;
+    if (plainLen > 500) {
+      div.classList.add('ai-clamp');
+      var toggle = document.createElement('button');
+      toggle.className = 'ai-fold-toggle';
+      toggle.type = 'button';
+      toggle.textContent = '展开全文 ▾';
+      toggle.onclick = function(){
+        var clamped = div.classList.toggle('ai-clamp');
+        toggle.textContent = clamped ? '展开全文 ▾' : '收起 ▴';
+      };
+      div.appendChild(toggle);
+    }
+    return div;
+  }
+
   /* ---- 发送消息 ---- */
   async function send(){
     if (state.sending) return;
-    var text = els.input.value.trim();
+    var text = (els.input.value || '').trim();
     if (!text) { addErrorBubble('EMPTY_INPUT', '请输入你的问题'); return; }
     state.sending = true;
     els.sendBtn.disabled = true;
@@ -16265,24 +16485,41 @@ if (document.readyState === 'loading') {
     els.input.value = '';
     autoGrow();
     addTyping();
+
+    // 按视角组装 context
+    var ctx = { budgetMin: state.budgetMin || undefined };
+    if (state.perspective === 'current') {
+      if (state.anchorProjectId) ctx.projectId = state.anchorProjectId;
+      else { removeTyping(); addErrorBubble(null, '请先在主界面打开一个项目，或切换到全局视角'); state.sending=false; els.sendBtn.disabled=false; return; }
+    } else if (state.perspective === 'multi') {
+      if (state.multiProjects && state.multiProjects.length) ctx.projectIds = state.multiProjects.slice();
+      else { removeTyping(); addErrorBubble(null, '请先在「多选项目」里勾选至少一个项目'); state.sending=false; els.sendBtn.disabled=false; return; }
+    }
+    // 全局视角：不带任何 projectId/projectIds
+
     try {
       var resp = await aiFetch('/api/ai/chat', {
         method: 'POST',
         body: {
           conversationId: state.convId || undefined,
           message: text,
-          context: { projectId: state.anchorProjectId || undefined, budgetMin: state.budgetMin || undefined }
+          context: ctx
         }
       });
       removeTyping();
       if (resp.conversationId) state.convId = resp.conversationId;
-      addAiMsg('<div class="md">' + md(resp.reply || '') + '</div>');
+      var reply = resp.reply;
+      if (!reply || !String(reply).trim()) {
+        addErrorBubble(null, 'AI 返回了空回复，请重试');
+      } else {
+        renderAiReply(reply);
+      }
       if (resp.actions && resp.actions.length) {
-        // 后端 chat 现返回 messageId，apply 时回传以建立动作日志；
-        // 旧版无 messageId 时退化为 null（后端仍可落日志，只是无法按消息反查）。
+        // 后端 chat 现返回 messageId，apply 时回传以建立动作日志
         var mid = resp.messageId || resp.id || null;
         renderSuggestionCard(resp.actions, mid);
       }
+      updateSamplesVisibility();
     } catch(e) {
       removeTyping();
       addErrorBubble(e.code, e.message);
@@ -16305,17 +16542,34 @@ if (document.readyState === 'loading') {
       empty.hidden = true;
       convs.forEach(function(c){
         var item = document.createElement('div');
-        item.className = 'ai-hist-item';
+        item.className = 'ai-hist-item' + (c.isPinned ? ' pinned' : '');
         var title = c.title || (c.lastMessage ? c.lastMessage.slice(0,18) : '新会话');
         item.innerHTML =
           '<div class="hi-main">'
-          + '<div class="hi-title">' + esc(title) + '</div>'
+          + '<div class="hi-title">' + (c.isPinned ? '<span class="hi-pin-icon">📌</span>' : '') + esc(title) + '</div>'
           + '<div class="hi-preview">' + esc(c.lastMessage || '') + ' · ' + esc(formatTime(c.lastAt || c.updatedAt)) + '</div>'
           + '</div>'
-          + '<button class="hi-del" type="button" title="删除会话">🗑</button>';
+          + '<div class="hi-actions">'
+          + '<button class="hi-btn hi-rename" type="button" title="重命名">✎</button>'
+          + '<button class="hi-btn hi-pin" type="button" title="' + (c.isPinned ? '取消置顶' : '置顶') + '">' + (c.isPinned ? '📌' : '📍') + '</button>'
+          + '<button class="hi-btn hi-del" type="button" title="删除会话">🗑</button>'
+          + '</div>';
         item.onclick = function(ev){
-          if (ev.target.classList.contains('hi-del')) return;
+          if (ev.target.closest('.hi-actions')) return;
           openConversation(c.id);
+        };
+        item.querySelector('.hi-rename').onclick = function(ev){
+          ev.stopPropagation();
+          var nt = prompt('重命名会话', title);
+          if (nt !== null && nt.trim()) {
+            aiFetch('/api/ai/conversations/' + c.id, { method: 'PUT', body: { title: nt.trim() } })
+              .then(function(){ loadHistory(); }).catch(function(){});
+          }
+        };
+        item.querySelector('.hi-pin').onclick = function(ev){
+          ev.stopPropagation();
+          aiFetch('/api/ai/conversations/' + c.id, { method: 'PUT', body: { isPinned: !c.isPinned } })
+            .then(function(){ loadHistory(); }).catch(function(){});
         };
         item.querySelector('.hi-del').onclick = function(ev){
           ev.stopPropagation();
@@ -16351,6 +16605,7 @@ if (document.readyState === 'loading') {
     state.convId = null;
     switchTab('chat');
     els.msgs.innerHTML = '';
+    renderSamples();
   }
   function formatTime(ts){
     if (!ts) return '';
@@ -16397,9 +16652,40 @@ if (document.readyState === 'loading') {
     if (cfg.keyPreview) els.key.placeholder = '已配置（' + cfg.keyPreview + '），留空则不修改';
     if (cfg.dailyTokenBudget) els.budget.value = cfg.dailyTokenBudget;
 
+    // 记忆开关
+    var memEl = document.getElementById('aiMemEnabled');
+    if (memEl) memEl.checked = cfg.memoryEnabled !== false;
+
+    // 清空记忆按钮
+    var clearMemBtn = document.getElementById('aiClearMem');
+    if (clearMemBtn && !clearMemBtn._bound) {
+      clearMemBtn._bound = true;
+      clearMemBtn.onclick = function(){
+        if (!confirm('确定要清空所有AI记忆吗？这会删除AI记住的你的所有偏好和习惯，历史对话记录不受影响。')) return;
+        aiFetch('/api/ai/memory', { method: 'DELETE' }).then(function(){
+          if (typeof showToast === 'function') showToast('🧠', '已清空', 'AI记忆已重置');
+        }).catch(function(e){
+          if (typeof showToast === 'function') showToast('⚠️', '清空失败', e.message || '');
+        });
+      };
+    }
+
     // 用量
     loadUsage();
   }
+  // 模型简短说明（前端展示，不显示价格）
+  var MODEL_DESC = {
+    'deepseek-v4-pro': '质量高',
+    'deepseek-flash': '省钱·速度快',
+    'deepseek-chat': '经典',
+    'glm-4-air': '性价比高',
+    'glm-4-plus': '能力强',
+    'qwen-plus': '均衡',
+    'qwen-turbo': '省钱·速度快',
+    'gpt-4o': '能力强',
+    'gpt-4o-mini': '省钱·速度快',
+    'kimi-k2-thinking': '长文本·推理强'
+  };
   function fillModels(selectedModel){
     var provKey = els.provider.value;
     var models = [];
@@ -16411,7 +16697,11 @@ if (document.readyState === 'loading') {
     models.forEach(function(m){
       var o = document.createElement('option');
       o.value = m.id;
-      o.textContent = m.id + (m.recommended ? ' · 推荐' : '');
+      var desc = MODEL_DESC[m.id] || '';
+      var label = m.id;
+      if (m.recommended) label += ' · 推荐';
+      if (desc) label += '（' + desc + '）';
+      o.textContent = label;
       modelSel.appendChild(o);
     });
     if (selectedModel) modelSel.value = selectedModel;
@@ -16427,7 +16717,7 @@ if (document.readyState === 'loading') {
       var budget = (state.config && state.config.dailyTokenBudget) || 100000;
       els.tokUsed.textContent = (today.tokensIn || 0) + (today.tokensOut || 0);
       els.tokBudget.textContent = formatK(budget);
-      els.tokTotal.textContent = u.total ? ('累计 ' + formatK(u.total.tokensIn || 0)) : '';
+      els.tokTotal.textContent = u.total ? ('累计 ' + formatK((u.total.tokensIn || 0) + (u.total.tokensOut || 0))) : '';
       var pct = budget > 0 ? ((today.tokensIn || 0) + (today.tokensOut || 0)) / budget * 100 : 0;
       els.usageFill.style.width = Math.min(100, pct) + '%';
       els.usageFill.classList.toggle('over', pct >= 100);
@@ -16441,8 +16731,10 @@ if (document.readyState === 'loading') {
 
   async function testConnection(){
     var result = els.testResult;
+    var testBtn = document.getElementById('aiTest');
     result.hidden = false; result.classList.remove('ok','bad');
     result.textContent = '测试中…';
+    if (testBtn) { testBtn.disabled = true; testBtn.textContent = '测试中…'; }
     try {
       var body = { provider: els.provider.value, model: els.model.value };
       var kv = els.key.value.trim();
@@ -16450,26 +16742,40 @@ if (document.readyState === 'loading') {
       var r = await aiFetch('/api/ai/config/test', { method: 'POST', body: body });
       result.classList.add('ok');
       result.textContent = '✓ 连接成功（' + (r.latencyMs || '?') + 'ms）';
+      if (typeof showToast === 'function') showToast('✅', '连接成功', (r.latencyMs || '?') + 'ms');
     } catch(e) {
       result.classList.add('bad');
       result.textContent = '✗ ' + (e.message || '连接失败');
+      if (typeof showToast === 'function') showToast('⚠️', '连接失败', e.message || '请检查 Key');
+    } finally {
+      if (testBtn) { testBtn.disabled = false; testBtn.textContent = '测试连接'; }
     }
   }
 
   async function saveConfig(){
     var result = els.saveResult;
+    var saveBtn = document.getElementById('aiSave');
     result.hidden = false;
+    if (saveBtn) saveBtn.disabled = true;
     try {
       var body = { provider: els.provider.value, model: els.model.value };
       var kv = els.key.value.trim();
       if (kv) body.apiKey = kv;
       var budget = parseInt(els.budget.value, 10);
       if (isFinite(budget) && budget > 0) body.dailyTokenBudget = budget;
+      var memEl = document.getElementById('aiMemEnabled');
+      if (memEl) body.memoryEnabled = memEl.checked;
       var c = await aiFetch('/api/ai/config', { method: 'PUT', body: body });
       state.config = c; configLoaded = true;
       result.classList.remove('field-error');
       result.style.color = 'var(--ok)';
       result.textContent = '✓ 已保存';
+      if (saveBtn) {
+        var orig = saveBtn.textContent;
+        saveBtn.textContent = '✓ 已保存';
+        setTimeout(function(){ if (saveBtn) saveBtn.textContent = orig; }, 2000);
+      }
+      if (typeof showToast === 'function') showToast('✅', '设置已保存');
       refreshChatEmptyState();
       loadUsage();
       setTimeout(function(){ result.hidden = true; }, 2000);
@@ -16477,6 +16783,9 @@ if (document.readyState === 'loading') {
       result.style.color = '';
       result.classList.add('field-error');
       result.textContent = e.message || '保存失败';
+      if (typeof showToast === 'function') showToast('⚠️', '保存失败', e.message || '');
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
     }
   }
 
@@ -16577,7 +16886,11 @@ if (document.readyState === 'loading') {
       tokUsed: document.getElementById('aiTokUsed'),
       tokBudget: document.getElementById('aiTokBudget'),
       tokTotal: document.getElementById('aiTokTotal'),
-      usageFill: document.getElementById('aiUsageFill')
+      usageFill: document.getElementById('aiUsageFill'),
+      samples: document.getElementById('aiSamples'),
+      perspHint: document.getElementById('aiPerspHint'),
+      multiList: document.getElementById('aiMultiList'),
+      budgetHours: document.getElementById('aiBudgetHours')
     };
 
     fab.onclick = function(){ mask.hidden ? openPanel() : closePanel(); };
@@ -16593,14 +16906,35 @@ if (document.readyState === 'loading') {
       tabs[i].onclick = function(){ switchTab(this.dataset.pane); };
     }
 
-    // 时间 chips
-    var chips = mask.querySelectorAll('.ai-timechips .pct-chip');
-    for (var k = 0; k < chips.length; k++) {
-      chips[k].onclick = function(){
-        for (var m = 0; m < chips.length; m++) chips[m].classList.remove('active');
-        this.classList.add('active');
-        state.budgetMin = parseInt(this.dataset.min, 10);
-      };
+    // 视角切换
+    var perspBtns = mask.querySelectorAll('.ai-persp-bar .ai-persp');
+    for (var pi = 0; pi < perspBtns.length; pi++) {
+      perspBtns[pi].onclick = function(){ setPerspective(this.dataset.persp); };
+    }
+    updatePerspHint();
+
+    // 学习时长：自由输入 + 快捷按钮
+    setBudgetHours(4);
+    if (els.budgetHours) {
+      els.budgetHours.addEventListener('input', function(){ setBudgetHours(els.budgetHours.value); });
+    }
+    var budgetChips = mask.querySelectorAll('.ai-budget-row .ai-budget-chip');
+    for (var bi = 0; bi < budgetChips.length; bi++) {
+      budgetChips[bi].onclick = function(){ setBudgetHours(this.dataset.h); };
+    }
+
+    // 代码块「复制」按钮（事件委托）
+    if (els.msgs) {
+      els.msgs.addEventListener('click', function(e){
+        var btn = e.target.closest && e.target.closest('.ai-copy-btn');
+        if (!btn) return;
+        var code = btn.parentElement.querySelector('code');
+        var text = code ? code.textContent : '';
+        var done = function(){ btn.textContent = '已复制'; setTimeout(function(){ btn.textContent = '复制'; }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
+        } else { fallbackCopy(text, done); }
+      });
     }
 
     // 发送
