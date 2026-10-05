@@ -15602,7 +15602,10 @@ if (document.readyState === 'loading') {
     multiProjects: [],         // 多选项目的 id 数组
     providers: [],
     config: null,
-    suggestions: []   // 当前对话已渲染的建议卡，便于应用/撤销
+    suggestions: [],   // 当前对话已渲染的建议卡，便于应用/撤销
+    editingMsgEl: null,       // 当前正在编辑的用户消息 DOM
+    abortController: null,    // 用于停止生成
+    editAborted: false        // 编辑时主动 abort，抑制"已停止生成"提示
   };
 
   /* ---- 示例问题库 ---- */
@@ -15729,6 +15732,7 @@ if (document.readyState === 'loading') {
     try {
       resp = await fetch(path, options);
     } catch(e) {
+      if (e.name === 'AbortError') { var ae = new Error('已停止'); ae.code = 'ABORTED'; throw ae; }
       var err = new Error('网络连接失败，请检查网络');
       err.code = 'NETWORK';
       throw err;
@@ -15939,10 +15943,41 @@ if (document.readyState === 'loading') {
   }
 
   /* ---- 消息渲染 ---- */
-  function addUserMsg(text){
+  function fmtClock(ts){
+    var d = ts ? new Date(ts) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    var h = d.getHours();
+    var m = d.getMinutes();
+    return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
+  }
+  function addUserMsg(text, createdAt){
     var div = document.createElement('div');
     div.className = 'ai-msg user';
+    div.dataset.raw = text;
     div.innerHTML = md(text);
+    // 操作栏：复制 + 编辑
+    var bar = document.createElement('div');
+    bar.className = 'ai-msg-actions';
+    bar.innerHTML = '<button class="ai-msg-btn ai-copy" type="button" title="复制">📋 复制</button>'
+                  + '<button class="ai-msg-btn ai-edit" type="button" title="编辑">✎ 编辑</button>';
+    // 复制原始文本
+    bar.querySelector('.ai-copy').onclick = function(){
+      var btn = this;
+      var done = function(){ btn.textContent = '✓ 已复制'; setTimeout(function(){ btn.textContent = '📋 复制'; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
+      } else { fallbackCopy(text, done); }
+    };
+    // 编辑
+    bar.querySelector('.ai-edit').onclick = function(){
+      handleEdit(div);
+    };
+    div.appendChild(bar);
+    // 时间戳
+    var ts = document.createElement('div');
+    ts.className = 'ai-msg-ts';
+    ts.textContent = fmtClock(createdAt);
+    div.appendChild(ts);
     els.msgs.appendChild(div);
     scrollBottom();
   }
@@ -15958,7 +15993,7 @@ if (document.readyState === 'loading') {
     var t = document.getElementById('aiTyping');
     if (t) t.remove();
   }
-  function addAiMsg(html, isProactive){
+  function addAiMsg(html, isProactive, createdAt){
     var div = document.createElement('div');
     div.className = 'ai-msg ai' + (isProactive ? ' proactive' : '');
     div.innerHTML = html;
@@ -15980,7 +16015,8 @@ if (document.readyState === 'loading') {
     bar.querySelector('.ai-regen').onclick = function(){
       var userMsgs = els.msgs.querySelectorAll('.ai-msg.user');
       if (userMsgs.length) {
-        var lastText = userMsgs[userMsgs.length - 1].textContent.trim();
+        var lastUser = userMsgs[userMsgs.length - 1];
+        var lastText = lastUser.dataset.raw || lastUser.textContent.trim();
         if (lastText) {
           div.remove();
           els.input.value = lastText;
@@ -15989,6 +16025,11 @@ if (document.readyState === 'loading') {
       }
     };
     div.appendChild(bar);
+    // 时间戳
+    var ts = document.createElement('div');
+    ts.className = 'ai-msg-ts';
+    ts.textContent = fmtClock(createdAt);
+    div.appendChild(ts);
     els.msgs.appendChild(div);
     scrollBottom();
     return div;
@@ -16031,6 +16072,7 @@ if (document.readyState === 'loading') {
   // 前端能真正一键应用的 op（其余 op 仍渲染为灰色「暂不支持」，不静默忽略）
   var SUPPORTED_OPS = {
     adjust_daily_capacity: 1,
+    adjust_daily_comfort: 1,
   };
 
   function renderSuggestionCard(actions, messageId){
@@ -16102,6 +16144,7 @@ if (document.readyState === 'loading') {
   function friendlyOpLabel(a){
     switch(a.op){
       case 'adjust_daily_capacity': return '调整每日容量';
+      case 'adjust_daily_comfort': return '调整舒适量';
       case 'adjust_deadline': return '调整截止日期';
       case 'create_project': return '新建项目';
       case 'add_recite_items': return '加入背书条目';
@@ -16124,6 +16167,9 @@ if (document.readyState === 'loading') {
     switch(a.op){
       case 'adjust_daily_capacity':
         if (p && typeof a.value === 'number' && isFinite(a.value)) p.dailyCapacity = Math.max(1, Math.round(a.value));
+        break;
+      case 'adjust_daily_comfort':
+        if (p && typeof a.value === 'number' && isFinite(a.value)) p.dailyComfort = Math.max(1, Math.round(a.value));
         break;
       case 'adjust_deadline':
         if (p && typeof a.value === 'string') p.deadline = a.value;
@@ -16293,6 +16339,9 @@ if (document.readyState === 'loading') {
       case 'adjust_daily_capacity':
         if (p) a.inverse = { op:'adjust_daily_capacity', projectId:a.projectId, value:p.dailyCapacity };
         break;
+      case 'adjust_daily_comfort':
+        if (p) a.inverse = { op:'adjust_daily_comfort', projectId:a.projectId, value:p.dailyComfort };
+        break;
       case 'adjust_deadline':
         if (p) a.inverse = { op:'adjust_deadline', projectId:a.projectId, value:p.deadline };
         break;
@@ -16453,6 +16502,69 @@ if (document.readyState === 'loading') {
     } catch(e){}
   }
 
+  /* ---- 停止生成 / 编辑 ---- */
+  function setSendStopUI(isStop){
+    if (!els.sendBtn) return;
+    if (isStop) {
+      els.sendBtn.textContent = '■';
+      els.sendBtn.classList.add('stop');
+      els.sendBtn.disabled = false;
+    } else {
+      els.sendBtn.textContent = '➤';
+      els.sendBtn.classList.remove('stop');
+      els.sendBtn.disabled = false;
+    }
+  }
+  function stopGeneration(){
+    if (state.abortController) {
+      state.abortController.abort();
+    }
+  }
+  function showEditHint(){
+    if (!els.editHint) {
+      var hint = document.createElement('div');
+      hint.className = 'ai-edit-hint';
+      hint.textContent = '编辑后按 Enter 重新发送';
+      var inputRow = document.querySelector('.ai-input-row');
+      if (inputRow && inputRow.parentNode) {
+        inputRow.parentNode.insertBefore(hint, inputRow);
+      }
+      els.editHint = hint;
+    }
+    els.editHint.classList.add('show');
+  }
+  function hideEditHint(){
+    if (els.editHint) els.editHint.classList.remove('show');
+  }
+  function handleEdit(userMsgEl){
+    var raw = userMsgEl.dataset.raw || '';
+    // 若正在生成，先 abort（抑制"已停止生成"提示）
+    if (state.sending && state.abortController) {
+      state.editAborted = true;
+      state.abortController.abort();
+    }
+    state.editingMsgEl = userMsgEl;
+    // 把原文放回输入框
+    els.input.value = raw;
+    autoGrow();
+    els.input.focus();
+    // 删除该用户消息及其后所有兄弟节点（AI回复、建议卡、错误气泡、打字指示器）
+    var next = userMsgEl.nextSibling;
+    while (next) {
+      var toRemove = next;
+      next = next.nextSibling;
+      toRemove.remove();
+    }
+    userMsgEl.remove();
+    // 清空建议卡引用
+    state.suggestions = [];
+    // 编辑模式视觉反馈
+    els.input.classList.add('editing');
+    els.input.placeholder = '编辑问题，按 Enter 重新发送…';
+    showEditHint();
+    updateSamplesVisibility();
+  }
+
   /* ---- 安全渲染 AI 回复（md 失败退化为纯文本；长回复折叠） ---- */
   function renderAiReply(text){
     var html;
@@ -16481,8 +16593,14 @@ if (document.readyState === 'loading') {
     if (state.sending) return;
     var text = (els.input.value || '').trim();
     if (!text) { addErrorBubble('EMPTY_INPUT', '请输入你的问题'); return; }
+    // 清除编辑模式残留
+    els.input.classList.remove('editing');
+    els.input.placeholder = '问问今天先救哪科、错题怎么排…';
+    hideEditHint();
+    state.editingMsgEl = null;
+
     state.sending = true;
-    els.sendBtn.disabled = true;
+    setSendStopUI(true);
     addUserMsg(text);
     els.input.value = '';
     autoGrow();
@@ -16492,16 +16610,20 @@ if (document.readyState === 'loading') {
     var ctx = { budgetMin: state.budgetMin || undefined };
     if (state.perspective === 'current') {
       if (state.anchorProjectId) ctx.projectId = state.anchorProjectId;
-      else { removeTyping(); addErrorBubble(null, '请先在主界面打开一个项目，或切换到全局视角'); state.sending=false; els.sendBtn.disabled=false; return; }
+      else { removeTyping(); addErrorBubble(null, '请先在主界面打开一个项目，或切换到全局视角'); state.sending=false; setSendStopUI(false); return; }
     } else if (state.perspective === 'multi') {
       if (state.multiProjects && state.multiProjects.length) ctx.projectIds = state.multiProjects.slice();
-      else { removeTyping(); addErrorBubble(null, '请先在「多选项目」里勾选至少一个项目'); state.sending=false; els.sendBtn.disabled=false; return; }
+      else { removeTyping(); addErrorBubble(null, '请先在「多选项目」里勾选至少一个项目'); state.sending=false; setSendStopUI(false); return; }
     }
     // 全局视角：不带任何 projectId/projectIds
+
+    // 创建 AbortController 用于停止生成
+    state.abortController = new AbortController();
 
     try {
       var resp = await aiFetch('/api/ai/chat', {
         method: 'POST',
+        signal: state.abortController.signal,
         body: {
           conversationId: state.convId || undefined,
           message: text,
@@ -16532,10 +16654,23 @@ if (document.readyState === 'loading') {
       if (mask && mask.hidden && dot) dot.hidden = false;
     } catch(e) {
       removeTyping();
-      addErrorBubble(e.code, e.message);
+      if (e.code === 'ABORTED') {
+        // 用户主动停止：显示浅灰提示，不报错
+        if (!state.editAborted) {
+          var stopDiv = document.createElement('div');
+          stopDiv.className = 'ai-msg-stop';
+          stopDiv.textContent = '已停止生成';
+          els.msgs.appendChild(stopDiv);
+          scrollBottom();
+        }
+        state.editAborted = false;
+      } else {
+        addErrorBubble(e.code, e.message);
+      }
     } finally {
       state.sending = false;
-      els.sendBtn.disabled = false;
+      state.abortController = null;
+      setSendStopUI(false);
     }
   }
 
@@ -16603,8 +16738,9 @@ if (document.readyState === 'loading') {
       var data = await aiFetch('/api/ai/conversations/' + id + '/messages');
       var msgs = data.messages || data || [];
       msgs.forEach(function(m){
-        if (m.role === 'user') addUserMsg(m.content || m.message || '');
-        else addAiMsg('<div class="md">' + md(m.content || m.message || '') + '</div>');
+        var ts = m.createdAt || m.created_at || m.ts || null;
+        if (m.role === 'user') addUserMsg(m.content || m.message || '', ts);
+        else addAiMsg('<div class="md">' + md(m.content || m.message || '') + '</div>', false, ts);
       });
       if (!msgs.length) addAiMsg('<div class="md">' + md('这是一个新会话，问我点什么吧。') + '</div>');
     } catch(e) {
@@ -16897,8 +17033,11 @@ if (document.readyState === 'loading') {
       });
     }
 
-    // 发送
-    els.sendBtn.onclick = send;
+    // 发送（生成中变为停止按钮）
+    els.sendBtn.onclick = function(){
+      if (state.sending) { stopGeneration(); return; }
+      send();
+    };
     els.input.addEventListener('keydown', function(e){
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });

@@ -2170,16 +2170,33 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 
 /* AI消息操作栏 */
 .ai-msg-actions{
-  display:flex;gap:6px;margin-top:6px;opacity:0;transition:opacity .15s ease;
+  display:flex;gap:4px;margin-top:6px;opacity:0;transition:opacity .15s ease;
 }
 .ai-msg.ai:hover .ai-msg-actions{opacity:1}
+.ai-msg.user .ai-msg-actions{justify-content:flex-end}
+.ai-msg.user:hover .ai-msg-actions{opacity:1}
 .ai-msg-btn{
-  background:none;border:none;color:var(--muted);font-size:12px;
-  font-family:inherit;cursor:pointer;padding:3px 8px;border-radius:6px;
+  background:none;border:none;color:var(--muted);font-size:11.5px;
+  font-family:inherit;cursor:pointer;padding:2px 6px;border-radius:6px;
   transition:background .15s ease,color .15s ease;
 }
 .ai-msg-btn:hover{background:var(--ai-tint);color:var(--brand)}
 @media (max-width:768px){ .ai-msg-actions{opacity:1} }
+@media (hover:none){ .ai-msg-actions{opacity:1} }
+
+/* 消息时间戳 */
+.ai-msg-ts{
+  font-size:10.5px;color:var(--muted);opacity:.6;
+  margin-top:3px;line-height:1;
+}
+.ai-msg.user .ai-msg-ts{text-align:right}
+.ai-msg.ai .ai-msg-ts{text-align:left}
+
+/* 停止生成提示 */
+.ai-msg-stop{
+  text-align:center;font-size:12px;color:var(--muted);
+  opacity:.6;margin-bottom:12px;
+}
 
 /* 建议卡片 */
 .ai-suggest{
@@ -2398,6 +2415,16 @@ html[data-theme="dark"] .ai-tut-list code{background:rgba(255,255,255,.12)}
 }
 html[data-theme="dark"] .ai-send{color:#10302a}
 .ai-send:disabled{background:var(--line);cursor:not-allowed}
+.ai-send.stop{background:var(--bad);font-size:12px}
+.ai-send.stop:hover{opacity:.85}
+.ai-input-row textarea.editing{
+  border-color:var(--brand);
+  box-shadow:0 0 0 3px var(--ai-ring);
+}
+.ai-edit-hint{
+  font-size:11.5px;color:var(--brand);margin:4px 0 0;display:none;
+}
+.ai-edit-hint.show{display:block}
 
 /* ===== 触控目标 ≥44px（移动端可点性） ===== */
 #aiFab{width:52px;height:52px;flex:0 0 auto}
