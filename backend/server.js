@@ -26,6 +26,7 @@ const dataRoutes = require('./routes/data');
 const userRoutes = require('./routes/user');
 const adminRoutes = require('./routes/admin');
 const studyRoomRoutes = require('./routes/studyRoom');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 
@@ -122,6 +123,8 @@ app.use('/api/data', dataRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/study-room', studyRoomRoutes);
+// AI 助手：独立路由，内部已按用户 ID 限流（见 routes/ai.js 的 aiUserLimiter）
+app.use('/api/ai', aiRoutes);
 
 // 上传的头像静态访问
 app.use('/uploads', express.static(config.uploadDir));

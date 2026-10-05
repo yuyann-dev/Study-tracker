@@ -1,0 +1,795 @@
+/**
+ * routes/ai.js — Study Tracker AI 助手后端（M1+M2 P0 核心）
+ *
+ * 全部接口走 authRequired（req.user.id 可用）。响应统一 ok/fail。
+ * 数据安全：只读 user_data.store_json，绝不 SELECT users 敏感列注入 prompt；
+ *           API key 任何 GET 接口都不回传明文，只回 keyPreview。
+ *
+ * 路由分组：
+ *   配置        GET/PUT /api/ai/config, POST /api/ai/config/test
+ *   会话        GET/POST /api/ai/conversations, GET messages, DELETE
+ *   主对话      POST /api/ai/chat
+ *   应用/撤销   POST /api/ai/apply, POST /api/ai/undo, GET /api/ai/actions
+ *   画像        GET/PUT /api/ai/profile, POST /api/ai/profile/refresh
+ *   L0 本地     GET /api/ai/summary|mistake-report|paper-trend|balance|today-plan
+ *   用量        GET /api/ai/usage
+ */
+const express = require('express');
+const rateLimit = require('express-rate-limit');
+const db = require('../database');
+const { authRequired } = require('../middleware/auth');
+const { ok, fail } = require('../utils/respond');
+const aiCrypto = require('../utils/aiCrypto');
+const aiIntent = require('../utils/aiIntent');
+const aggregator = require('../utils/aiDataAggregator');
+const aiProxy = require('../utils/aiProxy');
+const aiPrompt = require('../utils/aiPrompt');
+const aiProviders = require('../utils/aiProviders');
+
+const router = express.Router();
+router.use(authRequired);
+
+// AI 路由单独限流：按用户 ID（不是 IP），每分钟 60 次。
+// 必须在 authRequired 之后，keyGenerator 才能拿到 req.user.id。
+const aiUserLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.user.id),
+  message: { ok: false, error: 'AI 请求过于频繁，请稍后再试' },
+});
+router.use(aiUserLimiter);
+
+/**
+ * AI 专用错误响应：在标准 {ok:false,error} 上多带 code，前端据 code 显示友好提示/重试按钮。
+ * @param {import('express').Response} res
+ * @param {string} message 面向用户的文案
+ * @param {string} code 业务错误码（INVALID_KEY/INSUFFICIENT_BALANCE/TIMEOUT/RATE_LIMITED/UPSTREAM_ERROR/NOT_CONFIGURED/EMPTY_INPUT）
+ * @param {number} status HTTP 状态码
+ * @param {object} [extra] 附加字段（如 needConfig/detail）
+ */
+function failCode(res, message, code, status = 400, extra = {}) {
+  return res.status(status).json(Object.assign({ ok: false, error: message, code }, extra));
+}
+
+// ── 内部工具 ────────────────────────────────────────────────────────────────
+
+function todayLocal() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function getConfigRow(userId) {
+  return db.prepare('SELECT * FROM ai_configs WHERE user_id = ?').get(userId);
+}
+
+function getTodayUsage(userId, date) {
+  return db.prepare('SELECT * FROM ai_usage_daily WHERE user_id = ? AND date = ?').get(userId, date);
+}
+
+function bumpUsage(userId, date, tokensIn, tokensOut) {
+  db.prepare(
+    `INSERT INTO ai_usage_daily (user_id, date, tokens_in, tokens_out, calls)
+     VALUES (?, ?, ?, ?, 1)
+     ON CONFLICT(user_id, date) DO UPDATE SET
+       tokens_in = tokens_in + excluded.tokens_in,
+       tokens_out = tokens_out + excluded.tokens_out,
+       calls = calls + 1`
+  ).run(userId, date, tokensIn, tokensOut);
+}
+
+/** 读取该用户 store 里所有 project id（用于校验 actions.projectId） */
+function storeProjects(userId) {
+  const store = aggregator.loadStore(userId);
+  return (store && store.projects) || {};
+}
+
+/** 构建本地启发式画像（不调大模型，省 token） */
+function buildLocalProfile(userId) {
+  const summary = aggregator.getUserProfileSummary(userId);
+  const exercise = summary.projects.filter((p) => p.type === 'exercise');
+  const subjects = [...new Set(exercise.map((p) => p.subjectKey || p.name).filter(Boolean))];
+  const behind = exercise.filter((p) => p.gap < -20).map((p) => p.name);
+  const profile = {
+    version: 1,
+    examAnchor: aggregator.DEFAULT_EXAM_ANCHOR,
+    subjects,
+    projectCount: summary.projectCount,
+    behind,
+    stage: summary.daysLeft > 240 ? '基础/强化期' : summary.daysLeft > 90 ? '真题期' : '冲刺期',
+    builtAt: new Date().toISOString(),
+  };
+  return profile;
+}
+
+function upsertProfile(userId, profileJson, editedFields) {
+  db.prepare(
+    `INSERT INTO ai_profile (user_id, profile_json, edited_fields_json, built_at, updated_at)
+     VALUES (?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(user_id) DO UPDATE SET
+       profile_json = excluded.profile_json,
+       built_at = excluded.built_at,
+       updated_at = excluded.updated_at`
+  ).run(userId, JSON.stringify(profileJson), JSON.stringify(editedFields || []));
+}
+
+/** 按意图取数（chat 流水线用） */
+function gatherDataByIntent(userId, intent, projectIdHint, budgetMin) {
+  switch (intent) {
+    case 'progress_query':
+      return { overview: aggregator.getUserProfileSummary(userId) };
+    case 'mistake_diagnosis':
+      return aggregator.getMistakeReport(userId, projectIdHint);
+    case 'recite_help':
+      return aggregator.getReciteStatus(userId, projectIdHint);
+    case 'plan_generation':
+      return { todayPlan: aggregator.getTodayPlan(userId, budgetMin) };
+    case 'multi_subject_balance':
+      return aggregator.getMultiSubjectBalance(userId);
+    case 'sprint_strategy':
+      return { overview: aggregator.getUserProfileSummary(userId), balance: aggregator.getMultiSubjectBalance(userId) };
+    case 'mindset_check':
+      return { overview: aggregator.getUserProfileSummary(userId) };
+    case 'data_interpretation':
+      return projectIdHint
+        ? { progress: aggregator.getProgressSummary(userId, projectIdHint), paper: aggregator.getPaperTrend(userId, projectIdHint) }
+        : { balance: aggregator.getMultiSubjectBalance(userId) };
+    default:
+      return { overview: aggregator.getUserProfileSummary(userId) };
+  }
+}
+
+// ══════════════ 配置接口 ═══════════════════════════════════════════════════
+
+// GET /api/ai/config — 脱敏配置（不回传明文 key）
+router.get('/config', (req, res) => {
+  try {
+    const row = getConfigRow(req.user.id);
+    if (!row) {
+      return ok(res, { configured: false, enabled: false, provider: 'deepseek', model: '' });
+    }
+    return ok(res, {
+      configured: true,
+      provider: row.provider || 'deepseek',
+      model: row.model || '',
+      enabled: row.enabled === 1,
+      keyPreview: row.key_preview || '',
+      dailyTokenBudget: row.daily_token_budget,
+    });
+  } catch (e) {
+    console.error('GET /api/ai/config error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// PUT /api/ai/config — body {provider, model, apiKey?, dailyTokenBudget?}
+// provider 与 model 必填（用户选了服务商+具体模型才能保存）；不传 apiKey 表示不改 key。
+// 校验 model 必须属于该服务商的模型列表（防篡改）。
+router.put('/config', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const apiKey = body.apiKey != null ? String(body.apiKey) : undefined;
+    const dailyTokenBudget = body.dailyTokenBudget != null ? Number(body.dailyTokenBudget) : undefined;
+
+    const row = getConfigRow(req.user.id);
+
+    // provider 必填校验
+    const provider = body.provider != null && String(body.provider).trim() !== ''
+      ? String(body.provider).trim().toLowerCase()
+      : (row && row.provider) || '';
+    if (!provider) return fail(res, '请选择服务商');
+    const prov = aiProviders.getProvider(provider);
+    if (!prov) return fail(res, '不支持的服务商');
+
+    // model 必填校验 + 必须属于该服务商
+    const model = body.model != null && String(body.model).trim() !== ''
+      ? String(body.model).trim()
+      : (row && row.model) || '';
+    if (!model) return fail(res, '请选择模型');
+    if (!aiProviders.modelBelongsTo(provider, model)) return fail(res, '所选模型不属于该服务商');
+
+    // baseUrl 取服务商默认
+    const newBaseUrl = prov.baseUrl;
+
+    // apiKey 三种情况：
+    //   undefined → 不改 key；''（显式空串）→ 删除 key（清空并停用）；非空 → 加密保存
+    let newEncKey = row && row.encrypted_api_key;
+    let newSalt = row && row.key_salt;
+    let newPreview = row && row.key_preview;
+    if (apiKey === '') {
+      newEncKey = null; newSalt = null; newPreview = null;
+    } else if (apiKey !== undefined && apiKey !== '') {
+      if (!newSalt) newSalt = aiCrypto.generateSalt();
+      newEncKey = aiCrypto.encrypt(apiKey, newSalt);
+      newPreview = aiCrypto.previewOf(apiKey);
+    }
+
+    const newBudget = dailyTokenBudget && Number.isFinite(dailyTokenBudget) && dailyTokenBudget > 0
+      ? Math.floor(dailyTokenBudget)
+      : (row ? row.daily_token_budget : 100000);
+
+    // 配好 provider baseUrl + model + key 即视为开通；key 被删则停用
+    const enabled = newBaseUrl && model && newEncKey ? 1 : 0;
+
+    db.prepare(
+      `INSERT INTO ai_configs (user_id, provider, base_url, model, encrypted_api_key, key_salt, key_preview,
+             daily_token_budget, enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(user_id) DO UPDATE SET
+         provider = excluded.provider,
+         base_url = excluded.base_url,
+         model = excluded.model,
+         encrypted_api_key = excluded.encrypted_api_key,
+         key_salt = excluded.key_salt,
+         key_preview = excluded.key_preview,
+         daily_token_budget = excluded.daily_token_budget,
+         enabled = excluded.enabled,
+         updated_at = excluded.updated_at`
+    ).run(req.user.id, provider, newBaseUrl, model, newEncKey, newSalt, newPreview, newBudget, enabled);
+
+    return ok(res, {
+      provider, model, enabled: enabled === 1,
+      keyPreview: newPreview || '', dailyTokenBudget: newBudget,
+    });
+  } catch (e) {
+    console.error('PUT /api/ai/config error:', e.message);
+    return fail(res, '保存配置失败', 500);
+  }
+});
+
+// GET /api/ai/providers — 5 个服务商 + 各自模型列表（供前端渲染）
+router.get('/providers', (req, res) => {
+  try {
+    return ok(res, { providers: aiProviders.listProviders() });
+  } catch (e) {
+    console.error('GET /api/ai/providers error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// POST /api/ai/config/test — body {provider?, model?, apiKey?}（可传未保存的 key）
+// 用服务商 baseUrl + 指定/已选 model 发一个最简请求测连通。
+router.post('/config/test', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const row = getConfigRow(req.user.id);
+
+    // provider：传入 > 已存 > 默认
+    const provider = (body.provider != null && String(body.provider).trim())
+      ? String(body.provider).trim().toLowerCase()
+      : (row && row.provider) || aiProviders.DEFAULT_PROVIDER;
+    const prov = aiProviders.getProvider(provider);
+    if (!prov) return fail(res, '不支持的服务商');
+
+    // model：传入 > 已存；未给则无法测
+    const baseUrl = prov.baseUrl;
+    const model = (body.model != null && String(body.model).trim())
+      ? String(body.model).trim()
+      : (row && row.model) || '';
+    if (!model) return fail(res, '请先选择模型');
+
+    let apiKey = body.apiKey != null ? String(body.apiKey) : '';
+
+    // 校验 baseUrl（取自注册表，仍走一遍 SSRF 防护）
+    try {
+      await aiProxy.assertSafeBaseUrl(baseUrl);
+    } catch (e) {
+      return fail(res, e.message || 'baseUrl 不安全');
+    }
+
+    // 未传 key 则用已存的解密
+    if (!apiKey) {
+      if (!row || !row.encrypted_api_key) return fail(res, '请先填写 API Key');
+      try { apiKey = aiCrypto.decrypt(row.encrypted_api_key, row.key_salt); }
+      catch (e) { return fail(res, '已存 Key 解密失败，请重新填写', 400); }
+    }
+
+    const start = Date.now();
+    try {
+      const r = await aiProxy.callLLM(
+        { baseUrl, model, apiKey, docsUrl: prov.docsUrl },
+        [{ role: 'user', content: '回复 ok 两个字母即可' }],
+        { maxTokens: 10 }
+      );
+      return ok(res, { latencyMs: Date.now() - start, provider: prov.key, reply: (r.content || '').slice(0, 50) });
+    } catch (e) {
+      const extra = e.aiDetail ? { detail: e.aiDetail } : {};
+      return failCode(res, e.aiMessage || e.message || '连通测试失败', e.aiCode || 'UPSTREAM_ERROR', e.status || 502, extra);
+    }
+  } catch (e) {
+    console.error('POST /api/ai/config/test error:', e.message);
+    return failCode(res, '连通测试失败', 'UPSTREAM_ERROR', 502);
+  }
+});
+
+// ══════════════ 会话接口 ═══════════════════════════════════════════════════
+
+// GET /api/ai/conversations — last_at 倒序，分页
+router.get('/conversations', (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+    const before = parseInt(req.query.before, 10) || 0; // cursor: id
+    let rows;
+    if (before > 0) {
+      rows = db.prepare(
+        'SELECT id, title, last_at, created_at FROM ai_conversations WHERE user_id=? AND id < ? ORDER BY id DESC LIMIT ?'
+      ).all(req.user.id, before, limit);
+    } else {
+      rows = db.prepare(
+        'SELECT id, title, last_at, created_at FROM ai_conversations WHERE user_id=? ORDER BY last_at DESC, id DESC LIMIT ?'
+      ).all(req.user.id, limit);
+    }
+    return ok(res, { conversations: rows });
+  } catch (e) {
+    console.error('GET /api/ai/conversations error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// POST /api/ai/conversations — body {title?}
+router.post('/conversations', (req, res) => {
+  try {
+    const title = String((req.body && req.body.title) || '新对话').slice(0, 60);
+    const info = db.prepare(
+      "INSERT INTO ai_conversations (user_id, title, last_at, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'), datetime('now'))"
+    ).run(req.user.id, title);
+    return ok(res, { id: info.lastInsertRowid, title });
+  } catch (e) {
+    console.error('POST /api/ai/conversations error:', e.message);
+    return fail(res, '创建会话失败', 500);
+  }
+});
+
+// DELETE /api/ai/conversations/all — 清空当前用户全部对话历史（messages 由外键级联删除）
+// 注意：必须注册在 /:id 之前，否则 "all" 会被当成会话 id
+router.delete('/conversations/all', (req, res) => {
+  try {
+    db.prepare('DELETE FROM ai_conversations WHERE user_id = ?').run(req.user.id);
+    return ok(res, { deleted: true });
+  } catch (e) {
+    console.error('DELETE /api/ai/conversations/all error:', e.message);
+    return fail(res, '清空对话失败', 500);
+  }
+});
+
+// GET /api/ai/conversations/:id/messages — 分页 cursor
+router.get('/conversations/:id/messages', (req, res) => {
+  try {
+    const convId = Number(req.params.id);
+    const conv = db.prepare('SELECT id FROM ai_conversations WHERE id=? AND user_id=?').get(convId, req.user.id);
+    if (!conv) return fail(res, '会话不存在', 404);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+    const before = parseInt(req.query.before, 10) || 0;
+    let rows;
+    if (before > 0) {
+      rows = db.prepare(
+        'SELECT id, role, content, intent, actions_json, tokens_in, tokens_out, created_at FROM ai_messages WHERE conversation_id=? AND id < ? ORDER BY id DESC LIMIT ?'
+      ).all(convId, before, limit);
+    } else {
+      rows = db.prepare(
+        'SELECT id, role, content, intent, actions_json, tokens_in, tokens_out, created_at FROM ai_messages WHERE conversation_id=? ORDER BY id DESC LIMIT ?'
+      ).all(convId, limit);
+    }
+    // 反转为正序返回
+    rows = rows.reverse().map((r) => ({
+      id: r.id, role: r.role, content: r.content, intent: r.intent,
+      actions: safeParse(r.actions_json), tokens: { in: r.tokens_in, out: r.tokens_out },
+      createdAt: r.created_at,
+    }));
+    return ok(res, { messages: rows });
+  } catch (e) {
+    console.error('GET messages error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// DELETE /api/ai/conversations/:id — 级联删 messages
+router.delete('/conversations/:id', (req, res) => {
+  try {
+    const convId = Number(req.params.id);
+    const info = db.prepare('DELETE FROM ai_conversations WHERE id=? AND user_id=?').run(convId, req.user.id);
+    // messages 由外键 ON DELETE CASCADE 删除（已开 foreign_keys=ON）
+    return info.changes > 0 ? ok(res, { deleted: true }) : fail(res, '会话不存在', 404);
+  } catch (e) {
+    console.error('DELETE conversation error:', e.message);
+    return fail(res, '删除失败', 500);
+  }
+});
+
+// ══════════════ 主对话接口 ═══════════════════════════════════════════════════
+
+// POST /api/ai/chat
+router.post('/chat', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const userMessage = String(body.message || '').trim();
+    if (!userMessage) return failCode(res, '请输入你的问题', 'EMPTY_INPUT', 400);
+    const ctx = body.context || {};
+    const budgetMin = ctx.budgetMin;
+
+    // 1. 查配置
+    const cfg = getConfigRow(req.user.id);
+    if (!cfg || cfg.enabled !== 1 || !cfg.encrypted_api_key || !cfg.base_url || !cfg.provider || !cfg.model) {
+      return failCode(res, '请先在AI设置中配置API key', 'NOT_CONFIGURED', 409, { needConfig: true });
+    }
+
+    const date = todayLocal();
+
+    // 2. 今日预算检查（超预算不硬报错，降级本地数据）
+    const usage = getTodayUsage(req.user.id, date);
+    const usedIn = usage ? usage.tokens_in : 0;
+    const usedOut = usage ? usage.tokens_out : 0;
+    const budget = cfg.daily_token_budget || 100000;
+    const overBudget = (usedIn + usedOut) >= budget;
+
+    // 3. 意图分类
+    const { intent, projectIdHint } = aiIntent.classify(userMessage, ctx);
+    const projectId = ctx.projectId || projectIdHint;
+
+    // 4. 按意图取数聚合
+    const dataSummary = gatherDataByIntent(req.user.id, intent, projectId, budgetMin);
+
+    // 超预算降级：不调大模型，本地数据 + 提示
+    if (overBudget) {
+      // 仍落一条 user 消息，assistant 回复降级文案
+      const convId = await ensureConversation(req, body.conversationId, userMessage);
+      await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
+      const reply = `今日 AI 额度（${budget} token）已用完，明天再来。我先把能直接算的本地结果给你：\n\n\`\`\`json\n${JSON.stringify(dataSummary, null, 2).slice(0, 1500)}\n\`\`\``;
+      const aid = await saveMessage(req.user.id, convId, 'assistant', reply, intent, null, 0, 0);
+      touchConversation(convId);
+      return ok(res, {
+        conversationId: convId, reply, intent, actions: [],
+        tokens: { in: 0, out: 0 }, profileUpdated: false, degraded: true,
+      });
+    }
+
+    // 5. 组 prompt
+    let profileRow = db.prepare('SELECT profile_json, edited_fields_json FROM ai_profile WHERE user_id=?').get(req.user.id);
+    let profile = null;
+    let profileUpdated = false;
+    if (profileRow && profileRow.profile_json) {
+      try { profile = JSON.parse(profileRow.profile_json); } catch (_) { profile = null; }
+    } else {
+      // 首次：本地建一份画像
+      profile = buildLocalProfile(req.user.id);
+      upsertProfile(req.user.id, profile, []);
+      profileUpdated = true;
+    }
+    const memories = db.prepare(
+      'SELECT content FROM ai_memory WHERE user_id=? ORDER BY strength DESC LIMIT 5'
+    ).all(req.user.id);
+
+    const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories);
+    const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, ctx);
+
+    // 历史近 10 轮
+    const history = loadRecentMessages(req.user.id, body.conversationId, 10);
+    const messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
+
+    // 6. 解密 key + 代理调用（直接用用户在设置里选好的 model，不自动切换）
+    let apiKey;
+    try { apiKey = aiCrypto.decrypt(cfg.encrypted_api_key, cfg.key_salt); }
+    catch (e) { return failCode(res, 'API key似乎无效，请检查后重新输入', 'INVALID_KEY', 401); }
+
+    let llm;
+    try {
+      const prov = aiProviders.getProvider(cfg.provider) || {};
+      llm = await aiProxy.callLLM(
+        { baseUrl: cfg.base_url, model: cfg.model, apiKey, docsUrl: prov.docsUrl },
+        messages,
+        { maxTokens: intent === 'mistake_diagnosis' ? 1000 : 800 }
+      );
+    } catch (e) {
+      // 失败不计入系统消耗统计（bumpUsage 仅在成功后执行）；统一文案 + code，不泄露上游原文
+      const extra = Object.assign({ note: '调用失败，本次不计入系统消耗统计' }, e.aiDetail ? { detail: e.aiDetail } : {});
+      return failCode(res, e.aiMessage || 'AI服务暂时不可用，请稍后再试', e.aiCode || 'UPSTREAM_ERROR', e.status || 502, extra);
+    }
+
+    // 7. 解析回复（正文 + actions）；actions 解析失败降级为纯文本，actions 空数组
+    const { body: replyBody, actions: rawActions } = aiPrompt.parseReply(llm.content);
+    const projects = storeProjects(req.user.id);
+    const validActions = aiPrompt.filterValidActions(rawActions, projects);
+
+    // 8. 落库 + 累计用量（仅成功后累计）
+    const convId = await ensureConversation(req, body.conversationId, userMessage);
+    await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
+    const tokensIn = llm.usage.prompt_tokens;
+    const tokensOut = llm.usage.completion_tokens;
+    const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', replyBody, intent, validActions, tokensIn, tokensOut);
+    bumpUsage(req.user.id, date, tokensIn, tokensOut);
+    touchConversation(convId);
+
+    return ok(res, {
+      conversationId: convId,
+      messageId: assistantMsgId,
+      reply: replyBody,
+      intent,
+      actions: validActions,
+      tokens: { in: tokensIn, out: tokensOut },
+      profileUpdated,
+    });
+  } catch (e) {
+    console.error('POST /api/ai/chat error:', e.message);
+    return fail(res, 'AI 服务暂不可用，请稍后重试', 502);
+  }
+});
+
+// ── chat 内部助手 ──
+function safeParse(s) {
+  if (!s) return [];
+  try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch (_) { return []; }
+}
+
+async function ensureConversation(req, conversationId, firstMessage) {
+  if (conversationId) {
+    const conv = db.prepare('SELECT id FROM ai_conversations WHERE id=? AND user_id=?').get(conversationId, req.user.id);
+    if (conv) return conv.id;
+  }
+  const title = String(firstMessage || '新对话').slice(0, 30);
+  const info = db.prepare(
+    "INSERT INTO ai_conversations (user_id, title, last_at, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'), datetime('now'))"
+  ).run(req.user.id, title);
+  return info.lastInsertRowid;
+}
+
+function touchConversation(convId) {
+  db.prepare("UPDATE ai_conversations SET last_at=datetime('now'), updated_at=datetime('now') WHERE id=?").run(convId);
+}
+
+function saveMessage(userId, convId, role, content, intent, actionsJson, tokensIn, tokensOut) {
+  const info = db.prepare(
+    `INSERT INTO ai_messages (conversation_id, user_id, role, content, intent, actions_json, tokens_in, tokens_out, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).run(convId, userId, role, content, intent || null,
+    actionsJson ? JSON.stringify(actionsJson) : null, tokensIn || 0, tokensOut || 0);
+  return info.lastInsertRowid;
+}
+
+function loadRecentMessages(userId, conversationId, n) {
+  if (!conversationId) return [];
+  // IDOR 防护：会话必须属于当前用户，否则任何人传他人 conversationId 都能读历史
+  const rows = db.prepare(
+    `SELECT role, content FROM ai_messages
+       WHERE conversation_id = ?
+         AND conversation_id IN (SELECT id FROM ai_conversations WHERE user_id = ?)
+         AND role IN ('user','assistant')
+       ORDER BY id DESC LIMIT ?`
+  ).all(conversationId, userId, n).reverse();
+  // 只取正文（不带 actions 代码块历史，避免上下文膨胀）
+  return rows.map((r) => ({ role: r.role, content: String(r.content || '').slice(0, 800) }));
+}
+
+// ══════════════ 建议应用与撤销 ══════════════════════════════════════════════
+
+// POST /api/ai/apply — body {messageId, selected, storeSigBefore, storeSigAfter}
+router.post('/apply', (req, res) => {
+  try {
+    const body = req.body || {};
+    const messageId = Number(body.messageId);
+    const selected = Array.isArray(body.selected) ? body.selected : [];
+    if (!messageId) return fail(res, '缺少 messageId');
+
+    const msg = db.prepare('SELECT id, conversation_id, actions_json FROM ai_messages WHERE id=? AND user_id=?')
+      .get(messageId, req.user.id);
+    if (!msg) return fail(res, '消息不存在', 404);
+
+    // 逆操作 inverse 由前端在应用 action 时根据"修改前 store 状态"计算并随 selected 上报；
+    // 后端只负责存储与回传，不要求 AI 生成 inverse。
+    const inverse = selected.filter((a) => a && a.inverse).map((a) => a.inverse);
+    const actionType = selected[0] && selected[0].op ? selected[0].op : 'batch';
+
+    const info = db.prepare(
+      `INSERT INTO ai_action_logs
+       (user_id, conversation_id, message_id, action_type, actions_json, selected_json, inverse_json,
+        store_sig_before, store_sig_after, status, applied_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'applied', datetime('now'))`
+    ).run(req.user.id, msg.conversation_id, messageId, actionType,
+      msg.actions_json || null, JSON.stringify(selected), JSON.stringify(inverse),
+      body.storeSigBefore || null, body.storeSigAfter || null);
+
+    return ok(res, { actionLogId: info.lastInsertRowid, inverse });
+  } catch (e) {
+    console.error('POST /api/ai/apply error:', e.message);
+    return fail(res, '记录应用失败', 500);
+  }
+});
+
+// POST /api/ai/undo — body {actionLogId}
+router.post('/undo', (req, res) => {
+  try {
+    const actionLogId = Number(req.body && req.body.actionLogId);
+    if (!actionLogId) return fail(res, '缺少 actionLogId');
+    const log = db.prepare('SELECT * FROM ai_action_logs WHERE id=? AND user_id=?').get(actionLogId, req.user.id);
+    if (!log) return fail(res, '撤销记录不存在', 404);
+    if (log.status !== 'applied') return fail(res, '该记录已是撤销状态', 400);
+
+    let inverse = [];
+    try { inverse = JSON.parse(log.inverse_json || '[]'); } catch (_) { inverse = []; }
+
+    db.prepare("UPDATE ai_action_logs SET status='undone', undone_at=datetime('now') WHERE id=?").run(actionLogId);
+    return ok(res, { actionLogId, inverse });
+  } catch (e) {
+    console.error('POST /api/ai/undo error:', e.message);
+    return fail(res, '撤销失败', 500);
+  }
+});
+
+// GET /api/ai/actions?status=applied — 撤销历史
+router.get('/actions', (req, res) => {
+  try {
+    const status = req.query.status ? String(req.query.status) : null;
+    let rows;
+    if (status) {
+      rows = db.prepare(
+        'SELECT id, action_type, actions_json, status, applied_at, undone_at, conversation_id, message_id FROM ai_action_logs WHERE user_id=? AND status=? ORDER BY id DESC LIMIT 50'
+      ).all(req.user.id, status);
+    } else {
+      rows = db.prepare(
+        'SELECT id, action_type, actions_json, status, applied_at, undone_at, conversation_id, message_id FROM ai_action_logs WHERE user_id=? ORDER BY id DESC LIMIT 50'
+      ).all(req.user.id);
+    }
+    rows = rows.map((r) => ({
+      id: r.id, actionType: r.action_type, status: r.status,
+      appliedAt: r.applied_at, undoneAt: r.undone_at,
+      actions: safeParse(r.actions_json),
+    }));
+    return ok(res, { actions: rows });
+  } catch (e) {
+    console.error('GET /api/ai/actions error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// ══════════════ 画像接口 ═══════════════════════════════════════════════════
+
+// 画像可编辑白名单字段
+const PROFILE_EDITABLE = ['subjects', 'notes', 'preferences', 'targetScoreTier', 'habit'];
+
+// GET /api/ai/profile
+router.get('/profile', (req, res) => {
+  try {
+    const row = db.prepare('SELECT profile_json, edited_fields_json FROM ai_profile WHERE user_id=?').get(req.user.id);
+    let profile = {};
+    let editedFields = [];
+    if (row) {
+      try { profile = JSON.parse(row.profile_json || '{}'); } catch (_) { profile = {}; }
+      try { editedFields = JSON.parse(row.edited_fields_json || '[]'); } catch (_) { editedFields = []; }
+    }
+    return ok(res, { profile, editedFields });
+  } catch (e) {
+    console.error('GET /api/ai/profile error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// PUT /api/ai/profile — body {profile:{...}, editedFields:[...]}
+router.put('/profile', (req, res) => {
+  try {
+    const incoming = (req.body && req.body.profile) || {};
+    const editedFields = Array.isArray(req.body && req.body.editedFields) ? req.body.editedFields : [];
+    // 取现有画像
+    const row = db.prepare('SELECT profile_json FROM ai_profile WHERE user_id=?').get(req.user.id);
+    let current = {};
+    if (row && row.profile_json) { try { current = JSON.parse(row.profile_json); } catch (_) { current = {}; } }
+    // 只允许白名单字段覆盖
+    for (const k of PROFILE_EDITABLE) {
+      if (incoming[k] !== undefined) current[k] = incoming[k];
+    }
+    upsertProfile(req.user.id, current, editedFields);
+    return ok(res, { profile: current, editedFields });
+  } catch (e) {
+    console.error('PUT /api/ai/profile error:', e.message);
+    return fail(res, '保存画像失败', 500);
+  }
+});
+
+// POST /api/ai/profile/refresh — 强制重跑本地画像
+router.post('/profile/refresh', (req, res) => {
+  try {
+    const profile = buildLocalProfile(req.user.id);
+    // 保留用户手改字段
+    const row = db.prepare('SELECT profile_json, edited_fields_json FROM ai_profile WHERE user_id=?').get(req.user.id);
+    let editedFields = [];
+    if (row) {
+      try { editedFields = JSON.parse(row.edited_fields_json || '[]'); } catch (_) { editedFields = []; }
+      try {
+        const old = JSON.parse(row.profile_json || '{}');
+        for (const k of editedFields) if (old[k] !== undefined) profile[k] = old[k];
+      } catch (_) {}
+    }
+    upsertProfile(req.user.id, profile, editedFields);
+    return ok(res, { profile, editedFields });
+  } catch (e) {
+    console.error('POST /api/ai/profile/refresh error:', e.message);
+    return fail(res, '刷新画像失败', 500);
+  }
+});
+
+// ══════════════ L0 本地轻量查询（零 token）═════════════════════════════════
+
+// GET /api/ai/summary?projectId=
+router.get('/summary', (req, res) => {
+  try {
+    const projectId = req.query.projectId ? String(req.query.projectId) : null;
+    if (!projectId) return ok(res, { overview: aggregator.getUserProfileSummary(req.user.id) });
+    return ok(res, aggregator.getProgressSummary(req.user.id, projectId));
+  } catch (e) {
+    console.error('GET /api/ai/summary error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// GET /api/ai/mistake-report?projectId=
+router.get('/mistake-report', (req, res) => {
+  try {
+    const projectId = req.query.projectId ? String(req.query.projectId) : null;
+    if (!projectId) return fail(res, '请提供 projectId');
+    return ok(res, aggregator.getMistakeReport(req.user.id, projectId));
+  } catch (e) {
+    console.error('GET /api/ai/mistake-report error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// GET /api/ai/paper-trend?projectId=
+router.get('/paper-trend', (req, res) => {
+  try {
+    const projectId = req.query.projectId ? String(req.query.projectId) : null;
+    if (!projectId) return fail(res, '请提供 projectId');
+    return ok(res, aggregator.getPaperTrend(req.user.id, projectId));
+  } catch (e) {
+    console.error('GET /api/ai/paper-trend error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// GET /api/ai/balance
+router.get('/balance', (req, res) => {
+  try {
+    return ok(res, aggregator.getMultiSubjectBalance(req.user.id));
+  } catch (e) {
+    console.error('GET /api/ai/balance error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// GET /api/ai/today-plan?budgetMin=（不传/0/空 → 全天上限 720，由聚合层兜底）
+router.get('/today-plan', (req, res) => {
+  try {
+    const q = req.query.budgetMin;
+    const budgetMin = (q != null && String(q).trim() !== '') ? Number(q) : undefined;
+    return ok(res, aggregator.getTodayPlan(req.user.id, budgetMin));
+  } catch (e) {
+    console.error('GET /api/ai/today-plan error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+// ══════════════ Token 用量 ══════════════════════════════════════════════════
+
+// GET /api/ai/usage — 今日 + 累计
+router.get('/usage', (req, res) => {
+  try {
+    const date = todayLocal();
+    const today = getTodayUsage(req.user.id, date) || { tokens_in: 0, tokens_out: 0, calls: 0 };
+    const total = db.prepare(
+      'SELECT COALESCE(SUM(tokens_in),0) tin, COALESCE(SUM(tokens_out),0) tout, COALESCE(SUM(calls),0) calls FROM ai_usage_daily WHERE user_id=?'
+    ).get(req.user.id);
+    const cfg = getConfigRow(req.user.id);
+    const budget = cfg ? cfg.daily_token_budget : 100000;
+    return ok(res, {
+      today: { tokensIn: today.tokens_in, tokensOut: today.tokens_out, calls: today.calls },
+      total: { tokensIn: total.tin, tokensOut: total.tout, calls: total.calls },
+      dailyBudget: budget,
+      note: '消耗为系统估算值，真实扣费以服务商账单为准；调用失败不计入系统消耗统计',
+    });
+  } catch (e) {
+    console.error('GET /api/ai/usage error:', e.message);
+    return fail(res, '服务器开小差了', 500);
+  }
+});
+
+module.exports = router;

@@ -59,7 +59,7 @@ if ('serviceWorker' in navigator) {
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=3">
-<link rel="stylesheet" href="css/style.css?v=20261005c">
+<link rel="stylesheet" href="css/style.css?v=20261006-ai">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1909,7 +1909,7 @@ if ('serviceWorker' in navigator) {
 
 
 <script src="js/auth.js?v=20261005a"></script>
-<script src="js/app.js?v=20261005d"></script>
+<script src="js/app.js?v=20261006-ai"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2170,6 +2170,134 @@ if (document.readyState === 'loading') {
       <button class="primary" id="srSettingsConfirmBtn" type="button">保存</button>
     </div>
   </div>
+</div>
+
+<!-- ============ AI 助手入口 FAB ============ -->
+<button id="aiFab" type="button" title="AI 学习助手" aria-label="打开 AI 学习助手">
+  ✨<span id="aiFabDot" class="ai-fab-dot" hidden></span>
+</button>
+
+<!-- ============ AI 助手抽屉 ============ -->
+<div class="drawer-mask ai-mask" id="aiMask" hidden>
+  <aside class="drawer ai-drawer" role="dialog" aria-label="AI 学习助手">
+    <!-- ① 头部 -->
+    <div class="ai-head">
+      <span class="ai-head-title">✨ AI 学习助手</span>
+      <span id="aiAnchorChip" class="type-badge ai-anchor-chip" hidden></span>
+      <button class="x-btn" id="aiClose" type="button" aria-label="关闭">×</button>
+    </div>
+
+    <!-- ② Tab -->
+    <div class="ai-tabs" role="tablist">
+      <button class="ai-tab active" type="button" data-pane="chat" role="tab">对话</button>
+      <button class="ai-tab" type="button" data-pane="history" role="tab">历史</button>
+      <button class="ai-tab" type="button" data-pane="settings" role="tab">设置</button>
+    </div>
+
+    <!-- ③ 内容区 -->
+    <div class="ai-body">
+      <!-- 对话 Tab -->
+      <div class="ai-pane" id="aiPane-chat">
+        <div class="ai-msgs" id="aiMsgs"></div>
+        <div class="ai-empty" id="aiEmpty" hidden>
+          <div class="ai-empty-icon">🔑</div>
+          <p class="ai-empty-title">先配一个 API Key 才能开始</p>
+          <p class="hint">Key 只存在你自己的账号里，AES 加密存储，不会上传他处。</p>
+          <button class="primary" id="aiGoSettings" type="button">去设置 →</button>
+        </div>
+      </div>
+
+      <!-- 历史 Tab -->
+      <div class="ai-pane" id="aiPane-history" hidden>
+        <button class="ghost-btn ai-newconv" id="aiNewConv" type="button">＋ 新会话</button>
+        <div id="aiHistList"></div>
+        <div class="ai-empty" id="aiHistEmpty" hidden>
+          <div class="ai-empty-icon">💬</div>
+          <p class="ai-empty-title">还没有历史会话</p>
+          <p class="hint">去对话里问第一个问题吧。</p>
+          <button class="primary" id="aiHistGoChat" type="button">去对话 →</button>
+        </div>
+      </div>
+
+      <!-- 设置 Tab -->
+      <div class="ai-pane" id="aiPane-settings" hidden>
+        <div class="ai-sec">API 配置</div>
+        <label class="ai-field">服务商
+          <select id="aiProvider"></select>
+        </label>
+        <label class="ai-field">API Key
+          <span class="ai-key-wrap">
+            <input type="password" id="aiKey" placeholder="sk-..." autocomplete="off">
+            <button type="button" id="aiKeyToggle" class="ai-eye" aria-label="显示/隐藏密钥">👁</button>
+          </span>
+        </label>
+        <p class="ai-field-note">密钥仅加密存储，不会泄露</p>
+        <label class="ai-field">模型
+          <select id="aiModel"></select>
+        </label>
+        <div class="ai-set-row">
+          <button class="soft-btn" id="aiTest" type="button">测试连接</button>
+          <span class="ai-test-result" id="aiTestResult" hidden></span>
+        </div>
+        <div class="ai-tutorial">
+          <button class="ai-tutorial-toggle" id="aiTutorialToggle" type="button">如何获取 API key？</button>
+          <div class="ai-tutorial-body" id="aiTutorialBody" hidden>
+            <p><b>为什么推荐 DeepSeek？</b></p>
+            <p>· 国内可直接注册使用，支付宝充值<br>
+               · 性价比极高，考研党充10块钱够用大半年<br>
+               · 回答质量好，中文理解强</p>
+            <p><b>三步获取 API Key</b></p>
+            <p>1. 注册账号：打开 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">https://platform.deepseek.com/</a> ，用手机号注册，完成实名认证<br>
+               2. 创建密钥：登录后点左侧「API Keys」→「创建新密钥」→ 起个名字 → 点创建<br>
+               3. 复制密钥：密钥以 sk- 开头，只显示一次，立即复制保存好，然后粘贴到上面的输入框里</p>
+            <p><b>充值多少够用？</b></p>
+            <p>· 首次充10元即可，日常使用够用3-6个月<br>
+               · 系统会自动节约token，只传必要的学习数据摘要<br>
+               · 用多少扣多少，不用不扣钱，没有月租</p>
+            <p><b>安全提醒</b></p>
+            <p>· API Key 相当于你的钱包密码，不要分享给别人<br>
+               · 系统会加密存储你的Key，只用于调用AI<br>
+               · 可以随时在DeepSeek后台删除Key，旧Key立即失效</p>
+          </div>
+        </div>
+
+        <div class="ai-sec">每日 Token 预算</div>
+        <label class="ai-field">每日 token 预算
+          <input type="number" id="aiBudget" min="10000" step="10000" value="100000">
+        </label>
+        <div class="ai-usage-row">
+          <span>今日已用 <b id="aiTokUsed">0</b> / <span id="aiTokBudget">100k</span></span>
+          <span class="ai-usage-total" id="aiTokTotal"></span>
+        </div>
+        <div class="storage-bar ai-usage-bar"><div id="aiUsageFill" class="ai-usage-fill"></div></div>
+        <p class="ai-field-note">消耗为系统估算值，真实扣费以服务商账单为准</p>
+
+        <p class="ai-field-note ai-data-notice">你的学习数据会发送给AI服务商用于生成回答</p>
+
+        <div class="ai-set-actions">
+          <button class="danger-btn ai-clear-all" id="aiClearAll" type="button">清空全部对话历史</button>
+          <button class="primary ai-save-btn" id="aiSave" type="button">保存</button>
+        </div>
+        <div class="field-error" id="aiSaveResult" hidden></div>
+      </div>
+    </div>
+
+    <!-- ④ 输入区（仅对话 Tab） -->
+    <div class="ai-input-area" id="aiInputArea">
+      <div class="ai-anchor-hint" id="aiAnchorHint">未锚定项目 · 全局规划</div>
+      <div class="ai-timechips">
+        <span class="ai-tc-label">⏱ 今天可学</span>
+        <button class="pct-chip" type="button" data-min="60">1h</button>
+        <button class="pct-chip" type="button" data-min="120">2h</button>
+        <button class="pct-chip active" type="button" data-min="240">4h</button>
+        <button class="pct-chip" type="button" data-min="720">全天</button>
+      </div>
+      <div class="ai-input-row">
+        <textarea id="aiInput" rows="1" placeholder="问问今天先救哪科、错题怎么排…"></textarea>
+        <button class="ai-send" id="aiSend" type="button" aria-label="发送">➤</button>
+      </div>
+    </div>
+  </aside>
 </div>
 
 </body>

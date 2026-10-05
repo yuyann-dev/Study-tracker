@@ -131,6 +131,100 @@ function runMigrations(db) {
       UNIQUE(room_id, user_id),                 -- 一个用户在一个房间只有一条记录
       UNIQUE(user_id)                           -- 全表唯一：一个用户同时只能加入一个自习室
     );
+
+    -- ══════════════ AI 助手相关表（M1+M2，全部幂等新建，只加表不改老表）══════════════
+    -- AI 配置：每用户一行。encrypted_api_key 为 AES-256-GCM 密文（见 utils/aiCrypto.js），
+    -- key_salt 为该用户专属随机 salt（base64），key_preview 仅末 4 位用于回显，绝不存明文。
+    CREATE TABLE IF NOT EXISTS ai_configs (
+      user_id            INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      provider           TEXT NOT NULL DEFAULT 'deepseek',
+      base_url           TEXT,
+      model              TEXT,
+      encrypted_api_key  TEXT,
+      key_salt           TEXT,
+      key_preview        TEXT,
+      mode               TEXT NOT NULL DEFAULT 'quick',
+      preference         TEXT NOT NULL DEFAULT 'budget',
+      quick_model        TEXT,
+      deep_model         TEXT,
+      daily_token_budget INTEGER NOT NULL DEFAULT 100000,
+      enabled            INTEGER NOT NULL DEFAULT 0,
+      created_at         TEXT DEFAULT (datetime('now')),
+      updated_at         TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 会话：一个用户多个对话；last_at 用于列表倒序
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title      TEXT,
+      last_at    TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 消息：属于某会话；user_id 冗余便于按人清理；actions_json 为该条回复附带的结构化动作
+    CREATE TABLE IF NOT EXISTS ai_messages (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
+      user_id         INTEGER NOT NULL,
+      role            TEXT NOT NULL,                 -- user / assistant
+      content         TEXT NOT NULL,
+      intent          TEXT,
+      actions_json    TEXT,
+      tokens_in       INTEGER NOT NULL DEFAULT 0,
+      tokens_out      INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 用户画像：每用户一行；profile_json 为归纳后画像，edited_fields_json 为用户手改、
+    -- 大模型不得覆盖的字段名数组
+    CREATE TABLE IF NOT EXISTS ai_profile (
+      user_id           INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      profile_json      TEXT,
+      edited_fields_json TEXT NOT NULL DEFAULT '[]',
+      built_at          TEXT,
+      updated_at        TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 长期记忆：用户随口的偏好/目标/事实，按 strength 排序注入 prompt
+    CREATE TABLE IF NOT EXISTS ai_memory (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind              TEXT NOT NULL,             -- preference / goal / fact
+      content           TEXT NOT NULL,
+      strength          INTEGER NOT NULL DEFAULT 1,
+      source_message_id INTEGER,
+      created_at        TEXT DEFAULT (datetime('now')),
+      last_used_at      TEXT
+    );
+
+    -- 建议应用与撤销日志：前端真正落库后上报，服务端记录逆操作 inverse_json 供 op 级回滚
+    CREATE TABLE IF NOT EXISTS ai_action_logs (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id          INTEGER NOT NULL,
+      conversation_id  INTEGER,
+      message_id       INTEGER,
+      action_type      TEXT,
+      actions_json     TEXT,
+      selected_json    TEXT,
+      inverse_json     TEXT,
+      store_sig_before TEXT,
+      store_sig_after  TEXT,
+      status           TEXT NOT NULL DEFAULT 'applied',  -- applied / undone / partial
+      applied_at       TEXT DEFAULT (datetime('now')),
+      undone_at        TEXT
+    );
+
+    -- 每日 token 用量：按 (user_id, date) 累计，用于每日预算 enforcement
+    CREATE TABLE IF NOT EXISTS ai_usage_daily (
+      user_id    INTEGER NOT NULL,
+      date       TEXT NOT NULL,                   -- YYYY-MM-DD
+      tokens_in  INTEGER NOT NULL DEFAULT 0,
+      tokens_out INTEGER NOT NULL DEFAULT 0,
+      calls      INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, date)
+    );
   `);
 
   // ---- 幂等补列：老库缺哪列补哪列（重复执行安全）----
@@ -158,6 +252,13 @@ function runMigrations(db) {
   ensureColumn(db, 'study_rooms', 'is_public', 'INTEGER NOT NULL DEFAULT 0');
   // v5: user_data 项目数冗余列
   ensureColumn(db, 'user_data', 'project_count', 'INTEGER NOT NULL DEFAULT 0');
+  // AI 助手：mode（quick/deep）列老库幂等补列
+  ensureColumn(db, 'ai_configs', 'mode', "TEXT NOT NULL DEFAULT 'quick'");
+  // AI 助手：用户模型偏好 budget/quality（老库幂等补列）
+  ensureColumn(db, 'ai_configs', 'preference', "TEXT NOT NULL DEFAULT 'budget'");
+  // AI 助手：用户自定义的 quick/deep 模型名（未自定义时由 PUT 时写入服务商默认推荐模型）
+  ensureColumn(db, 'ai_configs', 'quick_model', 'TEXT');
+  ensureColumn(db, 'ai_configs', 'deep_model', 'TEXT');
   // v5: 邀请码渠道 / 软作废
   ensureColumn(db, 'invite_codes', 'note', 'TEXT');
   ensureColumn(db, 'invite_codes', 'channel', 'TEXT');
@@ -182,6 +283,14 @@ function runMigrations(db) {
     CREATE INDEX IF NOT EXISTS idx_study_rooms_owner ON study_rooms(owner_id);
     CREATE INDEX IF NOT EXISTS idx_members_room ON study_room_members(room_id);
     CREATE INDEX IF NOT EXISTS idx_members_user ON study_room_members(user_id);
+
+    -- AI 助手表索引
+    CREATE INDEX IF NOT EXISTS idx_ai_conv_user ON ai_conversations(user_id, last_at);
+    CREATE INDEX IF NOT EXISTS idx_ai_msg_conv ON ai_messages(conversation_id, id);
+    CREATE INDEX IF NOT EXISTS idx_ai_msg_user ON ai_messages(user_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_memory_user ON ai_memory(user_id, strength);
+    CREATE INDEX IF NOT EXISTS idx_ai_action_user ON ai_action_logs(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_date ON ai_usage_daily(user_id, date);
   `);
 }
 
