@@ -63,8 +63,8 @@ const config = {
   rateLimit: {
     /** 注册 / 登录：每 IP 每分钟 10 次 */
     authPerMinute: { windowMs: 60 * 1000, max: 10 },
-    /** 忘记密码：每 IP 每小时 5 次 */
-    forgotPerHour: { windowMs: 60 * 60 * 1000, max: 5 },
+    /** 忘记密码：每 IP 每小时 20 次（操作不当输错验证码也不会被锁太久） */
+    forgotPerHour: { windowMs: 60 * 60 * 1000, max: 20 },
   },
 
   /** 头像上传 */
