@@ -15607,26 +15607,12 @@ if (document.readyState === 'loading') {
 
   /* ---- 示例问题库 ---- */
   var SAMPLE_QUESTIONS = [
-    '我数学进度落后了怎么办？',
-    '帮我分析最近的错题规律',
-    '距离考研还有多少天？怎么安排？',
-    '背书总是忘怎么办？',
-    '今天学什么比较好？',
-    '英语阅读正确率上不去怎么办？',
-    '政治现在开始背来得及吗？',
-    '专业课内容太多怎么规划？',
-    '最近学不进去怎么办？',
+    '帮我分析最薄弱的知识点',
+    '离考试还有多久，现在的节奏来得及吗？',
     '帮我看看这周的学习情况'
   ];
   function pickSamples(){
-    var arr = SAMPLE_QUESTIONS.slice();
-    var out = [];
-    var n = 3 + Math.floor(Math.random() * 2); // 3~4 个
-    while (out.length < n && arr.length) {
-      var idx = Math.floor(Math.random() * arr.length);
-      out.push(arr.splice(idx, 1)[0]);
-    }
-    return out;
+    return SAMPLE_QUESTIONS.slice();
   }
   function renderSamples(){
     var box = els.samples;
