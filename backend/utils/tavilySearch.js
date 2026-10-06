@@ -145,8 +145,9 @@ async function callTavily(query) {
         query: query,
         search_depth: 'basic', // basic 更快更省，advanced 更全但更贵
         max_results: MAX_RESULTS,
-        include_answer: false,
+        include_answer: true, // 让 Tavily 返回 AI 生成的摘要答案，减少下游 token
         include_raw_content: false,
+        language: 'zh-CN', // 中文优化，提升中文搜索结果相关性
       }),
       signal: controller.signal,
     });
@@ -168,6 +169,7 @@ async function callTavily(query) {
     return {
       searched: true,
       query: query,
+      answer: data.answer ? String(data.answer).slice(0, 800) : null, // Tavily AI 生成的摘要
       results: results,
       resultCount: results.length,
     };
