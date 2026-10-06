@@ -152,8 +152,12 @@ function projectStats(p) {
     deadline,
     daysLeft: daysLeft == null ? null : r1(daysLeft),
     dailyCapacity: Number(p.dailyCapacity) || 0,
+    dailyComfort: Number(p.dailyComfort) || 0,
+    reviewMode: p.reviewMode || null,
     minutesPerUnit: Number(p.minutesPerUnit) || 0,
     targetScoreTier: p.targetScoreTier || null,
+    refProjectId: p.refProjectId || null,
+    archived: !!p.archived,
   };
 
   if (type === 'exercise') {
@@ -185,6 +189,10 @@ function projectStats(p) {
     s.doneSets = isSetMode ? done : null;
     s.totalPages = !isSetMode ? total : null;
     s.donePages = !isSetMode ? done : null;
+    s.todayReviewed = getTodayReviewedCount(p);
+    if (!isSetMode && Array.isArray(p.units) && p.units.length) {
+      s.unitCompletion = getUnitCompletion(p);
+    }
   } else if (type === 'recite') {
     const items = Array.isArray(p.items) ? p.items : [];
     const total = items.length;
@@ -209,6 +217,7 @@ function projectStats(p) {
     s.dueToday = due;
     s.backlog = backlog;
     s.highRisk = highRisk;
+    s.todayReviewed = getTodayReviewedCount(p);
   } else if (type === 'mistake') {
     const items = Array.isArray(p.items) ? p.items : [];
     const tags = {};
@@ -232,11 +241,152 @@ function projectStats(p) {
     s.backlog = backlog;
     s.streakyCount = streaky;
     s.errTagDist = tags;
+    s.todayReviewed = getTodayReviewedCount(p);
+    s.byUnit = getMistakeByUnit(p).slice(0, 10);
   }
   return s;
 }
 
 // ── 对外聚合函数 ────────────────────────────────────────────────────────────
+
+// ── 章节级分析（刷题本完成率 + 错题分布 + 薄弱判断）──────────────────────────
+
+/** 计算刷题本各单元的完成率（按页码范围统计已完成页数） */
+function getUnitCompletion(p) {
+  if (!p || !Array.isArray(p.units) || !p.units.length) return [];
+  const recs = Array.isArray(p.records) ? p.records : [];
+  // 把所有 record 的页码范围合并成已完成页集合
+  const donePages = new Set();
+  for (const r of recs) {
+    const s = Number(r.startPage) || 1;
+    const e = Number(r.endPage) || s;
+    for (let pg = s; pg <= e; pg++) donePages.add(pg);
+  }
+  return p.units.map(u => {
+    const s = Number(u.startPage) || 0;
+    const e = Number(u.endPage) || 0;
+    const total = Math.max(e - s + 1, 0);
+    let done = 0;
+    for (let pg = s; pg <= e; pg++) if (donePages.has(pg)) done++;
+    return {
+      name: u.name,
+      startPage: s,
+      endPage: e,
+      totalPages: total,
+      donePages: done,
+      completionRate: total > 0 ? r1(done / total * 100) : 0,
+      children: Array.isArray(u.children) ? u.children.map(c => {
+        const cs = Number(c.startPage) || 0;
+        const ce = Number(c.endPage) || 0;
+        const ctotal = Math.max(ce - cs + 1, 0);
+        let cdone = 0;
+        for (let pg = cs; pg <= ce; pg++) if (donePages.has(pg)) cdone++;
+        return { name: c.name, startPage: cs, endPage: ce, totalPages: ctotal, donePages: cdone, completionRate: ctotal > 0 ? r1(cdone / ctotal * 100) : 0 };
+      }) : [],
+    };
+  });
+}
+
+/** 今日已复习数（错题/背书：今天有 review 记录的条目数） */
+function getTodayReviewedCount(p) {
+  if (!p || !Array.isArray(p.items)) return 0;
+  const today = todayStr();
+  let count = 0;
+  for (const it of p.items) {
+    const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+    if (rvs.some(r => String(r.date || '').slice(0, 10) === today)) count++;
+  }
+  return count;
+}
+
+/** 错题本按章节的错题分布（含掌握率、连错数、最近复习情况） */
+function getMistakeByUnit(p) {
+  if (!p || !Array.isArray(p.items)) return [];
+  const units = Array.isArray(p.units) ? p.units : [];
+  const items = p.items;
+  const today = todayStr();
+
+  function findUnit(page) {
+    if (!page) return null;
+    for (const u of units) {
+      const s = Number(u.startPage) || 0;
+      const e = Number(u.endPage) || 0;
+      if (page >= s && page <= e) return u.name;
+    }
+    return '未分类';
+  }
+
+  const byUnit = {};
+  for (const it of items) {
+    const page = Number(it.pageStart) || Number(it.pageEnd) || 0;
+    const unitName = findUnit(page);
+    if (!byUnit[unitName]) byUnit[unitName] = { total: 0, mastered: 0, streaky: 0, dueToday: 0, reviewedToday: 0, avgWrongStreak: 0, errTags: {} };
+    const bucket = byUnit[unitName];
+    bucket.total++;
+    if (it.mastered || it.manualMastered) bucket.mastered++;
+    if ((Number(it.wrongStreak) || 0) >= 2) bucket.streaky++;
+    const nd = getItemNextReview(it, p.intervals);
+    if (nd && nd <= today) bucket.dueToday++;
+    const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+    if (rvs.some(r => String(r.date || '').slice(0, 10) === today)) bucket.reviewedToday++;
+    bucket.avgWrongStreak += Number(it.wrongStreak) || 0;
+    for (const t of Array.isArray(it.errTags) ? it.errTags : []) bucket.errTags[t] = (bucket.errTags[t] || 0) + 1;
+  }
+
+  return Object.entries(byUnit).map(([name, b]) => ({
+    unit: name,
+    total: b.total,
+    mastered: b.mastered,
+    masteryRate: b.total > 0 ? r1(b.mastered / b.total * 100) : 0,
+    streaky: b.streaky,
+    dueToday: b.dueToday,
+    reviewedToday: b.reviewedToday,
+    avgWrongStreak: b.total > 0 ? r1(b.avgWrongStreak / b.total) : 0,
+    topErrTags: Object.entries(b.errTags).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([tag, count]) => ({ tag, count })),
+  })).sort((a, b) => b.total - a.total);
+}
+
+/** 薄弱章节综合分析：结合刷题本完成率 + 错题本分布，判断哪些章节薄弱 */
+function analyzeWeakUnits(mistakeProject, exerciseProject) {
+  if (!mistakeProject) return { found: false, reason: '错题本不存在' };
+  const mistakeByUnit = getMistakeByUnit(mistakeProject);
+  const exerciseUnits = exerciseProject ? getUnitCompletion(exerciseProject) : [];
+
+  // 把错题分布和刷题完成率按章节名对齐
+  const exByName = {};
+  for (const u of exerciseUnits) exByName[u.name] = u;
+
+  const analysis = mistakeByUnit.map(m => {
+    const ex = exByName[m.unit];
+    const exCompletion = ex ? ex.completionRate : null;
+    // 薄弱评分：错题多 + 掌握率低 + 连错多 + 刷题完成率低 → 越薄弱
+    let weakScore = 0;
+    weakScore += m.total * 2;           // 错题数量权重
+    weakScore += (100 - m.masteryRate) * 0.5; // 掌握率低权重
+    weakScore += m.streaky * 3;         // 连错权重高
+    if (exCompletion != null && exCompletion < 50) weakScore += (50 - exCompletion) * 0.3; // 刷题没做完
+    return {
+      unit: m.unit,
+      mistakeCount: m.total,
+      masteryRate: m.masteryRate,
+      streakyCount: m.streaky,
+      dueToday: m.dueToday,
+      exerciseCompletion: exCompletion,
+      topErrTags: m.topErrTags,
+      weakScore: r1(weakScore),
+      level: weakScore >= 20 ? '薄弱' : weakScore >= 10 ? '一般' : '较好',
+    };
+  }).sort((a, b) => b.weakScore - a.weakScore);
+
+  return {
+    found: true,
+    mistakeBook: mistakeProject.name,
+    linkedExerciseBook: exerciseProject ? exerciseProject.name : null,
+    totalUnits: analysis.length,
+    weakUnits: analysis.filter(a => a.level === '薄弱').slice(0, 5),
+    allUnits: analysis,
+  };
+}
 
 /**
  * 全项目概览（用于首次画像）：科目、类型、完成率、deadline、近7天速率。
@@ -390,6 +540,15 @@ function getMistakeReport(userId, projectIdOrIds) {
 
   streaky.sort((a, b) => b.wrongStreak - a.wrongStreak);
 
+  // 单项目视角：查找关联的刷题本，做薄弱章节综合分析
+  let weakUnitsAnalysis = null;
+  if (p && p.id && p.refProjectId) {
+    const linkedExercise = findProject(store, p.refProjectId);
+    if (linkedExercise) {
+      weakUnitsAnalysis = analyzeWeakUnits(p, linkedExercise);
+    }
+  }
+
   return {
     found: true,
     total: items.length,
@@ -400,6 +559,7 @@ function getMistakeReport(userId, projectIdOrIds) {
     streakyTop: streaky.slice(0, 10),
     pseudoMastered,
     crossYear: crossYear.slice(0, 10),
+    weakUnits: weakUnitsAnalysis,
   };
 }
 
@@ -843,7 +1003,12 @@ module.exports = (function () {
     getRecentRecords: safe(getRecentRecords, () => ({ records: [] })),
     generateSchedule: safe(generateSchedule, () => ({ today: { budgetMin: 240, allocatedMin: 0, plan: [] }, projection: [], overallVerdict: '' })),
     getReviewForecast: safe(getReviewForecast, () => ({ days: [], peakDate: null, peakLoad: 0 })),
+    // 章节级分析
+    getUnitCompletion: safe(getUnitCompletion, () => []),
+    getTodayReviewedCount: safe(getTodayReviewedCount, () => 0),
+    getMistakeByUnit: safe(getMistakeByUnit, () => []),
+    analyzeWeakUnits: safe(analyzeWeakUnits, () => ({ found: false })),
     // 导出供路由复用
-    loadStore, findProject, projectList, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR,
+    loadStore, findProject, projectList, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR, getItemNextReview,
   };
 })();
