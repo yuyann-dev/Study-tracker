@@ -2206,7 +2206,7 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 }
 .ai-ref-list li{margin:2px 0}
 .ai-ref-list a{
-  color:var(--accent);text-decoration:none;word-break:break-all;
+  color:var(--brand);text-decoration:none;word-break:break-all;
 }
 .ai-ref-list a:hover{text-decoration:underline}
 .ai-ref-disclaimer{
@@ -2220,11 +2220,11 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 }
 .ai-legal-link{
   background:var(--card-bg);border:1px solid var(--border);
-  color:var(--accent);font-size:12.5px;cursor:pointer;
+  color:var(--brand);font-size:12.5px;cursor:pointer;
   padding:6px 16px;border-radius:8px;
   transition:all .15s ease;font-weight:500;
 }
-.ai-legal-link:hover{color:#fff;border-color:var(--accent);background:var(--accent)}
+.ai-legal-link:hover{color:#fff;border-color:var(--brand);background:var(--brand)}
 
 /* 用户协议弹窗 */
 .ai-legal-mask{
