@@ -149,6 +149,7 @@ function runMigrations(db) {
       deep_model         TEXT,
       daily_token_budget INTEGER NOT NULL DEFAULT 100000,
       enabled            INTEGER NOT NULL DEFAULT 0,
+      tools_enabled      INTEGER NOT NULL DEFAULT 1,
       created_at         TEXT DEFAULT (datetime('now')),
       updated_at         TEXT DEFAULT (datetime('now'))
     );
@@ -263,6 +264,8 @@ function runMigrations(db) {
   ensureColumn(db, 'ai_configs', 'daily_study_minutes', 'INTEGER NOT NULL DEFAULT 240');
   // AI 助手：是否允许AI读取长期记忆（默认开启）
   ensureColumn(db, 'ai_configs', 'memory_enabled', 'INTEGER NOT NULL DEFAULT 1');
+  // AI 助手：是否启用 function calling 工具循环（默认开启；模型不支持 tools 时自动置 0 降级全量注入）
+  ensureColumn(db, 'ai_configs', 'tools_enabled', 'INTEGER NOT NULL DEFAULT 1');
   // AI 助手：会话置顶
   ensureColumn(db, 'ai_conversations', 'is_pinned', 'INTEGER NOT NULL DEFAULT 0');
   // v5: 邀请码渠道 / 软作废

@@ -554,6 +554,237 @@ function getTodayPlan(userId, budgetMin) {
   return { budgetMin: budget, allocatedMin: used, plan };
 }
 
+// ── Function Calling 新增只读 helper（§3.13）────────────────────────────────
+
+/**
+ * 本地时区格式化"今天偏移 offset 天"的日期（offset=0 即今天）。
+ * 与 todayStr() 同口径，避免 UTC/本地跨日导致按天聚合错位。
+ */
+function offsetDateStr(offsetDays) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/**
+ * 近 N 天学习量趋势（§3.5）。
+ * 遍历所有未归档项目 records，按 date 聚合：exercise 累加 endPage-startPage 页数，
+ * recite/mistake 每条 record 记 1 次打卡；补齐最近 N 天每天的键（无记录为 0）。
+ * @param {number} [days=7] 回看天数，调用方已夹在 1~30
+ */
+function getWeeklyStats(userId, days) {
+  const store = loadStore(userId);
+  let n = Number(days);
+  if (!Number.isFinite(n) || n <= 0) n = 7;
+  n = Math.min(Math.floor(n), 30);
+
+  // 按 date 聚合原始 records
+  const byDate = {};
+  for (const p of projectList(store)) {
+    const recs = Array.isArray(p.records) ? p.records : [];
+    for (const r of recs) {
+      const d = String(r.date || '').slice(0, 10);
+      if (!d) continue;
+      if (!byDate[d]) byDate[d] = { exercisePages: 0, reciteCheckins: 0, mistakeCheckins: 0 };
+      if (p.type === 'exercise') {
+        const s = Number(r.startPage) || 0;
+        const e = Number(r.endPage) || s;
+        byDate[d].exercisePages += Math.max(e - s, 0);
+      } else if (p.type === 'recite') {
+        byDate[d].reciteCheckins += 1;
+      } else if (p.type === 'mistake') {
+        byDate[d].mistakeCheckins += 1;
+      }
+    }
+  }
+
+  // 补齐最近 n 天（含今天），无记录补 0
+  const totals = { exercisePages: 0, reciteCheckins: 0, mistakeCheckins: 0 };
+  const daysArr = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const ds = offsetDateStr(-i);
+    const cell = byDate[ds] || { exercisePages: 0, reciteCheckins: 0, mistakeCheckins: 0 };
+    totals.exercisePages += cell.exercisePages;
+    totals.reciteCheckins += cell.reciteCheckins;
+    totals.mistakeCheckins += cell.mistakeCheckins;
+    daysArr.push({
+      date: ds,
+      exercisePages: r1(cell.exercisePages),
+      reciteCheckins: cell.reciteCheckins,
+      mistakeCheckins: cell.mistakeCheckins,
+    });
+  }
+  return { days: daysArr, totals };
+}
+
+/**
+ * 近期打卡/学习记录明细（§3.10），最新在前。
+ * 收集 records，每条补 projectName/projectType/detail：
+ *   exercise → `P${startPage}-P${endPage}`；recite/mistake → "打卡"。
+ * @param {string} [projectId] 不传则汇总所有未归档项目
+ * @param {number} [limit=10] 调用方已夹在 1~30
+ */
+function getRecentRecords(userId, projectId, limit) {
+  const store = loadStore(userId);
+  let n = Number(limit);
+  if (!Number.isFinite(n) || n <= 0) n = 10;
+  n = Math.min(Math.floor(n), 30);
+
+  let projects;
+  if (projectId) {
+    const p = findProject(store, projectId);
+    projects = p ? [p] : [];
+  } else {
+    projects = projectList(store);
+  }
+
+  const records = [];
+  for (const p of projects) {
+    const recs = Array.isArray(p.records) ? p.records : [];
+    for (const r of recs) {
+      if (!r.date) continue;
+      let detail;
+      if (p.type === 'exercise') {
+        const sp = Number(r.startPage) || 0;
+        const ep = Number(r.endPage) || sp;
+        detail = `P${sp}-P${ep}`;
+      } else {
+        detail = '打卡';
+      }
+      records.push({
+        date: String(r.date).slice(0, 10),
+        projectName: p.name || '(未命名)',
+        projectType: p.type,
+        detail,
+      });
+    }
+  }
+  // 按日期倒序（同日保持原顺序，稳定排序）
+  records.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return { records: records.slice(0, n) };
+}
+
+/**
+ * 结构化排期建议（§3.11）：今日分配 + 各项目按当前速率的完成时间投影。纯查询，不写库。
+ * - exercise：daysToFinish = remain / recent7Rate（rate≤0 给 null 并标注"近7天无产出"）
+ * - recite：给 masteryRate / backlog 消化天数估计
+ * - overallVerdict：后端按规则拼好中文短句，不让模型自己编数字
+ */
+function generateSchedule(userId, budgetMin) {
+  const todayPlan = getTodayPlan(userId, budgetMin);
+  const store = loadStore(userId);
+  const list = projectList(store).map(projectStats);
+
+  const projection = [];
+  let worstBehind = null; // { name, over } over=预计超期天数
+
+  for (const s of list) {
+    if (s.type === 'exercise') {
+      const remain = Math.max((s.total || 0) - (s.done || 0), 0);
+      const rate = s.recent7Rate || 0;
+      let daysToFinish = null;
+      if (rate > 0) daysToFinish = Math.round(remain / rate);
+      const status = s.gap < -20 ? '落后' : s.gap > 30 ? '超前' : '正常';
+      projection.push({
+        projectId: s.id, name: s.name, type: 'exercise',
+        remainingPages: r1(remain), requiredRate: s.requiredRate, actualRate: s.recent7Rate,
+        daysToFinishAtCurrentPace: daysToFinish,
+        paceNote: rate > 0 ? null : '近7天无产出',
+        deadlineGap: status,
+      });
+      // 记录预计超期最严重的项目，用于 overallVerdict
+      if (status === '落后' && Number.isFinite(s.daysLeft) && daysToFinish != null) {
+        const over = daysToFinish - s.daysLeft;
+        if (over > 0 && (!worstBehind || over > worstBehind.over)) {
+          worstBehind = { name: s.name, over };
+        }
+      }
+    } else if (s.type === 'recite') {
+      projection.push({
+        projectId: s.id, name: s.name, type: 'recite',
+        totalItems: s.totalItems, masteryRate: s.masteryRate,
+        dueToday: s.dueToday, backlog: s.backlog,
+        deadlineGap: (s.dueToday > 0 || s.backlog > 0) ? '落后' : '正常',
+      });
+    } else {
+      projection.push({
+        projectId: s.id, name: s.name, type: 'mistake',
+        totalItems: s.totalItems, streakyCount: s.streakyCount,
+        deadlineGap: (s.streakyCount || 0) >= 3 ? '落后' : '正常',
+      });
+    }
+  }
+
+  let overallVerdict;
+  if (worstBehind) {
+    overallVerdict = `按当前速率，${worstBehind.name}将比截止日晚约 ${worstBehind.over} 天完成，需要提速或调整目标。`;
+  } else {
+    overallVerdict = '按当前速率，各项目基本能在截止日前完成，保持现在的节奏即可。';
+  }
+
+  return { today: todayPlan, projection, overallVerdict };
+}
+
+/**
+ * 未来 N 天复习压力预测（§3.12）。
+ * 遍历 recite/mistake 项目未掌握 items，复用 nextReviewDay(item, intervals) 算下次复习日，
+ * 按日聚合 dueRecite/dueMistake；逾期(nd<今天)的条目归到今天。
+ * 与各项目 dailyComfort 之和对比，标 overComfort（当天总量超过舒适量之和）。
+ * @param {number} [days=7] 预测天数，调用方已夹在 1~21
+ */
+function getReviewForecast(userId, days) {
+  const store = loadStore(userId);
+  let n = Number(days);
+  if (!Number.isFinite(n) || n <= 0) n = 7;
+  n = Math.min(Math.floor(n), 21);
+
+  const today = todayStr();
+  const projects = projectList(store).filter((p) => p.type === 'recite' || p.type === 'mistake');
+
+  // 按日聚合（key=YYYY-MM-DD）
+  const byDate = {};
+  function ensureDay(ds) {
+    if (!byDate[ds]) byDate[ds] = { dueRecite: 0, dueMistake: 0 };
+    return byDate[ds];
+  }
+
+  let comfortTotal = 0;
+  for (const p of projects) {
+    comfortTotal += Number(p.dailyComfort) || 20;
+    const items = Array.isArray(p.items) ? p.items : [];
+    for (const it of items) {
+      if (it.mastered || it.manualMastered) continue;
+      const nd = nextReviewDay(it, p.intervals);
+      if (!nd) continue;
+      // 已逾期的条目归到今天，体现积压压力
+      const bucketDate = parseDay(nd) < parseDay(today) ? today : nd;
+      const cell = ensureDay(bucketDate);
+      if (p.type === 'recite') cell.dueRecite += 1;
+      else cell.dueMistake += 1;
+    }
+  }
+
+  // 生成 [today, today+n-1] 的天槽
+  const dayList = [];
+  let peakDate = null;
+  let peakLoad = -1;
+  for (let i = 0; i < n; i++) {
+    const ds = offsetDateStr(i);
+    const cell = byDate[ds] || { dueRecite: 0, dueMistake: 0 };
+    const total = cell.dueRecite + cell.dueMistake;
+    dayList.push({
+      date: ds,
+      dueRecite: cell.dueRecite,
+      dueMistake: cell.dueMistake,
+      overComfort: comfortTotal > 0 && total > comfortTotal,
+    });
+    if (total > peakLoad) { peakLoad = total; peakDate = ds; }
+  }
+
+  return { days: dayList, peakDate, peakLoad: Math.max(peakLoad, 0) };
+}
+
 module.exports = (function () {
   // 防御：任一聚合函数内部出错都不允许把 chat 流水线打崩，返回安全空结果。
   function safe(fn, fallback) {
@@ -574,6 +805,11 @@ module.exports = (function () {
     getReciteStatus: safe(getReciteStatus, () => ({ found: false })),
     getMultiSubjectBalance: safe(getMultiSubjectBalance, () => ({ rows: [], behind: [], ahead: [] })),
     getTodayPlan: safe(getTodayPlan, () => ({ budgetMin: 240, allocatedMin: 0, plan: [] })),
+    // Function Calling 新增只读 helper
+    getWeeklyStats: safe(getWeeklyStats, () => ({ days: [], totals: { exercisePages: 0, reciteCheckins: 0, mistakeCheckins: 0 } })),
+    getRecentRecords: safe(getRecentRecords, () => ({ records: [] })),
+    generateSchedule: safe(generateSchedule, () => ({ today: { budgetMin: 240, allocatedMin: 0, plan: [] }, projection: [], overallVerdict: '' })),
+    getReviewForecast: safe(getReviewForecast, () => ({ days: [], peakDate: null, peakLoad: 0 })),
     // 导出供路由复用
     loadStore, findProject, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR,
   };

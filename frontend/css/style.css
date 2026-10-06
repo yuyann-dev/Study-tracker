@@ -2532,3 +2532,50 @@ html[data-theme="dark"] .ai-send{color:#10302a}
   font-size:12.5px;cursor:pointer;padding:4px 0;
 }
 
+/* 工具调用过程折叠区 */
+.ai-tool-trace{
+  margin-bottom:8px;
+  border-radius:4px;
+  background:#faf8f5;
+  padding:6px 10px;
+  border-left:2px solid var(--line);
+}
+html[data-theme="dark"] .ai-tool-trace{
+  background:rgba(255,255,255,.05);
+  border-left-color:var(--line);
+}
+.ai-tool-trace-header{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;color:#999;cursor:pointer;
+  user-select:none;padding:2px 0;
+}
+html[data-theme="dark"] .ai-tool-trace-header{color:var(--muted)}
+.ai-tool-trace-header:hover{color:var(--text)}
+.ai-tool-trace-label{flex:1}
+.ai-tool-trace-arrow{font-size:10px;opacity:.6}
+.ai-tool-trace-list{
+  display:none;
+  margin-top:6px;padding-top:4px;
+  border-top:1px solid var(--line);
+}
+.ai-tool-trace-list.expanded{display:block}
+.ai-tool-trace-item{
+  font-size:12px;padding:4px 0;
+  display:flex;align-items:baseline;gap:6px;
+  line-height:1.5;color:var(--text);
+}
+.ai-tool-trace-item + .ai-tool-trace-item{
+  border-top:1px solid var(--line);
+}
+.ai-tool-trace-item.error{color:var(--muted)}
+.ai-tool-trace-item.error .ai-tool-trace-text{
+  text-decoration:line-through;opacity:.7;
+}
+.ai-tool-trace-seq{flex:0 0 auto;opacity:.5;font-variant-numeric:tabular-nums}
+.ai-tool-trace-text{flex:1;min-width:0}
+.ai-tool-trace-dot{
+  flex:0 0 auto;width:6px;height:6px;border-radius:50%;
+  background:var(--ok);opacity:.45;align-self:center;
+}
+.ai-tool-trace-err{font-size:11px;opacity:.7}
+

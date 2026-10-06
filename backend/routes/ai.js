@@ -24,6 +24,7 @@ const aiIntent = require('../utils/aiIntent');
 const aggregator = require('../utils/aiDataAggregator');
 const aiProxy = require('../utils/aiProxy');
 const aiPrompt = require('../utils/aiPrompt');
+const aiTools = require('../utils/aiTools');
 const aiProviders = require('../utils/aiProviders');
 
 const router = express.Router();
@@ -539,47 +540,141 @@ router.post('/chat', async (req, res) => {
           'SELECT content FROM ai_memory WHERE user_id=? ORDER BY strength DESC LIMIT 5'
         ).all(req.user.id);
 
-    const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories);
     const promptCtx = Object.assign({}, ctx, { budgetMin });
-    const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, promptCtx);
-
-    // 历史近 10 轮
+    // 历史近 10 轮（只存 user/assistant 正文；tool role 消息不入历史）
     const history = loadRecentMessages(req.user.id, body.conversationId, 10);
-    const messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
 
-    // 6. 解密 key + 代理调用（直接用用户在设置里选好的 model，不自动切换）
+    // 加载一次 store，供工具 label 生成 + actions 校验复用
+    const store = aggregator.loadStore(req.user.id);
+
+    // 6. 解密 key（FC / 降级两种模式都要用）
     let apiKey;
     try { apiKey = aiCrypto.decrypt(cfg.encrypted_api_key, cfg.key_salt); }
     catch (e) { return failCode(res, 'API key似乎无效，请检查后重新输入', 'INVALID_KEY', 401); }
+    const prov = aiProviders.getProvider(cfg.provider) || {};
+    const llmCfg = { baseUrl: cfg.base_url, model: cfg.model, apiKey, docsUrl: prov.docsUrl };
 
-    let llm;
-    try {
-      const prov = aiProviders.getProvider(cfg.provider) || {};
-      llm = await aiProxy.callLLM(
-        { baseUrl: cfg.base_url, model: cfg.model, apiKey, docsUrl: prov.docsUrl },
-        messages,
-        { maxTokens: 8000 }
-      );
-    } catch (e) {
-      // 失败不计入系统消耗统计（bumpUsage 仅在成功后执行）；统一文案 + code，不泄露上游原文
-      console.log(`[ai/chat] LLM failed code=${e.aiCode || '?'} status=${e.status || '?'}`);
-      const extra = Object.assign({ note: '调用失败，本次不计入系统消耗统计' }, e.aiDetail ? { detail: e.aiDetail } : {});
-      return failCode(res, e.aiMessage || 'AI服务暂时不可用，请稍后再试', e.aiCode || 'UPSTREAM_ERROR', e.status || 502, extra);
+    // 是否启用 function calling（老用户默认 1；模型不支持 tools 时自动置 0 降级全量注入）
+    let useTools = (cfg.tools_enabled !== 0);
+    let finalContent = '';
+    let totalTokensIn = 0;
+    let totalTokensOut = 0;
+    const trace = [];
+    let degradedReason = null;
+
+    if (useTools) {
+      // ── FC 模式：轻量 prompt + 工具循环（最多 5 轮 / 12 次调用）──
+      const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories, { enableTools: true });
+      const userPrompt = aiPrompt.buildUserPrompt(intent, null, userMessage, promptCtx, { enableTools: true });
+      const messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
+      const dedupCache = new Map();
+      let toolCallCount = 0;
+      try {
+        for (let round = 0; round < 5; round++) {
+          const resp = await aiProxy.callLLM(llmCfg, messages, { tools: aiTools.TOOL_SCHEMAS, toolChoice: 'auto', maxTokens: 8000 });
+          totalTokensIn += resp.usage.prompt_tokens;
+          totalTokensOut += resp.usage.completion_tokens;
+
+          if (!resp.toolCalls || resp.toolCalls.length === 0) {
+            finalContent = resp.content || '';
+            break;
+          }
+          // 推入带 tool_calls 的 assistant 消息（原样回传）
+          messages.push(resp.message);
+
+          for (const tc of resp.toolCalls) {
+            toolCallCount++;
+            if (toolCallCount > 12) {
+              // 已达硬上限：本批次剩余未执行的 tool_call 必须补一个占位 tool 响应，
+              // 否则 assistant 消息里的 tool_calls 与 tool 消息不一一对应，
+              // 下游收尾调用会被上游 400 拒绝（且易被误判为"模型不支持 tools"）。
+              messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: '已达单次查询次数上限，本次查询跳过' }) });
+              continue;
+            }
+            // 请求内去重：同一工具+参数直接复用上次结果
+            const cacheKey = tc.name + '|' + JSON.stringify(tc.args || {});
+            let result;
+            if (dedupCache.has(cacheKey)) {
+              result = dedupCache.get(cacheKey);
+            } else {
+              const start = Date.now();
+              const label = aiTools.getToolLabel(tc.name, tc.args, store);
+              try {
+                result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
+                trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
+              } catch (e2) {
+                result = { error: '该数据暂时读不到' };
+                trace.push({ seq: toolCallCount, name: tc.name, label, status: 'error', durationMs: Date.now() - start, error: '查询失败，已跳过' });
+              }
+              dedupCache.set(cacheKey, result);
+            }
+            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+          }
+
+          if (toolCallCount > 12) {
+            // 超硬上限：不带 tools 强制收尾，让模型基于已有信息回答
+            const finalResp = await aiProxy.callLLM(llmCfg, messages, { maxTokens: 8000 });
+            totalTokensIn += finalResp.usage.prompt_tokens;
+            totalTokensOut += finalResp.usage.completion_tokens;
+            finalContent = finalResp.content || '';
+            break;
+          }
+        }
+        // 跑满 5 轮仍没拿到正文（极端情况）：再补一次无 tools 调用收尾
+        if (!finalContent) {
+          const finalResp = await aiProxy.callLLM(llmCfg, messages, { maxTokens: 8000 });
+          totalTokensIn += finalResp.usage.prompt_tokens;
+          totalTokensOut += finalResp.usage.completion_tokens;
+          finalContent = finalResp.content || '';
+        }
+      } catch (e) {
+        // 模型不支持 tools（400 且报错含 tool/function/unknown parameter）→ 自动关开关，回退降级
+        const bodyText = String(e.upstreamBody || '').toLowerCase();
+        if (e.status === 400 && (bodyText.includes('tool') || bodyText.includes('function') || bodyText.includes('unknown parameter'))) {
+          console.log(`[ai/chat] tools unsupported, auto-disable for user=${req.user.id}`);
+          db.prepare("UPDATE ai_configs SET tools_enabled=0, updated_at=datetime('now') WHERE user_id=?").run(req.user.id);
+          degradedReason = 'tools_unsupported';
+          useTools = false;
+          trace.length = 0; // 降级后不带 trace
+          totalTokensIn = 0; totalTokensOut = 0;
+        } else {
+          // 其他 LLM 错误统一走原有失败分支（不计入用量）
+          console.log(`[ai/chat] LLM failed code=${e.aiCode || '?'} status=${e.status || '?'}`);
+          const extra = Object.assign({ note: '调用失败，本次不计入系统消耗统计' }, e.aiDetail ? { detail: e.aiDetail } : {});
+          return failCode(res, e.aiMessage || 'AI服务暂时不可用，请稍后再试', e.aiCode || 'UPSTREAM_ERROR', e.status || 502, extra);
+        }
+      }
     }
-    console.log(`[ai/chat] LLM ok tokensIn=${llm.usage.prompt_tokens} tokensOut=${llm.usage.completion_tokens} replyLen=${(llm.content || '').length}`);
+
+    if (!useTools) {
+      // ── 降级模式（含模型不支持 tools 自动回退）：全量数据注入，单次调用 ──
+      const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories);
+      const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, promptCtx);
+      const messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
+      let llm;
+      try {
+        llm = await aiProxy.callLLM(llmCfg, messages, { maxTokens: 8000 });
+      } catch (e) {
+        console.log(`[ai/chat] LLM failed code=${e.aiCode || '?'} status=${e.status || '?'}`);
+        const extra = Object.assign({ note: '调用失败，本次不计入系统消耗统计' }, e.aiDetail ? { detail: e.aiDetail } : {});
+        return failCode(res, e.aiMessage || 'AI服务暂时不可用，请稍后再试', e.aiCode || 'UPSTREAM_ERROR', e.status || 502, extra);
+      }
+      totalTokensIn += llm.usage.prompt_tokens;
+      totalTokensOut += llm.usage.completion_tokens;
+      finalContent = llm.content || '';
+    }
+    console.log(`[ai/chat] done mode=${useTools ? 'fc' : 'degraded'} tokensIn=${totalTokensIn} tokensOut=${totalTokensOut} toolCalls=${trace.length} replyLen=${(finalContent || '').length}${degradedReason ? ' degraded=' + degradedReason : ''}`);
 
     // 7. 解析回复（正文 + actions）；actions 解析失败降级为纯文本，actions 空数组
-    const { body: replyBody, actions: rawActions } = aiPrompt.parseReply(llm.content);
+    const { body: replyBody, actions: rawActions } = aiPrompt.parseReply(finalContent);
     const projects = storeProjects(req.user.id);
     const validActions = aiPrompt.filterValidActions(rawActions, projects);
 
-    // 8. 落库 + 累计用量（仅成功后累计）
+    // 8. 落库 + 累计用量（仅成功后累计；多轮 token 已累加）
     const convId = await ensureConversation(req, body.conversationId, userMessage);
     await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
-    const tokensIn = llm.usage.prompt_tokens;
-    const tokensOut = llm.usage.completion_tokens;
-    const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', replyBody, intent, validActions, tokensIn, tokensOut);
-    bumpUsage(req.user.id, date, tokensIn, tokensOut);
+    const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', replyBody, intent, validActions, totalTokensIn, totalTokensOut);
+    bumpUsage(req.user.id, date, totalTokensIn, totalTokensOut);
     touchConversation(convId);
 
     return ok(res, {
@@ -588,8 +683,10 @@ router.post('/chat', async (req, res) => {
       reply: replyBody,
       intent,
       actions: validActions,
-      tokens: { in: tokensIn, out: tokensOut },
+      tokens: { in: totalTokensIn, out: totalTokensOut },
       profileUpdated,
+      toolCalls: trace,
+      ...(degradedReason ? { degraded: degradedReason } : {}),
     });
   } catch (e) {
     console.error('POST /api/ai/chat error:', e.message);

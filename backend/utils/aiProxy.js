@@ -6,8 +6,12 @@
  *  - SSRF 防护：baseUrl 必须 https；解析后 IP 不得是内网段
  *    （127/8, 10/8, 172.16/12, 192.168/16, 169.25/16）
  *
- * callLLM 返回 { content, usage:{prompt_tokens, completion_tokens} }；
- * 失败抛带 .status / .kind 的错误，由路由统一转成 502 文案。
+ * callLLM 返回 { content, usage:{prompt_tokens, completion_tokens},
+ *                toolCalls:[{id,name,args,arguments}], message }；
+ *   - opts.tools 存在时，请求体带 tools / tool_choice，并从 choices[0].message.tool_calls 解析；
+ *   - message 为原始 assistant message（含 tool_calls），需原样 push 回 messages 数组；
+ * 失败抛带 .status / .kind 的错误，错误对象上带 .upstreamBody（上游响应片段），
+ * 由路由据此判断"模型不支持 tools"并自动降级。
  */
 const dns = require('dns').promises;
 
@@ -90,8 +94,12 @@ async function assertSafeBaseUrl(baseUrl) {
  * 调用 OpenAI 兼容 chat/completions。
  * @param {{baseUrl:string, model:string, apiKey:string}} cfg 已解密的配置
  * @param {Array<{role:string,content:string}>} messages
- * @param {object} [opts] { temperature?, maxTokens? }
- * @returns {Promise<{content:string, usage:{prompt_tokens:number, completion_tokens:number}}>}
+ * @param {object} [opts] { temperature?, maxTokens?, tools?, toolChoice? }
+ *   - tools: OpenAI function calling 工具 schema 数组；存在则请求体带 tools/tool_choice
+ *   - toolChoice: 工具选择策略，缺省 'auto'
+ * @returns {Promise<{content:string, usage:{prompt_tokens:number, completion_tokens:number},
+ *                    toolCalls:Array<{id:string,name:string,args:object,arguments:string}>,
+ *                    message:object}>}
  */
 async function callLLM(cfg, messages, opts = {}) {
   let baseUrl = String(cfg.baseUrl || '').trim().replace(/\/+$/, '');
@@ -123,6 +131,9 @@ async function callLLM(cfg, messages, opts = {}) {
         messages,
         temperature: opts.temperature != null ? opts.temperature : 0.7,
         ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+        ...(Array.isArray(opts.tools) && opts.tools.length
+          ? { tools: opts.tools, tool_choice: opts.toolChoice || 'auto' }
+          : {}),
       }),
       signal: controller.signal,
     });
@@ -143,10 +154,14 @@ async function callLLM(cfg, messages, opts = {}) {
 
   // 错误分类：统一不把上游原文抛给用户；每个错误带 aiCode（前端据此显示友好提示/重试按钮）
   if (!res.ok) {
+    // 先读上游响应体，挂到 err.upstreamBody 供路由判断"模型不支持 tools"等场景（不直接展示给用户）
+    let errBodyText = '';
+    try { errBodyText = await res.text(); } catch (_) { /* 忽略读取失败 */ }
     const err = new Error('AI服务暂时不可用，请稍后再试');
     err.status = 502;
     err.aiCode = 'UPSTREAM_ERROR';
     err.aiMessage = 'AI服务暂时不可用，请稍后再试';
+    err.upstreamBody = String(errBodyText || '').slice(0, 800);
     if (res.status === 401 || res.status === 403) {
       err.kind = 'unauthorized'; err.status = 401;
       err.aiCode = 'INVALID_KEY'; err.aiMessage = 'API key似乎无效，请检查后重新输入';
@@ -174,15 +189,28 @@ async function callLLM(cfg, messages, opts = {}) {
     throw err;
   }
 
-  const content = data && data.choices && data.choices[0] && data.choices[0].message
-    ? data.choices[0].message.content : '';
+  const message = data && data.choices && data.choices[0] && data.choices[0].message
+    ? data.choices[0].message : {};
+  const content = message.content;
   const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+
+  // 解析 function calling：OpenAI 格式 tool_calls[].function.{name,arguments(字符串JSON)}
+  const rawToolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+  const toolCalls = rawToolCalls.map((tc) => {
+    const fn = tc.function || {};
+    let args = {};
+    try { args = fn.arguments ? JSON.parse(fn.arguments) : {}; } catch (_) { args = {}; }
+    return { id: tc.id, name: fn.name, args, arguments: typeof fn.arguments === 'string' ? fn.arguments : JSON.stringify(args) };
+  });
+
   return {
-    content: typeof content === 'string' ? content : JSON.stringify(content || ''),
+    content: typeof content === 'string' ? content : (content ? JSON.stringify(content) : ''),
     usage: {
       prompt_tokens: Number(usage.prompt_tokens) || 0,
       completion_tokens: Number(usage.completion_tokens) || 0,
     },
+    toolCalls,
+    message,
   };
 }
 

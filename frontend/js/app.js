@@ -16555,11 +16555,64 @@ if (document.readyState === 'loading') {
   }
 
   /* ---- 安全渲染 AI 回复（md 失败退化为纯文本；长回复折叠） ---- */
-  function renderAiReply(text){
+  /* ---- 工具调用过程折叠区（纯展示，数据来自 chat 响应的 toolCalls） ---- */
+  function renderToolTrace(toolCalls){
+    if (!toolCalls || !toolCalls.length) return null;
+    var n = toolCalls.length;
+    var box = document.createElement('div');
+    box.className = 'ai-tool-trace';
+
+    var header = document.createElement('div');
+    header.className = 'ai-tool-trace-header';
+    header.innerHTML = '<span class="ai-tool-trace-label">AI 查询了 ' + n + ' 项学习数据</span>'
+      + '<span class="ai-tool-trace-arrow">▸</span>';
+
+    var list = document.createElement('div');
+    list.className = 'ai-tool-trace-list';
+
+    for (var i = 0; i < toolCalls.length; i++) {
+      (function(tc, idx){
+        var item = document.createElement('div');
+        var isErr = (tc.status === 'error');
+        item.className = 'ai-tool-trace-item ' + (isErr ? 'error' : 'ok');
+        var label = tc.label || ('数据查询 ' + (idx + 1));
+        var checkHtml = isErr ? '' : '<span class="ai-tool-trace-dot"></span>';
+        var errTip = '';
+        if (isErr) {
+          var errMsg = tc.error || '查询失败，已跳过';
+          errTip = '<span class="ai-tool-trace-err"> — ' + esc(errMsg) + '</span>';
+        }
+        item.innerHTML = '<span class="ai-tool-trace-seq">' + (idx + 1) + '.</span>'
+          + '<span class="ai-tool-trace-text">' + esc(label) + '</span>'
+          + checkHtml + errTip;
+        list.appendChild(item);
+      })(toolCalls[i], i);
+    }
+
+    box.appendChild(header);
+    box.appendChild(list);
+
+    var expanded = false;
+    header.onclick = function(){
+      expanded = !expanded;
+      list.classList.toggle('expanded', expanded);
+      var arrow = header.querySelector('.ai-tool-trace-arrow');
+      if (arrow) arrow.textContent = expanded ? '▾' : '▸';
+    };
+
+    return box;
+  }
+
+  function renderAiReply(text, toolCalls){
     var html;
     try { html = '<div class="md">' + md(text) + '</div>'; }
     catch(e) { html = '<div class="md">' + esc(String(text == null ? '' : text)) + '</div>'; }
     var div = addAiMsg(html);
+    // 工具调用过程折叠区：插入到正文上方
+    if (toolCalls && toolCalls.length) {
+      var trace = renderToolTrace(toolCalls);
+      if (trace) div.insertBefore(trace, div.firstChild);
+    }
     // 长回复折叠：超过 500 字默认收起前 ~300px，提供展开/收起
     var plainLen = (text || '').length;
     if (plainLen > 500) {
@@ -16626,12 +16679,16 @@ if (document.readyState === 'loading') {
       if (!reply || !String(reply).trim()) {
         if (hasActions) {
           // 只有 actions 没有正文：不报错，直接显示建议卡片
-          addAiMsg('<div class="md"><p>以下是可以直接应用的建议：</p></div>');
+          var emptyDiv = addAiMsg('<div class="md"><p>以下是可以直接应用的建议：</p></div>');
+          if (resp.toolCalls && resp.toolCalls.length) {
+            var emptyTrace = renderToolTrace(resp.toolCalls);
+            if (emptyTrace) emptyDiv.insertBefore(emptyTrace, emptyDiv.firstChild);
+          }
         } else {
           addErrorBubble(null, 'AI 返回了空回复，请重试');
         }
       } else {
-        renderAiReply(reply);
+        renderAiReply(reply, resp.toolCalls);
       }
       if (hasActions) {
         // 后端 chat 现返回 messageId，apply 时回传以建立动作日志
