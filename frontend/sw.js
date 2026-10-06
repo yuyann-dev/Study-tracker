@@ -4,7 +4,7 @@
    注意：JS/CSS 的缓存失效靠 index.html 里的 ?v= 版本号，
    改了文件记得顺手升版本号，不然 SW 会一直吐旧缓存。
    API 请求不缓存，里面有用户数据。 */
-var CACHE = 'yystudy-v67';
+var CACHE = 'yystudy-v68';
 var CORE = [
   './',
   './index.html',

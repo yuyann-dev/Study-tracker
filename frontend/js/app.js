@@ -16063,7 +16063,15 @@ if (document.readyState === 'loading') {
     div.innerHTML = esc(info.text) + (actions ? '<div class="ai-err-actions">' + actions + '</div>' : '');
     els.msgs.appendChild(div);
     var retry = div.querySelector('.ai-retry');
-    if (retry) retry.onclick = function(){ div.remove(); send(); };
+    if (retry) retry.onclick = function(){
+      div.remove();
+      // 重新发送上一条用户消息（如果有）
+      if (state.lastUserMessage) {
+        send(state.lastUserMessage);
+      } else {
+        send();
+      }
+    };
     var goset = div.querySelector('.ai-goset');
     if (goset) goset.onclick = function(){ switchTab('settings'); };
     scrollBottom();
@@ -16648,9 +16656,9 @@ if (document.readyState === 'loading') {
   }
 
   /* ---- 发送消息 ---- */
-  async function send(){
+  async function send(retryText){
     if (state.sending) return;
-    var text = (els.input.value || '').trim();
+    var text = retryText ? String(retryText).trim() : (els.input.value || '').trim();
     if (!text) { addErrorBubble('EMPTY_INPUT', '请输入你的问题'); return; }
     // 清除编辑模式残留
     els.input.classList.remove('editing');
@@ -16660,6 +16668,7 @@ if (document.readyState === 'loading') {
 
     state.sending = true;
     setSendStopUI(true);
+    state.lastUserMessage = text; // 保存用于重试
     addUserMsg(text);
     els.input.value = '';
     autoGrow();
@@ -16681,10 +16690,13 @@ if (document.readyState === 'loading') {
 
     try {
       // 流式调用：SSE 逐字输出（打字机效果）
+      var streamHeaders = { 'Content-Type': 'application/json' };
+      var tok = aiToken();
+      if (tok) streamHeaders['Authorization'] = 'Bearer ' + tok;
       var streamResp = await fetch('/api/ai/chat/stream', {
         method: 'POST',
         signal: state.abortController.signal,
-        headers: { 'Content-Type': 'application/json' },
+        headers: streamHeaders,
         credentials: 'include',
         body: JSON.stringify({
           conversationId: state.convId || undefined,
@@ -16697,6 +16709,9 @@ if (document.readyState === 'loading') {
       if (!streamResp.ok) {
         var errText = '';
         try { errText = await streamResp.text(); } catch (_) {}
+        if (streamResp.status === 401) {
+          throw { code: 'NOT_LOGGED_IN', message: '登录已过期，请重新登录' };
+        }
         throw new Error('AI 服务暂不可用');
       }
 

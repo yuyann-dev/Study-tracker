@@ -2219,12 +2219,12 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
   margin:12px 0 4px;text-align:center;
 }
 .ai-legal-link{
-  background:transparent;border:1px solid var(--border);
-  color:var(--muted);font-size:12.5px;cursor:pointer;
-  padding:6px 14px;border-radius:8px;
-  transition:all .15s ease;
+  background:var(--card-bg);border:1px solid var(--border);
+  color:var(--accent);font-size:12.5px;cursor:pointer;
+  padding:6px 16px;border-radius:8px;
+  transition:all .15s ease;font-weight:500;
 }
-.ai-legal-link:hover{color:var(--accent);border-color:var(--accent);background:var(--card-bg)}
+.ai-legal-link:hover{color:#fff;border-color:var(--accent);background:var(--accent)}
 
 /* 用户协议弹窗 */
 .ai-legal-mask{
