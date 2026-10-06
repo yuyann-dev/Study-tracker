@@ -214,4 +214,66 @@ async function callLLM(cfg, messages, opts = {}) {
   };
 }
 
-module.exports = { callLLM, assertSafeBaseUrl, isPrivateIp };
+module.exports = { callLLM, streamLLM, assertSafeBaseUrl, isPrivateIp };
+
+/**
+ * 流式调用 LLM，返回 { res, contentType }，调用方自行读取 res.body 并解析 SSE。
+ * 用于打字机效果。不支持 tools（工具调用走普通 callLLM，最终回复再走流式）。
+ */
+async function streamLLM(cfg, messages, opts = {}) {
+  let baseUrl = String(cfg.baseUrl || '').trim().replace(/\/+$/, '');
+  try {
+    const u = new URL(baseUrl);
+    if (!u.pathname || u.pathname === '/') baseUrl = `${baseUrl}/v1`;
+  } catch (_) { /* 保留原串 */ }
+  if (!baseUrl || !cfg.model || !cfg.apiKey) {
+    const err = new Error('AI 配置不完整');
+    err.kind = 'bad_config';
+    throw err;
+  }
+  await assertSafeBaseUrl(baseUrl);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${cfg.apiKey}`,
+      Accept: 'text/event-stream',
+    },
+    body: JSON.stringify({
+      model: cfg.model,
+      messages,
+      stream: true,
+      temperature: opts.temperature != null ? opts.temperature : 0.7,
+      ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+    }),
+    signal: controller.signal,
+  });
+  clearTimeout(timer);
+
+  if (!res.ok) {
+    let errBodyText = '';
+    try { errBodyText = await res.text(); } catch (_) { /* 忽略 */ }
+    const err = new Error('AI服务暂时不可用，请稍后再试');
+    err.status = 502;
+    err.aiCode = 'UPSTREAM_ERROR';
+    err.upstreamBody = String(errBodyText || '').slice(0, 800);
+    if (res.status === 401 || res.status === 403) {
+      err.kind = 'unauthorized'; err.status = 401;
+      err.aiCode = 'INVALID_KEY'; err.aiMessage = 'API key似乎无效，请检查后重新输入';
+    } else if (res.status === 402) {
+      err.kind = 'insufficient_balance'; err.status = 402;
+      err.aiCode = 'INSUFFICIENT_BALANCE';
+      err.aiMessage = 'AI服务余额不足，请前往服务商控制台充值后继续使用';
+    } else if (res.status === 429) {
+      err.kind = 'rate_limited'; err.status = 429;
+      err.aiCode = 'RATE_LIMITED'; err.aiMessage = '问得太快啦，歇一秒再问';
+    }
+    throw err;
+  }
+
+  return { res, controller };
+}

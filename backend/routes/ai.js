@@ -724,6 +724,250 @@ router.post('/chat', async (req, res) => {
   }
 });
 
+/**
+ * 流式对话：先执行工具调用（和 /chat 一样），然后最终回复用 SSE 流式输出（打字机效果）。
+ * 前端用 fetch + ReadableStream 读取，逐字渲染。
+ */
+router.post('/chat/stream', async (req, res) => {
+  // SSE 响应头
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
+
+  const sendSSE = (event, data) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+  const sendError = (code, message) => {
+    sendSSE('error', { code, message });
+    res.end();
+  };
+
+  try {
+    const body = req.body || {};
+    const userMessage = String(body.message || '').trim();
+    if (!userMessage) return sendError('EMPTY_INPUT', '请输入你的问题');
+    const ctx = body.context || {};
+    const ctxBudgetMin = ctx.budgetMin;
+
+    const cfg = getConfigRow(req.user.id);
+    if (!cfg || cfg.enabled !== 1 || !cfg.encrypted_api_key || !cfg.base_url || !cfg.provider || !cfg.model) {
+      return sendError('NOT_CONFIGURED', '请先在AI设置中配置API key');
+    }
+
+    const budgetMin = (Number(ctxBudgetMin) > 0) ? Number(ctxBudgetMin) : (cfg.daily_study_minutes || 240);
+    const date = todayLocal();
+    const usage = getTodayUsage(req.user.id, date);
+    const usedIn = usage ? usage.tokens_in : 0;
+    const usedOut = usage ? usage.tokens_out : 0;
+    const budget = cfg.daily_token_budget || 100000;
+    const overBudget = (usedIn + usedOut) >= budget;
+
+    const { intent, projectIdHint } = aiIntent.classify(userMessage, ctx);
+    const projectIds = Array.isArray(ctx.projectIds) && ctx.projectIds.length
+      ? ctx.projectIds.map(String)
+      : (ctx.projectId ? [String(ctx.projectId)] : (projectIdHint ? [String(projectIdHint)] : []));
+    const projectId = projectIds.length === 1 ? projectIds[0] : null;
+
+    const dataSummary = gatherDataByIntent(req.user.id, intent, projectId, budgetMin, projectIds);
+
+    if (overBudget) {
+      const convId = await ensureConversation(req, body.conversationId, userMessage);
+      await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
+      const reply = `今日 AI 额度（${budget} token）已用完，明天再来。`;
+      await saveMessage(req.user.id, convId, 'assistant', reply, intent, null, 0, 0);
+      touchConversation(convId);
+      sendSSE('done', { conversationId: convId, reply, intent, actions: [], tokens: { in: 0, out: 0 }, degraded: true });
+      return res.end();
+    }
+
+    let profileRow = db.prepare('SELECT profile_json, edited_fields_json FROM ai_profile WHERE user_id=?').get(req.user.id);
+    let profile = null;
+    let profileUpdated = false;
+    if (profileRow && profileRow.profile_json) {
+      try { profile = JSON.parse(profileRow.profile_json); } catch (_) { profile = null; }
+    } else {
+      profile = buildLocalProfile(req.user.id);
+      upsertProfile(req.user.id, profile, []);
+      profileUpdated = true;
+    }
+    const memories = (cfg.memory_enabled === 0)
+      ? []
+      : db.prepare('SELECT content FROM ai_memory WHERE user_id=? ORDER BY strength DESC LIMIT 5').all(req.user.id);
+
+    const promptCtx = Object.assign({}, ctx, { budgetMin });
+    const history = loadRecentMessages(req.user.id, body.conversationId, 10);
+    const store = aggregator.loadStore(req.user.id);
+
+    let apiKey;
+    try { apiKey = aiCrypto.decrypt(cfg.encrypted_api_key, cfg.key_salt); }
+    catch (e) { return sendError('INVALID_KEY', 'API key似乎无效，请检查后重新输入'); }
+    const prov = aiProviders.getProvider(cfg.provider) || {};
+    const llmCfg = { baseUrl: cfg.base_url, model: cfg.model, apiKey, docsUrl: prov.docsUrl };
+
+    const useTools = (cfg.tools_enabled !== 0);
+    let finalContent = '';
+    let totalTokensIn = 0;
+    let totalTokensOut = 0;
+    const trace = [];
+    const searchReferences = [];
+    let degradedReason = null;
+
+    // ── 工具调用循环（和 /chat 完全一样）──
+    if (useTools) {
+      const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories, { enableTools: true });
+      const userPrompt = aiPrompt.buildUserPrompt(intent, null, userMessage, promptCtx, { enableTools: true });
+      const messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
+      const dedupCache = new Map();
+      let toolCallCount = 0;
+      try {
+        for (let round = 0; round < 5; round++) {
+          const resp = await aiProxy.callLLM(llmCfg, messages, { tools: aiTools.TOOL_SCHEMAS, toolChoice: 'auto', maxTokens: 8000 });
+          totalTokensIn += resp.usage.prompt_tokens;
+          totalTokensOut += resp.usage.completion_tokens;
+          if (!resp.toolCalls || resp.toolCalls.length === 0) {
+            finalContent = resp.content || '';
+            break;
+          }
+          messages.push(resp.message);
+          for (const tc of resp.toolCalls) {
+            toolCallCount++;
+            if (toolCallCount > 12) {
+              messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: '已达单次查询次数上限，本次查询跳过' }) });
+              continue;
+            }
+            const cacheKey = tc.name + '|' + JSON.stringify(tc.args || {});
+            let result;
+            if (dedupCache.has(cacheKey)) {
+              result = dedupCache.get(cacheKey);
+            } else {
+              const start = Date.now();
+              const label = aiTools.getToolLabel(tc.name, tc.args, store);
+              try {
+                if (tc.name === 'save_memory') {
+                  if (cfg.memory_enabled !== 0) {
+                    const content = String(tc.args.content || '').trim().slice(0, 200);
+                    const kind = ['preference', 'goal', 'fact'].includes(tc.args.kind) ? tc.args.kind : 'fact';
+                    if (content) {
+                      const exists = db.prepare('SELECT id FROM ai_memory WHERE user_id=? AND content=?').get(req.user.id, content);
+                      if (!exists) {
+                        const count = db.prepare('SELECT COUNT(*) AS c FROM ai_memory WHERE user_id=?').get(req.user.id).c;
+                        if (count >= 30) db.prepare('DELETE FROM ai_memory WHERE user_id=? ORDER BY strength ASC, id ASC LIMIT 1').run(req.user.id);
+                        db.prepare('INSERT INTO ai_memory (user_id, kind, content, strength, source_message_id, created_at) VALUES (?, ?, ?, 1, NULL, datetime(\'now\'))').run(req.user.id, kind, content);
+                      }
+                    }
+                  }
+                  result = { ok: true };
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
+                } else if (tc.name === 'web_search') {
+                  const tavilySearch = require('../utils/tavilySearch');
+                  result = await tavilySearch.search(tc.args.query, req.user.id);
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: result.searched ? 'ok' : 'skipped', durationMs: Date.now() - start });
+                  if (result.searched && Array.isArray(result.results)) {
+                    result.results.forEach(function (r) {
+                      if (r && r.url && !searchReferences.some(function (s) { return s.url === r.url; })) {
+                        searchReferences.push({ title: (r.title || '').slice(0, 80), url: r.url });
+                      }
+                    });
+                  }
+                } else {
+                  result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
+                }
+              } catch (e2) {
+                result = { error: '该数据暂时读不到' };
+                trace.push({ seq: toolCallCount, name: tc.name, label, status: 'error', durationMs: Date.now() - start, error: '查询失败，已跳过' });
+              }
+              dedupCache.set(cacheKey, result);
+            }
+            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+          }
+          if (toolCallCount > 12) {
+            const finalResp = await aiProxy.callLLM(llmCfg, messages, { maxTokens: 8000 });
+            totalTokensIn += finalResp.usage.prompt_tokens;
+            totalTokensOut += finalResp.usage.completion_tokens;
+            finalContent = finalResp.content || '';
+            break;
+          }
+        }
+        if (!finalContent) {
+          const finalResp = await aiProxy.callLLM(llmCfg, messages, { maxTokens: 8000 });
+          totalTokensIn += finalResp.usage.prompt_tokens;
+          totalTokensOut += finalResp.usage.completion_tokens;
+          finalContent = finalResp.content || '';
+        }
+      } catch (e) {
+        if (e.kind === 'unauthorized') return sendError('INVALID_KEY', e.aiMessage || 'API key似乎无效');
+        if (e.kind === 'insufficient_balance') return sendError('INSUFFICIENT_BALANCE', e.aiMessage || '余额不足');
+        if (e.kind === 'rate_limited') return sendError('RATE_LIMITED', e.aiMessage || '问得太快啦');
+        if (e.kind === 'timeout') return sendError('TIMEOUT', e.aiMessage || 'AI开小差了');
+        degradedReason = 'tools_fallback';
+        const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories, { enableTools: false, data: dataSummary });
+        const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, promptCtx, { enableTools: false });
+        const msgs = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
+        const fb = await aiProxy.callLLM(llmCfg, msgs, { maxTokens: 8000 });
+        totalTokensIn += fb.usage.prompt_tokens;
+        totalTokensOut += fb.usage.completion_tokens;
+        finalContent = fb.content || '';
+      }
+    } else {
+      const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories, { enableTools: false, data: dataSummary });
+      const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, promptCtx, { enableTools: false });
+      const msgs = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
+      const fb = await aiProxy.callLLM(llmCfg, msgs, { maxTokens: 8000 });
+      totalTokensIn += fb.usage.prompt_tokens;
+      totalTokensOut += fb.usage.completion_tokens;
+      finalContent = fb.content || '';
+    }
+
+    // 通知前端：工具调用完成，开始流式输出正文
+    sendSSE('meta', { toolCalls: trace, profileUpdated });
+
+    // ── 流式输出最终回复 ──
+    // 重新组一个不带 tools 的 messages（用 finalContent 作为 assistant 消息，让模型润色输出？不，直接流式输出 finalContent）
+    // 为了简单可靠：直接把 finalContent 逐字推给前端（模拟打字机），不再次调用 LLM
+    // 这样避免二次调用增加成本和延迟，且 finalContent 已经是完整回复
+    const fullText = finalContent || '';
+    const chunkSize = 3; // 每次推 3 个字，模拟打字机速度
+    for (let i = 0; i < fullText.length; i += chunkSize) {
+      const chunk = fullText.slice(i, i + chunkSize);
+      sendSSE('delta', { text: chunk });
+      await new Promise(r => setTimeout(r, 15)); // 15ms 间隔，约 200 字/秒
+    }
+
+    // 解析 actions
+    const { body: replyBody, actions: rawActions } = aiPrompt.parseReply(fullText);
+    const projects = storeProjects(req.user.id);
+    const validActions = aiPrompt.filterValidActions(rawActions, projects);
+
+    // 落库
+    const convId = await ensureConversation(req, body.conversationId, userMessage);
+    await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
+    const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', replyBody, intent, validActions, totalTokensIn, totalTokensOut);
+    bumpUsage(req.user.id, date, totalTokensIn, totalTokensOut);
+    touchConversation(convId);
+
+    // 发送完成事件
+    sendSSE('done', {
+      conversationId: convId,
+      messageId: assistantMsgId,
+      reply: replyBody,
+      intent,
+      actions: validActions,
+      tokens: { in: totalTokensIn, out: totalTokensOut },
+      profileUpdated,
+      toolCalls: trace,
+      searchReferences: searchReferences.length > 0 ? searchReferences : null,
+      ...(degradedReason ? { degraded: degradedReason } : {}),
+    });
+    res.end();
+  } catch (e) {
+    console.error('POST /api/ai/chat/stream error:', e.message);
+    sendError('UPSTREAM_ERROR', 'AI 服务暂不可用，请稍后重试');
+  }
+});
+
 // ── chat 内部助手 ──
 function safeParse(s) {
   if (!s) return [];

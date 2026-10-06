@@ -2216,14 +2216,15 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 
 /* 用户协议入口 */
 .ai-legal-row{
-  margin:8px 0;text-align:center;
+  margin:12px 0 4px;text-align:center;
 }
 .ai-legal-link{
-  background:none;border:none;color:var(--muted);
-  font-size:12px;cursor:pointer;text-decoration:underline;
-  padding:4px 8px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--muted);font-size:12.5px;cursor:pointer;
+  padding:6px 14px;border-radius:8px;
+  transition:all .15s ease;
 }
-.ai-legal-link:hover{color:var(--accent)}
+.ai-legal-link:hover{color:var(--accent);border-color:var(--accent);background:var(--card-bg)}
 
 /* 用户协议弹窗 */
 .ai-legal-mask{

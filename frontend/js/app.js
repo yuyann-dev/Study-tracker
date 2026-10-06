@@ -16680,40 +16680,122 @@ if (document.readyState === 'loading') {
     state.abortController = new AbortController();
 
     try {
-      var resp = await aiFetch('/api/ai/chat', {
+      // 流式调用：SSE 逐字输出（打字机效果）
+      var streamResp = await fetch('/api/ai/chat/stream', {
         method: 'POST',
         signal: state.abortController.signal,
-        body: {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           conversationId: state.convId || undefined,
           message: text,
           context: ctx
-        }
+        })
       });
       removeTyping();
-      if (resp.conversationId) state.convId = resp.conversationId;
-      var reply = resp.reply;
-      var hasActions = resp.actions && resp.actions.length;
-      if (!reply || !String(reply).trim()) {
-        if (hasActions) {
-          // 只有 actions 没有正文：不报错，直接显示建议卡片
-          var emptyDiv = addAiMsg('<div class="md"><p>以下是可以直接应用的建议：</p></div>');
-          if (resp.toolCalls && resp.toolCalls.length) {
-            var emptyTrace = renderToolTrace(resp.toolCalls);
-            if (emptyTrace) emptyDiv.insertBefore(emptyTrace, emptyDiv.firstChild);
+
+      if (!streamResp.ok) {
+        var errText = '';
+        try { errText = await streamResp.text(); } catch (_) {}
+        throw new Error('AI 服务暂不可用');
+      }
+
+      var reader = streamResp.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var currentMsgEl = null;
+      var currentMdEl = null;
+      var fullText = '';
+      var finalData = null;
+      var toolCallsShown = false;
+
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+
+        // 解析 SSE：按 \n\n 分割事件
+        var eventParts = buffer.split('\n\n');
+        buffer = eventParts.pop() || ''; // 最后一个可能不完整，留到下次
+
+        for (var ei = 0; ei < eventParts.length; ei++) {
+          var part = eventParts[ei];
+          if (!part.trim()) continue;
+          var lines = part.split('\n');
+          var eventName = 'message';
+          var eventData = '';
+          for (var li = 0; li < lines.length; li++) {
+            var line = lines[li];
+            if (line.startsWith('event: ')) {
+              eventName = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              eventData += line.slice(6);
+            }
+          }
+          if (!eventData) continue;
+          var parsed;
+          try { parsed = JSON.parse(eventData); } catch (_) { continue; }
+
+          if (eventName === 'meta') {
+            // 工具调用完成，开始输出正文
+            if (parsed.toolCalls && parsed.toolCalls.length && !toolCallsShown) {
+              // 先创建消息元素，插入工具调用 trace
+              currentMsgEl = addAiMsg('<div class="md"><p></p></div>');
+              currentMdEl = currentMsgEl.querySelector('.md p');
+              var traceEl = renderToolTrace(parsed.toolCalls);
+              if (traceEl) currentMsgEl.insertBefore(traceEl, currentMsgEl.firstChild);
+              toolCallsShown = true;
+            }
+          } else if (eventName === 'delta') {
+            // 逐字追加
+            if (!currentMsgEl) {
+              currentMsgEl = addAiMsg('<div class="md"><p></p></div>');
+              currentMdEl = currentMsgEl.querySelector('.md p');
+            }
+            fullText += parsed.text || '';
+            if (currentMdEl) {
+              currentMdEl.innerHTML = md(fullText);
+            }
+            scrollBottom();
+          } else if (eventName === 'done') {
+            // 完成：用完整数据渲染（替换流式的简单渲染，确保参考文献、actions等正确）
+            finalData = parsed;
+            if (currentMsgEl) currentMsgEl.remove(); // 移除流式临时元素
+          } else if (eventName === 'error') {
+            throw { code: parsed.code, message: parsed.message };
+          }
+        }
+      }
+
+      // 处理最终结果
+      if (finalData) {
+        if (finalData.conversationId) state.convId = finalData.conversationId;
+        var reply = finalData.reply;
+        var hasActions = finalData.actions && finalData.actions.length;
+        if (!reply || !String(reply).trim()) {
+          if (hasActions) {
+            var emptyDiv = addAiMsg('<div class="md"><p>以下是可以直接应用的建议：</p></div>');
+            if (finalData.toolCalls && finalData.toolCalls.length) {
+              var emptyTrace = renderToolTrace(finalData.toolCalls);
+              if (emptyTrace) emptyDiv.insertBefore(emptyTrace, emptyDiv.firstChild);
+            }
+          } else {
+            addErrorBubble(null, 'AI 返回了空回复，请重试');
           }
         } else {
-          addErrorBubble(null, 'AI 返回了空回复，请重试');
+          renderAiReply(reply, finalData.toolCalls, finalData.searchReferences);
         }
-      } else {
-        renderAiReply(reply, resp.toolCalls, resp.searchReferences);
+        if (hasActions) {
+          var mid = finalData.messageId || finalData.id || null;
+          renderSuggestionCard(finalData.actions, mid);
+        }
+      } else if (fullText) {
+        // 没有收到 done 事件（异常断开），用已收到的文本渲染
+        if (currentMsgEl) currentMsgEl.remove();
+        renderAiReply(fullText, null, null);
       }
-      if (hasActions) {
-        // 后端 chat 现返回 messageId，apply 时回传以建立动作日志
-        var mid = resp.messageId || resp.id || null;
-        renderSuggestionCard(resp.actions, mid);
-      }
+
       updateSamplesVisibility();
-      // 回复生成完成后，若面板已关闭则显示红点提醒
       if (mask && mask.hidden && dot) dot.hidden = false;
     } catch(e) {
       removeTyping();
@@ -17135,38 +17217,44 @@ if (document.readyState === 'loading') {
     if (histGoChat) histGoChat.onclick = function(){ switchTab('chat'); };
 
     // 历史
-    document.getElementById('aiNewConv').onclick = newConversation;
+    var newConvBtn = document.getElementById('aiNewConv');
+    if (newConvBtn) newConvBtn.onclick = newConversation;
 
     // 设置
-    document.getElementById('aiTest').onclick = testConnection;
-    document.getElementById('aiSave').onclick = saveConfig;
-    document.getElementById('aiClearAll').onclick = clearAll;
-    // 用户协议与免责声明弹窗
-    var legalBtn = document.getElementById('aiLegalBtn');
-    if (legalBtn) legalBtn.onclick = function(){
-      var html = '<div class="ai-legal-modal" id="aiLegalModal">'
-        + '<div class="ai-legal-content">'
-        + '<div class="ai-legal-head">用户协议与免责声明<button class="ai-legal-close" id="aiLegalClose" type="button">×</button></div>'
-        + '<div class="ai-legal-body">'
-        + '<h4>一、AI 生成内容的性质</h4>'
-        + '<p>本系统的 AI 学习助手由第三方大语言模型驱动，其回复内容由算法自动生成，仅供学习参考，不构成任何形式的专业建议。AI 可能会出现错误、遗漏或过时信息，请务必结合官方资料和自身判断进行核实。</p>'
-        + '<h4>二、联网搜索内容</h4>'
-        + '<p>AI 在回答涉及外部信息的问题时可能会调用联网搜索。搜索结果来自公开互联网，本系统不对其准确性、完整性或时效性做任何保证。引用的原始链接仅作来源参考，具体信息请以官方最新公告为准。</p>'
-        + '<h4>三、数据与隐私</h4>'
-        + '<p>使用 AI 功能时，你的学习数据（不含密码等敏感信息）会发送给 AI 服务商用于生成回答。API Key 由你自行配置并加密存储，本系统不存储、不分享你的 API Key，也不从中获取任何经济利益。</p>'
-        + '<h4>四、费用说明</h4>'
-        + '<p>本系统本身不收取任何费用。AI 调用产生的费用由你所选择的服务商直接收取，与本系统无关。请根据自身情况合理设置每日 Token 预算。</p>'
-        + '<h4>五、免责声明</h4>'
-        + '<p>因使用 AI 功能产生的任何直接或间接损失，本系统不承担责任。AI 建议的学习计划、排期调整等，最终决定权在你手中，请谨慎决策。</p>'
-        + '</div></div></div>';
-      var wrap = document.createElement('div');
-      wrap.className = 'ai-legal-mask';
-      wrap.innerHTML = html;
-      document.body.appendChild(wrap);
-      var close = function(){ wrap.remove(); };
-      wrap.querySelector('#aiLegalClose').onclick = close;
-      wrap.onclick = function(e){ if (e.target === wrap) close(); };
-    };
+    var testBtn = document.getElementById('aiTest');
+    if (testBtn) testBtn.onclick = testConnection;
+    var saveBtn = document.getElementById('aiSave');
+    if (saveBtn) saveBtn.onclick = saveConfig;
+    var clearBtn = document.getElementById('aiClearAll');
+    if (clearBtn) clearBtn.onclick = clearAll;
+    // 用户协议与免责声明弹窗（事件委托，确保动态渲染也能绑定）
+    document.addEventListener('click', function(e){
+      if (e.target.closest && e.target.closest('#aiLegalBtn')) {
+        var html = '<div class="ai-legal-modal" id="aiLegalModal">'
+          + '<div class="ai-legal-content">'
+          + '<div class="ai-legal-head">用户协议与免责声明<button class="ai-legal-close" id="aiLegalClose" type="button">×</button></div>'
+          + '<div class="ai-legal-body">'
+          + '<h4>一、AI 生成内容的性质</h4>'
+          + '<p>本系统的 AI 学习助手由第三方大语言模型驱动，其回复内容由算法自动生成，仅供学习参考，不构成任何形式的专业建议。AI 可能会出现错误、遗漏或过时信息，请务必结合官方资料和自身判断进行核实。</p>'
+          + '<h4>二、联网搜索内容</h4>'
+          + '<p>AI 在回答涉及外部信息的问题时可能会调用联网搜索。搜索结果来自公开互联网，本系统不对其准确性、完整性或时效性做任何保证。引用的原始链接仅作来源参考，具体信息请以官方最新公告为准。</p>'
+          + '<h4>三、数据与隐私</h4>'
+          + '<p>使用 AI 功能时，你的学习数据（不含密码等敏感信息）会发送给 AI 服务商用于生成回答。API Key 由你自行配置并加密存储，本系统不存储、不分享你的 API Key，也不从中获取任何经济利益。</p>'
+          + '<h4>四、费用说明</h4>'
+          + '<p>本系统本身不收取任何费用。AI 调用产生的费用由你所选择的服务商直接收取，与本系统无关。请根据自身情况合理设置每日 Token 预算。</p>'
+          + '<h4>五、免责声明</h4>'
+          + '<p>因使用 AI 功能产生的任何直接或间接损失，本系统不承担责任。AI 建议的学习计划、排期调整等，最终决定权在你手中，请谨慎决策。</p>'
+          + '</div></div></div>';
+        var wrap = document.createElement('div');
+        wrap.className = 'ai-legal-mask';
+        wrap.innerHTML = html;
+        document.body.appendChild(wrap);
+        var close = function(){ wrap.remove(); };
+        var closeBtn = wrap.querySelector('#aiLegalClose');
+        if (closeBtn) closeBtn.onclick = close;
+        wrap.onclick = function(e){ if (e.target === wrap) close(); };
+      }
+    });
     var keyToggle = document.getElementById('aiKeyToggle');
     if (keyToggle) {
       var EYE_ON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
