@@ -190,6 +190,20 @@ const TOOL_SCHEMAS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: 'Search the web for external information. Use this ONLY when the question requires up-to-date or external knowledge NOT available in the user\'s study data: e.g. target school\'s exam subjects/reference books, graduate school admission policies, exam syllabus changes, subject-specific concepts, study methods. Do NOT use for analyzing the user\'s personal data, progress, or scheduling — those use the data tools above. Search results may be imperfect; cite sources when helpful and note uncertainty.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search query in Chinese or English, concise and specific.' },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
 
 // ── 参数校验小工具 ──────────────────────────────────────────────────────────
@@ -392,6 +406,7 @@ function getToolLabel(name, args, store) {
     case 'generate_schedule': return '计算排期与完成时间投影';
     case 'get_review_forecast': return `预测未来 ${args.days || 7} 天复习压力`;
     case 'save_memory': return '记下你的偏好';
+    case 'web_search': return args.query ? `联网搜索：${args.query.slice(0, 30)}` : '联网搜索';
     default: return '查询学习数据';
   }
 }

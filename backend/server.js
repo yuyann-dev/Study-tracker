@@ -12,6 +12,9 @@ const rateLimit = require('express-rate-limit');
 const { config } = require('./config');
 const db = require('./database'); // 初始化 SQLite（建表 + 幂等迁移）
 
+// 初始化 Tavily 搜索缓存表（幂等）
+try { require('./utils/tavilySearch').initTables(); } catch (e) { console.error('[server] tavily init failed:', e.message); }
+
 // JWT_SECRET 强度校验：系统环境变量空字符串会绕过 ensureEnvFile() 的自动生成，
 // 这里在数据库初始化之后、监听端口之前兜底，防止以空密钥启动导致 token 可被伪造。
 if (!process.env.JWT_SECRET || String(process.env.JWT_SECRET).length < 32) {

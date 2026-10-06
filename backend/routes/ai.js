@@ -585,13 +585,9 @@ router.post('/chat', async (req, res) => {
           for (const tc of resp.toolCalls) {
             toolCallCount++;
             if (toolCallCount > 12) {
-              // 已达硬上限：本批次剩余未执行的 tool_call 必须补一个占位 tool 响应，
-              // 否则 assistant 消息里的 tool_calls 与 tool 消息不一一对应，
-              // 下游收尾调用会被上游 400 拒绝（且易被误判为"模型不支持 tools"）。
               messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: '已达单次查询次数上限，本次查询跳过' }) });
               continue;
             }
-            // 请求内去重：同一工具+参数直接复用上次结果
             const cacheKey = tc.name + '|' + JSON.stringify(tc.args || {});
             let result;
             if (dedupCache.has(cacheKey)) {
@@ -601,15 +597,12 @@ router.post('/chat', async (req, res) => {
               const label = aiTools.getToolLabel(tc.name, tc.args, store);
               try {
                 if (tc.name === 'save_memory') {
-                  // 写操作：记忆开关关闭时不写入，但返回 ok（不报错）
                   if (cfg.memory_enabled !== 0) {
                     const content = String(tc.args.content || '').trim().slice(0, 200);
                     const kind = ['preference', 'goal', 'fact'].includes(tc.args.kind) ? tc.args.kind : 'fact';
                     if (content) {
-                      // 去重：相同内容不重复存
                       const exists = db.prepare('SELECT id FROM ai_memory WHERE user_id=? AND content=?').get(req.user.id, content);
                       if (!exists) {
-                        // 每用户最多 30 条，超出删 strength 最低的
                         const count = db.prepare('SELECT COUNT(*) AS c FROM ai_memory WHERE user_id=?').get(req.user.id).c;
                         if (count >= 30) {
                           db.prepare('DELETE FROM ai_memory WHERE user_id=? ORDER BY strength ASC, id ASC LIMIT 1').run(req.user.id);
@@ -620,6 +613,11 @@ router.post('/chat', async (req, res) => {
                   }
                   result = { ok: true };
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
+                } else if (tc.name === 'web_search') {
+                  // 异步联网搜索
+                  const tavilySearch = require('../utils/tavilySearch');
+                  result = await tavilySearch.search(tc.args.query, req.user.id);
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: result.searched ? 'ok' : 'skipped', durationMs: Date.now() - start });
                 } else {
                   result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
