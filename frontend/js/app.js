@@ -15687,10 +15687,12 @@ if (document.readyState === 'loading') {
   }
 
   /* ---- 学习时长（自由输入 + 快捷按钮） ---- */
+  var lastValidHours = 4;
   function setBudgetHours(h){
     h = Number(h);
-    if (!isFinite(h)) h = 4;
+    if (!isFinite(h) || h <= 0) h = lastValidHours;
     h = Math.min(16, Math.max(0.5, h));
+    lastValidHours = h;
     state.budgetMin = Math.round(h * 60);
     if (els.budgetHours) els.budgetHours.value = h;
     // 快捷按钮高亮：恰好等于某快捷值才高亮
