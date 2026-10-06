@@ -811,6 +811,6 @@ module.exports = (function () {
     generateSchedule: safe(generateSchedule, () => ({ today: { budgetMin: 240, allocatedMin: 0, plan: [] }, projection: [], overallVerdict: '' })),
     getReviewForecast: safe(getReviewForecast, () => ({ days: [], peakDate: null, peakLoad: 0 })),
     // 导出供路由复用
-    loadStore, findProject, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR,
+    loadStore, findProject, projectList, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR,
   };
 })();
