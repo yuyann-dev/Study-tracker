@@ -17063,7 +17063,15 @@ if (document.readyState === 'loading') {
     // 学习时长：自由输入 + 快捷按钮
     setBudgetHours(4);
     if (els.budgetHours) {
-      els.budgetHours.addEventListener('input', function(){ setBudgetHours(els.budgetHours.value); });
+      // input 事件：只更新内部状态，不写回输入框（避免打断用户输入小数如 0.5）
+      els.budgetHours.addEventListener('input', function(){
+        var v = Number(els.budgetHours.value);
+        if (isFinite(v) && v > 0) state.budgetMin = Math.round(v * 60);
+      });
+      // change 事件（失焦）：夹取合法范围并写回
+      els.budgetHours.addEventListener('change', function(){
+        setBudgetHours(els.budgetHours.value);
+      });
     }
     var budgetChips = mask.querySelectorAll('.ai-budget-row .ai-budget-chip');
     for (var bi = 0; bi < budgetChips.length; bi++) {
@@ -17090,8 +17098,17 @@ if (document.readyState === 'loading') {
       send();
     };
     if (els.input) {
+      // 判断是否为触屏设备（手机/平板）：触屏回车换行，非触屏回车发送
+      var isTouchDevice = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
       els.input.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+        if (e.key === 'Enter' && !e.shiftKey) {
+          if (isTouchDevice) {
+            // 触屏设备：回车默认换行，不发送（点发送按钮才发）
+            return;
+          }
+          e.preventDefault();
+          send();
+        }
       });
       els.input.addEventListener('input', autoGrow);
     }

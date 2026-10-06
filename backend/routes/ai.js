@@ -600,8 +600,30 @@ router.post('/chat', async (req, res) => {
               const start = Date.now();
               const label = aiTools.getToolLabel(tc.name, tc.args, store);
               try {
-                result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
-                trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
+                if (tc.name === 'save_memory') {
+                  // 写操作：记忆开关关闭时不写入，但返回 ok（不报错）
+                  if (cfg.memory_enabled !== 0) {
+                    const content = String(tc.args.content || '').trim().slice(0, 200);
+                    const kind = ['preference', 'goal', 'fact'].includes(tc.args.kind) ? tc.args.kind : 'fact';
+                    if (content) {
+                      // 去重：相同内容不重复存
+                      const exists = db.prepare('SELECT id FROM ai_memory WHERE user_id=? AND content=?').get(req.user.id, content);
+                      if (!exists) {
+                        // 每用户最多 30 条，超出删 strength 最低的
+                        const count = db.prepare('SELECT COUNT(*) AS c FROM ai_memory WHERE user_id=?').get(req.user.id).c;
+                        if (count >= 30) {
+                          db.prepare('DELETE FROM ai_memory WHERE user_id=? ORDER BY strength ASC, id ASC LIMIT 1').run(req.user.id);
+                        }
+                        db.prepare('INSERT INTO ai_memory (user_id, kind, content, strength, source_message_id, created_at) VALUES (?, ?, ?, 1, NULL, datetime(\'now\'))').run(req.user.id, kind, content);
+                      }
+                    }
+                  }
+                  result = { ok: true };
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
+                } else {
+                  result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
+                }
               } catch (e2) {
                 result = { error: '该数据暂时读不到' };
                 trace.push({ seq: toolCallCount, name: tc.name, label, status: 'error', durationMs: Date.now() - start, error: '查询失败，已跳过' });

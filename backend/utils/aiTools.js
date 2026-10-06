@@ -175,6 +175,21 @@ const TOOL_SCHEMAS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'save_memory',
+      description: 'Save a piece of information about the user to long-term memory. Call this ONLY when the user explicitly states a stable preference, goal, or fact that should be remembered across conversations (e.g. target school/major, study habits, daily routine, important dates, personal constraints). Do NOT save transient data like today\'s progress, current stats, or anything that changes daily. Keep content concise (under 100 chars).',
+      parameters: {
+        type: 'object',
+        properties: {
+          content: { type: 'string', description: 'The memory to save, concise and factual.' },
+          kind: { type: 'string', enum: ['preference', 'goal', 'fact'], description: 'Memory category.' },
+        },
+        required: ['content'],
+      },
+    },
+  },
 ];
 
 // ── 参数校验小工具 ──────────────────────────────────────────────────────────
@@ -376,6 +391,7 @@ function getToolLabel(name, args, store) {
     case 'get_study_records': return '查看近期打卡记录';
     case 'generate_schedule': return '计算排期与完成时间投影';
     case 'get_review_forecast': return `预测未来 ${args.days || 7} 天复习压力`;
+    case 'save_memory': return '记下你的偏好';
     default: return '查询学习数据';
   }
 }
