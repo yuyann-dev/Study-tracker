@@ -17005,6 +17005,7 @@ if (document.readyState === 'loading') {
 
   /* ---- 绑定 & 初始化 ---- */
   function init(){
+    try {
     fab = document.getElementById('aiFab');
     mask = document.getElementById('aiMask');
     dot = document.getElementById('aiFabDot');
@@ -17084,14 +17085,16 @@ if (document.readyState === 'loading') {
     }
 
     // 发送（生成中变为停止按钮）
-    els.sendBtn.onclick = function(){
+    if (els.sendBtn) els.sendBtn.onclick = function(){
       if (state.sending) { stopGeneration(); return; }
       send();
     };
-    els.input.addEventListener('keydown', function(e){
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-    });
-    els.input.addEventListener('input', autoGrow);
+    if (els.input) {
+      els.input.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+      });
+      els.input.addEventListener('input', autoGrow);
+    }
 
     // 空态按钮
     var goSet = document.getElementById('aiGoSettings');
@@ -17130,6 +17133,7 @@ if (document.readyState === 'loading') {
       setAnchor: function(pid){ state.anchorProjectId = pid; updateAnchorChip(); },
       ping: function(){ dot.hidden = false; }
     };
+    } catch(e) { console.error('AI模块初始化失败:', e); }
   }
 
   if (document.readyState === 'loading') {
