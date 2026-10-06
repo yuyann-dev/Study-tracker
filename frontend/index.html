@@ -64,7 +64,7 @@ if ('serviceWorker' in navigator) {
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=4">
-<link rel="stylesheet" href="css/style.css?v=fix1006d">
+<link rel="stylesheet" href="css/style.css?v=fix1006e">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1914,7 +1914,7 @@ if ('serviceWorker' in navigator) {
 
 
 <script src="js/auth.js?v=fix1006b"></script>
-<script src="js/app.js?v=fix1006d"></script>
+<script src="js/app.js?v=fix1006e"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2296,6 +2296,10 @@ if (document.readyState === 'loading') {
         <button class="ghost-btn ai-clear-mem" id="aiClearMem" type="button">清空AI记忆</button>
 
         <p class="ai-field-note ai-data-notice">你的学习数据会发送给AI服务商用于生成回答</p>
+
+        <div class="ai-legal-row">
+          <button class="ai-legal-link" id="aiLegalBtn" type="button">用户协议与免责声明</button>
+        </div>
 
         <div class="ai-set-actions">
           <button class="danger-btn ai-clear-all" id="aiClearAll" type="button">清空全部对话历史</button>

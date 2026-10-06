@@ -560,6 +560,7 @@ router.post('/chat', async (req, res) => {
     let totalTokensIn = 0;
     let totalTokensOut = 0;
     const trace = [];
+    const searchReferences = []; // 收集 web_search 返回的来源 URL，用于前端渲染参考文献
     let degradedReason = null;
 
     if (useTools) {
@@ -618,6 +619,14 @@ router.post('/chat', async (req, res) => {
                   const tavilySearch = require('../utils/tavilySearch');
                   result = await tavilySearch.search(tc.args.query, req.user.id);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: result.searched ? 'ok' : 'skipped', durationMs: Date.now() - start });
+                  // 收集搜索结果引用（去重，按 URL）
+                  if (result.searched && Array.isArray(result.results)) {
+                    result.results.forEach(function (r) {
+                      if (r && r.url && !searchReferences.some(function (s) { return s.url === r.url; })) {
+                        searchReferences.push({ title: (r.title || '').slice(0, 80), url: r.url });
+                      }
+                    });
+                  }
                 } else {
                   result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
@@ -706,6 +715,7 @@ router.post('/chat', async (req, res) => {
       tokens: { in: totalTokensIn, out: totalTokensOut },
       profileUpdated,
       toolCalls: trace,
+      searchReferences: searchReferences.length > 0 ? searchReferences : null,
       ...(degradedReason ? { degraded: degradedReason } : {}),
     });
   } catch (e) {

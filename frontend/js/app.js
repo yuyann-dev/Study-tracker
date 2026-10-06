@@ -16607,7 +16607,7 @@ if (document.readyState === 'loading') {
     return box;
   }
 
-  function renderAiReply(text, toolCalls){
+  function renderAiReply(text, toolCalls, searchReferences){
     var html;
     try { html = '<div class="md">' + md(text) + '</div>'; }
     catch(e) { html = '<div class="md">' + esc(String(text == null ? '' : text)) + '</div>'; }
@@ -16616,6 +16616,19 @@ if (document.readyState === 'loading') {
     if (toolCalls && toolCalls.length) {
       var trace = renderToolTrace(toolCalls);
       if (trace) div.insertBefore(trace, div.firstChild);
+    }
+    // 参考文献 + 免责声明（仅当本次调用了联网搜索且有结果时显示）
+    if (searchReferences && searchReferences.length) {
+      var refBox = document.createElement('div');
+      refBox.className = 'ai-references';
+      var refHtml = '<div class="ai-ref-title">参考来源</div><ol class="ai-ref-list">';
+      searchReferences.forEach(function (r, i) {
+        var title = r.title || r.url;
+        refHtml += '<li><a href="' + esc(r.url) + '" target="_blank" rel="noopener noreferrer">' + esc(title) + '</a></li>';
+      });
+      refHtml += '</ol><div class="ai-ref-disclaimer">以上信息由 AI 结合网络资料整理，请结合官方最新公告核实。</div>';
+      refBox.innerHTML = refHtml;
+      div.appendChild(refBox);
     }
     // 长回复折叠：超过 500 字默认收起前 ~300px，提供展开/收起
     var plainLen = (text || '').length;
@@ -16692,7 +16705,7 @@ if (document.readyState === 'loading') {
           addErrorBubble(null, 'AI 返回了空回复，请重试');
         }
       } else {
-        renderAiReply(reply, resp.toolCalls);
+        renderAiReply(reply, resp.toolCalls, resp.searchReferences);
       }
       if (hasActions) {
         // 后端 chat 现返回 messageId，apply 时回传以建立动作日志
@@ -17128,6 +17141,32 @@ if (document.readyState === 'loading') {
     document.getElementById('aiTest').onclick = testConnection;
     document.getElementById('aiSave').onclick = saveConfig;
     document.getElementById('aiClearAll').onclick = clearAll;
+    // 用户协议与免责声明弹窗
+    var legalBtn = document.getElementById('aiLegalBtn');
+    if (legalBtn) legalBtn.onclick = function(){
+      var html = '<div class="ai-legal-modal" id="aiLegalModal">'
+        + '<div class="ai-legal-content">'
+        + '<div class="ai-legal-head">用户协议与免责声明<button class="ai-legal-close" id="aiLegalClose" type="button">×</button></div>'
+        + '<div class="ai-legal-body">'
+        + '<h4>一、AI 生成内容的性质</h4>'
+        + '<p>本系统的 AI 学习助手由第三方大语言模型驱动，其回复内容由算法自动生成，仅供学习参考，不构成任何形式的专业建议。AI 可能会出现错误、遗漏或过时信息，请务必结合官方资料和自身判断进行核实。</p>'
+        + '<h4>二、联网搜索内容</h4>'
+        + '<p>AI 在回答涉及外部信息的问题时可能会调用联网搜索。搜索结果来自公开互联网，本系统不对其准确性、完整性或时效性做任何保证。引用的原始链接仅作来源参考，具体信息请以官方最新公告为准。</p>'
+        + '<h4>三、数据与隐私</h4>'
+        + '<p>使用 AI 功能时，你的学习数据（不含密码等敏感信息）会发送给 AI 服务商用于生成回答。API Key 由你自行配置并加密存储，本系统不存储、不分享你的 API Key，也不从中获取任何经济利益。</p>'
+        + '<h4>四、费用说明</h4>'
+        + '<p>本系统本身不收取任何费用。AI 调用产生的费用由你所选择的服务商直接收取，与本系统无关。请根据自身情况合理设置每日 Token 预算。</p>'
+        + '<h4>五、免责声明</h4>'
+        + '<p>因使用 AI 功能产生的任何直接或间接损失，本系统不承担责任。AI 建议的学习计划、排期调整等，最终决定权在你手中，请谨慎决策。</p>'
+        + '</div></div></div>';
+      var wrap = document.createElement('div');
+      wrap.className = 'ai-legal-mask';
+      wrap.innerHTML = html;
+      document.body.appendChild(wrap);
+      var close = function(){ wrap.remove(); };
+      wrap.querySelector('#aiLegalClose').onclick = close;
+      wrap.onclick = function(e){ if (e.target === wrap) close(); };
+    };
     var keyToggle = document.getElementById('aiKeyToggle');
     if (keyToggle) {
       var EYE_ON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';

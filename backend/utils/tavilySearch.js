@@ -19,7 +19,7 @@ const db = require('../database');
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY || '';
 const SEARCH_TIMEOUT_MS = 5000;
-const MAX_RESULTS = 5;
+const MAX_RESULTS = 8;
 const CACHE_TTL_HOURS = 24;
 const USER_DAILY_LIMIT = 10;
 const USER_MINUTE_LIMIT = 3;
