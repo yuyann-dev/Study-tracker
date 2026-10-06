@@ -54,3 +54,5 @@ temp/
 # 维护文档（含服务器敏感信息，不公开）
 *Prompt*.md
 *维护*.md
+
+frontend/dist/

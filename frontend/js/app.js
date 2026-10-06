@@ -1,12 +1,6 @@
-/* ============ 术语口径约定（维护时务必遵守） ============
-   用户可见文案中，「攻克/掌握」必须按项目类型动态选择，不可一个词用到底：
-   - 错题类（p.type === 'mistake'）：已攻克、攻克了 X 道、攻克度、攻克率、确认攻克了吗
-   - 背书类（p.type === 'recite'）：已掌握、掌握了 X 条、掌握度、掌握率、确认掌握了吗
-   - 刷题类（p.type === 'exercise'）：已完成、完成了 X 页
-   - 混合统计或无法区分类型时：用中性词「完成」或分别表述
-   - 代码变量名/函数名 isMastered / mastered 保持不变（技术实现，非用户可见文案）
-   - 「已熟知」是手动跳过/标记的独立概念，跨类型通用，不在此列
-   新增用户可见文案时，先确认当前上下文能否拿到 p.type，能拿到就必须分支。 */
+/* 文案用词记一下：错题用「攻克」，背书用「掌握」，刷题用「完成」，
+   混在一起分不清类型就用「完成」。变量名里的 mastered 不用改。
+   「已熟知」是手动跳过的意思，跟上面不是一回事。 */
 
 /* ============ 工具 ============ */
 const $ = s => document.querySelector(s);
@@ -1350,6 +1344,7 @@ var _lastSaveSig = '';
 let _booting = true; // 启动恢复期间禁止写入，防止空数据覆盖备份
 function saveStore() {
   if (_booting) return; // 恢复期间静默忽略，防止空 store 污染 IndexedDB 备份
+  // TODO: 数据量大的时候 JSON.stringify 有点卡，以后可以考虑增量存或者用 IDB 直接存对象
   const dataStr = JSON.stringify(store);
   // PWA 独立模式下禁用防抖，强制每次写入（增加存储成功率）
   if (!_isPWA && dataStr === _lastSaveSig) return; // 数据未变，跳过写入
@@ -2036,7 +2031,7 @@ function getMetrics(p) {
     ? p.startDate : (allDates.length ? allDates[0] : null);
 
   // ---- 落后量（仅用于文案解释；不重复加进目标，因为 remaining 已含落后）----
-  // [v2] behind 仍钳为 >=0（兼容旧文案）；behindSigned 带符号：正=落后，负=领先（供 M8/M9b 领先播报）
+  // behind 钳为 >=0（兼容旧文案）；behindSigned 带符号：正=落后，负=领先
   let behind = 0, behindSigned = 0;
   if (effStart && p.deadline && total > 0) {
     const totalSpan = diffDays(effStart, p.deadline);
@@ -2792,7 +2787,7 @@ function renderComfortAdvice(p) {
   // [v3 BUG-03] 废弃动态舒适量建议死锁算法，改为静态说明
   // 容量透明化（仅均匀模式）
   if (p.reviewMode === 'balanced') {
-    // [BUG-1] recite fixed 模式：不做 min()，直接显示固定容量
+    // recite fixed 模式：不做 min()，直接显示固定容量
     if (p.type === 'recite' && p.reciteMode === 'fixed' && p.dailyCapacity != null) {
       parts.push(`<div style="margin-bottom:6px">📊 固定模式：每天按 <b>${Math.round(p.dailyCapacity)}</b> 条执行，不受舒适量限制。</div>`);
     } else if (p.dailyCapacity != null) {
@@ -2806,7 +2801,7 @@ function renderComfortAdvice(p) {
   }
   parts.push(`<div style="color:var(--muted);font-size:12px">💡 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议，这里不用手动猜。</div>`);
   // [v3 P0-A6] 固定模式早期容量校准：连续14天轻松完成
-  // [BUG-2] recite 跳过此逻辑，节奏建议统一走 renderReciteComfortAdvice
+  // recite 跳过此逻辑，节奏建议统一走 renderReciteComfortAdvice
   if (p.type !== 'recite' && p.dailyCapacity != null && (!p.capAdviceMutedUntil || p.capAdviceMutedUntil < today)) {
     const easyDays = getConsecutiveEasyDays(p);
     if (easyDays >= 14) {
@@ -3942,7 +3937,7 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   const text = $('#confirmMasterText');
   const opts = $('#confirmMasterOptions');
   // 标题按项目类型动态选择：错题用「攻克」、背书用「掌握」
-  // [BUG-4] 提前定义 masteredWord，供标题、正文、按钮统一使用
+  // 提前定义 masteredWord，供标题、正文、按钮统一使用
   const masteredWord = p.type === 'mistake' ? '攻克' : '掌握';
   const titleEl = mask.querySelector('.cm-title');
   if (titleEl) titleEl.textContent = `确认${masteredWord}了吗？`;
@@ -6519,7 +6514,7 @@ function renderDeadlinePassedBanner(p) {
   const itemWord = isRecite ? '条' : '道';
   let html = '';
   if (isHard) {
-    // [v3] hardDeadline+过期：考试结束文案；[v2 背书 M4] recite 文案按类型区分
+    // hardDeadline+过期：考试结束文案；recite 文案按类型区分
     html = `<div class="ob-text">
       <span class="ob-icon">📚</span>
       <span class="ob-main">考试已经结束了。这本${bookWord}陪你走过了备考的日子。</span>
@@ -6843,7 +6838,7 @@ function renderTightStrategyBar(p) {
       render();
       showToast(p.lowFreqExtended ? '📉' : '✅', p.lowFreqExtended ? '低频题已降频' : '已恢复原复习间隔', p.lowFreqExtended ? '偏题怪题间隔拉长。' : '低频题恢复原排期节奏。', 2500);
     } else if (action === 'postpone') {
-      // [v3] 一键自动改deadline为suggestedDate
+      // 一键自动改deadline为suggestedDate
       const oldDeadline = p.deadline;
       p.deadline = suggestedDate;
       // P2-1: 不再在这里+1（显示时已递增，避免双重计数）
@@ -7240,7 +7235,7 @@ function renderReciteProgressLine(p) {
     }
     if (warnText) html += `<br><span style="color:var(--warn)">${warnText}</span>`;
   } else if (fe.level === 'risk') {
-    // [BUG-3] 进入 risk 分支时，M6 策略条因 condRisk 必然渲染，这里直接走灰字结论，不重复亮红灯
+    // 进入 risk 分支时，策略条因 condRisk 必然渲染，这里直接走灰字结论，不重复亮红灯
     html += `<br><span style="color:var(--muted)">进度风险：新学节奏偏慢（建议见上方策略条）</span>`;
   } else if (fe.level === 'ok' && fe.overdueHint > 0) {
     html += `<br><span style="color:var(--muted)">还有 ${fe.overdueHint} 条逾期，慢慢来就好。</span>`;
@@ -8819,7 +8814,7 @@ function renderProjectList() {
     return;
   }
   const all = ids.map(id => store.projects[id]);
-  // [v3] 归档项目从首页隐藏，单独放收纳箱
+  // 归档项目从首页隐藏，单独放收纳箱
   const activeProjects = all.filter(p => !p.archived);
   const archivedProjects = all.filter(p => p.archived);
   // 按类型分组：刷题、背书、错题
@@ -8894,7 +8889,7 @@ function renderProjectList() {
     html += `<li class="project-group-label" style="padding:8px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px">${g.label}（${g.items.length}）</li>`;
     html += g.items.map(renderItem).join('');
   });
-  // [v3] 已归档收纳箱
+  // 已归档收纳箱
   if (archivedProjects.length > 0) {
     html += `<li class="project-group-label" style="padding:12px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;border-top:1px solid var(--border);margin-top:8px">📦 已归档（${archivedProjects.length}）</li>`;
     archivedProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -11421,6 +11416,7 @@ function renderWeaknessBoard(p) {
   // 渲染当前月份日历（固定 6 行高度，切换月份不跳变）
   function renderHeatCalendar() {
     var hmEl = $('#wbHeatmap'); if (!hmEl) return;
+    // TODO: 每次打开都全量遍历 reviews 算热力图，错题多了会卡，以后可以做个按日聚合的缓存
     var monthsEl = $('#wbHeatMonths');
     var emp = $('#wbHeatEmpty');
     var legend = document.querySelector('.wb-heatmap-legend');
@@ -13005,7 +13001,7 @@ function submitSettings() {
   p.name = name;
   // 错题本习题册/自由出处总量动态（已收录条数），不手动设置；错题本套卷和刷题本设置总套数
   if (p.type !== 'mistake' || isMistakeSet) p.total = effectiveTotal;
-  // [v3] 检测deadline从过去变未来，触发rebalance
+  // 检测deadline从过去变未来，触发rebalance
   const oldDeadline = p.deadline;
   p.deadline = deadline;
   const hdlEl = $('#sHardDeadline');
@@ -13212,7 +13208,7 @@ $('#formMask').addEventListener('click', e => { if (e.target === $('#formMask') 
 $('#settingsMask').addEventListener('click', e => { if (e.target === $('#settingsMask') && !_mouseDownInModal) closeSettings(); });
 
 $('#projectList').addEventListener('click', e => {
-  // [v3] 取消归档
+  // 取消归档
   const unarchBtn = e.target.closest('[data-unarchive]');
   if (unarchBtn) {
     e.stopPropagation();
@@ -15717,6 +15713,7 @@ if (document.readyState === 'loading') {
   async function aiFetch(path, options){
     options = options || {};
     options.headers = options.headers || {};
+    // TODO: 网络超时处理，现在如果API卡住会一直等，加个 AbortController 比较好
     var tok = aiToken();
     if (tok) options.headers['Authorization'] = 'Bearer ' + tok;
     if (options.body && !(options.body instanceof FormData)) {
