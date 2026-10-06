@@ -17,7 +17,7 @@
  */
 const db = require('../database');
 
-const DEFAULT_EXAM_ANCHOR = '2027-12-26';
+const DEFAULT_EXAM_ANCHOR = '2026-12-19';
 
 // ── 通用小工具 ──────────────────────────────────────────────────────────────
 

@@ -33,7 +33,7 @@
   html[data-theme="dark"] body::before{background-image:url("/paper-dark.jpg");background-repeat:repeat;background-size:760px 760px}
   .wrap{max-width:880px;margin:0 auto;position:relative}
 
-  .head{display:flex;flex-direction:column;align-items:stretch;gap:13px;margin-bottom:18px;padding:0 4px}
+  .head{display:flex;flex-direction:column;align-items:stretch;gap:13px;margin-bottom:18px;padding:14px 4px 0}
   .head-main{min-width:0;flex:0 0 auto}
   h1{font-size:22px;font-weight:700;letter-spacing:-.4px;margin:2px 0 0;line-height:1.3;overflow-wrap:anywhere}
   #bookTitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}

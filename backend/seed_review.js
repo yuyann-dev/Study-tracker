@@ -29,7 +29,7 @@ function reciteItems(total, masteredCount, dueCount, backlogCount){
   return items;
 }
 
-const DEADLINE='2027-12-26';
+const DEADLINE='2026-12-19';
 
 function upsertUser(email, username, store){
   const exist = db.prepare('SELECT id FROM users WHERE email=?').get(email);

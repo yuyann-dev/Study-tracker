@@ -38,7 +38,7 @@ function beijingNow() {
 function buildSystemPrompt(profile, memories, options = {}) {
   const { enableTools = false } = options;
   const now = beijingNow();
-  const daysLeft = Math.round((Date.parse('2027-12-19') - Date.now()) / 86400000);
+  const daysLeft = Math.round((Date.parse('2026-12-19') - Date.now()) / 86400000);
 
   let profileLine = '暂无画像，按通用考研私教对待。';
   if (profile && typeof profile === 'object') {
