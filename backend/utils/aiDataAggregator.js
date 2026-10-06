@@ -132,6 +132,12 @@ function nextReviewDay(item, intervals) {
   return new Date(learned + add * 86400000).toISOString().slice(0, 10);
 }
 
+/** 取 item 的下次复习日：优先用前端写入的 nextReviewDate（含自动均衡/分散后的值），没有才按间隔推算 */
+function getItemNextReview(it, intervals) {
+  if (it && it.nextReviewDate) return String(it.nextReviewDate).slice(0, 10);
+  return nextReviewDay(it, intervals);
+}
+
 /** 汇总单项目进度（通用） */
 function projectStats(p) {
   const today = todayStr();
@@ -151,10 +157,23 @@ function projectStats(p) {
   };
 
   if (type === 'exercise') {
-    const bStart = Number(p.bookStartPage) || 0;
-    const bEnd = Number(p.bookEndPage) || Number(p.total) || 0;
-    const total = Math.max(bEnd - bStart, 0);
-    const done = Math.min(exerciseDonePages(p), total);
+    const isSetMode = p.unit === 'set';
+    const unitMode = p.unitMode || (Array.isArray(p.units) && p.units.length ? 'ranges' : 'pages');
+    s.unit = p.unit || 'page';
+    s.isSetMode = isSetMode;
+    s.unitMode = unitMode;
+    let total, done;
+    if (isSetMode) {
+      // 套卷模式：total = 套卷数，done = 已完成套卷数
+      total = Array.isArray(p.units) ? p.units.length : (Number(p.total) || 0);
+      done = Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
+    } else {
+      // 页码模式
+      const bStart = Number(p.bookStartPage) || 0;
+      const bEnd = Number(p.bookEndPage) || Number(p.total) || 0;
+      total = Math.max(bEnd - bStart, 0);
+      done = Math.min(exerciseDonePages(p), total);
+    }
     s.total = r1(total);
     s.done = r1(done);
     s.completionRate = total > 0 ? r1((done / total) * 100) : 0;
@@ -162,15 +181,19 @@ function projectStats(p) {
     const remain = Math.max(total - done, 0);
     s.requiredRate = (daysLeft && daysLeft > 0) ? r1(remain / daysLeft) : 0;
     s.gap = s.requiredRate > 0 ? r1((s.recent7Rate - s.requiredRate) / s.requiredRate * 100) : 0;
+    s.totalSets = isSetMode ? total : null;
+    s.doneSets = isSetMode ? done : null;
+    s.totalPages = !isSetMode ? total : null;
+    s.donePages = !isSetMode ? done : null;
   } else if (type === 'recite') {
     const items = Array.isArray(p.items) ? p.items : [];
     const total = items.length;
     const mastered = items.filter((it) => it.mastered || it.manualMastered).length;
-    let due = 0;       // 今日到期（含逾期）
+    let due = 0;       // 今日到期（含逾期，与前端 getDueItems 一致）
     let backlog = 0;   // 已逾期（nextReview < today 且未掌握）
     for (const it of items) {
       if (it.mastered || it.manualMastered) continue;
-      const nd = nextReviewDay(it, p.intervals);
+      const nd = getItemNextReview(it, p.intervals);
       if (!nd) continue;
       if (nd <= today) { due++; if (nd < today) backlog++; }
     }
@@ -190,13 +213,23 @@ function projectStats(p) {
     const items = Array.isArray(p.items) ? p.items : [];
     const tags = {};
     let streaky = 0;
+    let due = 0;       // 今日到期（含逾期，与前端 getDueItems 一致）
+    let backlog = 0;   // 已逾期
+    let mastered = 0;
     for (const it of items) {
+      if (it.mastered || it.manualMastered) { mastered++; continue; }
       for (const t of Array.isArray(it.errTags) ? it.errTags : []) {
         tags[t] = (tags[t] || 0) + 1;
       }
       if ((Number(it.wrongStreak) || 0) >= 2) streaky++;
+      const nd = getItemNextReview(it, p.intervals);
+      if (nd && nd <= today) { due++; if (nd < today) backlog++; }
     }
     s.totalItems = items.length;
+    s.mastered = mastered;
+    s.masteryRate = items.length > 0 ? r1(mastered / items.length * 100) : 0;
+    s.dueToday = due;
+    s.backlog = backlog;
     s.streakyCount = streaky;
     s.errTagDist = tags;
   }
@@ -755,7 +788,7 @@ function getReviewForecast(userId, days) {
     const items = Array.isArray(p.items) ? p.items : [];
     for (const it of items) {
       if (it.mastered || it.manualMastered) continue;
-      const nd = nextReviewDay(it, p.intervals);
+      const nd = getItemNextReview(it, p.intervals);
       if (!nd) continue;
       // 已逾期的条目归到今天，体现积压压力
       const bucketDate = parseDay(nd) < parseDay(today) ? today : nd;
