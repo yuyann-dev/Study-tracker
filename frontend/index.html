@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=4">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=5">
 <script>
 /* 页面最早期阻止浏览器默认 PWA 安装气泡，改用自定义引导（只弹一次） */
 window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._deferredInstallEarly = e; });
@@ -61,9 +61,18 @@ if ('serviceWorker' in navigator) {
 <meta name="theme-color" content="#2e6b4f">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#273859">
 <meta name="format-detection" content="telephone=no">
+<!-- Open Graph：社交分享和AI解析预览 -->
+<meta property="og:title" content="Study Tracker - 考研学习规划工具">
+<meta property="og:description" content="刷题、错题、背书的智能学习规划工具，帮你按目标稳步完成。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://yystudy.top">
+<meta property="og:image" content="https://yystudy.top/icon-512.png?v=5">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://yystudy.top/icon-512.png?v=5">
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
-<link rel="icon" type="image/png" href="favicon-64.png?v=4">
+<link rel="icon" type="image/png" href="favicon-64.png?v=5">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=5">
 <link rel="stylesheet" href="css/style.css?v=fix1006k">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
@@ -83,7 +92,7 @@ if ('serviceWorker' in navigator) {
 
 <!-- 首屏加载界面（消除白屏，渲染完成后自动隐藏） -->
 <div id="splashScreen">
-  <div class="splash-logo"><img src="icon-192.png?v=4" alt="Study Tracker"></div>
+  <div class="splash-logo"><img src="icon-192.png?v=5" alt="Study Tracker"></div>
   <div class="splash-text">Study Tracker 加载中…</div>
   <div class="splash-spinner"></div>
 </div>
@@ -105,7 +114,7 @@ if ('serviceWorker' in navigator) {
 <!-- ============ 欢迎页 ============ -->
 <div class="wrap" id="welcome" hidden>
   <div class="welcome">
-    <div class="welcome-badge"><img src="apple-touch-icon.png?v=4" alt="Study Tracker" style="width:100%;height:100%;border-radius:inherit;display:block"></div>
+    <div class="welcome-badge"><img src="apple-touch-icon.png?v=5" alt="Study Tracker" style="width:100%;height:100%;border-radius:inherit;display:block"></div>
     <h2>Study Tracker</h2>
     <p class="welcome-tagline">刷 题 · 背 书 · 错 题</p>
     <div class="welcome-feats">
@@ -1020,7 +1029,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="authMask" hidden>
   <div class="modal" style="max-width:400px">
     <div class="auth-brand">
-      <div class="auth-brand-icon"><img src="icon-192.png?v=4" alt="Study Tracker"></div>
+      <div class="auth-brand-icon"><img src="icon-192.png?v=5" alt="Study Tracker"></div>
       <div class="auth-brand-name">Study Tracker</div>
       <div class="auth-brand-sub">登录后云端备份你的学习数据</div>
     </div>
@@ -1103,7 +1112,7 @@ if ('serviceWorker' in navigator) {
   <div class="modal" style="max-width:380px">
     <button class="x-btn" id="forgotClose" style="position:absolute;right:16px;top:16px;z-index:2">×</button>
     <div class="auth-brand" style="margin-bottom:16px;margin-top:4px">
-      <div class="auth-brand-icon" style="width:56px;height:56px;border-radius:14px"><img src="icon-192.png?v=4" alt="Study Tracker"></div>
+      <div class="auth-brand-icon" style="width:56px;height:56px;border-radius:14px"><img src="icon-192.png?v=5" alt="Study Tracker"></div>
       <div class="auth-brand-name" style="font-size:17px;margin-top:10px">找回密码</div>
     </div>
     <!-- 步骤指示器 -->
@@ -1223,7 +1232,7 @@ if ('serviceWorker' in navigator) {
     </div>
     <div id="installInline" hidden>
       <div class="install-hero">
-        <img src="icon-192.png?v=4" alt="Study Tracker 图标" class="install-hero-icon">
+        <img src="icon-192.png?v=5" alt="Study Tracker 图标" class="install-hero-icon">
         <div class="install-hero-name">Study Tracker</div>
         <div class="install-hero-desc">独立窗口打开，自动保持最新版本</div>
       </div>
