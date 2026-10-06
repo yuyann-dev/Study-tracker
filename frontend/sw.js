@@ -4,7 +4,7 @@
    注意：JS/CSS 的缓存失效靠 index.html 里的 ?v= 版本号，
    改了文件记得顺手升版本号，不然 SW 会一直吐旧缓存。
    API 请求不缓存，里面有用户数据。 */
-var CACHE = 'yystudy-v55';
+var CACHE = 'yystudy-v58';
 var CORE = [
   './',
   './index.html',
@@ -50,6 +50,8 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
+  // 只处理 http/https 请求，忽略 chrome-extension 等扩展请求（Cache API 不支持）
+  if (req.url.indexOf('http://') !== 0 && req.url.indexOf('https://') !== 0) return;
 
   // API 响应含用户全量数据：直接走网络、绝不进 SW 缓存，避免登出后隐私残留
   if (req.url.indexOf('/api/') !== -1) {
@@ -59,7 +61,7 @@ self.addEventListener('fetch', function (e) {
 
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(function (res) {
+      fetch(req, { cache: 'no-cache' }).then(function (res) {
         // 仅缓存 200 导航响应，避免 500/维护页被写进缓存
         if (res && res.status === 200) {
           var copy = res.clone();
@@ -78,7 +80,7 @@ self.addEventListener('fetch', function (e) {
   var isJsCss = url.indexOf('.js') !== -1 || url.indexOf('.css') !== -1;
   if (isJsCss) {
     e.respondWith(
-      fetch(req).then(function (res) {
+      fetch(req, { cache: 'no-cache' }).then(function (res) {
         if (res && res.status === 200) {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });

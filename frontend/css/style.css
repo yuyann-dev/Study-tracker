@@ -2084,7 +2084,7 @@ html[data-theme="dark"]{
 
 /* 入口 FAB */
 #aiFab{
-  position:fixed;right:16px;bottom:calc(24px + env(safe-area-inset-bottom));
+  position:fixed;right:16px;bottom:24px;
   width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;z-index:120;
   background:var(--brand);color:#fff;font-size:26px;line-height:1;
   display:flex;align-items:center;justify-content:center;
