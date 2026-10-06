@@ -47,7 +47,7 @@ jobs:
             cp -rf /tmp/deploy_frontend/js/* /var/www/yystudy/js/ 2>/dev/null || true
             cd /var/www/yystudy/
             # gzip 压缩所有静态资源
-            for f in index.html sw.js manifest.json css/style.css js/dom.js js/app.js js/auth.js js/utils.js js/storage.js js/review.js js/render.js js/ui.js js/events.js; do
+            for f in index.html sw.js manifest.json css/style.css js/app.js js/auth.js; do
               if [ -f "$f" ]; then gzip -c -9 "$f" > "${f}.gz"; fi
             done
             chown -R study:study /var/www/yystudy/
