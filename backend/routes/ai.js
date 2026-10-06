@@ -607,11 +607,13 @@ router.post('/chat', async (req, res) => {
                   const tavilySearch = require('../utils/tavilySearch');
                   result = await tavilySearch.search(tc.args.query, req.user.id, isAdmin);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: result.searched ? 'ok' : 'skipped', durationMs: Date.now() - start });
-                  // 收集搜索结果引用（去重，按 URL）
+                  // 收集搜索结果引用（去重，按 URL；清洗乱码标题）
                   if (result.searched && Array.isArray(result.results)) {
                     result.results.forEach(function (r) {
                       if (r && r.url && !searchReferences.some(function (s) { return s.url === r.url; })) {
-                        searchReferences.push({ title: (r.title || '').slice(0, 80), url: r.url });
+                        var cleanTitle = String(r.title || '').replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s\-\—\:\：\(\)（）\[\]【】《》""''！!？?，,。.、；;]/g, '').trim();
+                        if (!cleanTitle || cleanTitle.length < 2) cleanTitle = r.url;
+                        searchReferences.push({ title: cleanTitle.slice(0, 80), url: r.url });
                       }
                     });
                   }
