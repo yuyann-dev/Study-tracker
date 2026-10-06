@@ -16687,6 +16687,7 @@ if (document.readyState === 'loading') {
 
     // 创建 AbortController 用于停止生成
     state.abortController = new AbortController();
+    var streamMsgEl = null; // 流式输出的临时消息元素，停止时需要移除
 
     try {
       // 流式调用：SSE 逐字输出（打字机效果）
@@ -16718,7 +16719,7 @@ if (document.readyState === 'loading') {
       var reader = streamResp.body.getReader();
       var decoder = new TextDecoder();
       var buffer = '';
-      var currentMsgEl = null;
+      streamMsgEl = null;
       var currentMdEl = null;
       var fullText = '';
       var finalData = null;
@@ -16755,17 +16756,17 @@ if (document.readyState === 'loading') {
             // 工具调用完成，开始输出正文
             if (parsed.toolCalls && parsed.toolCalls.length && !toolCallsShown) {
               // 先创建消息元素，插入工具调用 trace
-              currentMsgEl = addAiMsg('<div class="md"><p></p></div>');
-              currentMdEl = currentMsgEl.querySelector('.md p');
+              streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
+              currentMdEl = streamMsgEl.querySelector('.md p');
               var traceEl = renderToolTrace(parsed.toolCalls);
-              if (traceEl) currentMsgEl.insertBefore(traceEl, currentMsgEl.firstChild);
+              if (traceEl) streamMsgEl.insertBefore(traceEl, streamMsgEl.firstChild);
               toolCallsShown = true;
             }
           } else if (eventName === 'delta') {
             // 逐字追加
-            if (!currentMsgEl) {
-              currentMsgEl = addAiMsg('<div class="md"><p></p></div>');
-              currentMdEl = currentMsgEl.querySelector('.md p');
+            if (!streamMsgEl) {
+              streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
+              currentMdEl = streamMsgEl.querySelector('.md p');
             }
             fullText += parsed.text || '';
             if (currentMdEl) {
@@ -16775,7 +16776,7 @@ if (document.readyState === 'loading') {
           } else if (eventName === 'done') {
             // 完成：用完整数据渲染（替换流式的简单渲染，确保参考文献、actions等正确）
             finalData = parsed;
-            if (currentMsgEl) currentMsgEl.remove(); // 移除流式临时元素
+            if (streamMsgEl) streamMsgEl.remove(); // 移除流式临时元素
           } else if (eventName === 'error') {
             throw { code: parsed.code, message: parsed.message };
           }
@@ -16806,7 +16807,7 @@ if (document.readyState === 'loading') {
         }
       } else if (fullText) {
         // 没有收到 done 事件（异常断开），用已收到的文本渲染
-        if (currentMsgEl) currentMsgEl.remove();
+        if (streamMsgEl) streamMsgEl.remove();
         renderAiReply(fullText, null, null);
       }
 
@@ -16815,7 +16816,8 @@ if (document.readyState === 'loading') {
     } catch(e) {
       removeTyping();
       if (e.code === 'ABORTED') {
-        // 用户主动停止：显示浅灰提示，不报错
+        // 用户主动停止：移除流式临时消息，显示浅灰提示，不报错
+        if (streamMsgEl) { streamMsgEl.remove(); streamMsgEl = null; }
         if (!state.editAborted) {
           var stopDiv = document.createElement('div');
           stopDiv.className = 'ai-msg-stop';
@@ -16825,6 +16827,7 @@ if (document.readyState === 'loading') {
         }
         state.editAborted = false;
       } else {
+        if (streamMsgEl) { streamMsgEl.remove(); streamMsgEl = null; }
         addErrorBubble(e.code, e.message);
       }
     } finally {
