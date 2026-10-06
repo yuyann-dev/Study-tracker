@@ -8,10 +8,15 @@
 /* 页面最早期阻止浏览器默认 PWA 安装气泡，改用自定义引导（只弹一次） */
 window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._deferredInstallEarly = e; });
 if ('serviceWorker' in navigator) {
-  /* 记录加载时是否已有旧 SW：仅"更新"场景（原本已被 SW 控制）才在新 SW 接管后自动刷新一次，
-     避免旧缓存（旧图标/旧加载页）卡住；首次安装不刷新。_swAutoRefreshed 防止刷新循环。 */
   window._swHadControllerAtLoad = !!navigator.serviceWorker.controller;
   var _swAutoRefreshed = false;
+  // 监听 SW 激活后发来的更新通知
+  navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'SW_UPDATED' && !_swAutoRefreshed && window._swHadControllerAtLoad) {
+      _swAutoRefreshed = true;
+      setTimeout(function () { window.location.reload(); }, 300);
+    }
+  });
   navigator.serviceWorker.addEventListener('controllerchange', function(){
     if (_swAutoRefreshed || !window._swHadControllerAtLoad) return;
     _swAutoRefreshed = true;
@@ -59,7 +64,7 @@ if ('serviceWorker' in navigator) {
 <!-- PWA：manifest 与 Service Worker 已接入，HTTPS 后支持安装、离线，安装名固定为 Study Tracker -->
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=4">
-<link rel="stylesheet" href="css/style.css?v=20261008">
+<link rel="stylesheet" href="css/style.css?v=fix1006b">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {

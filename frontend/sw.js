@@ -4,12 +4,12 @@
    注意：JS/CSS 的缓存失效靠 index.html 里的 ?v= 版本号，
    改了文件记得顺手升版本号，不然 SW 会一直吐旧缓存。
    API 请求不缓存，里面有用户数据。 */
-var CACHE = 'yystudy-v60';
+var CACHE = 'yystudy-v61';
 var CORE = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css',
+  './css/style.css?v=fix1006b',
   './js/app.js?v=fix1006b',
   './js/auth.js?v=fix1006b',
   './icon-192.png?v=4',
@@ -23,7 +23,6 @@ var CORE = [
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
-      // 逐个 add，避免单个文件 404 导致整个 install 失败
       return Promise.all(CORE.map(function (url) {
         return c.add(url).catch(function (err) {
           console.warn('[SW] 预缓存失败:', url, err);
@@ -36,13 +35,17 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
-      // 清理所有旧版本缓存（不限于当前 CACHE 名称）
-      return Promise.all(keys.map(function (k) { return caches.delete(k); }));
-    }).then(function () {
-      // 重新打开当前缓存（上面全删了）
-      return caches.open(CACHE);
+      // 只删除非当前版本的旧缓存，保留当前 CACHE（precache 内容不丢）
+      return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
     }).then(function () {
       return self.clients.claim();
+    }).then(function () {
+      // 激活后通知所有客户端：新版本已就绪，请刷新
+      return self.clients.matchAll().then(function (clients) {
+        clients.forEach(function (client) {
+          client.postMessage({ type: 'SW_UPDATED', cache: CACHE });
+        });
+      });
     })
   );
 });
