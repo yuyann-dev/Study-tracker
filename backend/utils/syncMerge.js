@@ -4,7 +4,7 @@
  * 作用：PUT 上传时不做全量覆盖，而是把「云端现有数据」与「客户端上传数据」
  *      对称合并，从根本上防止一台设备的全量推送冲掉另一台设备的删除/修改。
  *
- * ── 当前合并边界 ──
+ * ── 当前合并边界（务必与论文/答辩口径一致，thesis-1.1 / thesis-2.4）──
  *   本系统是「LWW（Last-Write-Wins）+ 墓碑」的工程变体，不是 CRDT / OT：
  *     · 顶层 tombstones   —— 按 id 取 max 墓碑（删除标记对称合并，旧推送不能复活已删数据）；
  *     · projects          —— 项目级 updatedAt LWW：两端都有同一项目时以 updatedAt 较新者为基底；
@@ -12,9 +12,9 @@
  *     · items（背书条目/错题）—— 按 id 做集合 union；同一 id 两端都有时按
  *           item.updatedAt（缺失则比 reviews 数组长度，再缺失保留 base）做整对象 LWW
  *           （选 updatedAt 较新的整条 item 覆盖，不是字段级合并），并按 tombstones
- *           过滤已删条目；保证「两台设备改不同 item」互不覆盖。
+ *           过滤已删条目；保证「两台设备改不同 item」互不覆盖（thesis-57 / items 合并）。
  *
- * ── 已知局限（仅在文档/注释承认，不改协议）──
+ * ── 已知局限（thesis-62，仅在文档/注释承认，不改协议）──
  *   1. 项目级字段冲突（两端同时改项目名）会丢一个修改——项目字段整体随 LWW 基底走；
  *   2. updatedAt 用的是**客户端 wall-clock 时间戳**，设备时钟漂移会误判谁更新；
  *      服务端已在 PUT 响应返回服务端 updated_at，但客户端下次同步尚未以其重算。
@@ -37,7 +37,7 @@ function mergeTombstones(a, b) {
 }
 
 /**
- * 墓碑 GC：删除 N 天前的墓碑，防止服务端 tombstones 无限增长。
+ * 墓碑 GC：删除 N 天前的墓碑，防止服务端 tombstones 无限增长（thesis-1.5）。
  * 与前端 pruneTombstones（frontend/index.html:15684）对齐阈值，默认 30 天。
  * 墓碑值是客户端 Date.now()（epoch 毫秒）。
  * @param {object} store 完整 store（就地修改其 tombstones 后返回）
@@ -170,7 +170,7 @@ function mergeProjects(existingProjects, incomingProjects, tombstones) {
       }
     }
 
-    // items：按 id 集合 union + 整对象 LWW（防两端改不同 item 互相覆盖）+ 墓碑过滤
+    // items：按 id 集合 union + 整对象 LWW（thesis-57，防两端改不同 item 互相覆盖）+ 墓碑过滤
     if (Array.isArray(base.items) || Array.isArray(other.items)) {
       mergedP.items = mergeItems(base.items, other.items, tombstones);
       bumped = true;

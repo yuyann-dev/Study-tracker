@@ -26,6 +26,10 @@ backups/
 *.bak
 *.backup
 
+# 部署备份目录
+backend.bak*/
+backend.bak-*/
+
 # 预压缩文件（部署时生成）
 *.gz
 
@@ -44,6 +48,9 @@ tmp/
 temp/
 *.tmp
 
+# 构建产物
+frontend/dist/
+
 # 根目录的构建/部署临时脚本（不排除子目录里的正式脚本）
 /*.py
 /*.sh
@@ -54,13 +61,5 @@ temp/
 # 维护文档（含服务器敏感信息，不公开）
 *Prompt*.md
 *维护*.md
-
-frontend/dist/
-
-# 开发过程文档（本地保留，不公开）
-docs/最终方案-*.md
-docs/逻辑盘查与方案设计.md
-docs/验证报告-*.md
-docs/审美审查报告-*.md
 docs/技术审查报告-*.md
 code-review-report.md

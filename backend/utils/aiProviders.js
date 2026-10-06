@@ -10,8 +10,8 @@ const PROVIDERS = {
     name: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
     models: [
-      { id: 'deepseek-flash', recommended: false },
-      { id: 'deepseek-v4-pro', recommended: true },
+      { id: 'deepseek-flash', recommended: true },
+      { id: 'deepseek-v4-pro', recommended: false },
     ],
     docsUrl: 'https://platform.deepseek.com/',
   },
@@ -37,8 +37,8 @@ const PROVIDERS = {
     name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     models: [
-      { id: 'gpt-4o-mini', recommended: false },
-      { id: 'gpt-4o', recommended: true },
+      { id: 'gpt-4o-mini', recommended: true },
+      { id: 'gpt-4o', recommended: false },
     ],
     docsUrl: 'https://platform.openai.com/',
   },
