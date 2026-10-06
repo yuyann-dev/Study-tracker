@@ -1908,8 +1908,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/auth.js?v=20261008"></script>
-<script src="js/app.js?v=20261008"></script>
+<script src="js/auth.js?v=20261006-2"></script>
+<script src="js/app.js?v=20261006-2"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2313,7 +2313,7 @@ if (document.readyState === 'loading') {
 
       <!-- 学习时长：自由输入 + 快捷按钮 -->
       <div class="ai-budget-row">
-        <input type="number" id="aiBudgetHours" class="ai-budget-num" min="0.5" max="16" step="0.5" value="4">
+        <input type="text" id="aiBudgetHours" class="ai-budget-num" inputmode="decimal" value="4">
         <span class="ai-budget-unit">小时</span>
         <button class="ai-budget-chip" type="button" data-h="2">2h</button>
         <button class="ai-budget-chip active" type="button" data-h="4">4h</button>
