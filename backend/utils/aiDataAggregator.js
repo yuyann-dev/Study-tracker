@@ -242,7 +242,7 @@ function projectStats(p) {
     s.streakyCount = streaky;
     s.errTagDist = tags;
     s.todayReviewed = getTodayReviewedCount(p);
-    s.byUnit = getMistakeByUnit(p).slice(0, 10);
+    s.byUnit = getMistakeByUnit(p);
   }
   return s;
 }
@@ -308,12 +308,24 @@ function getMistakeByUnit(p) {
 
   function findUnit(page) {
     if (!page) return null;
-    for (const u of units) {
-      const s = Number(u.startPage) || 0;
-      const e = Number(u.endPage) || 0;
-      if (page >= s && page <= e) return u.name;
+    // 先找最具体的子章节（深度优先，返回"父 > 子"格式）
+    function deepFind(nodes, parentName) {
+      for (const u of nodes || []) {
+        const s = Number(u.startPage) || 0;
+        const e = Number(u.endPage) || 0;
+        const fullName = parentName ? `${parentName} > ${u.name}` : u.name;
+        if (page >= s && page <= e) {
+          // 如果有子章节且页码落在子章节内，返回更具体的子章节名
+          if (Array.isArray(u.children) && u.children.length) {
+            const child = deepFind(u.children, fullName);
+            if (child) return child;
+          }
+          return fullName;
+        }
+      }
+      return null;
     }
-    return '未分类';
+    return deepFind(units, null) || '未分类';
   }
 
   const byUnit = {};
@@ -346,45 +358,82 @@ function getMistakeByUnit(p) {
   })).sort((a, b) => b.total - a.total);
 }
 
-/** 薄弱章节综合分析：结合刷题本完成率 + 错题本分布，判断哪些章节薄弱 */
+/** 章节错题分布分析：相对排名，区分未开始，中性措辞 */
 function analyzeWeakUnits(mistakeProject, exerciseProject) {
   if (!mistakeProject) return { found: false, reason: '错题本不存在' };
   const mistakeByUnit = getMistakeByUnit(mistakeProject);
   const exerciseUnits = exerciseProject ? getUnitCompletion(exerciseProject) : [];
 
   // 把错题分布和刷题完成率按章节名对齐
+  // 支持"父 > 子"格式：先匹配子章节，匹配不到再匹配父章节
   const exByName = {};
-  for (const u of exerciseUnits) exByName[u.name] = u;
+  const exChildByName = {};
+  for (const u of exerciseUnits) {
+    exByName[u.name] = u;
+    if (Array.isArray(u.children)) {
+      for (const c of u.children) {
+        exChildByName[`${u.name} > ${c.name}`] = c;
+        exChildByName[c.name] = c;
+      }
+    }
+  }
+  function findExerciseUnit(unitName) {
+    if (exChildByName[unitName]) return exChildByName[unitName];
+    if (exByName[unitName]) return exByName[unitName];
+    // "父 > 子"格式，取父章节
+    const parentName = unitName.split(' > ')[0];
+    if (exByName[parentName]) return exByName[parentName];
+    return null;
+  }
 
-  const analysis = mistakeByUnit.map(m => {
-    const ex = exByName[m.unit];
+  // 先标记每个章节的状态
+  const withStatus = mistakeByUnit.map(m => {
+    const ex = findExerciseUnit(m.unit);
     const exCompletion = ex ? ex.completionRate : null;
-    // 薄弱评分：错题多 + 掌握率低 + 连错多 + 刷题完成率低 → 越薄弱
-    let weakScore = 0;
-    weakScore += m.total * 2;           // 错题数量权重
-    weakScore += (100 - m.masteryRate) * 0.5; // 掌握率低权重
-    weakScore += m.streaky * 3;         // 连错权重高
-    if (exCompletion != null && exCompletion < 50) weakScore += (50 - exCompletion) * 0.3; // 刷题没做完
+    const notStarted = exCompletion != null && exCompletion === 0;
     return {
       unit: m.unit,
       mistakeCount: m.total,
+      mastered: m.mastered,
       masteryRate: m.masteryRate,
       streakyCount: m.streaky,
       dueToday: m.dueToday,
       exerciseCompletion: exCompletion,
+      notStarted,
       topErrTags: m.topErrTags,
-      weakScore: r1(weakScore),
-      level: weakScore >= 20 ? '薄弱' : weakScore >= 10 ? '一般' : '较好',
     };
-  }).sort((a, b) => b.weakScore - a.weakScore);
+  });
+
+  // 只对"已开始"的章节做相对排名（未开始的单独归类，不参与薄弱判定）
+  const started = withStatus.filter(x => !x.notStarted);
+  const notStartedList = withStatus.filter(x => x.notStarted);
+
+  // 相对排名：按错题数排序，前40%标记为"错题相对集中"，后60%为"分布较均匀"
+  // （不用绝对分数，因为不同错题本题量差异大）
+  started.sort((a, b) => b.mistakeCount - a.mistakeCount);
+  const threshold = Math.max(1, Math.ceil(started.length * 0.4));
+  const ranked = started.map((x, i) => ({
+    ...x,
+    rank: i + 1,
+    totalUnits: started.length,
+    // 相对标签：错题最多的前40%章节
+    relativeLabel: i < threshold ? '错题相对集中' : '分布较均匀',
+  }));
 
   return {
     found: true,
     mistakeBook: mistakeProject.name,
     linkedExerciseBook: exerciseProject ? exerciseProject.name : null,
-    totalUnits: analysis.length,
-    weakUnits: analysis.filter(a => a.level === '薄弱').slice(0, 5),
-    allUnits: analysis,
+    totalUnits: withStatus.length,
+    startedUnits: started.length,
+    notStartedUnits: notStartedList.length,
+    // 错题相对集中的章节（按错题数排序）
+    concentrated: ranked.filter(x => x.relativeLabel === '错题相对集中'),
+    // 所有已开始章节的相对排名
+    allRanked: ranked,
+    // 尚未开始的章节（刷题完成率为0，不参与薄弱判定）
+    notStarted: notStartedList.map(x => ({ unit: x.unit, exerciseCompletion: 0 })),
+    note: '有错题是正常的，说明在主动发现知识漏洞。这里只做相对分布参考，不代表章节"好坏"。',
   };
 }
 
@@ -469,18 +518,23 @@ function getMistakeReport(userId, projectIdOrIds) {
     }
   }
 
-  // 章节聚类：按 pageStart 映射到 units 叶子章
+  // 章节聚类：按 pageStart 映射到 units（支持子章节，返回"父 > 子"格式）
   const unitClusters = {};
-  function walkUnits(nodes) {
-    const out = {};
+  function findUnitDeep(page, nodes, parentName) {
     for (const u of nodes || []) {
-      out[u.name] = u;
-      if (Array.isArray(u.children)) Object.assign(out, walkUnits(u.children));
+      const s = Number(u.startPage) || 0;
+      const e = Number(u.endPage) || 0;
+      const fullName = parentName ? `${parentName} > ${u.name}` : u.name;
+      if (page >= s && page <= e) {
+        if (Array.isArray(u.children) && u.children.length) {
+          const child = findUnitDeep(page, u.children, fullName);
+          if (child) return child;
+        }
+        return fullName;
+      }
     }
-    return out;
+    return null;
   }
-  const leafByName = walkUnits(units);
-  const unitRanges = units.map((u) => ({ name: u.name, s: Number(u.startPage) || 0, e: Number(u.endPage) || 0 }));
 
   // 题型聚类（questionType）
   const typeClusters = {};
@@ -493,12 +547,9 @@ function getMistakeReport(userId, projectIdOrIds) {
   const thisYear = new Date().getFullYear();
 
   for (const it of items) {
-    // 章节
+    // 章节（支持子章节递归）
     const ps = Number(it.pageStart) || 0;
-    let unitName = '未分类';
-    for (const ur of unitRanges) {
-      if (ps >= ur.s && ps <= ur.e) { unitName = ur.name; break; }
-    }
+    const unitName = findUnitDeep(ps, units, null) || '未分类';
     (unitClusters[unitName] = unitClusters[unitName] || []).push(it);
 
     // 题型
