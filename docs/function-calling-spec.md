@@ -118,10 +118,10 @@ project = {
 - **返回结构**：
   ```json
   {
-    "examAnchor": "2027-12-26",
-    "daysLeft": 446,
-    "stage": "基础/强化期",
-    "dailyStudyMinutes": 240,
+    "examAnchor": "2026-12-19",
+    "daysLeft": 74,
+    "stage": "冲刺期",
+    "configuredDailyStudyMinutes": 240,
     "projectCount": 3,
     "byType": { "exercise": 1, "recite": 1, "mistake": 1 },
     "subjects": ["math"],

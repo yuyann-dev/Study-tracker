@@ -22,7 +22,7 @@ const TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'get_user_profile',
-      description: 'Get the user\'s basic study profile: exam anchor date, days left, current study stage, number and type of projects (exercise/recite/mistake), subject list, and daily available study minutes. Call this FIRST when the user asks an open-ended question about their overall situation before diving into any single project.',
+      description: 'Get the user\'s basic study profile: exam anchor date, days left, current study stage, number and type of projects (exercise/recite/mistake), subject list, and currently configured daily study minutes. Call this FIRST when the user asks an open-ended question about their overall situation before diving into any single project.',
       parameters: { type: 'object', properties: {}, required: [] },
     },
   },
@@ -242,7 +242,7 @@ function implGetUserProfile(userId) {
     examAnchor: summary.examAnchor,
     daysLeft,
     stage,
-    dailyStudyMinutes: getDailyStudyMinutes(userId),
+    configuredDailyStudyMinutes: getDailyStudyMinutes(userId),
     projectCount: summary.projectCount,
     byType: summary.byType,
     subjects: summary.subjects,
