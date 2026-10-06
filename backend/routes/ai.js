@@ -488,12 +488,13 @@ router.post('/chat', async (req, res) => {
 
     const date = todayLocal();
 
-    // 2. 今日预算检查（超预算不硬报错，降级本地数据）
+    // 2. 今日预算检查（管理员不受限；普通用户超预算只提醒不阻止，因为 api 是用户自己的）
     const usage = getTodayUsage(req.user.id, date);
     const usedIn = usage ? usage.tokens_in : 0;
     const usedOut = usage ? usage.tokens_out : 0;
     const budget = cfg.daily_token_budget || 100000;
-    const overBudget = (usedIn + usedOut) >= budget;
+    const isAdmin = req.user.isAdmin === true;
+    let overBudget = !isAdmin && (usedIn + usedOut) >= budget;
 
     // 3. 意图分类（支持多选视角：ctx.projectIds 数组）
     const { intent, projectIdHint } = aiIntent.classify(userMessage, ctx);
@@ -501,25 +502,12 @@ router.post('/chat', async (req, res) => {
       ? ctx.projectIds.map(String)
       : (ctx.projectId ? [String(ctx.projectId)] : (projectIdHint ? [String(projectIdHint)] : []));
     const projectId = projectIds.length === 1 ? projectIds[0] : null;
-    console.log(`[ai/chat] user=${req.user.id} provider=${cfg.provider} model=${cfg.model} intent=${intent} overBudget=${overBudget} budgetMin=${budgetMin} projectIds=${projectIds.join(',') || '全局'}`);
+    console.log(`[ai/chat] user=${req.user.id} admin=${isAdmin} provider=${cfg.provider} model=${cfg.model} intent=${intent} overBudget=${overBudget} budgetMin=${budgetMin} projectIds=${projectIds.join(',') || '全局'}`);
 
     // 4. 按意图取数聚合（多选时聚合多个项目）
     const dataSummary = gatherDataByIntent(req.user.id, intent, projectId, budgetMin, projectIds);
-    console.log(`[ai/chat] aggregated keys=${Object.keys(dataSummary || {}).join(',')} size=${JSON.stringify(dataSummary || {}).length}`);
 
-    // 超预算降级：不调大模型，本地数据 + 提示
-    if (overBudget) {
-      // 仍落一条 user 消息，assistant 回复降级文案
-      const convId = await ensureConversation(req, body.conversationId, userMessage);
-      await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
-      const reply = `今日 AI 额度（${budget} token）已用完，明天再来。我先把能直接算的本地结果给你：\n\n\`\`\`json\n${JSON.stringify(dataSummary, null, 2).slice(0, 1500)}\n\`\`\``;
-      const aid = await saveMessage(req.user.id, convId, 'assistant', reply, intent, null, 0, 0);
-      touchConversation(convId);
-      return ok(res, {
-        conversationId: convId, reply, intent, actions: [],
-        tokens: { in: 0, out: 0 }, profileUpdated: false, degraded: true,
-      });
-    }
+    // 超预算不阻止生成，只在最终回复中加一句提醒（api 是用户自己的，花用户自己的钱）
 
     // 5. 组 prompt
     let profileRow = db.prepare('SELECT profile_json, edited_fields_json FROM ai_profile WHERE user_id=?').get(req.user.id);
@@ -617,7 +605,7 @@ router.post('/chat', async (req, res) => {
                 } else if (tc.name === 'web_search') {
                   // 异步联网搜索
                   const tavilySearch = require('../utils/tavilySearch');
-                  result = await tavilySearch.search(tc.args.query, req.user.id);
+                  result = await tavilySearch.search(tc.args.query, req.user.id, isAdmin);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: result.searched ? 'ok' : 'skipped', durationMs: Date.now() - start });
                   // 收集搜索结果引用（去重，按 URL）
                   if (result.searched && Array.isArray(result.results)) {
@@ -699,6 +687,12 @@ router.post('/chat', async (req, res) => {
     const projects = storeProjects(req.user.id);
     const validActions = aiPrompt.filterValidActions(rawActions, projects);
 
+    // 超预算提醒（普通用户，不阻止生成，只在回复末尾加一句）
+    let finalReply = replyBody;
+    if (overBudget && !isAdmin) {
+      finalReply = replyBody + '\n\n> ⚠️ 今日 Token 用量已超过你设置的每日预算（' + budget + '），继续使用会产生额外费用，请注意控制。';
+    }
+
     // 8. 落库 + 累计用量（仅成功后累计；多轮 token 已累加）
     const convId = await ensureConversation(req, body.conversationId, userMessage);
     await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
@@ -709,7 +703,7 @@ router.post('/chat', async (req, res) => {
     return ok(res, {
       conversationId: convId,
       messageId: assistantMsgId,
-      reply: replyBody,
+      reply: finalReply,
       intent,
       actions: validActions,
       tokens: { in: totalTokensIn, out: totalTokensOut },
@@ -762,7 +756,8 @@ router.post('/chat/stream', async (req, res) => {
     const usedIn = usage ? usage.tokens_in : 0;
     const usedOut = usage ? usage.tokens_out : 0;
     const budget = cfg.daily_token_budget || 100000;
-    const overBudget = (usedIn + usedOut) >= budget;
+    const isAdmin = req.user.isAdmin === true;
+    const overBudget = !isAdmin && (usedIn + usedOut) >= budget;
 
     const { intent, projectIdHint } = aiIntent.classify(userMessage, ctx);
     const projectIds = Array.isArray(ctx.projectIds) && ctx.projectIds.length
@@ -772,15 +767,7 @@ router.post('/chat/stream', async (req, res) => {
 
     const dataSummary = gatherDataByIntent(req.user.id, intent, projectId, budgetMin, projectIds);
 
-    if (overBudget) {
-      const convId = await ensureConversation(req, body.conversationId, userMessage);
-      await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
-      const reply = `今日 AI 额度（${budget} token）已用完，明天再来。`;
-      await saveMessage(req.user.id, convId, 'assistant', reply, intent, null, 0, 0);
-      touchConversation(convId);
-      sendSSE('done', { conversationId: convId, reply, intent, actions: [], tokens: { in: 0, out: 0 }, degraded: true });
-      return res.end();
-    }
+    // 超预算不阻止生成（api 是用户自己的），只在最终回复中加提醒
 
     let profileRow = db.prepare('SELECT profile_json, edited_fields_json FROM ai_profile WHERE user_id=?').get(req.user.id);
     let profile = null;
@@ -941,10 +928,16 @@ router.post('/chat/stream', async (req, res) => {
     const projects = storeProjects(req.user.id);
     const validActions = aiPrompt.filterValidActions(rawActions, projects);
 
+    // 超预算提醒（普通用户，不阻止生成，只在回复末尾加一句）
+    let finalReply = replyBody;
+    if (overBudget && !isAdmin) {
+      finalReply = replyBody + '\n\n> ⚠️ 今日 Token 用量已超过你设置的每日预算（' + budget + '），继续使用会产生额外费用，请注意控制。';
+    }
+
     // 落库
     const convId = await ensureConversation(req, body.conversationId, userMessage);
     await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
-    const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', replyBody, intent, validActions, totalTokensIn, totalTokensOut);
+    const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', finalReply, intent, validActions, totalTokensIn, totalTokensOut);
     bumpUsage(req.user.id, date, totalTokensIn, totalTokensOut);
     touchConversation(convId);
 
@@ -952,7 +945,7 @@ router.post('/chat/stream', async (req, res) => {
     sendSSE('done', {
       conversationId: convId,
       messageId: assistantMsgId,
-      reply: replyBody,
+      reply: finalReply,
       intent,
       actions: validActions,
       tokens: { in: totalTokensIn, out: totalTokensOut },

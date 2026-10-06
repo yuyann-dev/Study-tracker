@@ -187,9 +187,10 @@ async function callTavily(query) {
  * 执行搜索（对外主入口）
  * @param {string} query 搜索关键词
  * @param {number} userId 用户ID
+ * @param {boolean} isAdmin 是否管理员（管理员不受限额）
  * @returns {Promise<object>} 搜索结果
  */
-async function search(query, userId) {
+async function search(query, userId, isAdmin) {
   query = String(query || '').trim().slice(0, 200);
   if (!query) {
     return { searched: false, reason: '搜索关键词为空' };
@@ -201,10 +202,12 @@ async function search(query, userId) {
     return { ...cached, cached: true };
   }
 
-  // 2. 检查限额
-  const limitCheck = checkUserLimit(userId);
-  if (!limitCheck.allowed) {
-    return { searched: false, reason: limitCheck.reason };
+  // 2. 检查限额（管理员不受限）
+  if (!isAdmin) {
+    const limitCheck = checkUserLimit(userId);
+    if (!limitCheck.allowed) {
+      return { searched: false, reason: limitCheck.reason };
+    }
   }
 
   // 3. 调用 API
