@@ -1,5 +1,5 @@
 /**
- * backend/test_scheduler.js — 间隔重复调度纯函数单元测试（thesis-3.3 / thesis-71）
+ * backend/test_scheduler.js — 间隔重复调度纯函数单元测试
  *
  * 覆盖前端 transitionReview（移植自 frontend/index.html:6562）的三档质量模型：
  *   good / fuzzy / forgot × 首次学习 / 非首次 / 连续 forgot 退轮 / 边界（最后一轮、stage=0）。

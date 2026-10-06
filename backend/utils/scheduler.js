@@ -7,7 +7,7 @@
  *   - lapseRollback 默认值         ← frontend/index.html:4286
  *   - 毕业判定                     ← frontend/index.html:6688-6699（最后一轮+≥3次+最近3次全 good）
  *
- * 【准确定性（thesis-2.1）】这是 Leitner 盒子思想的变体——固定间隔序列 + 三档主观质量反馈，
+ * 【准确定性】这是 Leitner 盒子思想的变体——固定间隔序列 + 三档主观质量反馈，
  *   不是 SM-2：没有 ease factor、没有遗忘概率建模、没有 0-5 质量分，只有 good/fuzzy/forgot。
  *
  * 纯函数：传入当前 stage / wrongStreak，返回 { stage, gap, wrongStreak }，不触碰 DOM/存储。

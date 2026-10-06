@@ -64,7 +64,7 @@ router.put('/', (req, res) => {
     }
     const merged = mergeStoresServer(existing, incoming);
 
-    // 落库前做墓碑 GC（30 天，与前端对齐），防止服务端 tombstones 无限增长（thesis-1.5）
+    // 落库前做墓碑 GC（30 天，与前端对齐），防止服务端 tombstones 无限增长
     pruneTombstones(merged, 30);
 
     // 维护 user_data.project_count 冗余列，admin 列表免 JSON.parse 全表（admin-checklist 1.2/2.1）

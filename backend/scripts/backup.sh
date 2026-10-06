@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# backend/scripts/backup.sh — SQLite 在线热备（对齐 admin-checklist 5.1 / thesis-6.3）
+# backend/scripts/backup.sh — SQLite 在线热备
 #
 # 用 sqlite3 ".backup" 做在线一致性热备（WAL 下安全，不锁库、不影响在线读写）。
 # 输出：/opt/study-tracker/backend/data/backups/study-YYYY-MM-DD.db

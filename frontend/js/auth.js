@@ -578,12 +578,12 @@
     });
   }
 
-  // ── items（背书条目/错题）合并：与后端 backend/utils/syncMerge.js 的 mergeItems 同构（thesis-57）──
+  // ── items（背书条目/错题）合并：与后端 backend/utils/syncMerge.js 的 mergeItems 同构 ──
   // 合并边界：按 id 做集合 union；同一 id 两端都有时做字段级 LWW：
   //   1) item.updatedAt 较大者胜（都没有视为 0，打平进入下一步）；
   //   2) reviews 数组较长者胜（复习评价更多，状态更新）；
   //   3) 仍打平则保留先入者（base），避免抖动。
-  // 这是「LWW + 墓碑」的工程变体，不是 CRDT/OT。已知局限（thesis-62）：updatedAt 用客户端
+  // 这是「LWW + 墓碑」的工程变体，不是 CRDT/OT。已知局限：updatedAt 用客户端
   // wall-clock，设备时钟漂移会误判；同一条目两端同时改不同字段会丢一个修改（未来工作：per-item 逻辑时钟）。
   function mergeItems(aItems, bItems, tombstones){
     var byId = {};   // id -> item（字段整体胜出者）
@@ -652,7 +652,7 @@
           mergedP.updatedAt = Math.max(lu, cu);
         }
       }
-      // items：按 id union + 字段级 LWW（thesis-57，防两端改不同 item 互相覆盖；与后端 mergeProjects 同构）
+      // items：按 id union + 字段级 LWW（防两端改不同 item 互相覆盖；与后端 mergeProjects 同构）
       if(Array.isArray(base.items) || Array.isArray(other.items)){
         mergedP.items = mergeItems(base.items, other.items, out.tombstones);
         mergedP.updatedAt = Math.max(lu, cu);
@@ -685,7 +685,7 @@
       else if(m && c){
         if((m.updatedAt||0) > (c.updatedAt||0)) newer = true;
         if(Array.isArray(m.records) && Array.isArray(c.records) && m.records.length > c.records.length) newer = true;
-        // items 合并后若本端条目数多于云端，需要回推（thesis-57）
+        // items 合并后若本端条目数多于云端，需要回推
         if(Array.isArray(m.items) && Array.isArray(c.items) && m.items.length > c.items.length) newer = true;
       }
     });

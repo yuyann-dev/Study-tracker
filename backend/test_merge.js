@@ -87,7 +87,7 @@ test('自定义模板合并', () => {
   assert.deepStrictEqual(ids, ['t1', 't2']);
 });
 
-// 场景9：两台设备改不同 item → 两个 item 都保留（thesis-57 items 字段级合并，核心）
+// 场景9：两台设备改不同 item → 两个 item 都保留（items 字段级合并，核心）
 test('两端改不同 item 互不覆盖', () => {
   const a = { ...empty, projects: { X: { id: 'X', name: 'X', updatedAt: 100, records: [], items: [
     { id: 'i1', updatedAt: 100, stage: 0, reviews: [] },
@@ -124,7 +124,7 @@ test('updatedAt 相同时按 reviews 长度 LWW', () => {
   assert.strictEqual(merged.projects.X.items[0].stage, 0, 'reviews 更长的 a 端（stage0）应胜出');
 });
 
-// 场景12：墓碑 GC —— 30 天前墓碑被清，新墓碑保留（thesis-61）
+// 场景12：墓碑 GC —— 30 天前墓碑被清，新墓碑保留
 test('pruneTombstones 清理过期墓碑保留新墓碑', () => {
   const { pruneTombstones } = require('./utils/syncMerge');
   const now = Date.now();

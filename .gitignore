@@ -56,3 +56,11 @@ temp/
 *维护*.md
 
 frontend/dist/
+
+# 开发过程文档（本地保留，不公开）
+docs/最终方案-*.md
+docs/逻辑盘查与方案设计.md
+docs/验证报告-*.md
+docs/审美审查报告-*.md
+docs/技术审查报告-*.md
+code-review-report.md
