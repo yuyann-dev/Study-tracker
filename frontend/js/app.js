@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v126', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v127', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -483,6 +483,24 @@ const StudyTime = {
         if (e.key === 'Escape') { el.textContent = ''; el.blur(); }
       });
     });
+
+    // 手动重新预估按钮
+    var reBtn = document.getElementById('aiReestimateBtn');
+    if (reBtn && !reBtn._bound) {
+      reBtn._bound = true;
+      reBtn.addEventListener('click', function() {
+        if (reBtn.classList.contains('spinning')) return;
+        reBtn.classList.add('spinning');
+        reBtn.title = '预估中…';
+        // 清除预估标记，强制重新预估
+        localStorage.removeItem(self._key('estimated_done'));
+        self.estimateTodayIfNeeded(true);
+        setTimeout(function() {
+          reBtn.classList.remove('spinning');
+          reBtn.title = '重新预估今日任务时长';
+        }, 3000);
+      });
+    }
   },
 
   /* 供 AI 模块调用：获取当前时间状态（发送给后端） */
@@ -17691,6 +17709,35 @@ if (document.readyState === 'loading') {
   }
 
   /* ---- 历史 Tab ---- */
+  var histManageMode = false;
+  var histSelected = new Set();
+
+  function updateHistBatchBar() {
+    var bar = document.getElementById('aiHistBatchBar');
+    var countEl = document.getElementById('aiHistSelectedCount');
+    var delBtn = document.getElementById('aiHistBatchDel');
+    var selectAll = document.getElementById('aiHistSelectAll');
+    if (!bar) return;
+    bar.hidden = !histManageMode;
+    if (countEl) countEl.textContent = '已选 ' + histSelected.size + ' 项';
+    if (delBtn) delBtn.disabled = histSelected.size === 0;
+    if (selectAll) {
+      var items = document.querySelectorAll('.ai-hist-item');
+      selectAll.checked = items.length > 0 && histSelected.size === items.length;
+    }
+  }
+
+  function setHistManageMode(on) {
+    histManageMode = on;
+    if (!on) histSelected.clear();
+    var items = document.querySelectorAll('.ai-hist-item');
+    items.forEach(function(it) {
+      it.classList.toggle('manage-mode', on);
+      it.classList.remove('selected');
+    });
+    updateHistBatchBar();
+  }
+
   async function loadHistory(){
     var list = els.histList;
     var empty = els.histEmpty;
@@ -17699,14 +17746,17 @@ if (document.readyState === 'loading') {
       var data = await aiFetch('/api/ai/conversations');
       var convs = data.conversations || data || [];
       list.innerHTML = '';
-      if (!convs.length) { list.innerHTML = ''; empty.hidden = false; return; }
+      if (!convs.length) { list.innerHTML = ''; empty.hidden = false; setHistManageMode(false); return; }
       empty.hidden = true;
       convs.forEach(function(c){
         var item = document.createElement('div');
-        item.className = 'ai-hist-item' + (c.isPinned ? ' pinned' : '');
+        item.className = 'ai-hist-item' + (c.isPinned ? ' pinned' : '') + (histManageMode ? ' manage-mode' : '');
+        item.setAttribute('data-id', c.id);
+        if (histSelected.has(c.id)) item.classList.add('selected');
         var title = c.title || (c.lastMessage ? c.lastMessage.slice(0,18) : '新会话');
         item.innerHTML =
-          '<div class="hi-main">'
+          '<input type="checkbox" class="hi-checkbox" ' + (histSelected.has(c.id) ? 'checked' : '') + '>'
+          + '<div class="hi-main">'
           + '<div class="hi-title">' + (c.isPinned ? '<span class="hi-pin-icon">' + svgIcon('pin') + '</span>' : '') + esc(title) + '</div>'
           + '<div class="hi-preview">' + esc(c.lastMessage || '') + ' · ' + esc(formatTime(c.lastAt || c.updatedAt)) + '</div>'
           + '</div>'
@@ -17716,8 +17766,24 @@ if (document.readyState === 'loading') {
           + '<button class="hi-btn hi-del" type="button" title="删除会话">' + svgIcon('trash-2') + '</button>'
           + '</div>';
         item.onclick = function(ev){
+          if (histManageMode) {
+            if (ev.target.classList.contains('hi-checkbox')) return;
+            var cb = item.querySelector('.hi-checkbox');
+            cb.checked = !cb.checked;
+            if (cb.checked) histSelected.add(c.id); else histSelected.delete(c.id);
+            item.classList.toggle('selected', cb.checked);
+            updateHistBatchBar();
+            return;
+          }
           if (ev.target.closest('.hi-actions')) return;
           openConversation(c.id);
+        };
+        var cb = item.querySelector('.hi-checkbox');
+        cb.onclick = function(ev) {
+          ev.stopPropagation();
+          if (cb.checked) histSelected.add(c.id); else histSelected.delete(c.id);
+          item.classList.toggle('selected', cb.checked);
+          updateHistBatchBar();
         };
         item.querySelector('.hi-rename').onclick = function(ev){
           ev.stopPropagation();
@@ -17746,6 +17812,7 @@ if (document.readyState === 'loading') {
         };
         list.appendChild(item);
       });
+      updateHistBatchBar();
     } catch(e) {
       list.innerHTML = '<p style="color:var(--bad);font-size:12.5px;padding:10px">' + esc(e.message || '加载失败') + '</p>';
     }
@@ -17775,6 +17842,10 @@ if (document.readyState === 'loading') {
   }
   function formatTime(ts){
     if (!ts) return '';
+    // SQLite datetime 是 UTC 时间，加 Z 标记让 JS 正确解析
+    if (typeof ts === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(ts)) {
+      ts = ts.replace(' ', 'T') + 'Z';
+    }
     var d = new Date(ts);
     if (isNaN(d.getTime())) return '';
     var diff = (Date.now() - d.getTime()) / 1000;
@@ -18115,6 +18186,49 @@ if (document.readyState === 'loading') {
     // 历史
     var newConvBtn = document.getElementById('aiNewConv');
     if (newConvBtn) newConvBtn.onclick = newConversation;
+
+    // 历史记录批量管理
+    var manageBtn = document.getElementById('aiHistManage');
+    if (manageBtn) manageBtn.onclick = function() { setHistManageMode(true); };
+    var cancelBtn = document.getElementById('aiHistCancel');
+    if (cancelBtn) cancelBtn.onclick = function() { setHistManageMode(false); loadHistory(); };
+    var selectAllBtn = document.getElementById('aiHistSelectAll');
+    if (selectAllBtn) selectAllBtn.onclick = function() {
+      var items = document.querySelectorAll('.ai-hist-item');
+      if (selectAllBtn.checked) {
+        items.forEach(function(it) {
+          var id = it.getAttribute('data-id');
+          if (id) histSelected.add(id);
+          it.classList.add('selected');
+          var cb = it.querySelector('.hi-checkbox');
+          if (cb) cb.checked = true;
+        });
+      } else {
+        histSelected.clear();
+        items.forEach(function(it) {
+          it.classList.remove('selected');
+          var cb = it.querySelector('.hi-checkbox');
+          if (cb) cb.checked = false;
+        });
+      }
+      updateHistBatchBar();
+    };
+    var batchDelBtn = document.getElementById('aiHistBatchDel');
+    if (batchDelBtn) batchDelBtn.onclick = async function() {
+      if (histSelected.size === 0) return;
+      if (!confirm('确定删除选中的 ' + histSelected.size + ' 个会话？')) return;
+      var ids = Array.from(histSelected);
+      for (var i = 0; i < ids.length; i++) {
+        try { await aiFetch('/api/ai/conversations/' + ids[i], { method: 'DELETE' }); } catch(e) {}
+        if (state.convId === ids[i]) {
+          state.convId = null;
+          els.msgs.innerHTML = '';
+          refreshChatEmptyState();
+        }
+      }
+      setHistManageMode(false);
+      loadHistory();
+    };
 
     // 设置
     var testBtn = document.getElementById('aiTest');

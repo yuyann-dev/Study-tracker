@@ -1940,8 +1940,8 @@ if ('serviceWorker' in navigator) {
 
 
 <script src="js/icons.js?v=b125"></script>
-<script src="js/auth.js?v=b127"></script>
-<script src="js/app.js?v=b127"></script>
+<script src="js/auth.js?v=b128"></script>
+<script src="js/app.js?v=b128"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2241,7 +2241,16 @@ if (document.readyState === 'loading') {
 
       <!-- 历史 Tab -->
       <div class="ai-pane" id="aiPane-history" hidden>
-        <button class="ghost-btn ai-newconv" id="aiNewConv" type="button">＋ 新会话</button>
+        <div class="ai-hist-header">
+          <button class="ghost-btn ai-newconv" id="aiNewConv" type="button">＋ 新会话</button>
+          <button class="ghost-btn ai-hist-manage" id="aiHistManage" type="button">管理</button>
+        </div>
+        <div class="ai-hist-batch-bar" id="aiHistBatchBar" hidden>
+          <label class="ai-hist-select-all"><input type="checkbox" id="aiHistSelectAll"> 全选</label>
+          <span class="ai-hist-selected-count" id="aiHistSelectedCount">已选 0 项</span>
+          <button class="ghost-btn ai-hist-batch-del" id="aiHistBatchDel" type="button" disabled>删除选中</button>
+          <button class="ghost-btn ai-hist-cancel" id="aiHistCancel" type="button">取消</button>
+        </div>
         <div id="aiHistList"></div>
         <div class="ai-empty" id="aiHistEmpty" hidden>
           <div class="ai-empty-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div>
@@ -2364,6 +2373,9 @@ if (document.readyState === 'loading') {
         <span class="ai-time-sep">·</span>
         <span class="ai-time-label">剩余</span>
         <span class="ai-time-remaining" id="aiRemainingMin">7.0h</span>
+        <button class="ai-reestimate-btn" id="aiReestimateBtn" type="button" title="重新预估今日任务时长">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        </button>
       </div>
 
       <!-- 示例问题（空对话时显示） -->

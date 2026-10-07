@@ -2382,6 +2382,24 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 .ai-hist-item .hi-btn:hover{background:var(--bg-soft);color:var(--text)}
 .ai-hist-item .hi-del:hover{color:var(--bad)}
 
+/* 历史记录批量管理 */
+.ai-hist-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ai-hist-header .ai-newconv{flex:1;margin-bottom:0}
+.ai-hist-manage{flex:0 0 auto;font-size:12px;padding:4px 10px}
+.ai-hist-batch-bar{
+  display:flex;align-items:center;gap:10px;padding:8px 4px;
+  margin-bottom:8px;border-bottom:1px solid var(--line);font-size:12px;
+}
+.ai-hist-select-all{display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text)}
+.ai-hist-select-all input{width:14px;height:14px;accent-color:var(--brand)}
+.ai-hist-selected-count{color:var(--muted);flex:1}
+.ai-hist-batch-del{color:var(--bad);border-color:var(--bad)}
+.ai-hist-batch-del:disabled{opacity:.4;cursor:not-allowed}
+.ai-hist-item.manage-mode .hi-actions{display:none}
+.ai-hist-item .hi-checkbox{display:none;flex:0 0 auto;width:16px;height:16px;accent-color:var(--brand)}
+.ai-hist-item.manage-mode .hi-checkbox{display:block}
+.ai-hist-item.selected{background:var(--ai-tint)}
+
 /* 空态 */
 .ai-empty{text-align:center;padding:40px 16px;color:var(--muted)}
 .ai-empty-icon{font-size:32px;opacity:.5;margin-bottom:10px}
@@ -2592,6 +2610,15 @@ html[data-theme="dark"] .ai-send{color:#10302a}
 .ai-time-studied:hover{border-color:var(--brand);background:var(--ai-tint)}
 .ai-time-studied.editing{border-style:solid;border-color:var(--brand);cursor:text;outline:none}
 .ai-time-remaining{color:var(--muted);font-variant-numeric:tabular-nums}
+.ai-reestimate-btn{
+  margin-left:auto;background:transparent;border:1px solid var(--line);
+  color:var(--muted);cursor:pointer;padding:3px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+.ai-reestimate-btn:hover{background:var(--ai-tint);color:var(--brand);border-color:var(--brand)}
+.ai-reestimate-btn.spinning svg{animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
 /* 示例问题胶囊 */
 .ai-samples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
