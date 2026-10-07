@@ -2561,7 +2561,7 @@ html[data-theme="dark"] .ai-send{color:#10302a}
 .ai-multi-list input{width:16px;height:16px;accent-color:var(--brand)}
 
 /* 学习时长：自由输入 + 快捷按钮 */
-.ai-budget-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:nowrap}
+.ai-budget-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
 .ai-budget-num{
   width:48px !important;min-width:48px !important;max-width:48px !important;
   background:var(--ai-bubble-ai);border:1px solid var(--line);
@@ -2578,6 +2578,19 @@ html[data-theme="dark"] .ai-send{color:#10302a}
   transition:background .15s ease,color .15s ease;flex:0 0 auto;
 }
 .ai-budget-chip.active{background:var(--ai-tint);color:var(--brand);border-color:transparent;font-weight:600}
+
+/* 今日已学 / 剩余时长 */
+.ai-time-row{display:flex;align-items:center;gap:5px;margin-bottom:8px;font-size:12px;color:var(--muted)}
+.ai-time-label{color:var(--muted)}
+.ai-time-sep{opacity:.5;margin:0 2px}
+.ai-time-studied{
+  color:var(--brand);font-weight:600;cursor:pointer;padding:1px 6px;border-radius:6px;
+  background:var(--ai-bubble-ai);border:1px dashed transparent;
+  font-variant-numeric:tabular-nums;transition:border-color .15s ease,background .15s ease;
+}
+.ai-time-studied:hover{border-color:var(--brand);background:var(--ai-tint)}
+.ai-time-studied.editing{border-style:solid;border-color:var(--brand);cursor:text;outline:none}
+.ai-time-remaining{color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* 示例问题胶囊 */
 .ai-samples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}

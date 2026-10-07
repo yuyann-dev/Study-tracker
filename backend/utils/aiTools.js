@@ -204,6 +204,32 @@ const TOOL_SCHEMAS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'set_task_estimates',
+      description: 'Write estimated study minutes for today\'s task items back to the user\'s data. Call this AFTER get_today_tasks to refine per-item time estimates based on the user\'s study habits. Each estimate is in minutes. Only update items that exist in today\'s task list. Keep estimates reasonable (1-60 minutes per item).',
+      parameters: {
+        type: 'object',
+        properties: {
+          estimates: {
+            type: 'array',
+            description: 'List of per-item estimates to write.',
+            items: {
+              type: 'object',
+              properties: {
+                projectId: { type: 'string', description: 'Project id from get_today_tasks.' },
+                itemId: { type: 'string', description: 'Item id within the project. Omit for exercise projects (page-based).' },
+                estimatedMinutes: { type: 'number', description: 'Estimated minutes for this item (1-60).' },
+              },
+              required: ['projectId', 'estimatedMinutes'],
+            },
+          },
+        },
+        required: ['estimates'],
+      },
+    },
+  },
 ];
 
 // ── 参数校验小工具 ──────────────────────────────────────────────────────────
@@ -347,6 +373,45 @@ function implGetReviewForecast(userId, args) {
   return aggregator.getReviewForecast(userId, days);
 }
 
+/** 写入工具：set_task_estimates —— 更新任务条目的预估时长 */
+function implSetTaskEstimates(userId, args) {
+  const estimates = Array.isArray(args.estimates) ? args.estimates : [];
+  if (!estimates.length) return { ok: false, reason: 'estimates 为空' };
+
+  const store = aggregator.loadStore(userId);
+  let updated = 0;
+
+  for (const est of estimates) {
+    const projectId = String(est.projectId || '').trim();
+    const estimatedMinutes = Math.round(Number(est.estimatedMinutes));
+    if (!projectId || !Number.isFinite(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 120) continue;
+
+    const project = aggregator.findProject(store, projectId);
+    if (!project) continue;
+
+    const itemId = est.itemId ? String(est.itemId).trim() : '';
+    if (itemId && Array.isArray(project.items)) {
+      const item = project.items.find((it) => it.id === itemId);
+      if (item) {
+        item.estimatedMinutes = estimatedMinutes;
+        updated++;
+      }
+    } else if (!itemId && project.type === 'exercise') {
+      // 刷题项目：记录每页预估时长到项目级
+      project.estMinPerPage = estimatedMinutes;
+      updated++;
+    }
+  }
+
+  if (updated > 0) {
+    // 写回 store_json
+    const newJson = JSON.stringify(store);
+    db.prepare('UPDATE user_data SET store_json = ?, updated_at = datetime(\'now\') WHERE user_id = ?').run(newJson, userId);
+  }
+
+  return { ok: true, updated };
+}
+
 // ── 对外分发 ────────────────────────────────────────────────────────────────
 
 /**
@@ -407,8 +472,9 @@ function getToolLabel(name, args, store) {
     case 'get_review_forecast': return `预测未来 ${args.days || 7} 天复习压力`;
     case 'save_memory': return '记下你的偏好';
     case 'web_search': return args.query ? `联网搜索：${args.query.slice(0, 30)}` : '联网搜索';
+    case 'set_task_estimates': return '预估今日任务时长';
     default: return '查询学习数据';
   }
 }
 
-module.exports = { TOOL_SCHEMAS, executeReadonlyTool, getToolLabel };
+module.exports = { TOOL_SCHEMAS, executeReadonlyTool, getToolLabel, implSetTaskEstimates };
