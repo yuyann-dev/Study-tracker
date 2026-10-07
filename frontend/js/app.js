@@ -39,9 +39,9 @@ function setThemePref(pref) {
 }
 
 const TYPES = {
-  exercise: { name:'刷题', icon:'' + svgIcon('pencil') + '', badgeCls:'', typeCls:'type-exercise' },
+  exercise: { name:'刷题', icon:'' + svgIcon('book-open') + '', badgeCls:'', typeCls:'type-exercise' },
   recite:   { name:'背书', icon:'' + svgIcon('book-open') + '', badgeCls:'recite', typeCls:'type-recite' },
-  mistake:  { name:'错题', icon:'' + svgIcon('square-pen') + '', badgeCls:'mistake', typeCls:'type-mistake' }
+  mistake:  { name:'错题', icon:'' + svgIcon('clipboard-list') + '', badgeCls:'mistake', typeCls:'type-mistake' }
 };
 
 const DEFAULT_INTERVALS = [1, 2, 4, 7, 15, 30];
