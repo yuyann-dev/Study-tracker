@@ -6048,6 +6048,7 @@ function editQuickRecordItem(itemId) {
       </div>
       <button class="qe-add-reason" id="qeAddReason">＋ 新增错因…</button>
     </div>
+    <div style="margin-bottom:16px">
       <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text)">备注（选填）</div>
       <textarea id="qeNote" rows="2" placeholder="比如：卡在哪一步、正确思路关键词…" style="width:100%;resize:vertical;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">${esc(it.note || '')}</textarea>
     </div>
