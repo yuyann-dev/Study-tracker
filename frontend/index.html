@@ -35,7 +35,7 @@ if ('serviceWorker' in navigator) {
         var bar = document.createElement('div');
         bar.id = 'swUpdateBar';
         bar.style.cssText = 'position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;padding:12px 20px;border-radius:12px;font-size:13.5px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);z-index:260;max-width:calc(100vw - 32px)';
-        bar.textContent = '⬆️ 检测到新版本，正在刷新…';
+        bar.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;vertical-align:-0.15em"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg> 检测到新版本，正在刷新…';
         if (document.body) document.body.appendChild(bar); else document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(bar); });
         setTimeout(function(){ window.location.reload(); }, 800);
       }
@@ -73,7 +73,10 @@ if ('serviceWorker' in navigator) {
 <title>Study Tracker</title>
 <link rel="icon" type="image/png" href="favicon-64.png?v=5">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=5">
-<link rel="stylesheet" href="css/style.css?v=fix1006l">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
+<link rel="stylesheet" href="css/style.css?v=icon1007">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -118,15 +121,15 @@ if ('serviceWorker' in navigator) {
     <h2>Study Tracker</h2>
     <p class="welcome-tagline">刷 题 · 背 书 · 错 题</p>
     <div class="welcome-feats">
-      <span class="welcome-feat">🗓️ 艾宾浩斯自动排复习</span>
-      <span class="welcome-feat">📊 进度与薄弱点看板</span>
-      <span class="welcome-feat">☁️ 云端同步备份</span>
+      <span class="welcome-feat"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg> 艾宾浩斯自动排复习</span>
+      <span class="welcome-feat"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 进度与薄弱点看板</span>
+      <span class="welcome-feat"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg> 云端同步备份</span>
     </div>
     <button class="primary" id="btnCreateFirst">＋ 新建第一个任务</button>
     <div class="welcome-types">
-      <div class="wtype"><div class="wt-ico">✏️</div><div class="wt-name">习题册 / 套卷</div><div class="wt-desc">按页或按套打卡，自动算每日计划与预计完成日</div></div>
-      <div class="wtype"><div class="wt-ico">📖</div><div class="wt-name">背书</div><div class="wt-desc">记得 / 模糊 / 忘记，间隔自动推进或回退</div></div>
-      <div class="wtype"><div class="wt-ico">📝</div><div class="wt-name">错题本</div><div class="wt-desc">自由出处/习题册/套卷三种模式，错因标签 + 薄弱点分析</div></div>
+      <div class="wtype"><div class="wt-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></div><div class="wt-name">习题册 / 套卷</div><div class="wt-desc">按页或按套打卡，自动算每日计划与预计完成日</div></div>
+      <div class="wtype"><div class="wt-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="wt-name">背书</div><div class="wt-desc">记得 / 模糊 / 忘记，间隔自动推进或回退</div></div>
+      <div class="wtype"><div class="wt-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></div><div class="wt-name">错题本</div><div class="wt-desc">自由出处/习题册/套卷三种模式，错因标签 + 薄弱点分析</div></div>
     </div>
   </div>
   <p class="footer">数据默认保存在本设备浏览器中，登录后自动云端同步备份</p>
@@ -141,18 +144,18 @@ if ('serviceWorker' in navigator) {
 
   <header class="head">
     <nav class="head-actions" aria-label="主导航">
-      <button class="ghost-btn" id="btnDashboard" title="今日总览">🏠 今日总览</button>
-      <button class="ghost-btn" id="btnProgress" title="查看完成情况明细">📊 完成情况</button>
-      <button class="ghost-btn" id="btnWeakness" title="查看薄弱点看板">🎯 薄弱点</button>
-      <button class="ghost-btn" id="btnLinkRef" title="关联刷题本" hidden>🔗 关联刷题本</button>
-      <button class="ghost-btn" id="btnLinkedMistakes" title="关联错题本" hidden>🔗 关联错题本</button>
-      <button class="ghost-btn" id="btnMistakeGuide" title="错题本使用说明" hidden>❓ 使用说明</button>
-      <button class="ghost-btn" id="btnSwitch">📚 切换</button>
-      <button class="ghost-btn" id="btnSettings">⚙️ 设置</button>
-      <button class="ghost-btn" id="studyRoomNavBtn" title="自习室">🏫 自习室</button>
-      <button class="ghost-btn" id="btnAdmin" title="管理员后台" hidden>🛡️ 管理</button>
+      <button class="ghost-btn" id="btnDashboard" title="今日总览"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> 今日总览</button>
+      <button class="ghost-btn" id="btnProgress" title="查看完成情况明细"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 完成情况</button>
+      <button class="ghost-btn" id="btnWeakness" title="查看薄弱点看板"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> 薄弱点</button>
+      <button class="ghost-btn" id="btnLinkRef" title="关联刷题本" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> 关联刷题本</button>
+      <button class="ghost-btn" id="btnLinkedMistakes" title="关联错题本" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> 关联错题本</button>
+      <button class="ghost-btn" id="btnMistakeGuide" title="错题本使用说明" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg> 使用说明</button>
+      <button class="ghost-btn" id="btnSwitch"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v14"/><path d="M4 4v16"/></svg> 切换</button>
+      <button class="ghost-btn" id="btnSettings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> 设置</button>
+      <button class="ghost-btn" id="studyRoomNavBtn" title="自习室"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8"/><path d="M2 20v-8l4-2"/><path d="M18 12v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8"/><path d="M10 12h4"/></svg> 自习室</button>
+      <button class="ghost-btn" id="btnAdmin" title="管理员后台" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> 管理</button>
       <span id="syncIndicator" class="sync-indicator" hidden title="同步状态"></span>
-      <button id="btnUser" class="user-avatar-wrap" title="账号" aria-label="账号中心"><span class="user-avatar-btn" aria-hidden="true">👤</span></button>
+      <button id="btnUser" class="user-avatar-wrap" title="账号" aria-label="账号中心"><span class="user-avatar-btn" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span></button>
     </nav>
     <div class="head-main">
       <h1 id="bookTitle">—</h1>
@@ -166,8 +169,8 @@ if ('serviceWorker' in navigator) {
   <section class="card" id="reviewSection" hidden>
     <div class="row-between">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <h2 style="margin:0">📅 今日复习</h2>
-        <button type="button" id="modeSwitchBtn" class="mode-tag" title="点击切换复习模式" hidden>⚖️ 均匀分布</button>
+        <h2 style="margin:0"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg> 今日复习</h2>
+        <button type="button" id="modeSwitchBtn" class="mode-tag" title="点击切换复习模式" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> 均匀分布</button>
       </div>
       <span class="review-count" id="reviewCount">0</span>
       <span class="retention-count" id="retentionCount" hidden></span>
@@ -175,7 +178,7 @@ if ('serviceWorker' in navigator) {
 
     <div class="overdue-banner" id="overdueBanner" hidden>
       <div class="ob-text">
-        <span class="ob-icon">⏰</span>
+        <span class="ob-icon"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg></span>
         <span class="ob-main">有 <strong id="overdueCount">0</strong> 条内容已逾期</span>
         <span class="ob-sub" id="overdueSub">—</span>
       </div>
@@ -190,7 +193,7 @@ if ('serviceWorker' in navigator) {
 
     <div class="excess-banner" id="excessBanner" hidden>
       <div class="ob-text">
-        <span class="ob-icon">📋</span>
+        <span class="ob-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
         <span class="ob-main">今天有 <strong id="excessCount">0</strong> 条待复习，超过舒适量</span>
         <span class="ob-sub" id="excessSub">可以先做一部分，剩余分散到未来减轻压力</span>
       </div>
@@ -205,14 +208,14 @@ if ('serviceWorker' in navigator) {
 
     <!-- [v3] 独立建议行（方案A：A1-A6+D1） -->
     <div class="ob-advice" id="excessAdvice" hidden style="margin-bottom:12px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px">
-      <span class="ob-advice-icon">💡</span>
+      <span class="ob-advice-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg></span>
       <span class="ob-advice-text" id="excessAdviceText"></span>
       <button class="ob-advice-btn" id="excessApplyAdvice">一键应用</button>
     </div>
 
     <div class="excess-banner" id="deadlinePassedBanner" hidden>
       <div class="ob-text">
-        <span class="ob-icon">📌</span>
+        <span class="ob-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>
         <span class="ob-main" id="deadlinePassedText"></span>
         <span class="ob-sub">系统已切换为纯间隔复习节奏，不再赶进度。如需新目标可在设置里修改截止日。</span>
       </div>
@@ -220,7 +223,7 @@ if ('serviceWorker' in navigator) {
 
     <div class="excess-banner" id="mistakeRiskBanner" hidden>
       <div class="ob-text">
-        <span class="ob-icon">⚠️</span>
+        <span class="ob-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
         <span class="ob-main" id="mistakeRiskText"></span>
         <span class="ob-sub">系统会优先保证每道题截止日前至少重做一遍；想更稳，可把「完整攻克」目标适当后移，或在设置里调整每日容量、截止日。</span>
       </div>
@@ -407,7 +410,7 @@ if ('serviceWorker' in navigator) {
   <div id="exerciseHintZone" style="display:none;margin-bottom:14px"></div>
 
   <section class="card status ok" id="statusCard">
-    <div class="status-icon" id="statusIcon">✅</div>
+    <div class="status-icon" id="statusIcon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
     <div class="status-body">
       <div class="status-title" id="statusTitle">—</div>
       <div class="status-desc" id="statusDesc">—</div>
@@ -416,7 +419,7 @@ if ('serviceWorker' in navigator) {
         <div class="status-desc" id="statusAlgoNote" style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.7;opacity:.9"></div>
       </details>
       <div id="lazyWarning" class="lazy-warning" hidden>
-        <span class="lazy-warning-icon">💤</span>
+        <span class="lazy-warning-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
         <span id="lazyWarningText"></span>
       </div>
     </div>
@@ -441,7 +444,7 @@ if ('serviceWorker' in navigator) {
 
   <section class="card" id="unitSection" hidden>
     <div class="row-between">
-      <h2 style="margin:0">📂 单元掌握情况</h2>
+      <h2 style="margin:0"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg> 单元掌握情况</h2>
       <span class="muted" style="font-size:12px">颜色 = 复习掌握度</span>
     </div>
     <ul class="unit-list" id="unitList"></ul>
@@ -493,7 +496,7 @@ if ('serviceWorker' in navigator) {
         <label class="type-opt">
           <input type="radio" name="ptype" value="exercise" checked>
           <span class="type-opt-inner">
-            <span class="type-icon">✏️</span>
+            <span class="type-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
             <span class="type-name">刷题</span>
             <span class="type-desc">按页码追踪进度</span>
           </span>
@@ -501,7 +504,7 @@ if ('serviceWorker' in navigator) {
         <label class="type-opt">
           <input type="radio" name="ptype" value="recite">
           <span class="type-opt-inner">
-            <span class="type-icon">📖</span>
+            <span class="type-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
             <span class="type-name">背书</span>
             <span class="type-desc">艾宾浩斯复习</span>
           </span>
@@ -509,7 +512,7 @@ if ('serviceWorker' in navigator) {
         <label class="type-opt">
           <input type="radio" name="ptype" value="mistake">
           <span class="type-opt-inner">
-            <span class="type-icon">📝</span>
+            <span class="type-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></span>
             <span class="type-name">错题</span>
             <span class="type-desc">间隔重复刷题</span>
           </span>
@@ -522,15 +525,15 @@ if ('serviceWorker' in navigator) {
       <div class="seg">
         <label class="seg-opt">
           <input type="radio" name="punit" value="page" checked>
-          <span>📄 按页码（书 / 习题册）</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> 按页码（书 / 习题册）</span>
         </label>
         <label class="seg-opt">
           <input type="radio" name="punit" value="set">
-          <span>📑 按套卷（真题卷 / 套题）</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> 按套卷（真题卷 / 套题）</span>
         </label>
       </div>
       <div class="lock-hint" id="unitLockHint">
-        <span>🔒</span>
+        <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
         <span><b>一经创建无法在两种计量方式间转换</b>，请按你实际的刷题材料选择：一页一页刷的习题册选「按页码」；一套一套做的真题/套题选「按套卷」。</span>
       </div>
     </div>
@@ -541,7 +544,7 @@ if ('serviceWorker' in navigator) {
         <input id="fUnitMode" type="checkbox" style="width:auto;margin:0">
         <span style="font-size:13.5px;color:var(--text)">开启单元模式（按单元组织进度）</span>
       </label>
-      <div class="hint" id="fUnitRecommend" style="margin-bottom:10px;font-size:12px">💡 系统推荐开启：可以按章节/单元查看进度，更清晰地掌握薄弱环节。</div>
+      <div class="hint" id="fUnitRecommend" style="margin-bottom:10px;font-size:12px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> 系统推荐开启：可以按章节/单元查看进度，更清晰地掌握薄弱环节。</div>
       <div id="fUnitEditor" hidden>
         <div style="margin-bottom:10px">
           <div style="font-size:13px;color:var(--text);margin-bottom:6px">统计范围</div>
@@ -556,7 +559,7 @@ if ('serviceWorker' in navigator) {
           <select id="fUnitTpl" style="flex:1"><option value="">从模板加载（可选）</option></select>
         </div>
         <div class="unit-help-bar" style="font-size:12px;color:var(--muted);margin-bottom:8px;padding:8px 12px;background:var(--bg);border-radius:8px;line-height:1.6">
-          💡 <b>操作说明</b>：「＋」添加子单元；「⇤⇥」调整层级；「🗑」删除。最多支持3级嵌套（章→节→小节）。
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> <b>操作说明</b>：「＋」添加子单元；「<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6"/><path d="m7 12 4-4v8z"/></svg><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/><path d="m17 12-4-4v8z"/></svg>」调整层级；「<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>」删除。最多支持3级嵌套（章→节→小节）。
         </div>
         <div id="fUnitEditList"></div>
         <button type="button" class="add-row-btn" id="btnFAddUnitRow">+ 添加顶级单元</button>
@@ -597,23 +600,23 @@ if ('serviceWorker' in navigator) {
       <div class="seg" style="grid-template-columns:1fr 1fr 1fr">
         <label class="seg-opt">
           <input type="radio" name="pmistakemode" value="free" checked>
-          <span>📝 自由出处</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> 自由出处</span>
         </label>
         <label class="seg-opt">
           <input type="radio" name="pmistakemode" value="page">
-          <span>📄 习题册（按页码）</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> 习题册（按页码）</span>
         </label>
         <label class="seg-opt">
           <input type="radio" name="pmistakemode" value="set">
-          <span>📑 套卷（按套号）</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> 套卷（按套号）</span>
         </label>
       </div>
       <div class="lock-hint" style="margin-top:8px">
-        <span>🔒</span>
+        <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
         <span><b>自由出处</b>：错题来源自由填写（哪本书/哪套卷），适合错题来源分散；<b>习题册</b>：按页码记录错题，支持单元模式和按单元看薄弱点；<b>套卷</b>：按套卷号记录错题，适合真题分类错题本。</span>
       </div>
       <div id="fMistakeUpgradeHint" style="margin-top:6px;font-size:12px;color:var(--muted);line-height:1.5">
-        💡 默认「自由出处」即可，之后可随时升级为习题册 / 套卷模式（升级后不可转回）。
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> 默认「自由出处」即可，之后可随时升级为习题册 / 套卷模式（升级后不可转回）。
       </div>
     </div>
 
@@ -632,11 +635,11 @@ if ('serviceWorker' in navigator) {
       <div class="seg" style="grid-template-columns:1fr 1fr">
         <label class="seg-opt">
           <input type="radio" name="freviewmode" value="classic">
-          <span>📖 经典间隔</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 经典间隔</span>
         </label>
         <label class="seg-opt">
           <input type="radio" name="freviewmode" value="balanced" checked>
-          <span>⚖️ 均匀分布（推荐）</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> 均匀分布（推荐）</span>
         </label>
       </div>
       <p class="hint" id="fReviewModeHint" style="margin-top:6px;margin-bottom:0">
@@ -667,7 +670,7 @@ if ('serviceWorker' in navigator) {
       </label>
       <div id="fScopeEditor" hidden>
         <div class="unit-help-bar" style="font-size:12px;color:var(--muted);margin-bottom:8px;padding:8px 12px;background:var(--bg);border-radius:8px;line-height:1.6">
-          💡 每行填一个要做的页码区间，只填“起”表示单页；总量与每日目标只统计这些页。
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> 每行填一个要做的页码区间，只填“起”表示单页；总量与每日目标只统计这些页。
         </div>
         <div id="fScopeList"></div>
         <button class="add-row-btn" id="btnAddFScope" type="button">+ 添加区间</button>
@@ -710,7 +713,7 @@ if ('serviceWorker' in navigator) {
       <button class="x-btn" id="settingsClose">×</button>
     </div>
     <div id="settingsDirtyBar" style="display:none;background:#fff7e6;border:1px solid #ffd591;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;color:#874d00;align-items:center;gap:8px">
-      <span>⚠️</span>
+      <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
       <span style="flex:1">有未保存的修改，记得点底部「保存」按钮～</span>
     </div>
 
@@ -733,7 +736,7 @@ if ('serviceWorker' in navigator) {
     </label>
 
     <!-- [v2 M1/M10] 刷题本：每日节奏区块 -->
-    <div class="sec-title" id="exercisePaceSectionTitle" hidden>📈 每日节奏（刷题本）</div>
+    <div class="sec-title" id="exercisePaceSectionTitle" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> 每日节奏（刷题本）</div>
     <div id="exercisePaceSection" hidden style="border-top:1px dashed var(--border);padding-top:12px;margin-top:4px">
       <label><span>每天舒适做（页/套）</span>
         <input id="sExerciseComfort" type="number" min="1" placeholder="如 10">
@@ -750,11 +753,11 @@ if ('serviceWorker' in navigator) {
       <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
         目标日越近，系统算出的每天该做页数越多；如果这是考试日，记得勾选上面的硬约束。舒适量只是你的日常节奏建议，可随时调。
       </div>
-      <button type="button" class="ghost-btn" id="btnOpenAbandon" style="width:100%">✂️ 战略放弃部分页/套（砍题保分）</button>
+      <button type="button" class="ghost-btn" id="btnOpenAbandon" style="width:100%"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg> 战略放弃部分页/套（砍题保分）</button>
     </div>
 
     <!-- [v2 背书 M1/M10] 背书本：每日节奏区块 -->
-    <div class="sec-title" id="recitePaceSectionTitle" hidden>📈 每日节奏（背书本）</div>
+    <div class="sec-title" id="recitePaceSectionTitle" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> 每日节奏（背书本）</div>
     <div id="recitePaceSection" hidden style="border-top:1px dashed var(--border);padding-top:12px;margin-top:4px">
       <div style="margin:0 0 8px;font-size:13px;color:var(--text)">节奏模式</div>
       <label style="flex-direction:row;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:6px">
@@ -781,12 +784,12 @@ if ('serviceWorker' in navigator) {
       </label>
       <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;margin:8px 0 10px">
         <input id="sPauseNewLearning" type="checkbox" style="width:auto;margin:0">
-        <span style="font-size:13px;color:var(--text)">⏸ 暂停新学（只复习已学内容）</span>
+        <span style="font-size:13px;color:var(--text)"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg> 暂停新学（只复习已学内容）</span>
       </label>
       <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">
         智能节奏：按考试日自动均摊复习量。勾选「硬上限」后每天最多只排舒适量那么多条，多余的自动往后排。固定复习容量：每天就做你设的这个量。新学上限：控制每天新背多少条，填了就按这个数来，留空则系统按考试日自动算。
       </div>
-      <button type="button" class="ghost-btn" id="btnOpenReciteAbandon" style="width:100%">✂️ 战略放弃部分页段</button>
+      <button type="button" class="ghost-btn" id="btnOpenReciteAbandon" style="width:100%"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg> 战略放弃部分页段</button>
     </div>
 
     <div id="sBookRangeRow" class="two-col" style="display:none">
@@ -808,7 +811,7 @@ if ('serviceWorker' in navigator) {
       </label>
       <div id="sScopeEditor" hidden>
         <div class="unit-help-bar" style="font-size:12px;color:var(--muted);margin-bottom:8px;padding:8px 12px;background:var(--bg);border-radius:8px;line-height:1.6">
-          💡 每行填一个要做的页码区间，只填“起”表示单页；总量与每日目标只统计这些页。
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> 每行填一个要做的页码区间，只填“起”表示单页；总量与每日目标只统计这些页。
         </div>
         <div id="sScopeList"></div>
         <button class="add-row-btn" id="btnAddSScope" type="button">+ 添加区间</button>
@@ -842,11 +845,11 @@ if ('serviceWorker' in navigator) {
         </div>
         <div class="tpl-row" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
           <select id="sUnitTpl" style="flex:1;min-width:140px"><option value="">从模板加载（可选）</option></select>
-          <button type="button" class="ghost-btn" id="btnSaveUnitTpl" style="white-space:nowrap">💾 存为模板</button>
-          <button type="button" class="ghost-btn" id="btnManageUnitTpl" style="white-space:nowrap">📋 管理</button>
+          <button type="button" class="ghost-btn" id="btnSaveUnitTpl" style="white-space:nowrap"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 存为模板</button>
+          <button type="button" class="ghost-btn" id="btnManageUnitTpl" style="white-space:nowrap"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 管理</button>
         </div>
         <div class="unit-help-bar" style="font-size:12px;color:var(--muted);margin-bottom:8px;padding:8px 12px;background:var(--bg);border-radius:8px;line-height:1.6">
-          💡 <b>操作说明</b>：「＋」添加子单元；「⇤⇥」调整层级；「🗑」删除。最多支持3级嵌套（章→节→小节）。
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> <b>操作说明</b>：「＋」添加子单元；「<svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6"/><path d="m7 12 4-4v8z"/></svg><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/><path d="m17 12-4-4v8z"/></svg>」调整层级；「<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>」删除。最多支持3级嵌套（章→节→小节）。
         </div>
         <div id="unitEditList"></div>
         <button class="add-row-btn" id="btnAddUnitRow" type="button">+ 添加顶级单元</button>
@@ -860,8 +863,8 @@ if ('serviceWorker' in navigator) {
         <div id="sPaperSecList"></div>
         <div class="ps-tpl-row" style="display:flex;gap:8px;flex-wrap:wrap">
           <select id="sPaperTpl" style="flex:1;min-width:140px"><option value="">套用试卷模板（可选，一键填充）</option></select>
-          <button type="button" class="ghost-btn" id="btnSavePaperTpl" style="white-space:nowrap">💾 存为模板</button>
-          <button type="button" class="ghost-btn" id="btnManagePaperTpl" style="white-space:nowrap">📋 管理</button>
+          <button type="button" class="ghost-btn" id="btnSavePaperTpl" style="white-space:nowrap"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 存为模板</button>
+          <button type="button" class="ghost-btn" id="btnManagePaperTpl" style="white-space:nowrap"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 管理</button>
         </div>
         <button class="ps-add" id="btnSPaperAddSec" type="button">+ 添加板块</button>
         <div class="ps-sum" id="sPaperSecSum"></div>
@@ -887,19 +890,19 @@ if ('serviceWorker' in navigator) {
       <div class="seg" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
         <label class="seg-opt">
           <input type="radio" name="reviewMode" value="classic">
-          <span>📖 经典间隔</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 经典间隔</span>
         </label>
         <label class="seg-opt">
           <input type="radio" name="reviewMode" value="balanced">
-          <span>⚖️ 均匀分布</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> 均匀分布</span>
         </label>
       </div>
       <p class="hint" style="margin-top:0;margin-bottom:10px">
         <b>经典间隔</b>：严格按间隔天数提醒，适合量少、能跟上节奏的情况。<br>
         <b>均匀分布</b>：以间隔为基础，自动把复习错峰到每天，避免某天突然爆量。系统推荐错题本使用此模式。
       </p>
-      <button type="button" class="ghost-btn" id="btnReviewModeHelp" style="margin-bottom:10px">📋 查看两种模式详细对比</button>
-      <button type="button" class="ghost-btn" id="btnShowMistakeGuide" style="margin-bottom:10px">💡 错题本使用指南</button>
+      <button type="button" class="ghost-btn" id="btnReviewModeHelp" style="margin-bottom:10px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 查看两种模式详细对比</button>
+      <button type="button" class="ghost-btn" id="btnShowMistakeGuide" style="margin-bottom:10px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> 错题本使用指南</button>
 
       <div id="balancedSettings" hidden>
         <label>每日复习容量
@@ -915,7 +918,7 @@ if ('serviceWorker' in navigator) {
         <!-- 实时压力评估 -->
         <div id="pressurePanel" style="margin-top:12px;padding:12px;border-radius:10px;background:#f8f9fc;border:1px solid var(--border)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <span style="font-size:12.5px;font-weight:600;color:var(--muted)">📊 未来7天复习压力</span>
+            <span style="font-size:12.5px;font-weight:600;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 未来7天复习压力</span>
             <span id="pressureLevel" class="pressure-tag pressure-ok">轻松</span>
           </div>
           <div id="pressureBars" class="pressure-bars"></div>
@@ -929,14 +932,14 @@ if ('serviceWorker' in navigator) {
     <div class="sec-title" id="mistakeModeSwitchTitle" hidden>错题本模式</div>
     <div id="mistakeModeSwitchSection" hidden>
       <div style="background:#e9ebdb;border-radius:10px;padding:12px;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:600;color:#2e6b4f;margin-bottom:6px">📌 当前模式：自由出处</div>
+        <div style="font-size:13px;font-weight:600;color:#2e6b4f;margin-bottom:6px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg> 当前模式：自由出处</div>
         <div style="font-size:12.5px;color:var(--muted);line-height:1.6">
           想改成按习题册页码或按套卷管理？可以切换模式。切换后旧错题会进入「未归类」，可之后逐条补充，不会丢失任何数据。<b style="color:var(--warn)">此切换不可逆。</b>
         </div>
       </div>
       <div style="display:flex;gap:8px">
-        <button type="button" class="ghost-btn" id="btnSwitchToPage" style="flex:1">📄 转为习题册模式</button>
-        <button type="button" class="ghost-btn" id="btnSwitchToSet" style="flex:1">📑 转为套卷模式</button>
+        <button type="button" class="ghost-btn" id="btnSwitchToPage" style="flex:1"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> 转为习题册模式</button>
+        <button type="button" class="ghost-btn" id="btnSwitchToSet" style="flex:1"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> 转为套卷模式</button>
       </div>
     </div>
 
@@ -976,20 +979,20 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <div class="sec-title">安装为应用</div>
-    <button class="soft-btn" id="btnInstallApp" type="button" style="width:100%;justify-content:center">📱 安装到电脑 / 手机，像 App 一样独立打开</button>
+    <button class="soft-btn" id="btnInstallApp" type="button" style="width:100%;justify-content:center"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg> 安装到电脑 / 手机，像 App 一样独立打开</button>
     <p class="hint" style="margin-top:8px;margin-bottom:0">安装后从桌面图标独立打开、没有浏览器地址栏；网页更新时应用自动同步，无需重新安装。</p>
 
     <div class="sec-title">数据备份</div>
     <div class="data-actions">
-      <button class="soft-btn" id="btnExport" type="button">⬇️ 导出备份</button>
-      <button class="soft-btn" id="btnImport" type="button">⬆️ 导入备份</button>
+      <button class="soft-btn" id="btnExport" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> 导出备份</button>
+      <button class="soft-btn" id="btnImport" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg> 导入备份</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
     <p class="hint" style="margin-top:10px">登录同一账号后，学习数据会自动云端同步，换设备登录即可看到全部数据。你也可以导出 JSON 文件在本地额外备份。</p>
 
     <div class="sec-title" style="color:#dc2626;margin-top:18px">危险操作</div>
     <div class="data-actions">
-      <button class="danger-btn" id="btnWipeAll" type="button">🗑️ 彻底清除全部数据</button>
+      <button class="danger-btn" id="btnWipeAll" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg> 彻底清除全部数据</button>
     </div>
     <p class="hint" style="margin-top:8px">会删除<b>所有项目、记录、设置</b>（localStorage + IndexedDB + Cache），<b>不可恢复</b>。建议先「导出备份」。</p>
 
@@ -998,22 +1001,22 @@ if ('serviceWorker' in navigator) {
       <div class="seg" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">
         <label class="seg-opt">
           <input type="radio" name="theme" value="auto">
-          <span>🌓 跟随系统</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg> 跟随系统</span>
         </label>
         <label class="seg-opt">
           <input type="radio" name="theme" value="light">
-          <span>☀️ 浅色</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg> 浅色</span>
         </label>
         <label class="seg-opt">
           <input type="radio" name="theme" value="dark">
-          <span>🌙 深色</span>
+          <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg> 深色</span>
         </label>
       </div>
     </label>
 
     <div class="sec-title">其他</div>
     <div class="data-actions">
-      <button class="soft-btn" id="btnCreateLinkedMistake" type="button" hidden>📝 创建关联错题本</button>
+      <button class="soft-btn" id="btnCreateLinkedMistake" type="button" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> 创建关联错题本</button>
     </div>
 
     <div class="modal-actions">
@@ -1033,7 +1036,7 @@ if ('serviceWorker' in navigator) {
       <div class="auth-brand-name">Study Tracker</div>
       <div class="auth-brand-sub">登录后云端备份你的学习数据</div>
     </div>
-    <div class="login-wall-notice">🔒 使用 Study Tracker 需要登录账号，学习数据将云端加密备份</div>
+    <div class="login-wall-notice"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 使用 Study Tracker 需要登录账号，学习数据将云端加密备份</div>
     <div class="auth-tabs">
       <button class="auth-tab active" id="authTabLogin" type="button">登录</button>
       <button class="auth-tab" id="authTabRegister" type="button">注册</button>
@@ -1164,7 +1167,7 @@ if ('serviceWorker' in navigator) {
   <div class="modal profile-modal">
     <div class="profile-hero">
       <button class="x-btn profile-x" id="profileClose" type="button">×</button>
-      <div class="profile-avatar" id="profileAvatar">👤</div>
+      <div class="profile-avatar" id="profileAvatar"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <div class="profile-hero-name" id="profileDisplayName">用户</div>
       <div class="profile-hero-sub" id="profileHeroSub"></div>
       <button class="profile-chip" id="btnUploadAvatar" type="button">
@@ -1256,7 +1259,7 @@ if ('serviceWorker' in navigator) {
     </div>
     <div id="installDone" hidden>
       <div style="text-align:center;padding:14px 0 6px">
-        <div style="font-size:42px">✅</div>
+        <div style="font-size:42px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
         <p style="margin:12px 0 0;color:var(--text)">应用已安装，从桌面图标打开即可。</p>
       </div>
     </div>
@@ -1267,7 +1270,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="adminMask" hidden>
   <div class="modal" style="max-width:880px">
     <div class="modal-head">
-      <h2>🛡️ 管理员后台</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> 管理员后台</h2>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="ghost-btn" id="btnAdminRefresh" type="button" style="padding:6px 12px;font-size:12.5px">刷新</button>
         <button class="x-btn" id="adminClose">×</button>
@@ -1531,12 +1534,12 @@ if ('serviceWorker' in navigator) {
   <div class="modal" style="max-width:400px">
     <div class="modal-head"><h2>这个错因怎么设？</h2><button class="x-btn" id="reasonKindClose">×</button></div>
     <p style="font-size:13.5px;line-height:1.8;color:var(--text)">
-      <b style="color:#2e6b4f">📌 永久</b>：一直显示在下拉里，并且<b>计入错因统计</b>，方便看哪类错最多。<br><br>
-      <b style="color:#8a6a12">📂 临时</b>：只当下用一下，<b>不进统计</b>（适合一次性的具体问题）。
+      <b style="color:#2e6b4f"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg> 永久</b>：一直显示在下拉里，并且<b>计入错因统计</b>，方便看哪类错最多。<br><br>
+      <b style="color:#8a6a12"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg> 临时</b>：只当下用一下，<b>不进统计</b>（适合一次性的具体问题）。
     </p>
     <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="primary" id="reasonKindPermanent" style="flex:1">📌 永久（计入统计）</button>
-      <button class="ghost-btn" id="reasonKindTemp" style="flex:1">📂 临时</button>
+      <button class="primary" id="reasonKindPermanent" style="flex:1"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg> 永久（计入统计）</button>
+      <button class="ghost-btn" id="reasonKindTemp" style="flex:1"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg> 临时</button>
     </div>
   </div>
 </div>
@@ -1547,7 +1550,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="weaknessMask" hidden>
   <div class="modal" style="max-width:680px">
     <div class="modal-head">
-      <h2>🎯 薄弱点看板</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> 薄弱点看板</h2>
       <button class="x-btn" id="weaknessClose">×</button>
     </div>
     <div id="wbSubtitle" class="wb-subtitle"></div>
@@ -1562,7 +1565,7 @@ if ('serviceWorker' in navigator) {
     <div id="wbDist" class="wb-dist"></div>
 
     <div class="wb-section-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span>🔥 打卡热力图</span>
+      <span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg> 打卡热力图</span>
       <span style="font-size:11px;color:var(--muted);font-weight:normal">数据随每日计划实时更新 · 点击格子查看当天详情</span>
     </div>
     <div class="wb-heatmap-wrap">
@@ -1586,7 +1589,7 @@ if ('serviceWorker' in navigator) {
       <div class="wb-calendar-grid" id="wbHeatmap"></div>
       <!-- 空状态 -->
       <div class="wb-heatmap-empty" id="wbHeatEmpty" hidden>
-        <div class="empty-icon">📖</div>
+        <div class="empty-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
         <div>还没有复习记录</div>
         <div class="empty-hint">开始第一次复习后，这里会显示你的打卡热力图</div>
       </div>
@@ -1617,23 +1620,23 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <div id="wbMasteredActions" hidden style="margin:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="ghost-btn" id="btnRandomReview" style="font-size:13px">🎲 随机抽5道复习</button>
+      <button class="ghost-btn" id="btnRandomReview" style="font-size:13px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 12h.01"/></svg> 随机抽5道复习</button>
       <span class="hint" style="font-size:12px">从已攻克中随机抽查，做错了会自动重新加入复习队列</span>
     </div>
 
-    <div class="wb-section-title" id="wbListTitle">📋 条目明细（越靠前越该先处理）</div>
+    <div class="wb-section-title" id="wbListTitle"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 条目明细（越靠前越该先处理）</div>
     <ul class="wb-list" id="wbList"></ul>
 
-    <div class="wb-section-title">📌 我的注意事项</div>
+    <div class="wb-section-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg> 我的注意事项</div>
     <textarea id="wbNotePad" class="wb-notepad" placeholder="写点提醒自己的话，会一直显示在这里…&#10;例：线代第二问必用行列式展开；英语作文先列提纲"></textarea>
 
     <div id="wbUnitBlock">
-      <div class="wb-section-title">📂 单元掌握度</div>
+      <div class="wb-section-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg> 单元掌握度</div>
       <div class="wb-units" id="wbUnits"></div>
     </div>
 
     <div id="wbReasonBlock">
-      <div class="wb-section-title">🔖 错因分布</div>
+      <div class="wb-section-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg> 错因分布</div>
       <div class="wb-reasons-card" id="wbReasons"></div>
       <div class="wb-reason-detail" id="wbReasonDetail" style="max-height:220px;overflow-y:auto"></div>
     </div>
@@ -1655,7 +1658,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="progressMask" hidden>
   <div class="modal" style="max-width:720px">
     <div class="modal-head">
-      <h2 id="ppTitle">📊 完成情况</h2>
+      <h2 id="ppTitle"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 完成情况</h2>
       <button class="x-btn" id="progressClose">×</button>
     </div>
     <div class="pp-summary" id="ppSummary"></div>
@@ -1667,7 +1670,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="dataSecurityMask" hidden>
   <div class="modal" style="max-width:560px">
     <div class="modal-head">
-      <h2>🔒 数据安全提示</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 数据安全提示</h2>
     </div>
     <div class="kinsoku" id="dataSecurityBody" style="font-size:14px;line-height:1.85;color:var(--text);max-height:55vh;overflow-y:auto;padding:0 8px 0 4px"></div>
     <div style="margin-top:22px;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap">
@@ -1681,7 +1684,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="incognitoMask" hidden>
   <div class="modal" style="max-width:480px">
     <div class="modal-head">
-      <h2>⚠️ 无痕浏览模式</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> 无痕浏览模式</h2>
       <button class="x-btn" id="incognitoClose">×</button>
     </div>
     <div class="kinsoku" style="font-size:14px;line-height:1.85;color:var(--text)">
@@ -1699,7 +1702,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="confirmMasterMask" hidden>
   <div class="modal cm-modal">
     <div class="cm-header">
-      <div class="cm-icon">📚</div>
+      <div class="cm-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v14"/><path d="M4 4v16"/></svg></div>
       <h2 class="cm-title">确认掌握了吗？</h2>
     </div>
     <div class="cm-body" id="confirmMasterText">—</div>
@@ -1713,7 +1716,7 @@ if ('serviceWorker' in navigator) {
 <!-- ============ 已熟知确认弹窗 ============ -->
 <div class="mask" id="skipConfirmMask" hidden>
   <div class="modal" style="max-width:420px">
-    <div class="warn-icon">✨</div>
+    <div class="warn-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.273 1.273L3 12l5.815 1.914a2 2 0 0 1 1.273 1.273L12 21l1.912-5.813a2 2 0 0 1 1.273-1.273L21 12l-5.815-1.914a2 2 0 0 1-1.273-1.273L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg></div>
     <div class="modal-head" style="justify-content:center;margin-bottom:10px">
       <h2 style="font-size:17px">标记为已熟知？</h2>
     </div>
@@ -1736,12 +1739,12 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="reviewModeHelpMask" hidden>
   <div class="modal" style="max-width:520px">
     <div class="modal-head">
-      <h2>📖 两种复习模式对比</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 两种复习模式对比</h2>
       <button class="x-btn" id="reviewModeHelpClose">×</button>
     </div>
     <div style="font-size:13.5px;line-height:1.8;color:var(--text)">
       <div class="mode-help-card mode-classic">
-        <div style="font-weight:700;margin-bottom:6px">📖 经典间隔模式</div>
+        <div style="font-weight:700;margin-bottom:6px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> 经典间隔模式</div>
         <div style="color:var(--muted);font-size:13px;line-height:1.7">
           严格按设定的间隔天数（如 1→2→4→7→15→30 天）提醒复习。<br>
           <b>适合</b>：错题量少、能跟上节奏、希望严格遵循记忆曲线的情况。<br>
@@ -1749,7 +1752,7 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
       <div class="mode-help-card mode-balanced">
-        <div style="font-weight:700;margin-bottom:6px;color:#2e6b4f">⚖️ 均匀分布模式（系统推荐）</div>
+        <div style="font-weight:700;margin-bottom:6px;color:#2e6b4f"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> 均匀分布模式（系统推荐）</div>
         <div style="color:var(--muted);font-size:13px;line-height:1.7">
           以间隔为基础，自动把复习错峰到每天，避免某天突然爆量。<br>
           <b>适合</b>：经常批量录入错题、希望每天复习量稳定的情况。<br>
@@ -1757,7 +1760,7 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
       <div class="mode-help-card mode-common">
-        <div style="font-weight:700;margin-bottom:6px;color:#8a6a12">💡 共同功能</div>
+        <div style="font-weight:700;margin-bottom:6px;color:#8a6a12"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> 共同功能</div>
         <div style="color:var(--muted);font-size:13px;line-height:1.7">
           两种模式都支持：<b>提前复习</b>（在学习记录里点「提前复习」）、<b>超额分散</b>（当天量太大时一键分散到未来）、<b>防饥饿</b>（每条最多被分散3次，不会永远轮不到）。
         </div>
@@ -1774,7 +1777,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="linkedMistakesMask" hidden>
   <div class="modal" style="max-width:480px">
     <div class="modal-head">
-      <h2>🔗 关联错题本</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> 关联错题本</h2>
       <button class="x-btn" id="linkedMistakesClose">×</button>
     </div>
     <div id="linkedMistakesList" style="max-height:40vh;overflow-y:auto"></div>
@@ -1783,8 +1786,8 @@ if ('serviceWorker' in navigator) {
       <div id="availableMistakesList" style="max-height:20vh;overflow-y:auto"></div>
     </div>
     <div class="modal-actions" style="justify-content:center;margin-top:16px;gap:10px;flex-wrap:wrap">
-      <button class="ghost-btn" id="btnLinkExisting">🔗 关联已有错题本</button>
-      <button class="primary" id="btnCreateLinkedFromList" style="min-width:160px">📝 创建关联错题本</button>
+      <button class="ghost-btn" id="btnLinkExisting"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> 关联已有错题本</button>
+      <button class="primary" id="btnCreateLinkedFromList" style="min-width:160px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> 创建关联错题本</button>
     </div>
   </div>
 </div>
@@ -1811,7 +1814,7 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="randomReviewConfirmMask" hidden>
   <div class="modal" style="max-width:440px">
     <div class="modal-head">
-      <h2>🎲 随机抽查复习</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 12h.01"/></svg> 随机抽查复习</h2>
       <button class="x-btn" id="randomReviewConfirmClose">×</button>
     </div>
     <div style="font-size:13.5px;line-height:1.8;color:var(--text)">
@@ -1858,17 +1861,17 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="importConfirmMask" hidden>
   <div class="modal" style="max-width:480px">
     <div class="modal-head">
-      <h2>📥 导入备份</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg> 导入备份</h2>
       <button class="x-btn" id="importConfirmClose">×</button>
     </div>
     <div style="font-size:13.5px;line-height:1.8;color:var(--text)">
       <p style="margin-bottom:14px">检测到备份文件，包含 <b id="importProjCount">0</b> 个项目。请选择导入方式：</p>
       <div class="mode-help-card mode-balanced" style="margin-bottom:10px;cursor:pointer" id="importMergeCard">
-        <div style="font-weight:700;margin-bottom:4px;color:#2e6b4f">🔄 合并导入（推荐）</div>
+        <div style="font-weight:700;margin-bottom:4px;color:#2e6b4f"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg> 合并导入（推荐）</div>
         <div style="color:var(--muted);font-size:13px;line-height:1.6">保留现有数据，把备份里的记录和条目追加进来，按 ID 自动去重。</div>
       </div>
       <div class="mode-help-card mode-classic" style="margin-bottom:0;cursor:pointer" id="importOverwriteCard">
-        <div style="font-weight:700;margin-bottom:4px">⚠️ 覆盖导入</div>
+        <div style="font-weight:700;margin-bottom:4px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> 覆盖导入</div>
         <div style="color:var(--muted);font-size:13px;line-height:1.6">清空现有所有数据，只保留备份内容。<span style="color:#b02e24">此操作不可撤销！</span></div>
       </div>
     </div>
@@ -1882,35 +1885,35 @@ if ('serviceWorker' in navigator) {
 <div class="mask" id="mistakeGuideMask" hidden>
   <div class="modal" style="max-width:520px">
     <div class="modal-head">
-      <h2>📝 错题本使用指南</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> 错题本使用指南</h2>
       <button class="x-btn" id="mistakeGuideClose">×</button>
     </div>
     <div style="font-size:13.5px;line-height:1.8;color:var(--text)">
       <div style="background:#e9ebdb;border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="font-weight:700;margin-bottom:6px;color:#2e6b4f">📑 三种记录模式</div>
+        <div style="font-weight:700;margin-bottom:6px;color:#2e6b4f"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> 三种记录模式</div>
         <div style="color:var(--muted);font-size:13px">
-          <b>📝 自由出处</b>：错题来源自由填写（哪本书/哪套卷），适合错题来源分散<br>
-          <b>📄 习题册</b>：按页码记录错题，支持单元模式，薄弱点看板可按单元看错题分布<br>
-          <b>📑 套卷</b>：按套卷号记录错题，适合真题分类错题本
+          <b><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg> 自由出处</b>：错题来源自由填写（哪本书/哪套卷），适合错题来源分散<br>
+          <b><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> 习题册</b>：按页码记录错题，支持单元模式，薄弱点看板可按单元看错题分布<br>
+          <b><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> 套卷</b>：按套卷号记录错题，适合真题分类错题本
         </div>
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid #eae2d2;font-size:12.5px;color:#b07a4b">
-          💡 <b>自由出处模式</b>可在设置中转换为习题册或套卷模式（单向，不可逆）。转换后旧错题进入「未归类」，可逐条补页码/套号。
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> <b>自由出处模式</b>可在设置中转换为习题册或套卷模式（单向，不可逆）。转换后旧错题进入「未归类」，可逐条补页码/套号。
         </div>
       </div>
       <div style="background:#e9ebdb;border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="font-weight:700;margin-bottom:4px;color:#2e6b4f">⚖️ 均匀分布模式（默认）</div>
-        <div style="color:var(--muted);font-size:13px">批量录入错题不会在同一天爆量，系统自动把复习错峰到每天。复习区标题旁的「⚖️ 均匀分布」标签可一键切换模式。</div>
+        <div style="font-weight:700;margin-bottom:4px;color:#2e6b4f"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> 均匀分布模式（默认）</div>
+        <div style="color:var(--muted);font-size:13px">批量录入错题不会在同一天爆量，系统自动把复习错峰到每天。复习区标题旁的「<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> 均匀分布」标签可一键切换模式。</div>
       </div>
       <div style="background:#f0fdf4;border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="font-weight:700;margin-bottom:4px;color:#166534">📋 超额分散</div>
+        <div style="font-weight:700;margin-bottom:4px;color:#166534"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 超额分散</div>
         <div style="color:var(--muted);font-size:13px">当天待复习超过舒适量（默认10道）时，会出现蓝色「分散到未来」横幅，一键把剩余题目均匀安排到未来几天。复习完10道后也会弹窗提示。</div>
       </div>
       <div style="background:#fefce8;border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="font-weight:700;margin-bottom:4px;color:#854d0e">⏩ 提前复习</div>
+        <div style="font-weight:700;margin-bottom:4px;color:#854d0e"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg> 提前复习</div>
         <div style="color:var(--muted);font-size:13px">在「学习记录」里，未到期的题目旁有「提前复习」按钮，想多复习时随时可以提前。</div>
       </div>
       <div style="background:#f3e7d8;border-radius:12px;padding:14px;margin-bottom:10px">
-        <div style="font-weight:700;margin-bottom:4px;color:#b07a4b">📊 压力评估</div>
+        <div style="font-weight:700;margin-bottom:4px;color:#b07a4b"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 压力评估</div>
         <div style="color:var(--muted);font-size:13px">设置里调整容量时，下方会实时显示未来7天复习压力柱状图和系统建议，帮你找到合适的节奏。</div>
       </div>
       <p style="margin-top:12px;color:var(--muted);font-size:12.5px">所有设置都可以随时修改，已攻克的题目不受影响。在设置里随时可以重新查看本指南。</p>
@@ -1922,8 +1925,9 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/auth.js?v=fix1006b"></script>
-<script src="js/app.js?v=fix1006l"></script>
+<script src="js/icons.js?v=icon1007"></script>
+<script src="js/auth.js?v=icon1007"></script>
+<script src="js/app.js?v=icon1007"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -1946,30 +1950,30 @@ if (document.readyState === 'loading') {
 <div class="mask sr-fullmask" id="studyRoomMask" hidden>
   <div class="modal sr-modal sr-room-modal">
     <div class="modal-head">
-      <h2>🏫 自习室</h2>
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8"/><path d="M2 20v-8l4-2"/><path d="M18 12v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8"/><path d="M10 12h4"/></svg> 自习室</h2>
       <button class="ghost-btn" id="srBackBtn">← 返回</button>
     </div>
 
     <!-- 未加入房间引导页 -->
     <div id="srWelcomeView">
-      <div class="sr-welcome-hero">📚</div>
+      <div class="sr-welcome-hero"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v14"/><path d="M4 4v16"/></svg></div>
       <div class="sr-welcome-title">加入自习室，与同学互相监督、坚持打卡</div>
       <button class="sr-entry-card" id="srCreateBtn" type="button">
-        <div class="sr-entry-icon">🏠</div>
+        <div class="sr-entry-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
         <div class="sr-entry-text">
           <div class="sr-entry-title">创建自习室</div>
           <div class="sr-entry-sub">创建房间，邀请朋友加入</div>
         </div>
       </button>
       <button class="sr-entry-card" id="srJoinBtn" type="button">
-        <div class="sr-entry-icon">🔑</div>
+        <div class="sr-entry-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
         <div class="sr-entry-text">
           <div class="sr-entry-title">加入自习室</div>
           <div class="sr-entry-sub">输入房间号加入房间</div>
         </div>
       </button>
       <button class="sr-entry-card" id="srPlazaBtn" type="button">
-        <div class="sr-entry-icon">🌍</div>
+        <div class="sr-entry-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
         <div class="sr-entry-text">
           <div class="sr-entry-title">自习室广场</div>
           <div class="sr-entry-sub">浏览公开房间，一键加入</div>
@@ -1988,17 +1992,17 @@ if (document.readyState === 'loading') {
         <div class="sr-room-code-row">
           <span class="sr-room-code-label">房间号：</span>
           <span class="sr-room-code" id="srRoomCode"></span>
-          <button class="ghost-btn sr-copy-btn" id="srCopyCodeBtn" type="button">📋 复制</button>
+          <button class="ghost-btn sr-copy-btn" id="srCopyCodeBtn" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 复制</button>
         </div>
       </div>
 
       <!-- 房主操作行（仅房主可见，JS 控制 hidden） -->
       <div class="sr-owner-actions" id="srOwnerActions" hidden>
-        <button class="ghost-btn" id="srRoomSettingsBtn" type="button">⚙️ 房间设置</button>
-        <button class="danger-btn sr-disband-btn" id="srDisbandBtn" type="button">🗑️ 解散自习室</button>
+        <button class="ghost-btn" id="srRoomSettingsBtn" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> 房间设置</button>
+        <button class="danger-btn sr-disband-btn" id="srDisbandBtn" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg> 解散自习室</button>
       </div>
 
-      <button class="ghost-btn sr-plaza-room-btn" id="srPlazaBtnInRoom" type="button">🌍 自习室广场</button>
+      <button class="ghost-btn sr-plaza-room-btn" id="srPlazaBtnInRoom" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> 自习室广场</button>
 
       <!-- 我的隐私设置 -->
       <div class="sr-privacy-row">
@@ -2018,7 +2022,7 @@ if (document.readyState === 'loading') {
     <!-- 公开自习室广场视图（与引导页/房间主页同级切换） -->
     <div id="srPlazaView" hidden>
       <button class="ghost-btn" id="srPlazaBackBtn" type="button">← 返回</button>
-      <div class="sr-plaza-title">🌍 自习室广场</div>
+      <div class="sr-plaza-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> 自习室广场</div>
       <div class="hint" id="srPlazaLoading" style="margin:10px 0">加载中…</div>
       <div class="sr-plaza-list" id="srPlazaList"></div>
       <div id="srPlazaEmpty" hidden style="margin:20px 0;text-align:center;color:var(--muted)">暂时没有公开自习室，去创建一个吧</div>
@@ -2083,22 +2087,22 @@ if (document.readyState === 'loading') {
     </div>
     <div class="sr-stats-grid">
       <div class="sr-stat-card">
-        <div class="sr-stat-icon">📊</div>
+        <div class="sr-stat-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div>
         <div class="sr-stat-value" id="srDetailWeekCount">–</div>
         <div class="sr-stat-label">本周复习数</div>
       </div>
       <div class="sr-stat-card">
-        <div class="sr-stat-icon">⚡</div>
+        <div class="sr-stat-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
         <div class="sr-stat-value" id="srDetailStreak">–</div>
         <div class="sr-stat-label">连续打卡</div>
       </div>
       <div class="sr-stat-card">
-        <div class="sr-stat-icon">📚</div>
+        <div class="sr-stat-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v14"/><path d="M4 4v16"/></svg></div>
         <div class="sr-stat-value" id="srDetailTotal">–</div>
         <div class="sr-stat-label">总复习数</div>
       </div>
       <div class="sr-stat-card">
-        <div class="sr-stat-icon">📁</div>
+        <div class="sr-stat-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
         <div class="sr-stat-value" id="srDetailProjects">–</div>
         <div class="sr-stat-label">项目数</div>
       </div>
@@ -2109,7 +2113,7 @@ if (document.readyState === 'loading') {
 <!-- ============ 未公开数据提示弹窗 ============ -->
 <div class="mask" id="srPrivateMask" hidden>
   <div class="modal sr-private-modal">
-    <div class="sr-private-icon">🔒</div>
+    <div class="sr-private-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
     <div class="sr-private-text">该用户未公开学习数据</div>
     <button class="primary" id="srPrivateOkBtn" type="button" style="width:100%">知道了</button>
   </div>
@@ -2138,7 +2142,7 @@ if (document.readyState === 'loading') {
       <h2>解散自习室</h2>
       <button class="x-btn" id="srDisbandCancelBtn">×</button>
     </div>
-    <p class="sr-disband-text" id="srDisbandConfirmText">⚠️ 解散后所有成员将被移出，不可恢复。确定解散？</p>
+    <p class="sr-disband-text" id="srDisbandConfirmText"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> 解散后所有成员将被移出，不可恢复。确定解散？</p>
     <div style="display:flex;gap:10px;margin-top:18px">
       <button class="ghost-btn" id="srDisbandCancelBtn2" type="button" style="flex:1">取消</button>
       <button class="danger-btn" id="srDisbandConfirmBtn" type="button" style="flex:1">确认解散</button>
@@ -2188,7 +2192,7 @@ if (document.readyState === 'loading') {
 
 <!-- ============ AI 助手入口 FAB ============ -->
 <button id="aiFab" type="button" title="AI学习助手" aria-label="打开 AI学习助手">
-  <span class="ai-fab-icon">🤖</span><span id="aiFabDot" class="ai-fab-dot" hidden></span>
+  <span class="ai-fab-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span><span id="aiFabDot" class="ai-fab-dot" hidden></span>
 </button>
 
 <!-- ============ AI 助手抽屉 ============ -->
@@ -2214,7 +2218,7 @@ if (document.readyState === 'loading') {
       <div class="ai-pane" id="aiPane-chat">
         <div class="ai-msgs" id="aiMsgs"></div>
         <div class="ai-empty" id="aiEmpty" hidden>
-          <div class="ai-empty-icon">🔑</div>
+          <div class="ai-empty-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
           <p class="ai-empty-title">配置 API Key，开始使用 AI学习助手</p>
           <p class="hint">Key 只存在你自己的账号里，AES 加密存储，不会上传他处。</p>
           <button class="primary" id="aiGoSettings" type="button">去设置 →</button>
@@ -2226,7 +2230,7 @@ if (document.readyState === 'loading') {
         <button class="ghost-btn ai-newconv" id="aiNewConv" type="button">＋ 新会话</button>
         <div id="aiHistList"></div>
         <div class="ai-empty" id="aiHistEmpty" hidden>
-          <div class="ai-empty-icon">💬</div>
+          <div class="ai-empty-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div>
           <p class="ai-empty-title">还没有历史会话</p>
           <p class="hint">去对话里问第一个问题吧。</p>
           <button class="primary" id="aiHistGoChat" type="button">去对话 →</button>
@@ -2345,7 +2349,7 @@ if (document.readyState === 'loading') {
 
       <div class="ai-input-row">
         <textarea id="aiInput" rows="1" placeholder="问问学习规划、错题安排、进度分析…"></textarea>
-        <button class="ai-send" id="aiSend" type="button" aria-label="发送">➤</button>
+        <button class="ai-send" id="aiSend" type="button" aria-label="发送"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 3 3 9-3 9 19-9z"/><path d="M6 12h16"/></svg></button>
       </div>
     </div>
   </aside>

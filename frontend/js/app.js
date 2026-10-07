@@ -39,9 +39,9 @@ function setThemePref(pref) {
 }
 
 const TYPES = {
-  exercise: { name:'刷题', icon:'✏️', badgeCls:'', typeCls:'type-exercise' },
-  recite:   { name:'背书', icon:'📖', badgeCls:'recite', typeCls:'type-recite' },
-  mistake:  { name:'错题', icon:'📝', badgeCls:'mistake', typeCls:'type-mistake' }
+  exercise: { name:'刷题', icon:'' + svgIcon('pencil') + '', badgeCls:'', typeCls:'type-exercise' },
+  recite:   { name:'背书', icon:'' + svgIcon('book-open') + '', badgeCls:'recite', typeCls:'type-recite' },
+  mistake:  { name:'错题', icon:'' + svgIcon('square-pen') + '', badgeCls:'mistake', typeCls:'type-mistake' }
 };
 
 const DEFAULT_INTERVALS = [1, 2, 4, 7, 15, 30];
@@ -138,7 +138,7 @@ function renderReasonDropdown(p) {
     const on = cur.includes(r.name);
     const del = `<span class="reason-del" data-del="${esc(r.name)}" title="删除该错因">×</span>`;
     return `<div class="reason-dd-row${on ? ' sel' : ''}" data-name="${esc(r.name)}" draggable="${r.permanent}">
-      <span class="reason-dd-check">${on ? '✓' : ''}</span>
+      <span class="reason-dd-check">${on ? '' + svgIcon('check') + '' : ''}</span>
       <span class="reason-dd-dot" style="background:${bg}"></span>
       <span class="reason-dd-name">${esc(r.name)}</span>
       ${del}
@@ -203,7 +203,7 @@ function openReasonPopover(anchor, itemId) {
       const del = `<span class="reason-del" data-del="${esc(r.name)}" title="删除">×</span>`;
       return `<div class="rp-row${on ? ' sel' : ''}" data-name="${esc(r.name)}" draggable="${r.permanent}">
         <span class="reason-dd-handle">⠿</span>
-        <span class="rp-check">${on ? '✓' : ''}</span>
+        <span class="rp-check">${on ? '' + svgIcon('check') + '' : ''}</span>
         <span class="reason-dd-dot" style="background:${bg}"></span>
         <span class="rp-name">${esc(r.name)}</span>
         ${del}</div>`;
@@ -226,7 +226,7 @@ function openReasonPopover(anchor, itemId) {
         const itemEl = document.querySelector(`.review-item[data-id="${itemId}"]`);
         if (itemEl) {
           const b = itemEl.querySelector('[data-reasonpicker]');
-          if (b) b.textContent = `🏷 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
+          if (b) b.innerHTML = `${svgIcon('tag')} 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
         }
       }
       return;
@@ -255,7 +255,7 @@ function openReasonPopover(anchor, itemId) {
     const itemEl = document.querySelector(`.review-item[data-id="${itemId}"]`);
     if (itemEl) {
       const b = itemEl.querySelector('[data-reasonpicker]');
-      if (b) b.textContent = `🏷 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
+      if (b) b.innerHTML = `${svgIcon('tag')} 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
     }
   };
   let dragFrom = null;
@@ -1021,7 +1021,7 @@ async function loadStore() {
       cacheSave(_lastSaveSig);
       // 只有 localStorage 本来有数据但损坏时才显示警告；本来就没数据则静默恢复
       if (lsRaw) {
-        showStorageWarning('⚠️ 检测到本地数据异常，已从' + source + '自动恢复。建议立即到「设置 → 导出备份」保存一份 JSON 文件。');
+        showStorageWarning('' + svgIcon('alert-triangle') + ' 检测到本地数据异常，已从' + source + '自动恢复。建议立即到「设置 → 导出备份」保存一份 JSON 文件。');
       }
     } else {
       // 真·全新用户：此时才初始化空 store
@@ -1265,7 +1265,7 @@ function showOfflineBar(){
   const bar = document.createElement('div');
   bar.id = 'offlineBar';
   bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99998;background:var(--warn);color:#fff;padding:10px 16px;font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.2)';
-  bar.textContent = '📡 离线模式，改动已保存在本地，联网后自动同步';
+  bar.innerHTML = '' + svgIcon('radio') + ' 离线模式，改动已保存在本地，联网后自动同步';
   document.body.appendChild(bar);
   _offlineBar = bar;
   document.body.style.paddingTop = '56px';
@@ -1286,7 +1286,7 @@ window.addEventListener('online', async () => {
   try {
     const n = await idbOpQueueCount();
     if (n > 0 && typeof STAuth !== 'undefined' && STAuth.isLoggedIn()) {
-      if (typeof showToast === 'function') showToast('📶', '网络已恢复', '正在同步离线期间的 ' + n + ' 条改动', 3000);
+      if (typeof showToast === 'function') showToast('' + svgIcon('wifi') + '', '网络已恢复', '正在同步离线期间的 ' + n + ' 条改动', 3000);
       await STAuth.syncFromCloud({ skeleton: false });
       await idbOpQueueClear();
     } else if (n > 0) {
@@ -1355,7 +1355,7 @@ function saveStore() {
     lsOk = true;
   } catch (e) {
     if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
-      showStorageWarning('⚠️ 浏览器存储空间不足，数据可能无法保存。请到「设置 → 导出备份」保存 JSON 文件，然后清理浏览器网站数据。');
+      showStorageWarning('' + svgIcon('alert-triangle') + ' 浏览器存储空间不足，数据可能无法保存。请到「设置 → 导出备份」保存 JSON 文件，然后清理浏览器网站数据。');
     }
   }
   // 只有写入成功才更新签名，失败时允许下次重试（避免一次失败后永久跳过）
@@ -1502,7 +1502,7 @@ function initStorageSafety() {
   setTimeout(() => {
     getStorageEstimate().then(est => {
       if (est && est.usagePct >= 80) {
-        showStorageWarning('⚠️ 浏览器存储空间已用 ' + est.usagePct + '%，快满了。建议尽快到「设置 → 导出备份」保存数据，并清理浏览器缓存。');
+        showStorageWarning('' + svgIcon('alert-triangle') + ' 浏览器存储空间已用 ' + est.usagePct + '%，快满了。建议尽快到「设置 → 导出备份」保存数据，并清理浏览器缓存。');
       }
     });
   }, 3000);
@@ -2789,17 +2789,17 @@ function renderComfortAdvice(p) {
   if (p.reviewMode === 'balanced') {
     // recite fixed 模式：不做 min()，直接显示固定容量
     if (p.type === 'recite' && p.reciteMode === 'fixed' && p.dailyCapacity != null) {
-      parts.push(`<div style="margin-bottom:6px">📊 固定模式：每天按 <b>${Math.round(p.dailyCapacity)}</b> 条执行，不受舒适量限制。</div>`);
+      parts.push(`<div style="margin-bottom:6px">${svgIcon('bar-chart-3')} 固定模式：每天按 <b>${Math.round(p.dailyCapacity)}</b> 条执行，不受舒适量限制。</div>`);
     } else if (p.dailyCapacity != null) {
       const actual = Math.min(currentComfort, Math.round(p.dailyCapacity));
-      parts.push(`<div style="margin-bottom:6px">📊 当前舒适量 <b>${currentComfort}</b> 条，每日容量 <b>${Math.round(p.dailyCapacity)}</b> 条，实际每天排题 = min(${currentComfort}, ${Math.round(p.dailyCapacity)}) = <b style="${p.dailyCapacity > currentComfort ? 'color:#b8860b' : ''}">${actual}</b> 条。</div>`);
+      parts.push(`<div style="margin-bottom:6px">${svgIcon('bar-chart-3')} 当前舒适量 <b>${currentComfort}</b> 条，每日容量 <b>${Math.round(p.dailyCapacity)}</b> 条，实际每天排题 = min(${currentComfort}, ${Math.round(p.dailyCapacity)}) = <b style="${p.dailyCapacity > currentComfort ? 'color:#b8860b' : ''}">${actual}</b> 条。</div>`);
     } else {
       const cap = getDailyCapacity(p);
       const daily = Math.min(cap, currentComfort);
-      parts.push(`<div style="margin-bottom:6px">📊 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort}) = <b>${daily}</b> 条。</div>`);
+      parts.push(`<div style="margin-bottom:6px">${svgIcon('bar-chart-3')} 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort}) = <b>${daily}</b> 条。</div>`);
     }
   }
-  parts.push(`<div style="color:var(--muted);font-size:12px">💡 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议，这里不用手动猜。</div>`);
+  parts.push(`<div style="color:var(--muted);font-size:12px">${svgIcon('lightbulb')} 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议，这里不用手动猜。</div>`);
   // [v3 P0-A6] 固定模式早期容量校准：连续14天轻松完成
   // recite 跳过此逻辑，节奏建议统一走 renderReciteComfortAdvice
   if (p.type !== 'recite' && p.dailyCapacity != null && (!p.capAdviceMutedUntil || p.capAdviceMutedUntil < today)) {
@@ -3064,9 +3064,9 @@ function updateSpreadPressureHint() {
 
   let msg;
   if (due > threshold) {
-    msg = `⚠️ 今天有 ${due} 道待复习（含 ${overdue} 道逾期），已超过你设的舒适量 ${threshold}。保存后复习区会出现「分散到未来」按钮。`;
+    msg = `${svgIcon('alert-triangle')} 今天有 ${due} 道待复习（含 ${overdue} 道逾期），已超过你设的舒适量 ${threshold}。保存后复习区会出现「分散到未来」按钮。`;
   } else if (due > 0) {
-    msg = `✅ 今天有 ${due} 道待复习，在舒适量 ${threshold} 以内，可以从容完成。`;
+    msg = `${svgIcon('check-circle')} 今天有 ${due} 道待复习，在舒适量 ${threshold} 以内，可以从容完成。`;
   } else {
     msg = `今天暂无待复习。设为 ${threshold} 意味着超过 ${threshold} 道时会提示你分散。`;
   }
@@ -3144,7 +3144,7 @@ function getLazyMessage(p, m, lazy) {
   const days = lazy.days;
   const u = unitName(p);
   const verb = p.type === 'exercise' ? '推进' : '复习';
-  let head = `😴 你已经连续 ${days} 天没${verb}了`;
+  let head = `${svgIcon('alarm-clock-off')} 你已经连续 ${days} 天没${verb}了`;
   if (lazy.lastReviewDate) head += `（上次${verb} ${fmtCN(lazy.lastReviewDate)}）`;
   head += '。';
 
@@ -3985,14 +3985,14 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   // 选项1：确认已掌握/已攻克（主色调高亮）
   const opt1 = document.createElement('button');
   opt1.className = 'cm-opt cm-opt-primary';
-  opt1.innerHTML = `<span class="cm-opt-icon">✅</span><span class="cm-opt-main"><span class="cm-opt-title">确认已${masteredWord}</span><span class="cm-opt-desc">不再复习这条内容</span></span>`;
+  opt1.innerHTML = `<span class="cm-opt-icon">${svgIcon('check-circle')}</span><span class="cm-opt-main"><span class="cm-opt-title">确认已${masteredWord}</span><span class="cm-opt-desc">不再复习这条内容</span></span>`;
   opt1.addEventListener('click', () => { mask.hidden = true; confirmMasterItem(true); });
   opts.appendChild(opt1);
 
   // 选项2：重新开始
   const opt2 = document.createElement('button');
   opt2.className = 'cm-opt';
-  opt2.innerHTML = `<span class="cm-opt-icon">🔄</span><span class="cm-opt-main"><span class="cm-opt-title">重新开始复习</span><span class="cm-opt-desc">清空记录，从第1轮重新复习</span></span>`;
+  opt2.innerHTML = `<span class="cm-opt-icon">${svgIcon('refresh-cw')}</span><span class="cm-opt-main"><span class="cm-opt-title">重新开始复习</span><span class="cm-opt-desc">清空记录，从第1轮重新复习</span></span>`;
   opt2.addEventListener('click', () => { mask.hidden = true; confirmMasterItem(false, 'restart'); });
   opts.appendChild(opt2);
 
@@ -4004,7 +4004,7 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   opt3.tabIndex = 0;
   const curIntervals = getItemIntervals(item, p);
   opt3.innerHTML = `
-    <span class="cm-opt-icon">⚙️</span>
+    <span class="cm-opt-icon">${svgIcon('settings')}</span>
     <span class="cm-opt-main">
       <span class="cm-opt-title">自定义复习间隔</span>
       <span class="cm-opt-desc">只影响这条内容，有几个间隔就复习几轮</span>
@@ -4025,7 +4025,7 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   // 选项4：暂不处理
   const opt4 = document.createElement('button');
   opt4.className = 'cm-opt';
-  opt4.innerHTML = `<span class="cm-opt-icon">⏸️</span><span class="cm-opt-main"><span class="cm-opt-title">暂不处理</span><span class="cm-opt-desc">按最长一档间隔安排下次复习</span></span>`;
+  opt4.innerHTML = `<span class="cm-opt-icon">${svgIcon('pause', 22)}</span><span class="cm-opt-main"><span class="cm-opt-title">暂不处理</span><span class="cm-opt-desc">按最长一档间隔安排下次复习</span></span>`;
   opt4.addEventListener('click', () => { mask.hidden = true; closeConfirmMaster(); });
   opts.appendChild(opt4);
 
@@ -4530,7 +4530,7 @@ function getStatusMessage(p, m) {
   // 1. 全部完成：提前完成给正反馈
   if (pct >= 1 && m.currentPage > 0) {
     if (p.type === 'mistake') {
-      return { icon:'🏁', cls:'ok', title:'已收录的错题全部攻克',
+      return { icon:'' + svgIcon('flag') + '', cls:'ok', title:'已收录的错题全部攻克',
         desc:`共攻克 ${tot} 道错题，这些曾经的坑都被你填平了，它们就是你的得分点。以后遇到新错题随时收录，系统会继续自动提醒你重做。` };
     }
     let praise = '';
@@ -4539,7 +4539,7 @@ function getStatusMessage(p, m) {
       if (early > 0) praise = `比目标提前了 ${early} 天，太棒了！`;
       else if (early === 0) praise = '刚好在目标日完成，卡得很准！';
     }
-    return { icon:'🏁', cls:'ok', title:'全部内容已完成',
+    return { icon:'' + svgIcon('flag') + '', cls:'ok', title:'全部内容已完成',
       desc:`共 ${tot} ${u}，你在 ${fmtCN(m.t)} 完成了整个目标。${praise ? praise + '<br><br>' : ''}可以在设置中调整截止日期，或开始下一个任务。` };
   }
 
@@ -4583,7 +4583,7 @@ function getStatusMessage(p, m) {
       if (daysLeft < 0) {
         deadlineWarn = `<br><br>目标日已过 ${-daysLeft} 天，错题本仍会继续帮你滚动剩下的 ${rem} 道，不用焦虑；想设个新目标日，可以在设置里调整。`;
       } else if (daysLeft <= 14) {
-        deadlineWarn = `<br><br>距目标日 ${fmtCN(p.deadline)} ${fmtDaysLeft(daysLeft)}。这段时间建议优先清「今天到期」和「反复错」的题——把已经暴露过的薄弱点做熟，比漫无目的地刷新题更针对考前提分。想筛查哪些题从收录后一次都没复习过，可以到「🎯 薄弱点 → 未复习」里看一眼。`;
+        deadlineWarn = `<br><br>距目标日 ${fmtCN(p.deadline)} ${fmtDaysLeft(daysLeft)}。这段时间建议优先清「今天到期」和「反复错」的题——把已经暴露过的薄弱点做熟，比漫无目的地刷新题更针对考前提分。想筛查哪些题从收录后一次都没复习过，可以到「${svgIcon('target')} 薄弱点 → 未复习」里看一眼。`;
       }
     }
 
@@ -4593,7 +4593,7 @@ function getStatusMessage(p, m) {
       const lead = heavy
         ? `今天有 ${due} 道待复习（含 ${over} 道逾期）。<strong>不用一次做完，也不用有负担</strong>，先从最久没复习的那条开始，其余的系统会自动摊到接下来几天。`
         : `今天有 ${due} 道待复习（含 ${over} 道逾期）。先把逾期的过一遍，哪怕只做几条，记忆也会重新接上。`;
-      return { icon:'📌', cls:'info', title: heavy ? `有 ${over} 道逾期，分批消化就好` : `有 ${over} 道错题到期了`,
+      return { icon:'' + svgIcon('pin') + '', cls:'info', title: heavy ? `有 ${over} 道逾期，分批消化就好` : `有 ${over} 道错题到期了`,
         desc:`${lead}<br>${progressPhrase}${weakPhrase ? '<br>' + weakPhrase : ''}错题按间隔滚动，做完当轮自动排下一轮，你只管清今天的。${deadlineWarn}` };
     }
     // (b) 正常待复习：强调"攻克 = 实打实进步"
@@ -4602,22 +4602,22 @@ function getStatusMessage(p, m) {
       if (mpct >= 0.8) tail = '已经攻克大半，进入收尾，保持住，能看到头了。';
       else if (mpct >= 0.5) tail = '已经攻克过半，进展很实在。';
       else if (masteredNum > 0) tail = '做对会把间隔越拉越长，之后会越来越轻松。';
-      return { icon:'📋', cls:'info', title:`今天有 ${due} 道错题等你过一遍`,
+      return { icon:'' + svgIcon('clipboard-list') + '', cls:'info', title:`今天有 ${due} 道错题等你过一遍`,
         desc:`每攻克一道错题，就是实打实补上一个提分点，比刷十道新题更值。${masteryLine ? masteryLine + '，' : ''}${tail}${weakPhrase ? '<br>' + weakPhrase : ''}${deadlineWarn}` };
     }
     // (c) 今天刚把队列清完（还没全攻克）：给即时满足
     if (due <= 0 && reviewedToday > 0 && m.remaining > 0) {
       const got = masteredToday > 0 ? `今天还攻克了 ${masteredToday} 道，又拿下 ${masteredToday} 个薄弱点。` : '';
-      return { icon:'✅', cls:'ok', title:'今天的错题都过完了',
+      return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'今天的错题都过完了',
         desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，不用提前惦记。${progressPhrase ? '<br>' + progressPhrase : ''}` };
     }
     if (m.remaining === 0 && m.currentPage > 0) {
-      return { icon:'🎉', cls:'ok', title:'已收录的错题全部攻克',
+      return { icon:'' + svgIcon('party-popper') + '', cls:'ok', title:'已收录的错题全部攻克',
         desc:`共攻克 ${curN} 道错题，这些曾经的坑都被你填平了。遇到新错题随时收录，到复习日会自动提醒你重做。` };
     }
     // (d) 刚收录、还没开始：把"收录错题"正面化
     if (justStarted) {
-      return { icon:'📝', cls:'info', title:'错题已经帮你记下了',
+      return { icon:'' + svgIcon('square-pen') + '', cls:'info', title:'错题已经帮你记下了',
         desc:`已收录 ${tot} 道错题，等于提前找到了 ${tot} 个提分点。现在还没有到期提醒，可以在复习区先过 1 道，间隔系统就开始运转，之后全自动提醒。` };
     }
     // (e) 队列暂时清空
@@ -4628,7 +4628,7 @@ function getStatusMessage(p, m) {
         : masteredNum > 0
           ? `已攻克 ${curN} / ${tot} 道，队列暂时清空，今天可以轻松些。`
           : '暂无到期错题，遇到新错题随时收录即可。';
-    return { icon:'✅', cls:'ok', title:'暂无到期错题',
+    return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'暂无到期错题',
       desc:`${calmTail}${deadlineWarn}` };
   }
 
@@ -4646,7 +4646,7 @@ function getStatusMessage(p, m) {
     if (finalRev > 0) body += `• 已有 <b>${finalRev}</b> 条完成了目标前最后一遍，目标日前不再占用你，稳住状态即可。<br>`;
     if (due > 0) body += `<br>今天有 ${due} 条到期复习${over > 0 ? `（含 ${over} 条逾期）` : ''}，先把它们过一遍，就是此刻最有效的冲刺。`;
     else body += `<br>今天的复习已清完，有余力就挑重点学一点。`;
-    return { icon:'⏰', cls:'warn', title:'进入冲刺期：先复习、再挑重点学新', desc: body };
+    return { icon:'' + svgIcon('alarm-clock') + '', cls:'warn', title:'进入冲刺期：先复习、再挑重点学新', desc: body };
   }
 
   // 背书本的"新学截止日"提示（正常窗口）：新内容应在 deadline-cycleDays 前学完，之后只滚动复习，
@@ -4674,14 +4674,14 @@ function getStatusMessage(p, m) {
       const grasp = reciteWin
         ? `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前学完，之后还留约 ${m.cycleDays} 天滚动复习。`
         : `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前完成。`;
-      return { icon:'🌱', cls:'info', title:'刚开始，先把节奏跑起来',
+      return { icon:'' + svgIcon('sprout') + '', cls:'info', title:'刚开始，先把节奏跑起来',
         desc:`${doneTxt}。先有个粗略抓手：${grasp}这是早期估算，做几天就会按你的真实节奏自动修正，现在不用有压力。${reciteCycleLine}` };
     }
     if (m.activeDays >= 1) {
-      return { icon:'🌱', cls:'info', title:'第一步已经完成',
+      return { icon:'' + svgIcon('sprout') + '', cls:'info', title:'第一步已经完成',
         desc:`${doneTxt}已经记下了。再积累约 ${m.daysToMedium} 个学习日，系统就能开始结合你的节奏估算完成时间；现在只需定一个自己做得到的小量，连续几天完成它。` };
     }
-    return { icon:'📊', cls:'info', title:'今天从第一个小目标开始',
+    return { icon:'' + svgIcon('bar-chart-3') + '', cls:'info', title:'今天从第一个小目标开始',
       desc:'先完成今天的第一次打卡/复习，让系统看到你的节奏。把目标定小到"一定能完成"，连续几天比一次猛学更重要。' };
   }
 
@@ -4711,7 +4711,7 @@ function getStatusMessage(p, m) {
   // 4. 未设截止日：给预计完成 + 还需几周
   if (!p.deadline) {
     const weeksLeft = m.etaDate ? Math.ceil(diffDays(m.t, m.etaDate) / 7 * 10) / 10 : null;
-    return { icon:'📈', cls:'ok', title:'保持节奏，持续推进',
+    return { icon:'' + svgIcon('trending-up') + '', cls:'ok', title:'保持节奏，持续推进',
       desc:`${paceBits}，${rangeTxt}全部 ${tot} ${u}${weeksLeft ? `，大约还需 ${weeksLeft} 周` : ''}。可在设置里添加截止日，获得每个学习日目标和可行性提醒。${confTxt}` };
   }
 
@@ -4751,10 +4751,10 @@ function getStatusMessage(p, m) {
     // [v2 M4·G] exercise 过期：不画空 plan，按 hardDeadline 给归档导向文案
     if (p.type === 'exercise' && overdue && m.remaining > 0) {
       if (p.hardDeadline === true) {
-        return { icon: '📚', cls: 'ok', title: '考试已经结束了',
+        return { icon: '' + svgIcon('library') + '', cls: 'ok', title: '考试已经结束了',
           desc: '考试已经结束了。之前刷的都还在，可以把这本归档收进收纳箱。' };
       }
-      return { icon: '⛔', cls: 'warn', title: '已过原定目标日',
+      return { icon: '' + svgIcon('octagon-x') + '', cls: 'warn', title: '已过原定目标日',
         desc: `已经过了原定目标日 ${fmtCN(p.deadline)}，还剩 ${rem} ${u}。之前刷的都还在——可以重设目标日接着推，或者把这本归档收起来。` };
     }
     if (overdue) {
@@ -4776,7 +4776,7 @@ function getStatusMessage(p, m) {
       body += `<b>如果强度太大，更现实的是把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏更稳）。截止日是规划工具不是审判，可在设置里调整。`;
     }
     body += reciteCycleLine + sparseNote;
-    return { icon: overdue ? '⛔' : '🚧', cls:'bad', title: overdue ? '已过目标日，一起重新规划' : '目标偏紧，需要调整安排', desc: body };
+    return { icon: overdue ? '' + svgIcon('octagon-x') + '' : '' + svgIcon('wrench') + '', cls:'bad', title: overdue ? '已过目标日，一起重新规划' : '目标偏紧，需要调整安排', desc: body };
   }
 
   // 6. stretch：势头能赶上→及时翻绿；在提速→先肯定；常规→真实现状 + 首选按期方案 + 延期兜底
@@ -4799,7 +4799,7 @@ function getStatusMessage(p, m) {
       } else {
         body += `<span class="muted">今天目标 ${n1(keepPer)} ${u}，${todayDone>0 ? '已完成 '+fmtUnitNum(todayDone)+'，还差一点～' : '找个时间开始吧～'}</span>`;
       }
-      return { icon:'✅', cls:'ok', title:'节奏稳，能按时完成', desc: body };
+      return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'节奏稳，能按时完成', desc: body };
     }
     // 6b. 正在提速、缺口在缩小（尚未完全赶上）：先肯定，再给首选按期方案
     if (m.momentumImproving) {
@@ -4809,7 +4809,7 @@ function getStatusMessage(p, m) {
         body += `<b>硬要赶上，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
         if (plan.delay) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
         body += reciteCycleLine;
-        return { icon:'🚧', cls:'warn', title:'在提速，但还需要加量', desc: body };
+        return { icon:'' + svgIcon('wrench') + '', cls:'warn', title:'在提速，但还需要加量', desc: body };
       }
       let body = `还剩 ${rem} ${u}。你最近效率明显提升，状态在往上走，方向对了。<br><br>`;
       if (plan.onTime) {
@@ -4818,7 +4818,7 @@ function getStatusMessage(p, m) {
       }
       if (plan.delay) body += `<br><span class="muted">若实在加不动，可把目标日延到 ${fmtCN(plan.delay.date)} 左右。</span>`;
       body += reciteCycleLine;
-      return { icon:'📈', cls:'ok', title:'状态在上升，继续保持', desc: body };
+      return { icon:'' + svgIcon('trending-up') + '', cls:'ok', title:'状态在上升，继续保持', desc: body };
     }
     // 6c. 常规 stretch
     const isHeavyGap = ratio > 1.5;
@@ -4840,8 +4840,8 @@ function getStatusMessage(p, m) {
       }
     }
     body += reciteCycleLine + sparseNote;
-    if (hardPath) return { icon:'🚧', cls:'warn', title:'目标偏紧，建议调整安排', desc: body };
-    return { icon: isHeavyGap ? '🚧' : '💪', cls: isHeavyGap ? 'warn' : 'ok',
+    if (hardPath) return { icon:'' + svgIcon('wrench') + '', cls:'warn', title:'目标偏紧，建议调整安排', desc: body };
+    return { icon: isHeavyGap ? '' + svgIcon('wrench') + '' : '' + svgIcon('activity') + '', cls: isHeavyGap ? 'warn' : 'ok',
       title: isHeavyGap ? '目标偏紧，需要加一点量' : '稍微加把劲，稳步完成', desc: body };
   }
 
@@ -4860,7 +4860,7 @@ function getStatusMessage(p, m) {
       '时间还宽裕，稳稳推进，劳逸结合最重要。',
     ], 'easy')}${reciteCycleLine}${sparseNote}`;
   }
-  return { icon:'✅', cls:'ok', title: isTight ? '节奏刚好，保持住' : '按当前节奏，可以按时完成', desc: body };
+  return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title: isTight ? '节奏刚好，保持住' : '按当前节奏，可以按时完成', desc: body };
 }
 
 /* ============ 进步鼓励系统 ============ */
@@ -4882,11 +4882,11 @@ function checkProgressPraise(p, m) {
   // ⓪ 启动脚手架：最容易放弃的是前几天，这里只做"第1/2/3天"的有限递进确认，
   //    每个事件只弹一次、之后自动交给常规里程碑，避免每天都被哄、也避免冷启动零反馈。
   if (act.activeDays === 1 && !p.shownPraises['first_step']) {
-    praises.push({ priority: 0, key:'first_step', icon:'🌱',
+    praises.push({ priority: 0, key:'first_step', icon:'' + svgIcon('sprout') + '',
       title:'第一步完成了', desc:'最难的是开始，你已经在路上。今天保持这个量就好，明天再来一次。' });
   }
   if (act.streak === 2 && !p.shownPraises['streak_2']) {
-    praises.push({ priority: 0, key:'streak_2', icon:'🌱',
+    praises.push({ priority: 0, key:'streak_2', icon:'' + svgIcon('sprout') + '',
       title:'连续两天，启动得不错', desc:'不用追求量大，能连续两天坐下来，节奏就开始建立了。' });
   }
 
@@ -4894,7 +4894,7 @@ function checkProgressPraise(p, m) {
   // 让冷启动到个性化的过渡可见（之前只能自己发现"样本不足"消失）。
   // 仅在刚跨过门槛（3~6 个学习日）弹一次；连续 3 天的情况交给 streak_3 里程碑；老用户不补弹。
   if (m.enoughData && act.activeDays >= 3 && act.activeDays <= 6 && act.streak !== 3 && !p.shownPraises['personalized']) {
-    praises.push({ priority: 0, key:'personalized', icon:'🎯',
+    praises.push({ priority: 0, key:'personalized', icon:'' + svgIcon('target') + '',
       title:'系统开始按你的节奏定制了',
       desc:`已经积累 ${act.activeDays} 个学习日，今日目标和预计完成时间从现在起会随你的真实节奏自动调整——你只管跟着今天的安排走就好。` });
   }
@@ -4906,7 +4906,7 @@ function checkProgressPraise(p, m) {
     if (!lastDate || diffDays(lastDate, today) >= 7) {
       praises.push({
         priority: 1, key: lastKey,
-        icon: '📈', title: '这周你比之前快了',
+        icon: '' + svgIcon('trending-up') + '', title: '这周你比之前快了',
         desc: `每次平均 ${m.recentRate.toFixed(1)} ${u}（之前 ${m.prevRate.toFixed(1)} ${u}），提升了 ${(m.trendPct*100).toFixed(0)}%`
       });
     }
@@ -4933,7 +4933,7 @@ function checkProgressPraise(p, m) {
         praises.push({
           priority: isRecord ? 2 : 3, key,
           recordN: streak,
-          icon: '🔥', title: isRecord ? '连续打卡刷新纪录' : `连续打卡 ${streak} 天`,
+          icon: '' + svgIcon('flame') + '', title: isRecord ? '连续打卡刷新纪录' : `连续打卡 ${streak} 天`,
           desc: isRecord ? recordDesc : `已经连续 ${streak} 天了，继续保持`
         });
       }
@@ -4951,7 +4951,7 @@ function checkProgressPraise(p, m) {
           : '今天重新坐下来开始了，节奏没丢';
         praises.push({
           priority: 4, key,
-          icon: '👋', title: '休息后回来了',
+          icon: '' + svgIcon('hand') + '', title: '休息后回来了',
           desc: `之前停了 ${recentBreak} 天，${doneTxt}`
         });
       }
@@ -4978,16 +4978,16 @@ function maybeShowProgressPraise(p) {
 
 /* ============ 里程碑 ============ */
 const MILESTONES = [
-  { at:25, icon:'📈', title:'完成 25%！', desc:'四分之一已达成。继续推进，节奏很稳。' },
-  { at:50, icon:'🌟', title:'完成 50%！', desc:'进度已经过半，接下来稳扎稳打。' },
-  { at:70, icon:'💪', title:'完成 70%！', desc:'胜利在望。保持节奏，别停下来。' },
-  { at:90, icon:'🔥', title:'完成 90%！', desc:'最后一程，一鼓作气冲线。' },
-  { at:100, icon:'✅', title:'全部完成！', desc:'恭喜你拿下整个目标，好好犒劳一下自己。' }
+  { at:25, icon:'' + svgIcon('trending-up') + '', title:'完成 25%！', desc:'四分之一已达成。继续推进，节奏很稳。' },
+  { at:50, icon:'' + svgIcon('star') + '', title:'完成 50%！', desc:'进度已经过半，接下来稳扎稳打。' },
+  { at:70, icon:'' + svgIcon('activity') + '', title:'完成 70%！', desc:'胜利在望。保持节奏，别停下来。' },
+  { at:90, icon:'' + svgIcon('flame') + '', title:'完成 90%！', desc:'最后一程，一鼓作气冲线。' },
+  { at:100, icon:'' + svgIcon('check-circle') + '', title:'全部完成！', desc:'恭喜你拿下整个目标，好好犒劳一下自己。' }
 ];
 let toastTimer = null;
 function showToast(icon, title, desc, duration, onClick) {
   const t = $('#toast');
-  t.querySelector('.toast-icon').textContent = icon;
+  t.querySelector('.toast-icon').innerHTML = icon;
   t.querySelector('.toast-title').textContent = title;
   t.querySelector('.toast-desc').textContent = desc;
   t.hidden = false;
@@ -5167,7 +5167,7 @@ function checkMistakeMasteryToast(p) {
   const desc = masteredToday >= 2
     ? '这些曾经的薄弱点，今天都变成了你的得分点。'
     : '这个薄弱点你彻底拿下了——比刷十道新题更值。';
-  setTimeout(() => showToast('🎯', title, desc, 3000), 650);
+  setTimeout(() => showToast('' + svgIcon('target') + '', title, desc, 3000), 650);
 }
 
 // 反复错（连续 2 次及以上"又错了"）：去羞耻化，把它框定为"考前发现的高频薄弱点"，每个项目每天最多提示一次
@@ -5176,7 +5176,7 @@ function checkMistakeRelapseToast(p, item) {
   if (__mistakeFbToday[_fbKey(p, 'relapse')]) return;
   if ((item.wrongStreak || 0) < 2) return;
   __mistakeFbToday[_fbKey(p, 'relapse')] = true;
-  setTimeout(() => showToast('🔍', '这道题反复卡住',
+  setTimeout(() => showToast('' + svgIcon('search') + '', '这道题反复卡住',
     '说明它是你的高频薄弱点，考前能发现它很值。已排到最近，多过两次就拿下了。', 4800), 520);
 }
 
@@ -5293,7 +5293,7 @@ function renderDailyGoal(p, m) {
       return;
     }
     if (due <= 0) {
-      _dgShow(box, fill, line, praise, 'idle', 0, '今天没有到期错题', '📝 暂无到期错题，遇到新错题随时收录~');
+      _dgShow(box, fill, line, praise, 'idle', 0, '今天没有到期错题', '' + svgIcon('square-pen') + ' 暂无到期错题，遇到新错题随时收录~');
       return;
     }
     // 注意：due 是"此刻仍待复习"的条数，已复习的会因 nextReviewDate 被推到未来而离开 due，
@@ -5390,12 +5390,12 @@ function renderDailyGoal(p, m) {
     }
 
     // 阶段二：今天复习已清完（或本就无复习），进度转向新学页
-    const prefix = rvDoneToday > 0 ? '复习已清 ✓ · ' : '';
+    const prefix = rvDoneToday > 0 ? '复习已清 ' + svgIcon('check') + ' · ' : '';
     if (newTargetR == null || newTargetR <= 0) {
       if (rvDoneToday > 0) {
-        _dgShow(box, fill, line, praise, 'done', 100, `今日复习 ${rvDoneToday} 条已清完`, '✅ 今天的复习都过完了，有余力可以学一点新内容~');
+        _dgShow(box, fill, line, praise, 'done', 100, `今日复习 ${rvDoneToday} 条已清完`, '' + svgIcon('check-circle') + ' 今天的复习都过完了，有余力可以学一点新内容~');
       } else {
-        _dgShow(box, fill, line, praise, 'idle', 0, '今天没有安排复习', '💡 可以学一点新内容，或先休息~');
+        _dgShow(box, fill, line, praise, 'idle', 0, '今天没有安排复习', '' + svgIcon('lightbulb') + ' 可以学一点新内容，或先休息~');
       }
       return;
     }
@@ -5406,8 +5406,8 @@ function renderDailyGoal(p, m) {
       nmood = 'idle';
       nl = `${prefix}新学 0 / ${fmtUnitNum(newTargetR)} 页`;
       npr = (act.streak >= 3)
-        ? `🔥 连续 ${act.streak} 天，复习已清，今天的新学也别落下~`
-        : `🎯 复习已清，今天再学 ${fmtUnitNum(newTargetR)} 页就圆满了~`;
+        ? `${svgIcon('flame')} 连续 ${act.streak} 天，复习已清，今天的新学也别落下~`
+        : `${svgIcon('target')} 复习已清，今天再学 ${fmtUnitNum(newTargetR)} 页就圆满了~`;
     } else if (nr < 1) {
       const nleft = Math.max(0, Math.round((newTarget - newDone) * 10 + 1e-9) / 10);
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
@@ -5445,7 +5445,7 @@ function renderDailyGoal(p, m) {
     return;
   }
   if (target == null || target <= 0) {
-    _dgShow(box, fill, line, praise, 'idle', 0, '当前未设置每日目标', '💡 先做几天，系统会按你的节奏自动计算目标~');
+    _dgShow(box, fill, line, praise, 'idle', 0, '当前未设置每日目标', '' + svgIcon('lightbulb') + ' 先做几天，系统会按你的节奏自动计算目标~');
     return;
   }
 
@@ -5466,9 +5466,9 @@ function renderDailyGoal(p, m) {
     l = `今天目标 ${fmtUnitNum(targetR)} ${u} · 还没动`;
     const gap = m.prevStudyDate ? Math.max(0, diffDays(m.prevStudyDate, today) - 1) : 0;
     if (m.feasibility === 'impossible') {
-      pr = `💪 今天 ${fmtUnitNum(targetR)} ${u}量不小，拆成几次完成，量力而行~`;
+      pr = `${svgIcon('activity')} 今天 ${fmtUnitNum(targetR)} ${u}量不小，拆成几次完成，量力而行~`;
     } else if (dt0.heavy) {
-      pr = `⚠️ 今天约 ${fmtUnitNum(targetR)} ${u}（平时的 ${dt0.plan.onTime.mult.toFixed(1)} 倍）是冲刺量，量力而行；做不到可在设置里把目标日往后调~`;
+      pr = `${svgIcon('alert-triangle')} 今天约 ${fmtUnitNum(targetR)} ${u}（平时的 ${dt0.plan.onTime.mult.toFixed(1)} 倍）是冲刺量，量力而行；做不到可在设置里把目标日往后调~`;
     } else if (gap >= 2) {
       pr = Coach.pick(Coach.back, 'back') + (isFracPaper ? ` 今天做 ${startUnit} 套就好~` : ` 先从 ${startUnit} ${u}开始~`);
     } else if (act.streak >= 3) {
@@ -5550,7 +5550,7 @@ function startCreateLinkedMistake(p) {
     if (p.bookStartPage) $('#fBookStart').value = p.bookStartPage;
     if (p.bookEndPage) $('#fBookEnd').value = p.bookEndPage;
   }
-  showToast('📝', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
+  showToast('' + svgIcon('square-pen') + '', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
 }
 
 // [v2 M6·C] 聚合关联错题本里落在 [start,end] 页段的错题条目数（只读）
@@ -5593,12 +5593,12 @@ function renderExerciseHints(p, m) {
     if (isHard || p.deadlineWarnDismissedDate !== t) {
       if (isHard) {
         bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
-          <div class="ob-text"><span class="ob-icon">📚</span><span class="ob-main">考试已经结束了。这本刷题本陪你走过了备考的日子。</span></div>
+          <div class="ob-text"><span class="ob-icon">${svgIcon('library')}</span><span class="ob-main">考试已经结束了。这本刷题本陪你走过了备考的日子。</span></div>
           <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
           onMount: null });
       } else {
         bars.push({ build: () => `<div class="excess-banner" data-mode="expired" style="display:flex;flex-direction:column;gap:8px">
-          <div class="ob-text"><span class="ob-icon">📌</span><span class="ob-main">目标日已于 <b>${esc(p.deadline)}</b> 到期，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}。之前刷的都还在。</span></div>
+          <div class="ob-text"><span class="ob-icon">${svgIcon('pin')}</span><span class="ob-main">目标日已于 <b>${esc(p.deadline)}</b> 到期，还剩 <b>${fmtUnitNum(m.remaining)}</b> ${u}。之前刷的都还在。</span></div>
           <div class="ob-actions"><button class="ob-btn" data-xe="reset">重设目标日</button><button class="ob-btn" data-xe="archive">归档这本</button><button class="ob-btn" data-xe="dismiss">以后再说</button></div></div>`,
           onMount: null });
       }
@@ -5608,7 +5608,7 @@ function renderExerciseHints(p, m) {
   // —— 完成条：整本刷完 → 归档入口 ——
   if (m.remaining === 0 && m.currentPage > 0) {
     bars.push({ build: () => `<div class="excess-banner celebrate" style="display:flex;flex-direction:column;gap:8px">
-      <div class="ob-text"><span class="ob-icon">🎉</span><span class="ob-main">整本刷完了！之前的努力都算数。</span></div>
+      <div class="ob-text"><span class="ob-icon">${svgIcon('party-popper')}</span><span class="ob-main">整本刷完了！之前的努力都算数。</span></div>
       <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
       onMount: null });
   }
@@ -5629,7 +5629,7 @@ function bindExerciseHintZone(p, m) {
     const act = actBtn.dataset.xe;
     if (act === 'archive') {
       p.archived = true; p.updatedAt = Date.now(); saveStore(); render();
-      showToast('📦', '已归档', '这本刷题本已移到「已归档」收纳箱，不再出现在首页。', 3000);
+      showToast('' + svgIcon('package') + '', '已归档', '这本刷题本已移到「已归档」收纳箱，不再出现在首页。', 3000);
     } else if (act === 'reset') {
       openSettings();
     } else if (act === 'dismiss') {
@@ -5715,7 +5715,7 @@ function openAbandonPanel(p) {
   }).join('');
 
   mask.innerHTML = `<div class="modal" style="max-width:560px">
-    <div class="modal-head"><h2>✂️ 战略放弃部分 ${setMode ? '套' : '页'}</h2><button class="x-btn" id="abClose">×</button></div>
+    <div class="modal-head"><h2>${svgIcon('scissors')} 战略放弃部分 ${setMode ? '套' : '页'}</h2><button class="x-btn" id="abClose">×</button></div>
     <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px">
       把低性价比、来不及做的${setMode ? '套' : '页'}标记放弃，它们会从总量里扣除，每日目标自动降下来。
       关联错题 ≥5 道的章节通常是你的薄弱点，建议保留；≤1 道的可考虑放弃。可随时取消。
@@ -5768,7 +5768,7 @@ function openAbandonPanel(p) {
     saveStore();
     close();
     render();
-    showToast('✂️', '已保存放弃范围', '每日目标已按新的剩余量重新计算。', 2800);
+    showToast('' + svgIcon('scissors') + '', '已保存放弃范围', '每日目标已按新的剩余量重新计算。', 2800);
   };
 }
 
@@ -5792,7 +5792,7 @@ function openWrongQuickRecord(p, meta) {
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
   const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
-    <div class="modal-head"><h2>📝 错题快录</h2><button class="x-btn" id="wqClose">×</button></div>
+    <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">×</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
     <input id="wqInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
@@ -5814,7 +5814,7 @@ function openWrongQuickRecord(p, meta) {
       // P1-1：传入带 rid 的 record，占位条目才能打来源回链
       pushWrongMarksToLinkedMistake(p, marks, rec);
       finish();
-      showToast('✅', '已记进错题本', `共 ${marks.length} 道错题占位，已按间隔排期。`, 2800);
+      showToast('' + svgIcon('check-circle') + '', '已记进错题本', `共 ${marks.length} 道错题占位，已按间隔排期。`, 2800);
     };
   } else {
     mask.querySelector('#wqCreate').onclick = () => {
@@ -5893,7 +5893,7 @@ function editRecordWrongMarks(p, rid) {
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
   const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
-    <div class="modal-head"><h2>✏️ 补记错题</h2><button class="x-btn" id="ewClose">×</button></div>
+    <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">×</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步增删关联错题本里的占位条目。</div>
     <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" value="${esc(cur)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
@@ -5913,7 +5913,7 @@ function editRecordWrongMarks(p, rid) {
     syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec);
     p.updatedAt = Date.now(); saveStore();
     mask.hidden = true; unlockBodyScroll(); render();
-    showToast('✅', '已保存错题标记', `共 ${newMarks.length} 道错题占位。`, 2500);
+    showToast('' + svgIcon('check-circle') + '', '已保存错题标记', `共 ${newMarks.length} 道错题占位。`, 2500);
   };
   setTimeout(() => input && input.focus(), 50);
 }
@@ -5981,14 +5981,14 @@ function render() {
       const _abKey = p.id + ':' + todayStr();
       if (!__autoBalanceToastShown[_abKey]) {
         __autoBalanceToastShown[_abKey] = true;
-        setTimeout(() => showToast('⚖️', '已自动均衡今日复习', `检测到今天待复习偏多，已把 ${_moved} 条均匀安排到未来几天，避免今天堆积；你也可以在复习区横幅手动调整。`, 3500), 450);
+        setTimeout(() => showToast('' + svgIcon('scale') + '', '已自动均衡今日复习', `检测到今天待复习偏多，已把 ${_moved} 条均匀安排到未来几天，避免今天堆积；你也可以在复习区横幅手动调整。`, 3500), 450);
       }
     }
     if (_pulled > 0) {
       const _pfKey = p.id + ':pf:' + todayStr();
       if (!__autoBalanceToastShown[_pfKey]) {
         __autoBalanceToastShown[_pfKey] = true;
-        setTimeout(() => showToast('⏩', '趁前期多推进一点', `已把 ${_pulled} 条近期复习提前到今天，前期多消化一些，后面新增错题时会更从容～不想多做也可以顺延，不勉强。`, 3500), 600);
+        setTimeout(() => showToast(svgIcon('fast-forward'), '趁前期多推进一点', `已把 ${_pulled} 条近期复习提前到今天，前期多消化一些，后面新增错题时会更从容～不想多做也可以顺延，不勉强。`, 3500), 600);
       }
     }
   } catch (e) {}
@@ -6018,8 +6018,8 @@ function render() {
             <div style="font-size:13.5px;line-height:1.8;color:var(--text)">
               <p style="margin:0 0 10px">关联的刷题本「${esc(ref.name)}」结构已变更，错题本结构需要重新对齐。</p>
               <div style="display:flex;gap:10px">
-                <button type="button" class="ghost-btn" id="refRealignBtn" style="flex:1">🔄 重新对齐</button>
-                <button type="button" class="ghost-btn" id="refUnlinkBtn" style="flex:1">🔗 解除关联</button>
+                <button type="button" class="ghost-btn" id="refRealignBtn" style="flex:1">${svgIcon('refresh-cw')} 重新对齐</button>
+                <button type="button" class="ghost-btn" id="refUnlinkBtn" style="flex:1">${svgIcon('link')} 解除关联</button>
               </div>
             </div>`;
           showGenericConfirm('关联结构已变更', bodyHtml, '取消', null);
@@ -6032,7 +6032,7 @@ function render() {
               p.__refStale = false;
               saveStore();
               render();
-              showToast('✅', '已重新对齐', '错题已按新结构归类。', 3000);
+              showToast('' + svgIcon('check-circle') + '', '已重新对齐', '错题已按新结构归类。', 3000);
             });
             if (ub) ub.addEventListener('click', () => {
               $('#genericConfirmMask').hidden = true; unlockBodyScroll();
@@ -6040,7 +6040,7 @@ function render() {
               p.__refStale = false;
               saveStore();
               render();
-              showToast('✅', '已解除关联', '单元结构保留。', 3000);
+              showToast('' + svgIcon('check-circle') + '', '已解除关联', '单元结构保留。', 3000);
             });
           }, 50);
         }, 500);
@@ -6093,23 +6093,23 @@ function render() {
   const u = unitName(p);
   let modeTag = '';
   if (isExercise) {
-    modeTag = setMode ? '<span class="mode-badge set">📑 套卷模式</span>' : '<span class="mode-badge">📄 习题册模式</span>';
+    modeTag = setMode ? '<span class="mode-badge set">' + svgIcon('copy') + ' 套卷模式</span>' : '<span class="mode-badge">' + svgIcon('file-text') + ' 习题册模式</span>';
   } else if (p.type === 'mistake') {
     const mm = p.mistakeMode || 'free';
-    if (mm === 'page') modeTag = '<span class="mode-badge">📄 习题册模式</span>';
-    else if (mm === 'set') modeTag = '<span class="mode-badge set">📑 套卷模式</span>';
-    else modeTag = '<span class="mode-badge mistake-free" id="mistakeModeBadge" style="cursor:pointer" title="点击切换错题本模式">📝 自由出处模式</span>';
+    if (mm === 'page') modeTag = '<span class="mode-badge">' + svgIcon('file-text') + ' 习题册模式</span>';
+    else if (mm === 'set') modeTag = '<span class="mode-badge set">' + svgIcon('copy') + ' 套卷模式</span>';
+    else modeTag = '<span class="mode-badge mistake-free" id="mistakeModeBadge" style="cursor:pointer" title="点击切换错题本模式">' + svgIcon('square-pen') + ' 自由出处模式</span>';
   }
   // 关联徽标
   let linkBadge = '';
   if (p.type === 'mistake' && p.refProjectId && store.projects[p.refProjectId]) {
     const refName = store.projects[p.refProjectId].name;
     const short = refName.length > 10 ? refName.substring(0, 10) + '…' : refName;
-    linkBadge = `<span class="linked-badge" title="关联刷题本：${esc(refName)}">🔗 关联：${esc(short)}</span>`;
+    linkBadge = `<span class="linked-badge" title="关联刷题本：${esc(refName)}">${svgIcon('link')} 关联：${esc(short)}</span>`;
   } else if (p.type === 'exercise') {
     const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
     if (linkedCount > 0) {
-      linkBadge = `<span class="linked-badge" title="${linkedCount}个关联错题本">🔗 ${linkedCount}个关联错题本</span>`;
+      linkBadge = `<span class="linked-badge" title="${linkedCount}个关联错题本">${svgIcon('link')} ${linkedCount}个关联错题本</span>`;
     }
   }
   $('#bookTitle').textContent = p.name;
@@ -6129,7 +6129,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
     linkedBtn.hidden = p.type !== 'exercise';
     if (p.type === 'exercise') {
       const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
-      linkedBtn.textContent = linkedCount > 0 ? `🔗 ${linkedCount}个关联错题本` : '🔗 关联错题本';
+      linkedBtn.innerHTML = linkedCount > 0 ? `${svgIcon('link')} ${linkedCount}个关联错题本` : '' + svgIcon('link') + ' 关联错题本';
     }
   }
   $('#btnProgress').style.display = isExercise ? '' : 'none';
@@ -6146,7 +6146,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
     ? '例：线代第3题 · 特征值计算'
     : '例：第一章 极限的定义与性质';
   $('#btnReciteAdd').textContent = p.type === 'mistake' ? '+ 记录错题' : '+ 添加内容';
-  $('#checkinTitle').textContent = isExercise ? '今日打卡' : (p.type === 'mistake' ? '📝 登记 / 补录错题' : '📖 学习 / 补录内容');
+  $('#checkinTitle').innerHTML = isExercise ? '今日打卡' : (p.type === 'mistake' ? '' + svgIcon('square-pen') + ' 登记 / 补录错题' : '' + svgIcon('book-open') + ' 学习 / 补录内容');
   const noteInput = $('#reciteNote');
   if (p.type === 'mistake') {
     noteInput.placeholder = '例：这道线代题第二问总是卡，多练同类';
@@ -6347,7 +6347,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   const status = getStatusMessage(p, m);
   const card = $('#statusCard');
   card.className = 'card status ' + (status.cls || 'ok');
-  $('#statusIcon').textContent = status.icon;
+  $('#statusIcon').innerHTML = status.icon;
   $('#statusTitle').textContent = status.title;
   $('#statusDesc').innerHTML = status.desc;
   // 常驻算法说明：让用户知道数字怎么来、何时可信
@@ -6409,13 +6409,13 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
     const unitTitle = $('#unitSection').querySelector('h2');
     const unitHint = $('#unitSection').querySelector('.muted');
     if (p.type === 'exercise') {
-      unitTitle.textContent = '📂 单元完成进度';
+      unitTitle.innerHTML = '' + svgIcon('folder-open') + ' 单元完成进度';
       unitHint.textContent = '颜色 = 完成度';
     } else if (p.type === 'mistake') {
-      unitTitle.textContent = '📂 单元错题攻克情况';
+      unitTitle.innerHTML = '' + svgIcon('folder-open') + ' 单元错题攻克情况';
       unitHint.textContent = '颜色 = 错题攻克进度';
     } else {
-      unitTitle.textContent = '📂 单元掌握情况';
+      unitTitle.innerHTML = '' + svgIcon('folder-open') + ' 单元掌握情况';
       unitHint.textContent = '颜色 = 复习掌握度';
     }
     renderUnits(p, m);
@@ -6516,7 +6516,7 @@ function renderDeadlinePassedBanner(p) {
   if (isHard) {
     // hardDeadline+过期：考试结束文案；recite 文案按类型区分
     html = `<div class="ob-text">
-      <span class="ob-icon">📚</span>
+      <span class="ob-icon">${svgIcon('library')}</span>
       <span class="ob-main">考试已经结束了。这本${bookWord}陪你走过了备考的日子。</span>
     </div>
     <div class="ob-actions">
@@ -6542,7 +6542,7 @@ function renderDeadlinePassedBanner(p) {
         <span style="margin-left:auto;font-size:11px"><a href="javascript:;" data-dpa="mute" style="color:inherit;text-decoration:underline">不再提醒</a></span>`;
     }
     html = `<div class="ob-text">
-      <span class="ob-icon">📌</span>
+      <span class="ob-icon">${svgIcon('pin')}</span>
       <span class="ob-main">${mainText}</span>
     </div>
     <div class="ob-actions">${btns}</div>`;
@@ -6561,21 +6561,21 @@ function renderDeadlinePassedBanner(p) {
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast('📦', '已归档', `这本${bookWord}已移到「已归档」收纳箱，不再出现在首页。`, 3000);
+      showToast('' + svgIcon('package') + '', '已归档', `这本${bookWord}已移到「已归档」收纳箱，不再出现在首页。`, 3000);
     } else if (action === 'reset') {
       openSettings();
     } else if (action === 'rebalance') {
       const moved = rebalanceExpiredItems(p);
       saveStore();
       render();
-      showToast('🔄', '已重排旧题', `把 ${moved} ${itemWord}停在过去的题按间隔摊到了未来。`, 3000);
+      showToast('' + svgIcon('refresh-cw') + '', '已重排旧题', `把 ${moved} ${itemWord}停在过去的题按间隔摊到了未来。`, 3000);
     } else if (action === 'continue') {
       p.deadlineWarnDismissedDate = today;
       rebalanceExpiredItems(p);
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast('💪', '好的，按你的节奏来', '旧题已按间隔摊到未来，不赶进度。', 3000);
+      showToast('' + svgIcon('activity') + '', '好的，按你的节奏来', '旧题已按间隔摊到未来，不赶进度。', 3000);
     } else if (action === 'later') {
       p.deadlineWarnDismissedDate = today;
       p.updatedAt = Date.now();
@@ -6600,7 +6600,7 @@ function renderDeadlinePassedBanner(p) {
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast('🔕', '已不再提醒', '过期提示已永久关闭。', 2500);
+      showToast('' + svgIcon('bell-off') + '', '已不再提醒', '过期提示已永久关闭。', 2500);
     }
   };
 }
@@ -6639,7 +6639,7 @@ function renderExcessAdvice(p) {
         p.updatedAt = Date.now();
         saveStore();
         render();
-        showToast('✅', '舒适量已调高', `现在每天最多面对 ${suggest} 条。`, 2500);
+        showToast('' + svgIcon('check-circle') + '', '舒适量已调高', `现在每天最多面对 ${suggest} 条。`, 2500);
       }};
     }
   }
@@ -6652,7 +6652,7 @@ function renderExcessAdvice(p) {
     if (backlog > comfort && lowDays < 21 && fe.level !== 'risk' && p.deadline) {
       const daysLeft = diffDays(today, p.deadline);
       const k = Math.max(1, Math.ceil(backlog / p75));
-      adviceHtml = `💡 你已累计积压 <b>${backlog}</b> 条，距目标还剩 <b>${daysLeft}</b> 天。从明天起按你平时的节奏每天 <b>${p75}</b> 条，约 <b>${k}</b> 天清完并回到正轨，来得及。`;
+      adviceHtml = `${svgIcon('lightbulb')} 你已累计积压 <b>${backlog}</b> 条，距目标还剩 <b>${daysLeft}</b> 天。从明天起按你平时的节奏每天 <b>${p75}</b> 条，约 <b>${k}</b> 天清完并回到正轨，来得及。`;
       if (lowDays > 0) {
         adviceHtml += `<br><span style="font-size:11.5px;opacity:.8">最近两周你的节奏比平时慢一些，这是正常波动。你之前长期稳定在每天 ~${p75} 条，保持现有舒适量，先把积压清回来。</span>`;
       }
@@ -6663,7 +6663,7 @@ function renderExcessAdvice(p) {
         p.updatedAt = Date.now();
         saveStore();
         render();
-        showToast('🚀', '追赶模式已启动', `接下来 ${k} 天每天目标 ${p75} 条，清完积压自动恢复。`, 3000);
+        showToast('' + svgIcon('rocket') + '', '追赶模式已启动', `接下来 ${k} 天每天目标 ${p75} 条，清完积压自动恢复。`, 3000);
       }};
       p.excessAdviceShownDate = today;
     }
@@ -6689,7 +6689,7 @@ function renderExcessAdvice(p) {
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast('🚀', '冲刺模式已启动', `到目标日前每天 ${suggest} 条。`, 3000);
+      showToast('' + svgIcon('rocket') + '', '冲刺模式已启动', `到目标日前每天 ${suggest} 条。`, 3000);
     }};
     p.excessAdviceShownDate = today;
   }
@@ -6713,7 +6713,7 @@ function renderExcessAdvice(p) {
         p.updatedAt = Date.now();
         saveStore();
         render();
-        showToast('✅', '舒适量已调低', `现在每天面对 ${suggest} 条，轻松一点。`, 2500);
+        showToast('' + svgIcon('check-circle') + '', '舒适量已调低', `现在每天面对 ${suggest} 条，轻松一点。`, 2500);
       }};
       p.excessAdviceShownDate = today;
     }
@@ -6791,9 +6791,9 @@ function renderTightStrategyBar(p) {
   }
 
   let html = `<div class="ob-text">
-    <span class="ob-icon">💡</span>
+    <span class="ob-icon">${svgIcon('lightbulb')}</span>
     <span class="ob-main">${leadText} 你的复习任务偏紧。以下是可以优化的方向：</span>
-    <button class="nb-close" data-tsb="dismiss" title="今天不再提示">✕</button>
+    <button class="nb-close" data-tsb="dismiss" title="今天不再提示">${svgIcon('x')}</button>
   </div>
   <div class="ob-actions">
     <button class="ob-btn" data-tsb="highFreq">${p.tacticalPostpone ? '取消优先策略' : '优先高频薄弱题'}</button>
@@ -6829,14 +6829,14 @@ function renderTightStrategyBar(p) {
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast(p.tacticalPostpone ? '🎯' : '✅', p.tacticalPostpone ? '已优先高频薄弱题' : '已恢复全部题目显示', p.tacticalPostpone ? '临考期先集中攻克高频+最薄弱的题。' : '现在显示全部待复习题目。', 2500);
+      showToast(p.tacticalPostpone ? '' + svgIcon('target') + '' : '' + svgIcon('check-circle') + '', p.tacticalPostpone ? '已优先高频薄弱题' : '已恢复全部题目显示', p.tacticalPostpone ? '临考期先集中攻克高频+最薄弱的题。' : '现在显示全部待复习题目。', 2500);
     } else if (action === 'lowFreq') {
       // toggle：低频题降频开/关
       p.lowFreqExtended = !p.lowFreqExtended;
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast(p.lowFreqExtended ? '📉' : '✅', p.lowFreqExtended ? '低频题已降频' : '已恢复原复习间隔', p.lowFreqExtended ? '偏题怪题间隔拉长。' : '低频题恢复原排期节奏。', 2500);
+      showToast(p.lowFreqExtended ? '' + svgIcon('trending-down') + '' : '' + svgIcon('check-circle') + '', p.lowFreqExtended ? '低频题已降频' : '已恢复原复习间隔', p.lowFreqExtended ? '偏题怪题间隔拉长。' : '低频题恢复原排期节奏。', 2500);
     } else if (action === 'postpone') {
       // 一键自动改deadline为suggestedDate
       const oldDeadline = p.deadline;
@@ -6845,13 +6845,13 @@ function renderTightStrategyBar(p) {
       // 首次点后移引导勾选hardDeadline
       if (!p.hardDeadlinePrompted) {
         p.hardDeadlinePrompted = true;
-        showToast('📝', '小提示', '如果你的截止日是考试日，建议在设置页勾选「硬约束」，以后系统就不再建议后移了。', 4500);
+        showToast('' + svgIcon('square-pen') + '', '小提示', '如果你的截止日是考试日，建议在设置页勾选「硬约束」，以后系统就不再建议后移了。', 4500);
       }
       rebalanceExpiredItems(p);
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast('📅', '截止日已后移', `从 ${oldDeadline} 改到 ${suggestedDate}，每天量已自动降下来。`, 3000);
+      showToast('' + svgIcon('calendar') + '', '截止日已后移', `从 ${oldDeadline} 改到 ${suggestedDate}，每天量已自动降下来。`, 3000);
     }
   };
 }
@@ -6878,11 +6878,11 @@ function renderConfigWarnBar(p) {
   const capacity = Math.round(p.dailyCapacity);
   const comfort = getComfortCap(p);
   bar.innerHTML = `
-    <span class="ob-advice-icon">💡</span>
+    <span class="ob-advice-icon">${svgIcon('lightbulb')}</span>
     <span class="ob-advice-text">你设了每天 ${capacity} 条，但舒适量是 ${comfort} 条，实际每天只排 ${comfort} 条。</span>
     <button class="ob-advice-btn" data-cwb="raise">我能做${capacity}条，调高舒适量到${capacity}</button>
     <button class="ob-advice-btn secondary" data-cwb="lower">改成${comfort}条，匹配我最近实际节奏</button>
-    <button class="ob-advice-btn" data-cwb="dismiss" style="background:transparent;color:var(--muted);border:1px solid var(--border)">✕</button>`;
+    <button class="ob-advice-btn" data-cwb="dismiss" style="background:transparent;color:var(--muted);border:1px solid var(--border)">${svgIcon('x')}</button>`;
   bar.hidden = false;
   bar.onclick = (e) => {
     const btn = e.target.closest('[data-cwb]');
@@ -6893,13 +6893,13 @@ function renderConfigWarnBar(p) {
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast('✅', '舒适量已调高', `现在每天排 ${capacity} 条。`, 2500);
+      showToast('' + svgIcon('check-circle') + '', '舒适量已调高', `现在每天排 ${capacity} 条。`, 2500);
     } else if (action === 'lower') {
       p.dailyCapacity = comfort;
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast('✅', '已匹配实际节奏', `每天固定排 ${comfort} 条。`, 2500);
+      showToast('' + svgIcon('check-circle') + '', '已匹配实际节奏', `每天固定排 ${comfort} 条。`, 2500);
     } else if (action === 'dismiss') {
       p.configWarnDismissedDate = today;
       p.configWarnDismissCount = (p.configWarnDismissCount || 0) + 1;
@@ -6932,7 +6932,7 @@ function renderReciteSprintBadge(p) {
     if (rc && rc.parentNode) rc.parentNode.insertBefore(badge, rc.nextSibling);
   }
   badge.hidden = false;
-  badge.innerHTML = `⚡冲刺模式 <span style="font-weight:400">距考试${d2d}天</span>`;
+  badge.innerHTML = `${svgIcon('zap')}冲刺模式 <span style="font-weight:400">距考试${d2d}天</span>`;
   badge.title = `距考试还有 ${d2d} 天，你的模糊/薄弱项将在 3 天内高频复现。`;
 }
 
@@ -6977,15 +6977,15 @@ function renderReciteSprintBar(p) {
   const unreviewed = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate && !it.learnedDate).length;
   let leadText, leadIcon;
   if (p.pauseNewLearning) {
-    leadText = '已暂停新学，当前只复习已学内容。'; leadIcon = '⏸';
+    leadText = '已暂停新学，当前只复习已学内容。'; leadIcon = svgIcon('pause');
   } else if (d2d >= 0 && d2d <= 30) {
-    leadText = `距考试还有 <strong>${d2d}</strong> 天，还剩 <strong>${unlearned}</strong> 条未学 / <strong>${overdue}</strong> 条逾期。时间紧，做减法比硬赶新内容更有效：`; leadIcon = '⏳';
+    leadText = `距考试还有 <strong>${d2d}</strong> 天，还剩 <strong>${unlearned}</strong> 条未学 / <strong>${overdue}</strong> 条逾期。时间紧，做减法比硬赶新内容更有效：`; leadIcon = svgIcon('hourglass');
   } else if (condOverdueHeavy) {
-    leadText = `已逾期 <strong>${overdue}</strong> 条，复习端压力较大。建议暂停新学，先清复习。`; leadIcon = '⚠️';
+    leadText = `已逾期 <strong>${overdue}</strong> 条，复习端压力较大。建议暂停新学，先清复习。`; leadIcon = '' + svgIcon('alert-triangle') + '';
   } else if (condWindowClosed) {
-    leadText = `新学窗口已关闭，还剩 <strong>${unlearned}</strong> 条未学。建议暂停新学或战略放弃低频页段。`; leadIcon = '⚠️';
+    leadText = `新学窗口已关闭，还剩 <strong>${unlearned}</strong> 条未学。建议暂停新学或战略放弃低频页段。`; leadIcon = '' + svgIcon('alert-triangle') + '';
   } else {
-    leadText = '进度偏紧，做减法比硬赶更有效：'; leadIcon = '⏳';
+    leadText = '进度偏紧，做减法比硬赶更有效：'; leadIcon = svgIcon('hourglass');
   }
 
   bar.innerHTML = `<div class="ob-text">
@@ -6993,10 +6993,10 @@ function renderReciteSprintBar(p) {
     <span class="ob-main">${leadText}</span>
   </div>
   <div class="ob-actions">
-    <button class="ob-btn" data-rsb="pauseNew">${p.pauseNewLearning ? '▶ 恢复新学' : '⏸ 暂停新学，只复习'}</button>
-    <button class="ob-btn" data-rsb="lowFreq">${p.lowFreqExtended ? '✅ 低频已降频' : '📉 低频内容降频'}</button>
-    <button class="ob-btn" data-rsb="abandon">✂️ 战略放弃部分页</button>
-    <button class="ob-btn" data-rsb="dismiss" style="background:transparent;border:1px solid var(--border);color:var(--muted)">✕</button>
+    <button class="ob-btn" data-rsb="pauseNew">${p.pauseNewLearning ? svgIcon('play', 14) + ' 恢复新学' : svgIcon('pause', 14) + ' 暂停新学，只复习'}</button>
+    <button class="ob-btn" data-rsb="lowFreq">${p.lowFreqExtended ? '' + svgIcon('check-circle') + ' 低频已降频' : '' + svgIcon('trending-down') + ' 低频内容降频'}</button>
+    <button class="ob-btn" data-rsb="abandon">${svgIcon('scissors')} 战略放弃部分页</button>
+    <button class="ob-btn" data-rsb="dismiss" style="background:transparent;border:1px solid var(--border);color:var(--muted)">${svgIcon('x')}</button>
   </div>`;
   bar.hidden = false;
 
@@ -7009,14 +7009,14 @@ function renderReciteSprintBar(p) {
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast(p.pauseNewLearning ? '⏸️' : '▶️', p.pauseNewLearning ? '已暂停新学' : '已恢复新学',
+      showToast(p.pauseNewLearning ? svgIcon('pause') : svgIcon('play'), p.pauseNewLearning ? '已暂停新学' : '已恢复新学',
         p.pauseNewLearning ? '当前只复习已学内容，录入区已收起。' : '现在可以正常添加新内容了。', 2500);
     } else if (action === 'lowFreq') {
       p.lowFreqExtended = !p.lowFreqExtended;
       p.updatedAt = Date.now();
       saveStore();
       render();
-      showToast(p.lowFreqExtended ? '📉' : '✅', p.lowFreqExtended ? '低频内容已降频' : '已恢复原复习间隔',
+      showToast(p.lowFreqExtended ? '' + svgIcon('trending-down') + '' : '' + svgIcon('check-circle') + '', p.lowFreqExtended ? '低频内容已降频' : '已恢复原复习间隔',
         p.lowFreqExtended ? '已掌握较久、状态稳定的条目，复习间隔拉长，腾出时间给模糊项。' : '低频内容恢复原排期节奏。', 2500);
     } else if (action === 'abandon') {
       openReciteAbandonPanel(p);
@@ -7063,12 +7063,12 @@ function renderReciteBalanceHint(p) {
     if (rs) rs.insertBefore(bar, $('#reviewList'));
   }
   bar.innerHTML = `<div class="ob-text">
-    <span class="ob-icon">📚</span>
+    <span class="ob-icon">${svgIcon('library')}</span>
     <span class="ob-main">今天系统计划复习 <strong>${target}</strong> 条，你的舒适量是 <strong>${comfort}</strong> 条。先按舒适量做就好，<strong>超出的部分系统会自动摊到未来几天，不会堆成逾期</strong>。</span>
   </div>
   <div class="ob-actions">
     <button class="ob-btn" data-rbh="spread">挪走多余的</button>
-    <button class="ob-btn" data-rbh="dismiss" style="background:transparent;border:1px solid var(--border);color:var(--muted)">✕</button>
+    <button class="ob-btn" data-rbh="dismiss" style="background:transparent;border:1px solid var(--border);color:var(--muted)">${svgIcon('x')}</button>
   </div>`;
   bar.hidden = false;
   bar.onclick = (e) => {
@@ -7084,7 +7084,7 @@ function renderReciteBalanceHint(p) {
         spreadItems(p, excess, 3);
         saveStore();
         render();
-        showToast('📤', '已挪走多余', `把 ${excess.length} 条摊到了未来几天，今天只面对 ${comfort} 条。`, 2500);
+        showToast('' + svgIcon('upload') + '', '已挪走多余', `把 ${excess.length} 条摊到了未来几天，今天只面对 ${comfort} 条。`, 2500);
       }
     } else if (action === 'dismiss') {
       p.comfortHintShownDate = today;
@@ -7118,7 +7118,7 @@ function renderReciteComfortAdvice(p) {
   if (p.reciteMode === 'fixed') {
     if (streak.easyStreak >= 7 && streak.avg7 > 0) {
       el.innerHTML = `<div class="ob-text" style="color:var(--muted);font-size:12px">
-        <span>💡 你最近日均约 <b>${streak.avg7}</b> 条且节奏稳定，继续保持就好。</span>
+        <span>${svgIcon('lightbulb')} 你最近日均约 <b>${streak.avg7}</b> 条且节奏稳定，继续保持就好。</span>
       </div>`;
       el.hidden = false;
     } else {
@@ -7132,7 +7132,7 @@ function renderReciteComfortAdvice(p) {
     const suggestUp = Math.min(50, Math.max(comfort + 2, Math.round(streak.avg7)));
     if (suggestUp > comfort) {
       el.innerHTML = `<div class="ob-text">
-        <span class="ob-icon">💡</span>
+        <span class="ob-icon">${svgIcon('lightbulb')}</span>
         <span class="ob-main">你已连续 ${streak.easyStreak} 天轻松完成 ${comfort} 条复习，最近 7 天实际日均约 <strong>${streak.avg7}</strong> 条，状态不错。要不要把每日舒适复习量调到 <strong>${suggestUp}</strong> 条试试？（可随时调回）</span>
       </div>
       <div class="ob-actions">
@@ -7148,7 +7148,7 @@ function renderReciteComfortAdvice(p) {
           p.updatedAt = Date.now();
           saveStore();
           render();
-          showToast('✅', '舒适量已调高', `现在每天舒适面对 ${suggestUp} 条。`, 2500);
+          showToast('' + svgIcon('check-circle') + '', '舒适量已调高', `现在每天舒适面对 ${suggestUp} 条。`, 2500);
         } else {
           p.comfortAdviceShownDate = today;
           p.updatedAt = Date.now();
@@ -7165,7 +7165,7 @@ function renderReciteComfortAdvice(p) {
     const suggestDown = Math.max(4, Math.round(streak.avg7));
     if (suggestDown < comfort) {
       el.innerHTML = `<div class="ob-text">
-        <span class="ob-icon">💡</span>
+        <span class="ob-icon">${svgIcon('lightbulb')}</span>
         <span class="ob-main">你最近的实际节奏约 <strong>${streak.avg7}</strong> 条/天，低于舒适量 ${comfort} 条。要不要把舒适量调到 <strong>${suggestDown}</strong>？状态好再往上加。</span>
       </div>
       <div class="ob-actions">
@@ -7181,7 +7181,7 @@ function renderReciteComfortAdvice(p) {
           p.updatedAt = Date.now();
           saveStore();
           render();
-          showToast('✅', '舒适量已调低', `现在每天舒适面对 ${suggestDown} 条，轻松一点。`, 2500);
+          showToast('' + svgIcon('check-circle') + '', '舒适量已调低', `现在每天舒适面对 ${suggestDown} 条，轻松一点。`, 2500);
         } else {
           p.comfortAdviceShownDate = today;
           p.updatedAt = Date.now();
@@ -7282,7 +7282,7 @@ function renderReciteTodayPriority(p) {
     if (rs) rs.insertBefore(el, $('#reviewList'));
   }
   el.innerHTML = `<div class="ob-text" style="flex-direction:column;align-items:flex-start;gap:4px">
-    <span style="font-weight:600">🎯 今日优先啃这 ${weighted.length} 条（逾期最久 × 连续忘记次数加权）：</span>
+    <span style="font-weight:600">${svgIcon('target')} 今日优先啃这 ${weighted.length} 条（逾期最久 × 连续忘记次数加权）：</span>
     <span style="opacity:.85">${weighted.map(w => esc((w.it.content || '').slice(0, 40))).join('、')}</span>
   </div>`;
   el.hidden = false;
@@ -7329,7 +7329,7 @@ function renderReciteSoftEncourage(p) {
     const rs = $('#reviewSection');
     if (rs) rs.insertBefore(el, $('#reviewList'));
   }
-  el.innerHTML = `💪 ${text}${stageHint}`;
+  el.innerHTML = `${svgIcon('activity')} ${text}${stageHint}`;
   el.hidden = false;
 }
 
@@ -7376,7 +7376,7 @@ function openReciteAbandonPanel(p) {
     document.body.appendChild(mask);
   }
   mask.innerHTML = `<div style="background:var(--card);border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow:auto;padding:20px">
-    <div style="font-size:15px;font-weight:700;margin-bottom:8px">✂️ 战略放弃部分页段</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${svgIcon('scissors')} 战略放弃部分页段</div>
     <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px">勾选你不想背的页段，进度统计会实时减去这部分。已学过的页段不建议放弃。可随时取消。</div>
     <div id="abandonSegList" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto">
       ${segments.map((s, i) => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 8px;border-radius:8px;background:var(--bg)">
@@ -7410,7 +7410,7 @@ function openReciteAbandonPanel(p) {
     mask.hidden = true;
     unlockBodyScroll();
     render();
-    showToast('✂️', '已更新战略放弃', `放弃了 ${newRanges.length} 个页段，进度已重新计算。`, 2500);
+    showToast('' + svgIcon('scissors') + '', '已更新战略放弃', `放弃了 ${newRanges.length} 个页段，进度已重新计算。`, 2500);
   };
 }
 
@@ -7445,7 +7445,7 @@ function renderBehindQueue(p) {
     const collectRate = getMistakeCollectRate(p);
     const ewm = getEwmRate(p);
     if (p.type === 'mistake' && collectRate > ewm) {
-      html += `<br><span style="font-size:11px;opacity:.7">💡 最近每天新收约${collectRate}道、消化约${ewm}道，收录更快，错题会越攒越多。这几天先少录几道、集中清旧的？</span>`;
+      html += `<br><span style="font-size:11px;opacity:.7">${svgIcon('lightbulb')} 最近每天新收约${collectRate}道、消化约${ewm}道，收录更快，错题会越攒越多。这几天先少录几道、集中清旧的？</span>`;
     }
     el.innerHTML = html;
     el.hidden = false;
@@ -7468,8 +7468,8 @@ function renderReview(p) {
   if (honestEl) {
     honestEl.hidden = false;
     honestEl.textContent = p.type === 'mistake'
-      ? '💡 请如实选择，以便系统为你精准安排复习哦~'
-      : '💡 请如实选择，以便系统为你精准安排复习哦~';
+      ? '' + svgIcon('lightbulb') + ' 请如实选择，以便系统为你精准安排复习哦~'
+      : '' + svgIcon('lightbulb') + ' 请如实选择，以便系统为你精准安排复习哦~';
   }
   const countEl = $('#reviewCount');
   countEl.textContent = due.length;
@@ -7491,7 +7491,7 @@ function renderReview(p) {
     if (p.type === 'mistake' || p.type === 'recite') {
       modeBtn.hidden = false;
       const mode = p.reviewMode || 'classic';
-      modeBtn.textContent = mode === 'balanced' ? '⚖️ 均匀分布 ▾' : '📖 经典间隔 ▾';
+      modeBtn.innerHTML = mode === 'balanced' ? '' + svgIcon('scale') + ' 均匀分布 ▾' : '' + svgIcon('book-open') + ' 经典间隔 ▾';
       modeBtn.classList.toggle('classic', mode === 'classic');
       modeBtn.title = mode === 'balanced'
         ? '当前：均匀分布模式（自动错峰）。点击切换到经典间隔模式。'
@@ -7678,7 +7678,7 @@ function renderReview(p) {
           $('#noReviewHint').after(doneBanner);
         }
         doneBanner.innerHTML = `<div class="ob-text" style="justify-content:center">
-          <span class="ob-icon">🎉</span>
+          <span class="ob-icon">${svgIcon('party-popper')}</span>
           <span class="ob-main" style="font-size:14px">整本背完了！全部掌握了！</span>
         </div>
         <div class="ob-actions" style="justify-content:center">
@@ -7693,7 +7693,7 @@ function renderReview(p) {
             p.updatedAt = Date.now();
             saveStore();
             render();
-            showToast('📦', '已归档', '这本背书本已移到收纳箱，数据保留可随时取消归档。', 3000);
+            showToast('' + svgIcon('package') + '', '已归档', '这本背书本已移到收纳箱，数据保留可随时取消归档。', 3000);
           }
         };
       } else {
@@ -7722,7 +7722,7 @@ function renderReview(p) {
           p.updatedAt = Date.now();
           saveStore();
           render();
-          showToast('⏩', `已加排${pulled}题`, '从未来待复习里提前了几道薄弱题。', 2500);
+          showToast(svgIcon('fast-forward'), `已加排${pulled}题`, '从未来待复习里提前了几道薄弱题。', 2500);
         };
       }
       addBtn.hidden = false;
@@ -7771,7 +7771,7 @@ function renderReview(p) {
         tpHint.style.cssText = 'font-size:12px;color:var(--muted);margin:8px 0;padding:6px 10px;background:var(--bg);border-radius:8px;';
         list.parentNode.insertBefore(tpHint, list);
       }
-      tpHint.innerHTML = `📦 还有 ${restN} 道低频题已移到「考前随缘」，今天先集中攻克上面 ${mustDoN} 道高频薄弱题。 <button id="tpShowAll" style="font-size:11px;padding:1px 6px;margin-left:4px;background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer">显示全部</button>`;
+      tpHint.innerHTML = `${svgIcon('package')} 还有 ${restN} 道低频题已移到「考前随缘」，今天先集中攻克上面 ${mustDoN} 道高频薄弱题。 <button id="tpShowAll" style="font-size:11px;padding:1px 6px;margin-left:4px;background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer">显示全部</button>`;
       tpHint.hidden = false;
       const showAllBtn = $('#tpShowAll');
       if (showAllBtn) showAllBtn.onclick = () => {
@@ -7809,19 +7809,19 @@ function renderReview(p) {
     const overdueHtml = isOverdue ? `<span class="overdue-tag">逾期 ${overdueDays} 天</span>` : '';
     // [v3 算法-06] pullForward透明化：提前拉到今天的题加⚡标签
     const pullFwdHtml = (it.earlyReviewed && it.originalNextReviewDate)
-      ? `<span class="pull-fwd-tag" title="原定于 ${it.originalNextReviewDate}，为赶进度提前到今天">⚡提前</span>` : '';
+      ? `<span class="pull-fwd-tag" title="原定于 ${it.originalNextReviewDate}，为赶进度提前到今天">${svgIcon('zap')}提前</span>` : '';
     const errTagHtml = (it.errTags || []).map(reasonPill).join(' ');
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
     // 反复错（连续 2 次及以上"又错了"）：标为"关键薄弱点"，把挫败感转成"考前最该拿下的重点"
     const weakKeyHtml = (p.type === 'mistake' && !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2)
-      ? `<span class="weak-key-tag">🔑 关键薄弱点</span>` : '';
+      ? `<span class="weak-key-tag">${svgIcon('key')} 关键薄弱点</span>` : '';
     // 本轮没做对被打回：用极简计数体现"已重做几次"，做对即进下一轮（错题/背书通用）
     const ws = it.wrongStreak || 0;
     const retryHtml = ws >= 1 ? ` <span class="retry-cnt" title="本轮已重做 ${ws} 次 · 做对后进入下一轮">↻ ${ws}</span>` : '';
 
     const btnLabels = p.type === 'mistake'
-      ? { good: '✓ 做对了', fuzzy: '~ 看答案', forgot: '✗ 又错了' }
-      : { good: '✓ 记得', fuzzy: '~ 模糊', forgot: '✗ 忘记' };
+      ? { good: '' + svgIcon('check') + ' 做对了', fuzzy: '~ 看答案', forgot: '' + svgIcon('x') + ' 又错了' }
+      : { good: '' + svgIcon('check') + ' 记得', fuzzy: '~ 模糊', forgot: '' + svgIcon('x') + ' 忘记' };
 
     return `<li class="review-item ${mastery.cls}${isOverdue ? ' overdue-item' : ''}" data-id="${esc(it.id)}">
       <div class="ri-main">
@@ -7845,7 +7845,7 @@ function renderReview(p) {
         <button class="q-btn q-good" data-quality="good" title="${btnLabels.good}（快捷键 1）">${btnLabels.good}</button>
         <button class="q-btn q-fuzzy" data-quality="fuzzy" title="${btnLabels.fuzzy}（快捷键 2）">${btnLabels.fuzzy}</button>
         <button class="q-btn q-forgot" data-quality="forgot" title="${btnLabels.forgot}（快捷键 3）">${btnLabels.forgot}</button>
-        ${p.type === 'mistake' ? `<button class="tag-btn" data-reasonpicker="${it.id}">🏷 错因${(it.errTags||[]).length ? `(${it.errTags.length})` : ''}</button>` : ''}
+        ${p.type === 'mistake' ? `<button class="tag-btn" data-reasonpicker="${it.id}">${svgIcon('tag')} 错因${(it.errTags||[]).length ? `(${it.errTags.length})` : ''}</button>` : ''}
         <button class="skip-btn" data-skip="${it.id}" title="标记为已熟知（快捷键 S），不再出现在复习列表" aria-label="标记为已熟知 ${esc(it.content)}">已熟知</button>
       </div>
     </li>`;
@@ -7860,7 +7860,7 @@ function renderReview(p) {
     const retExpanded = _retentionExpanded.has(p.id);
     // 默认只展示最早的几条，避免长期未处理时列表冗长造成压力
     const shownRet = retExpanded ? retentionDue : retentionDue.slice(0, RETENTION_SHOWN_CAP);
-    const retBtnLabels = { pass: '✓ 还记得', fail: '~ 模糊了' };
+    const retBtnLabels = { pass: '' + svgIcon('check') + ' 还记得', fail: '~ 模糊了' };
     const itemsHtml = shownRet.map(it => {
       const isRetOverdue = it.retentionDate < today;
       const retOverdueHtml = isRetOverdue
@@ -7871,7 +7871,7 @@ function renderReview(p) {
         <div class="ri-main">
           <div class="ri-content">${esc(it.content)}</div>
           <div class="ri-meta">
-            <span class="retention-tag">🔖 保持复习</span>
+            <span class="retention-tag">${svgIcon('bookmark')} 保持复习</span>
             <span>${passInfo}掌握于 ${fmtCN(it.masteredDate)}</span>
             ${retOverdueHtml}
           </div>
@@ -7884,7 +7884,7 @@ function renderReview(p) {
     }).join('');
     const expandHtml = (!retExpanded && totalRet > RETENTION_SHOWN_CAP)
       ? `<li class="retention-expand" data-retention-expand="${p.id}"><span>展开其余 ${totalRet - RETENTION_SHOWN_CAP} 条保持复习</span></li>` : '';
-    retentionHtml = `<li class="retention-divider"><span>🔖 保持复习 · 已掌握内容的快速巩固（${totalRet}）</span></li>${itemsHtml}${expandHtml}`;
+    retentionHtml = `<li class="retention-divider"><span>${svgIcon('bookmark')} 保持复习 · 已掌握内容的快速巩固（${totalRet}）</span></li>${itemsHtml}${expandHtml}`;
   }
 
   // ux-24：首屏只渲染前 REVIEW_BATCH 条，其余用 IntersectionObserver 滚动到底分批追加（判定逻辑不变）
@@ -7917,7 +7917,7 @@ function renderReview(p) {
       pfNote.style.cssText = 'font-size:11.5px;color:var(--muted);margin:4px 0 8px;';
       list.parentNode.insertBefore(pfNote, list.nextSibling);
     }
-    pfNote.innerHTML = `⚡ 今天从未来提前安排了 ${p.lastPullForwardCount} 道（对应后面几天会少这些）`;
+    pfNote.innerHTML = `${svgIcon('zap')} 今天从未来提前安排了 ${p.lastPullForwardCount} 道（对应后面几天会少这些）`;
     pfNote.hidden = false;
   } else {
     const pfNote = $('#pullFwdNote');
@@ -7960,7 +7960,7 @@ function ensureKbdHintBar(p){
     bar = document.createElement('div');
     bar.id = 'reviewKbdHint';
     bar.style.cssText = 'display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted)';
-    bar.innerHTML = '<span>⌨️ 键盘快捷：</span>'
+    bar.innerHTML = '<span>' + svgIcon('keyboard', 14) + ' 键盘快捷：</span>'
       + '<span><b style="color:var(--brand)">1</b> 记得</span>'
       + '<span><b style="color:var(--brand)">2</b> 模糊</span>'
       + '<span><b style="color:var(--brand)">3</b> 忘记</span>'
@@ -8177,7 +8177,7 @@ function renderUnits(p, m) {
           ${level > 0 ? '└ ' : ''}${esc(u.name || '未命名单元')}
           ${isCurrent ? '<span class="unit-current">进行中</span>' : ''}
         </span>
-        <span class="unit-range">${done}/${len} 页${isDone ? ' ✓' : ''}</span>
+        <span class="unit-range">${done}/${len} 页${isDone ? ' ' + svgIcon('check') + '' : ''}</span>
       </div>
       <div class="unit-bar"><div class="unit-bar-fill" style="width:${pct}%"></div></div>
       <div class="unit-progress">P${us} - P${ue}${childInfo}</div>
@@ -8225,8 +8225,8 @@ function renderExerciseRecords(p) {
   $('#recCount').textContent = recs.length ? `共 ${recs.length} 条` : '';
 
   if (!recs.length) {
-    list.innerHTML = '<li class="empty">📊<br>还没有记录，先打个卡吧。'
-      + '<div style="margin-top:14px"><button type="button" class="primary" id="emptyCheckinBtn" style="padding:9px 22px;font-size:13px">📖 去打卡</button></div></li>';
+    list.innerHTML = '<li class="empty">' + svgIcon('bar-chart-3') + '<br>还没有记录，先打个卡吧。'
+      + '<div style="margin-top:14px"><button type="button" class="primary" id="emptyCheckinBtn" style="padding:9px 22px;font-size:13px">' + svgIcon('book-open') + ' 去打卡</button></div></li>';
     const ecb = document.getElementById('emptyCheckinBtn');
     if (ecb) ecb.addEventListener('click', () => scrollToEntryForm('#inPageEnd'));
     return;
@@ -8279,7 +8279,7 @@ function renderExerciseRecords(p) {
         `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
         `<span class="r-page">${textOf[i]}</span>` +
         `<span class="r-delta${dl > 0 ? '' : ' zero'}" style="margin-left:auto">${dlStr}</span>` +
-        `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条记录里的错题（格式：套号-题号，如 3-5）">✏️${wmCount ? '(' + wmCount + ')' : ''}</button>` +
+        `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条记录里的错题（格式：套号-题号，如 3-5）">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
         `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" data-set="${esc(r.set)}" title="删除">×</button>`;
       list.insertBefore(li, list.firstChild);
     });
@@ -8312,7 +8312,7 @@ function renderExerciseRecords(p) {
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
       `<span class="r-page">${rangeStr}</span>` +
       `<span class="r-delta${delta > 0 ? '' : ' zero'}" style="margin-left:auto">${deltaStr}</span>` +
-      `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条打卡里的错题">✏️${wmCount ? '(' + wmCount + ')' : ''}</button>` +
+      `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条打卡里的错题">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
       `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" title="删除">×</button>`;
     list.insertBefore(li, list.firstChild);
   });
@@ -8332,16 +8332,16 @@ function renderReciteRecords(p) {
   $('#recCount').textContent = items.length ? `共 ${items.length} 条` : '';
 
   if (!items.length) {
-    const ctaText = p.type === 'mistake' ? '📝 去记录一道错题' : '📖 去添加学习内容';
-    let emptyHtml = `<li class="empty">📝<br>还没有学习记录，先添加一条吧。
+    const ctaText = p.type === 'mistake' ? '' + svgIcon('square-pen') + ' 去记录一道错题' : '' + svgIcon('book-open') + ' 去添加学习内容';
+    let emptyHtml = `<li class="empty">${svgIcon('square-pen')}<br>还没有学习记录，先添加一条吧。
       <div style="margin-top:14px"><button type="button" class="primary" id="emptyAddBtn" style="padding:9px 18px;font-size:13px">${ctaText}</button></div></li>`;
     // ux-7：自由出处错题本空状态——把「升级为习题册/套卷」入口放到显眼处（原仅在设置里，新用户不易发现）
     if (p.type === 'mistake' && isMistakeFreeMode(p)) {
       emptyHtml += `<li class="empty" style="padding:18px 16px">
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">这本错题本当前是「自由出处」模式。<br>如果你习惯按页码或套卷整理，可以现在升级（升级后不可转回）。</div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-          <button type="button" class="primary" id="emptyUpgPage" style="padding:9px 16px;font-size:13px">📄 升级为习题册模式</button>
-          <button type="button" class="primary" id="emptyUpgSet" style="padding:9px 16px;font-size:13px">📑 升级为套卷模式</button>
+          <button type="button" class="primary" id="emptyUpgPage" style="padding:9px 16px;font-size:13px">${svgIcon('file-text')} 升级为习题册模式</button>
+          <button type="button" class="primary" id="emptyUpgSet" style="padding:9px 16px;font-size:13px">${svgIcon('copy')} 升级为套卷模式</button>
         </div>
       </li>`;
     }
@@ -8382,7 +8382,7 @@ function renderReciteRecords(p) {
         const qLabels = p.type === 'mistake'
           ? { good: '做对', fuzzy: '看答案', forgot: '错了' }
           : { good: '记得', fuzzy: '模糊', forgot: '忘记' };
-        const noteHtml = r.note ? `<div class="hist-note">📝 ${esc(r.note)}</div>` : '';
+        const noteHtml = r.note ? `<div class="hist-note">${svgIcon('square-pen')} ${esc(r.note)}</div>` : '';
         return `<div class="hist-row">
           <span class="hist-date">${fmtCN(r.date)}</span>
           <span class="muted">第${r.stage + 1}轮</span>
@@ -8400,22 +8400,22 @@ function renderReciteRecords(p) {
     const reviewedToday = (it.reviews || []).some(r => r.date === today);
     const canEarlyReview = !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate > today && !reviewedToday;
     const earlyBtn = canEarlyReview
-      ? `<button class="early-review-btn" data-early="${it.id}" title="提前复习这条">⏩ 提前复习</button>`
+      ? `<button class="early-review-btn" data-early="${it.id}" title="提前复习这条">${svgIcon('fast-forward', 14)} 提前复习</button>`
       : '';
 
     // 新录入条目（尚未复习过）加「新」标签，与已有复习历史的条目区分
     const isFreshNew = (!it.reviews || it.reviews.length === 0) && !it.mastered && !it.manualMastered;
     const newTag = isFreshNew
-      ? '<span class="m-badge" style="background:#e9ebdb;color:#2e6b4f;font-size:10.5px">🆕 新</span>'
+      ? '<span class="m-badge" style="background:#e9ebdb;color:#2e6b4f;font-size:10.5px">' + svgIcon('sparkle') + ' 新</span>'
       : '';
 
     // 错题本：补页码/补套号入口（转换后旧条目无定位字段时显示）
     let fillLocBtn = '';
     if (p.type === 'mistake') {
       if (isMistakePageMode(p) && !hasPageLocator(it)) {
-        fillLocBtn = `<button class="early-review-btn" data-fill-page="${it.id}" title="补页码" style="background:#e9ebdb;color:#2e6b4f">📍 补页码</button>`;
+        fillLocBtn = `<button class="early-review-btn" data-fill-page="${it.id}" title="补页码" style="background:#e9ebdb;color:#2e6b4f">${svgIcon('map-pin')} 补页码</button>`;
       } else if (isMistakeSetMode(p) && !hasSetLocator(it)) {
-        fillLocBtn = `<button class="early-review-btn" data-fill-set="${it.id}" title="补套号" style="background:#e9ebdb;color:#2e6b4f">📍 补套号</button>`;
+        fillLocBtn = `<button class="early-review-btn" data-fill-set="${it.id}" title="补套号" style="background:#e9ebdb;color:#2e6b4f">${svgIcon('map-pin')} 补套号</button>`;
       }
     }
 
@@ -8461,7 +8461,7 @@ function renderReciteRecords(p) {
       const groupHeader = document.createElement('div');
       groupHeader.style.cssText = 'padding:10px 14px;background:var(--bg);border-radius:10px;margin:8px 0 4px;display:flex;align-items:center;gap:10px';
       groupHeader.innerHTML = `
-        <span style="font-weight:700;font-size:14px">📑 ${paperLabel(p, Number(no))}</span>
+        <span style="font-weight:700;font-size:14px">${svgIcon('copy')} ${paperLabel(p, Number(no))}</span>
         <span style="font-size:12px;color:var(--muted)">${groupItems.length}道错题 · 已攻克${mastered}道</span>
         <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
           <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px"></div>
@@ -8473,7 +8473,7 @@ function renderReciteRecords(p) {
     if (noSet.length) {
       const groupHeader = document.createElement('div');
       groupHeader.style.cssText = 'padding:10px 14px;background:var(--bg);border-radius:10px;margin:8px 0 4px;';
-      groupHeader.innerHTML = `<span style="font-weight:700;font-size:14px">📂 未归类</span><span style="font-size:12px;color:var(--muted);margin-left:8px">${noSet.length}道（未填写套卷号）</span>`;
+      groupHeader.innerHTML = `<span style="font-weight:700;font-size:14px">${svgIcon('folder-open')} 未归类</span><span style="font-size:12px;color:var(--muted);margin-left:8px">${noSet.length}道（未填写套卷号）</span>`;
       list.appendChild(groupHeader);
       noSet.forEach(it => list.appendChild(renderItemLi(it)));
     }
@@ -8810,7 +8810,7 @@ function renderProjectList() {
   const list = $('#projectList');
   const ids = Object.keys(store.projects);
   if (!ids.length) {
-    list.innerHTML = '<li class="empty" style="padding:24px 8px;text-align:center">📚<br>还没有任务，点下面「＋新建」开始吧。</li>';
+    list.innerHTML = '<li class="empty" style="padding:24px 8px;text-align:center">' + svgIcon('library') + '<br>还没有任务，点下面「＋新建」开始吧。</li>';
     return;
   }
   const all = ids.map(id => store.projects[id]);
@@ -8819,9 +8819,9 @@ function renderProjectList() {
   const archivedProjects = all.filter(p => p.archived);
   // 按类型分组：刷题、背书、错题
   const groups = [
-    { key: 'exercise', label: '📚 刷题', items: [] },
-    { key: 'recite', label: '📖 背书', items: [] },
-    { key: 'mistake', label: '📝 错题', items: [] },
+    { key: 'exercise', label: '' + svgIcon('library') + ' 刷题', items: [] },
+    { key: 'recite', label: '' + svgIcon('book-open') + ' 背书', items: [] },
+    { key: 'mistake', label: '' + svgIcon('square-pen') + ' 错题', items: [] },
   ];
   activeProjects.forEach(p => {
     const g = groups.find(g => g.key === p.type);
@@ -8863,10 +8863,10 @@ function renderProjectList() {
     if (p.type === 'mistake' && p.refProjectId && store.projects[p.refProjectId]) {
       const refName = store.projects[p.refProjectId].name;
       const short = refName.length > 8 ? refName.substring(0, 8) + '…' : refName;
-      linkInfo = ` · 🔗 关联：${esc(short)}`;
+      linkInfo = ` · ${svgIcon('link')} 关联：${esc(short)}`;
     } else if (p.type === 'exercise') {
       const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
-      if (linkedCount > 0) linkInfo = ` · 🔗 ${linkedCount}个关联错题本`;
+      if (linkedCount > 0) linkInfo = ` · ${svgIcon('link')} ${linkedCount}个关联错题本`;
     }
 
     return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}" data-id="${esc(p.id)}">
@@ -8891,7 +8891,7 @@ function renderProjectList() {
   });
   // 已归档收纳箱
   if (archivedProjects.length > 0) {
-    html += `<li class="project-group-label" style="padding:12px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;border-top:1px solid var(--border);margin-top:8px">📦 已归档（${archivedProjects.length}）</li>`;
+    html += `<li class="project-group-label" style="padding:12px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px;border-top:1px solid var(--border);margin-top:8px">${svgIcon('package')} 已归档（${archivedProjects.length}）</li>`;
     archivedProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     archivedProjects.forEach(p => {
       const type = TYPES[p.type] || TYPES.exercise;
@@ -9105,21 +9105,21 @@ function getKaoyanInfo() {
 function getKaoyanHTML() {
   const ky = getKaoyanInfo();
   if (ky.state === 'hidden') return ''; // 12.21 起撤掉
-  let cls = '', emoji = '📚', title = '距离27考研还有';
+  let cls = '', emoji = '' + svgIcon('library') + '', title = '距离27考研还有';
   let daysText = ky.days;
   if (ky.state === 'exam1') {
     cls = ' exam-day';
-    emoji = '✍️';
+    emoji = '' + svgIcon('pen-line') + '';
     title = '今天是考研第一天';
     daysText = '上考场';
   } else if (ky.state === 'exam2') {
     cls = ' exam-day';
-    emoji = '📝';
+    emoji = '' + svgIcon('square-pen') + '';
     title = '今天是考研第二天';
     daysText = '继续加油';
   } else if (ky.state === 'exam2-done') {
     cls = ' exam-done';
-    emoji = '🎉';
+    emoji = '' + svgIcon('party-popper') + '';
     title = '考研结束啦';
     daysText = '好好休息';
   }
@@ -9273,7 +9273,7 @@ function getWeeklyReviewHTML() {
   const isSprint = ky.state === 'countdown' && ky.days >= 0 && ky.days <= 30;
 
   if (isNew) {
-    emoji = '🌱'; title = '第一周 · 起步';
+    emoji = '' + svgIcon('sprout') + ''; title = '第一周 · 起步';
     msgs = [
       '欢迎开始记录！第一步往往最难，你已经迈出来了。',
       '把学习提上日程的这一刻，你就已经和昨天的自己不一样了。',
@@ -9285,7 +9285,7 @@ function getWeeklyReviewHTML() {
       '把每天的目标定得轻松一点，连续几天都能完成，比一次猛学有用得多。'
     ];
   } else if (s.activeDays === 0) {
-    emoji = '🍃'; title = '上周 · 暂停了一下';
+    emoji = '' + svgIcon('leaf') + ''; title = '上周 · 暂停了一下';
     msgs = [
       '上周暂时没有学习记录，没关系，节奏断了随时能接上。',
       '休息本来就是备考的一部分。重要的不是从没停下，而是停下后还愿意回来。',
@@ -9298,7 +9298,7 @@ function getWeeklyReviewHTML() {
       '如果确实太累，就允许自己再缓一天，但定一个具体的重启时间，别让暂停变放弃。'
     ];
   } else if (s.activeDays === 7) {
-    emoji = '🔥'; title = '上周 · 全勤';
+    emoji = '' + svgIcon('flame') + ''; title = '上周 · 全勤';
     msgs = [
       `上周7天全勤！${whatYouDid}，这份自律已经超过绝大多数人了。`,
       `一周七天一天不落，${whatYouDid}，你的稳定本身就是最强的竞争力。`,
@@ -9311,7 +9311,7 @@ function getWeeklyReviewHTML() {
       '天数已经拉满，接下来可以把注意力放到薄弱环节的质量上。'
     ];
   } else if (s.streak >= 7 && s.activeDays >= 5) {
-    emoji = '💪'; title = '上周 · 稳定输出';
+    emoji = '' + svgIcon('activity') + ''; title = '上周 · 稳定输出';
     msgs = [
       `已经连续打卡 {streak} 天，上周{whatYouDid}，坚持正在变成你的习惯。`,
       `连续学了 {streak} 天，上周{whatYouDid}，这种细水长流的稳定最难得。`,
@@ -9323,7 +9323,7 @@ function getWeeklyReviewHTML() {
       '稳定是你的优势，接下来可以在每天的内容质量上再抠细一点。'
     ];
   } else if (s.activeDays >= 5) {
-    emoji = '📈'; title = '上周 · 节奏不错';
+    emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
     msgs = [
       `上周学了 {days} 天，{whatYouDid}，这个节奏相当扎实。`,
       `一周 {days} 天在学习，{whatYouDid}，已经跑赢了大多数人的状态。`,
@@ -9335,7 +9335,7 @@ function getWeeklyReviewHTML() {
       '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
     ];
   } else if (s.activeDays >= 3) {
-    emoji = '🌤️'; title = '上周 · 张弛有度';
+    emoji = '' + svgIcon('sun-medium') + ''; title = '上周 · 张弛有度';
     msgs = [
       `上周学了 {days} 天，{whatYouDid}，已经有了一个不错的基本盘。`,
       `{days} 天学习、{rest} 天休整，{whatYouDid}，张弛之间再加一点点就很理想。`,
@@ -9347,7 +9347,7 @@ function getWeeklyReviewHTML() {
       '一周三到四天是不错的底子，把目标定在五天，踮踮脚就能够到。'
     ];
   } else {
-    emoji = '🌦️'; title = '上周 · 刚起步';
+    emoji = '' + svgIcon('cloud-rain') + ''; title = '上周 · 刚起步';
     msgs = [
       `上周学了 {days} 天，{whatYouDid}，虽然不多，但至少没有完全空白。`,
       `上周只记录了 {days} 天，{whatYouDid}，没关系，这周从一个小目标重新起步就好。`,
@@ -9387,7 +9387,7 @@ function getWeeklyReviewHTML() {
       </div>
       <div class="wr-stats">${statsHtml}</div>
       <div class="wr-msg">${fill(_pick(msgs))}</div>
-      <div class="wr-tip">💡 ${fill(_pick(tips))}</div>
+      <div class="wr-tip">${svgIcon('lightbulb')} ${fill(_pick(tips))}</div>
     </div>`;
 }
 
@@ -9552,7 +9552,7 @@ function openDashboard() {
   }
   const statusChip = st => {
     if (!st) return '';
-    if (st.state === 'done') return '<span class="ts-chip ts-done" title="今天的目标已全部完成">✓ 今日已完成</span>';
+    if (st.state === 'done') return '<span class="ts-chip ts-done" title="今天的目标已全部完成">' + svgIcon('check') + ' 今日已完成</span>';
     if (st.state === 'partial') return `<span class="ts-chip ts-partial" title="今天已完成 ${fmtD(st.done)} / 共需 ${fmtD(st.need)}">◐ ${fmtD(st.done)}/${fmtD(st.need)}</span>`;
     if (st.state === 'todo') return `<span class="ts-chip ts-todo" title="今天还有目标没完成">● 今日未完成${st.due ? ' · ' + st.due + '条' : ''}</span>`;
     return '<span class="ts-chip ts-none" title="今天没有安排任务">今日无安排</span>';
@@ -9826,7 +9826,7 @@ function buildReminderBody() {
         const done = m.todayDone || 0;
         const needRounded = Math.round(need * 10) / 10;
         if (done >= need) {
-          doneItems.push({ name: p.name, type: 'exercise', text: `今日目标${needRounded}${unit}，已完成${done}${unit} ✅` });
+          doneItems.push({ name: p.name, type: 'exercise', text: `今日目标${needRounded}${unit}，已完成${done}${unit} ${svgIcon('check-circle')}` });
         } else {
           planItems.push({ name: p.name, type: 'exercise', text: `今日约${needRounded}${unit}${done > 0 ? `（已完成${done}${unit}）` : ''}`, urgent: false });
         }
@@ -9861,7 +9861,7 @@ function buildReminderBody() {
           const done = m.todayDone || 0;
           const needRounded = Math.round(need * 10) / 10;
           if (done >= need) {
-            doneItems.push({ name: p.name, type: 'recite', text: `今日新学目标${needRounded}页，已完成${done}页 ✅` });
+            doneItems.push({ name: p.name, type: 'recite', text: `今日新学目标${needRounded}页，已完成${done}页 ${svgIcon('check-circle')}` });
           } else {
             planItems.push({ name: p.name, type: 'recite', text: `今日新学约${needRounded}页${done > 0 ? `（已完成${done}页）` : ''}`, urgent: false });
           }
@@ -9874,32 +9874,32 @@ function buildReminderBody() {
   const parts = [];
   
   if (overdueItems.length) {
-    parts.push('⚠️ 逾期（先清掉）');
-    overdueItems.forEach(it => { const icon = it.type === 'mistake' ? '📝' : (it.type === 'recite' ? '📖' : '✏️'); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    parts.push('' + svgIcon('alert-triangle') + ' 逾期（先清掉）');
+    overdueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
     parts.push('');
   }
   
   if (dueItems.length) {
-    parts.push('📝 今日待复习');
-    dueItems.forEach(it => { const icon = it.type === 'mistake' ? '📝' : (it.type === 'recite' ? '📖' : '✏️'); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    parts.push('' + svgIcon('square-pen') + ' 今日待复习');
+    dueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
     parts.push('');
   }
   
   if (planItems.length) {
-    parts.push('📖 今日计划');
-    planItems.forEach(it => { const icon = it.type === 'mistake' ? '📝' : (it.type === 'recite' ? '📖' : '✏️'); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    parts.push('' + svgIcon('book-open') + ' 今日计划');
+    planItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
     parts.push('');
   }
   
   if (doneItems.length && !overdueItems.length && !dueItems.length && !planItems.length) {
     // 全部完成
-    parts.push('🎉 今天的任务都达标啦！');
-    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '📝' : (it.type === 'recite' ? '📖' : '✏️'); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    parts.push('' + svgIcon('party-popper') + ' 今天的任务都达标啦！');
+    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
     parts.push('');
-    parts.push('💪 保持节奏，明天继续加油！');
+    parts.push('' + svgIcon('activity') + ' 保持节奏，明天继续加油！');
   } else if (doneItems.length) {
-    parts.push('✅ 已达标');
-    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '📝' : (it.type === 'recite' ? '📖' : '✏️'); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    parts.push('' + svgIcon('check-circle') + ' 已达标');
+    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
     parts.push('');
   }
   
@@ -9930,7 +9930,7 @@ function buildReminderBody() {
   if (lazyProjects.length) {
     const names = lazyProjects.map(l => `${l.name}（${l.days}天）`).join('、');
     parts.push('');
-    parts.push(`😴 ${names} 好几天没动了，先花几分钟找回状态吧～`);
+    parts.push(`${svgIcon('alarm-clock-off')} ${names} 好几天没动了，先花几分钟找回状态吧～`);
   }
 
   return parts.join('\n').trim();
@@ -9943,7 +9943,7 @@ function ensureInAppReminderEl() {
     el = document.createElement('div');
     el.id = 'inAppReminder';
     el.className = 'inapp-reminder';
-    el.innerHTML = '<span class="iar-close">×</span><div class="iar-icon">🔔</div><div class="iar-content"><div class="iar-title"></div><div class="iar-body"></div></div>';
+    el.innerHTML = '<span class="iar-close">×</span><div class="iar-icon">' + svgIcon('bell') + '</div><div class="iar-content"><div class="iar-title"></div><div class="iar-body"></div></div>';
     document.body.appendChild(el);
     const closeIt = () => el.classList.remove('show');
     el.querySelector('.iar-close').addEventListener('click', closeIt);
@@ -10085,7 +10085,7 @@ function renderProgressBoard(p) {
   const m = getMetrics(p);
   const u = unitName(p);
   const pct = m.total > 0 ? Math.min(100, m.currentPage / m.total * 100) : 0;
-  $('#ppTitle').textContent = p.type === 'mistake' ? '📊 攻克进度' : (isSetMode(p) ? '📊 套卷完成情况' : '📊 习题册完成情况');
+  $('#ppTitle').innerHTML = p.type === 'mistake' ? '' + svgIcon('bar-chart-3') + ' 攻克进度' : (isSetMode(p) ? '' + svgIcon('bar-chart-3') + ' 套卷完成情况' : '' + svgIcon('bar-chart-3') + ' 习题册完成情况');
 
   const doneN = m.currentPage, totalN = m.total;
   $('#ppSummary').innerHTML = `
@@ -10149,13 +10149,13 @@ function renderProgressInsights(p, m) {
       <div class="pp-stat"><div class="v ${holePages ? 'warn' : ''}">${holePages}</div><div class="k">漏做页数（${u}）</div></div>`;
     if (holes.length) {
       const preview = holes.slice(0, 6).map(r => rangeText(r.start, r.end)).join('、') + (holes.length > 6 ? ' 等' : '');
-      gapWarn = `<div class="pp-gap-warn">⚠️ 已学范围内有 <b>${holes.length}</b> 段、共 <b>${holePages}</b> 页夹在中间还没做：${preview}。这些通常是当时跳过的难点，建议优先回看。</div>`;
+      gapWarn = `<div class="pp-gap-warn">${svgIcon('alert-triangle')} 已学范围内有 <b>${holes.length}</b> 段、共 <b>${holePages}</b> 页夹在中间还没做：${preview}。这些通常是当时跳过的难点，建议优先回看。</div>`;
     }
   }
 
   const _act = getActivityStreak(p, m.t);
   const _actLong = Math.max(_act.streak, _act.priorLongest || 0);
-  const statGrid = `<div class="pp-insight-title">📈 学习节奏与坚持（近 ${m.windowDays} 天）</div>
+  const statGrid = `<div class="pp-insight-title">${svgIcon('trending-up')} 学习节奏与坚持（近 ${m.windowDays} 天）</div>
     <div class="pp-stat-grid">
       <div class="pp-stat"><div class="v">${m.activeDays}</div><div class="k">学习日数</div></div>
       <div class="pp-stat"><div class="v">${enough ? num(m.perStudyDayRaw) : '—'}</div><div class="k">每次平均（${u}）</div></div>
@@ -10170,7 +10170,7 @@ function renderProgressInsights(p, m) {
   // —— 完成预测盒 ——
   let etaLines = '';
   if (m.remaining <= 0) {
-    etaLines = `🎉 已全部完成，共 ${fmtUnitNum(m.total)} ${u}。可以把目标总量或截止日调整到下一阶段。`;
+    etaLines = `${svgIcon('party-popper')} 已全部完成，共 ${fmtUnitNum(m.total)} ${u}。可以把目标总量或截止日调整到下一阶段。`;
   } else if (p.type === 'mistake') {
     // 错题本专属：滚动复习、攻克非线性，不做线性 ETA / 可行性判定（小样本"按攻克速度还需X周"会制造无谓焦虑）。
     // 只呈现：攻克进度 + 今日量 + 高频薄弱点，让用户"无脑清今天到期的"即可。
@@ -10186,7 +10186,7 @@ function renderProgressInsights(p, m) {
   } else if (p.type === 'recite' && m.sprint) {
     // 背书本冲刺期：不再给线性"完成区间"，呈现冲刺策略，避免用学新目标制造焦虑
     const _due = getDueItems(p).length;
-    etaLines = `⏰ <b>已进入冲刺期</b>：距目标日 ${fmtCN(p.deadline)} 还有 ${m.daysLeft} 天，不足一个完整复习周期（约 ${m.cycleDays} 天）。<br>这段时间的重点不是把新书背完，而是<b>把已学内容牢牢记住</b>：先清每天到期的复习${_due > 0 ? `（今天 <b>${_due}</b> 条）` : ''}，再有余力挑最核心的内容学新。<br>系统会把复习都安排在目标日之前，模糊、忘记的内容会更频繁地出现，你只需按清单做即可。`;
+    etaLines = `${svgIcon('alarm-clock')} <b>已进入冲刺期</b>：距目标日 ${fmtCN(p.deadline)} 还有 ${m.daysLeft} 天，不足一个完整复习周期（约 ${m.cycleDays} 天）。<br>这段时间的重点不是把新书背完，而是<b>把已学内容牢牢记住</b>：先清每天到期的复习${_due > 0 ? `（今天 <b>${_due}</b> 条）` : ''}，再有余力挑最核心的内容学新。<br>系统会把复习都安排在目标日之前，模糊、忘记的内容会更频繁地出现，你只需按清单做即可。`;
   } else if (!enough) {
     const isMistake = p.type === 'mistake';
     let planNum = null, planNote = '';
@@ -10208,11 +10208,11 @@ function renderProgressInsights(p, m) {
       etaLines = `完成时间范围还在估算中：再攒约 <b>${m.daysToMedium}</b> 个学习日就开始给出估算，累计满 7 个学习日（约 2 周）后范围更可靠。<br>当前未设截止日，可先按自己的节奏推进，或在设置里添加截止日获取每学习日目标。`;
     }
     if (m.sparseLogging) {
-      etaLines += `<br><span style="color:#96600c">⚠️ 你最近打卡间隔较长（中位数约 ${m.medianGap} 天），产能估计可能有偏差，建议每天记录一次。</span>`;
+      etaLines += `<br><span style="color:#96600c">${svgIcon('alert-triangle')} 你最近打卡间隔较长（中位数约 ${m.medianGap} 天），产能估计可能有偏差，建议每天记录一次。</span>`;
     }
   } else {
     etaLines = `按你最近每周约 <b>${num(m.activityPerWeek)}</b> 个学习日、每次约 <b>${num(m.perStudyDayRaw)}</b> ${u} 的节奏：<br>预计在 <b>${fmtCN(m.etaEarlyDate)} ～ ${fmtCN(m.etaLateDate)}</b> 之间完成，基准约 <b>${fmtCN(m.etaDate)}</b>。`;
-    if (m.feasibility === 'easy') etaLines += `<br><span style="color:var(--ok)">✅ 按当前节奏即可按时完成，保持就好。</span>`;
+    if (m.feasibility === 'easy') etaLines += `<br><span style="color:var(--ok)">${svgIcon('check-circle')} 按当前节奏即可按时完成，保持就好。</span>`;
     else if (m.feasibility === 'stretch') {
       const sf = stretchFull(m);
       // 延期兜底用长期可持续口径，且日期必须晚于当前截止日才有意义
@@ -10226,11 +10226,11 @@ function renderProgressInsights(p, m) {
       else body = delayDate
         ? `按你最近的节奏基本能按时完成，想留更多余量的话，可把截止日延后到约 ${fmtCN(delayDate)}`
         : `按你最近的节奏基本能按时完成，偶尔状态起伏也正常，正常推进就好`;
-      etaLines += `<br><span style="color:#96600c">⚠️ ${body}。</span>`;
+      etaLines += `<br><span style="color:#96600c">${svgIcon('alert-triangle')} ${body}。</span>`;
     }
     else if (m.feasibility === 'impossible') {
       const dLong = m.feasibleDaysLong ? addDays(m.t, Math.ceil(m.feasibleDaysLong)) : null;
-      etaLines += `<br><span style="color:var(--bad)">🚧 按现在节奏缺口较大，建议增加每周学习天数${dLong ? `，或把截止日延后到约 ${fmtCN(dLong)}` : ''}。</span>`;
+      etaLines += `<br><span style="color:var(--bad)">${svgIcon('wrench')} 按现在节奏缺口较大，建议增加每周学习天数${dLong ? `，或把截止日延后到约 ${fmtCN(dLong)}` : ''}。</span>`;
     }
     // 相对理想进度（与 getMetrics 同口径：填了 startDate 用它，否则用最早打卡日）
     if (m.effStart && p.deadline && m.total > 0) {
@@ -10240,16 +10240,16 @@ function renderProgressInsights(p, m) {
         const ideal = m.total * Math.max(0, Math.min(1, elapsed / span));
         const g = Math.round(m.currentPage - ideal);
         if (Math.abs(g) >= 1) etaLines += g > 0
-          ? `<br>📈 相对“${m.effStart}→${p.deadline} 匀速”的理想进度，<b style="color:var(--ok)">超前约 ${g} ${u}</b>。`
-          : `<br>📉 相对理想进度，<b style="color:var(--bad)">慢了约 ${-g} ${u}</b>（这部分已经算进每天目标里，不用额外补）。`;
-        else etaLines += `<br>➖ 与理想进度基本同步。`;
+          ? `<br>${svgIcon('trending-up')} 相对“${m.effStart}→${p.deadline} 匀速”的理想进度，<b style="color:var(--ok)">超前约 ${g} ${u}</b>。`
+          : `<br>${svgIcon('trending-down')} 相对理想进度，<b style="color:var(--bad)">慢了约 ${-g} ${u}</b>（这部分已经算进每天目标里，不用额外补）。`;
+        else etaLines += `<br>${svgIcon('minus')} 与理想进度基本同步。`;
       }
     }
   }
-  const etaBox = `<div class="pp-insight-title">🔮 完成预测</div><div class="pp-eta-box">${etaLines}</div>`;
+  const etaBox = `<div class="pp-insight-title">${svgIcon('orbit')} 完成预测</div><div class="pp-eta-box">${etaLines}</div>`;
 
   const notePadHtml = `<div id="ppNotePadWrap" style="margin:16px 0">
-    <div class="wb-section-title">📌 我的注意事项</div>
+    <div class="wb-section-title">${svgIcon('pin')} 我的注意事项</div>
     <textarea id="ppNotePad" class="wb-notepad" placeholder="写点提醒自己的话，会一直显示在这里…&#10;例：线代第二问必用行列式展开；英语作文先列提纲"></textarea>
   </div>`;
   return `<div class="pp-insight">${statGrid}${notePadHtml}${etaBox}</div>`;
@@ -10337,7 +10337,7 @@ function renderBookBreakdown(p) {
       const childInfo = hasChildren ? ` · ${u.children.length}个子单元` : '';
       let html = `<div class="pp-unit-row" style="padding-left:${indent}px">
         <div class="pp-unit-head">
-          <span>${level > 0 ? '└ ' : ''}📁 ${esc(u.name || '未命名单元')} <span class="muted" style="font-size:12px">P${us}-P${ue}</span></span>
+          <span>${level > 0 ? '└ ' : ''}${svgIcon('folder')} ${esc(u.name || '未命名单元')} <span class="muted" style="font-size:12px">P${us}-P${ue}</span></span>
           <span class="muted">${d}/${len} 页 · ${pctU.toFixed(0)}%${childInfo}</span>
         </div>
         <div class="pp-unit-track"><div class="pp-unit-fill" style="width:${pctU}%"></div></div>
@@ -10349,14 +10349,14 @@ function renderBookBreakdown(p) {
     const unitsHtml = units.map(u => renderBookUnit(u, 0)).join('');
     return `<div>${unitsHtml}</div>
       <div class="pp-ranges" style="margin-top:6px">
-        ${rangeChipsBlock('✅ 已完成页码区间', done, 'ok')}
-        ${rangeChipsBlock('⬜ 未完成页码区间', undone, 'no')}
+        ${rangeChipsBlock('' + svgIcon('check-circle') + ' 已完成页码区间', done, 'ok')}
+        ${rangeChipsBlock('' + svgIcon('square') + ' 未完成页码区间', undone, 'no')}
       </div>`;
   }
 
   return `<div class="pp-ranges">
-    ${rangeChipsBlock('✅ 已完成', done, 'ok')}
-    ${rangeChipsBlock('⬜ 未完成', undone, 'no')}
+    ${rangeChipsBlock('' + svgIcon('check-circle') + ' 已完成', done, 'ok')}
+    ${rangeChipsBlock('' + svgIcon('square') + ' 未完成', undone, 'no')}
   </div>`;
 }
 function rangeChipsBlock(title, ranges, cls) {
@@ -10487,9 +10487,9 @@ function syncFormUnit() {
   // 推荐提示文案
   const recEl = $('#fUnitRecommend');
   if (recEl) {
-    if (type === 'recite') recEl.innerHTML = '💡 系统推荐开启：背书内容通常按章节划分，单元模式可以按章节追踪掌握进度，复习更有针对性。';
-    else if (isMistakePage) recEl.innerHTML = '💡 系统推荐开启：错题按习题册章节归类，薄弱点看板可按单元看错题数量，针对性消灭薄弱章节。';
-    else recEl.innerHTML = '💡 系统推荐开启：习题册通常分章节/单元，单元模式可以清晰看到每个章节的完成进度，方便查漏补缺。';
+    if (type === 'recite') recEl.innerHTML = '' + svgIcon('lightbulb') + ' 系统推荐开启：背书内容通常按章节划分，单元模式可以按章节追踪掌握进度，复习更有针对性。';
+    else if (isMistakePage) recEl.innerHTML = '' + svgIcon('lightbulb') + ' 系统推荐开启：错题按习题册章节归类，薄弱点看板可按单元看错题数量，针对性消灭薄弱章节。';
+    else recEl.innerHTML = '' + svgIcon('lightbulb') + ' 系统推荐开启：习题册通常分章节/单元，单元模式可以清晰看到每个章节的完成进度，方便查漏补缺。';
   }
   const isPageExercise = isExercise && unit === 'page';
   $('#fStartPageWrap').hidden = true;
@@ -10618,7 +10618,7 @@ $('#fUnitTpl').addEventListener('change', e => {
     const t = (store.unitTemplates || []).find(x => x.id === e.target.value);
     if (t) {
       renderUnitEditor(t.units, $('#fUnitEditList'));
-      showToast('📋', '已加载模板', `「${t.name}」共 ${t.units.length} 个一级单元`, 2000);
+      showToast('' + svgIcon('clipboard-list') + '', '已加载模板', `「${t.name}」共 ${t.units.length} 个一级单元`, 2000);
     }
     e.target.value = '';
   }
@@ -10713,7 +10713,7 @@ function openSettings() {
     const infoEl = $('#refProjectInfo');
     if (p.refProjectId && store.projects[p.refProjectId]) {
       infoEl.hidden = false;
-      $('#refProjectInfoText').textContent = '✅ 已关联「' + store.projects[p.refProjectId].name + '」，单元结构已对齐';
+      $('#refProjectInfoText').innerHTML = '' + svgIcon('check-circle') + ' 已关联「' + esc(store.projects[p.refProjectId].name) + '」，单元结构已对齐';
     } else {
       infoEl.hidden = true;
     }
@@ -10726,9 +10726,9 @@ function openSettings() {
     if (isExercise) {
       const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
       if (linkedCount > 0) {
-        createLinkedBtn.textContent = `📝 已被 ${linkedCount} 个错题本关联 · 再创建一个`;
+        createLinkedBtn.innerHTML = `${svgIcon('square-pen')} 已被 ${linkedCount} 个错题本关联 · 再创建一个`;
       } else {
-        createLinkedBtn.textContent = '📝 创建关联错题本';
+        createLinkedBtn.innerHTML = '' + svgIcon('square-pen') + ' 创建关联错题本';
       }
     }
   }
@@ -10838,7 +10838,7 @@ function openSettings() {
   }, 50);
   } catch (e) {
     console.error('openSettings error:', e);
-    showToast('⚠️', '设置加载有异常', e.message + '（窗口仍可使用）', 4000);
+    showToast('' + svgIcon('alert-triangle') + '', '设置加载有异常', e.message + '（窗口仍可使用）', 4000);
   }
 }
 // 捕获设置表单当前状态（用于未保存检测），带安全保护
@@ -10901,7 +10901,7 @@ function closeSettings() {
       '设置还没保存。<br><br><b>「不保存离开」</b>：关闭设置，修改全部丢弃<br><b>「取消」</b>：返回设置页面继续编辑',
       '不保存离开',
       () => { doCloseSettings(); },
-      () => { showToast('✏️', '继续编辑中', '设置窗口仍开着，改完记得点底部「保存」按钮。', 2500); }
+      () => { showToast('' + svgIcon('pencil') + '', '继续编辑中', '设置窗口仍开着，改完记得点底部「保存」按钮。', 2500); }
     );
     return;
   }
@@ -10951,9 +10951,9 @@ function addUnitRowToList(listEl, name, startPage, endPage, level) {
       </div>
       <div class="unit-actions">
         ${level < maxLevel ? '<button type="button" class="unit-action-btn" data-action="add-child" title="在此单元下添加子单元">＋</button>' : ''}
-        ${level > 0 ? '<button type="button" class="unit-action-btn" data-action="indent-left" title="提升一级">⇤</button>' : ''}
-        ${level < maxLevel ? '<button type="button" class="unit-action-btn" data-action="indent-right" title="降级为上一个单元的子单元">⇥</button>' : ''}
-        <button type="button" class="unit-action-btn unit-del-btn" data-action="delete" title="删除此单元（含子单元）">🗑</button>
+        ${level > 0 ? '<button type="button" class="unit-action-btn" data-action="indent-left" title="提升一级">' + svgIcon('arrow-left-to-line', 14) + '</button>' : ''}
+        ${level < maxLevel ? '<button type="button" class="unit-action-btn" data-action="indent-right" title="降级为上一个单元的子单元">' + svgIcon('arrow-right-to-line', 14) + '</button>' : ''}
+        <button type="button" class="unit-action-btn unit-del-btn" data-action="delete" title="删除此单元（含子单元）">${svgIcon('trash-2')}</button>
       </div>
     </div>
   `;
@@ -10991,7 +10991,7 @@ function addScopeRow(listEl, start, end) {
         <input type="text" class="unit-page-input" placeholder="止" value="${end === '' ? '' : esc(end)}" data-role="send" inputmode="numeric" title="结束页（不填=单页）">
       </div>
       <div class="unit-actions">
-        <button type="button" class="unit-action-btn unit-del-btn" data-scope-del title="删除此区间">🗑</button>
+        <button type="button" class="unit-action-btn unit-del-btn" data-scope-del title="删除此区间">${svgIcon('trash-2')}</button>
       </div>
     </div>`;
   listEl.appendChild(row);
@@ -11063,13 +11063,13 @@ function refreshPaperTplSelect(selectEl) {
   // 预设模板
   Object.keys(PAPER_TEMPLATES).forEach(k => {
     const op = document.createElement('option');
-    op.value = 'preset:' + k; op.textContent = '📌 ' + PAPER_TEMPLATES[k][0];
+    op.value = 'preset:' + k; op.innerHTML = '' + svgIcon('pin') + ' ' + PAPER_TEMPLATES[k][0];
     selectEl.appendChild(op);
   });
   // 自定义模板
   (store.paperTemplates || []).forEach(t => {
     const op = document.createElement('option');
-    op.value = 'custom:' + t.id; op.textContent = '💾 ' + t.name + `（${t.sections.length}个板块）`;
+    op.value = 'custom:' + t.id; op.innerHTML = '' + svgIcon('save') + ' ' + esc(t.name) + `（${t.sections.length}个板块）`;
     selectEl.appendChild(op);
   });
   selectEl.value = cur;
@@ -11078,7 +11078,7 @@ function applyUnitTpl(tplId, listEl) {
   const t = (store.unitTemplates || []).find(x => x.id === tplId);
   if (!t) return;
   renderUnitEditor(t.units, listEl || $('#unitEditList'));
-  showToast('📋', '已加载模板', `「${t.name}」共 ${t.units.length} 个单元`, 2000);
+  showToast('' + svgIcon('clipboard-list') + '', '已加载模板', `「${t.name}」共 ${t.units.length} 个单元`, 2000);
 }
 function applyPaperTpl(val, listEl) {
   if (val.startsWith('preset:')) {
@@ -11088,13 +11088,13 @@ function applyPaperTpl(val, listEl) {
     if (t) {
       listEl.innerHTML = '';
       t.sections.forEach(s => addPaperSecRow(listEl, s.name, s.weight, s.id));
-      showToast('📋', '已加载模板', `「${t.name}」共 ${t.sections.length} 个板块`, 2000);
+      showToast('' + svgIcon('clipboard-list') + '', '已加载模板', `「${t.name}」共 ${t.sections.length} 个板块`, 2000);
     }
   }
 }
 function saveUnitTplFromEditor(defaultName) {
   const units = readUnitRows();
-  if (!units.length) { showToast('⚠️', '无法保存', '请先添加至少一个单元', 2000); return; }
+  if (!units.length) { showToast('' + svgIcon('alert-triangle') + '', '无法保存', '请先添加至少一个单元', 2000); return; }
   const name = prompt('模板名称：', defaultName || '');
   if (!name || !name.trim()) return;
   const existing = (store.unitTemplates || []).find(t => t.name === name.trim());
@@ -11108,11 +11108,11 @@ function saveUnitTplFromEditor(defaultName) {
   saveStore();
   refreshUnitTplSelect($('#sUnitTpl'));
   refreshUnitTplSelect($('#fUnitTpl'));
-  showToast('💾', '模板已保存', `「${name.trim()}」共 ${units.length} 个单元`, 2000);
+  showToast('' + svgIcon('save') + '', '模板已保存', `「${name.trim()}」共 ${units.length} 个单元`, 2000);
 }
 function savePaperTplFromEditor(defaultName) {
   const sections = readPaperSecRows($('#sPaperSecList'));
-  if (!sections.length) { showToast('⚠️', '无法保存', '请先添加至少一个板块', 2000); return; }
+  if (!sections.length) { showToast('' + svgIcon('alert-triangle') + '', '无法保存', '请先添加至少一个板块', 2000); return; }
   const name = prompt('模板名称：', defaultName || '');
   if (!name || !name.trim()) return;
   const existing = (store.paperTemplates || []).find(t => t.name === name.trim());
@@ -11126,7 +11126,7 @@ function savePaperTplFromEditor(defaultName) {
   saveStore();
   refreshPaperTplSelect($('#sPaperTpl'));
   refreshPaperTplSelect($('#fPaperTpl'));
-  showToast('💾', '模板已保存', `「${name.trim()}」共 ${sections.length} 个板块`, 2000);
+  showToast('' + svgIcon('save') + '', '模板已保存', `「${name.trim()}」共 ${sections.length} 个板块`, 2000);
 }
 function readUnitRows() {
   return readUnitRowsFromList($('#unitEditList'));
@@ -11153,7 +11153,7 @@ function readUnitRowsFromList(listEl) {
     }
   });
   if (fixedCount > 0) {
-    showToast('⚠️', '页码已自动修正', `${fixedCount}个单元的结束页小于起始页，已自动调整为与起始页相同`, 3000);
+    showToast('' + svgIcon('alert-triangle') + '', '页码已自动修正', `${fixedCount}个单元的结束页小于起始页，已自动调整为与起始页相同`, 3000);
   }
   // 单元页码重叠检测：同父级（level 相同）的相邻单元间页码范围重叠时警告
   const overlaps = [];
@@ -11166,7 +11166,7 @@ function readUnitRowsFromList(listEl) {
     }
   }
   if (overlaps.length) {
-    showToast('⚠️', '单元页码有重叠', overlaps.slice(0, 3).join('；'), 3000);
+    showToast('' + svgIcon('alert-triangle') + '', '单元页码有重叠', overlaps.slice(0, 3).join('；'), 3000);
   }
   // 构建嵌套树
   const tree = [];
@@ -11238,7 +11238,7 @@ function editTpl(id) {
   }
   $('#tplManagerMask').hidden = true;
   unlockBodyScroll();
-  showToast('✏️', '已加载模板', `「${t.name}」已加载到编辑器，修改后点「存为模板」并输入相同名称即可更新`, 3000);
+  showToast('' + svgIcon('pencil') + '', '已加载模板', `「${t.name}」已加载到编辑器，修改后点「存为模板」并输入相同名称即可更新`, 3000);
 }
 function renameTpl(id) {
   const templates = tplManagerType === 'unit' ? store.unitTemplates : store.paperTemplates;
@@ -11314,7 +11314,7 @@ function renderWeaknessBoard(p) {
     if (f === 'mastered') btn.textContent = '已' + masteredWord;
     if (f === 'unmastered') btn.textContent = '未' + masteredWord;
   });
-  $('#btnRandomReview').innerHTML = isMistake ? '🎲 随机抽5道重做' : '🎲 随机抽5道复习';
+  $('#btnRandomReview').innerHTML = isMistake ? '' + svgIcon('dice-5') + ' 随机抽5道重做' : '' + svgIcon('dice-5') + ' 随机抽5道复习';
   const randomHint = document.querySelector('#btnRandomReview + .hint');
   if (randomHint) randomHint.textContent = isMistake
     ? '从已攻克中随机抽查，做错了会自动重新加入复习队列'
@@ -11335,7 +11335,7 @@ function renderWeaknessBoard(p) {
     ? '错题复习作战中心：下方按「今天最该重做 → 已攻克」排序，先清逾期/到期和反复错的题；也可以点「未复习」快速筛查刚录入还没做过的题。错因分布按历史累计统计，即使后来做对也保留，帮你盯住自己的系统性弱点。'
     : '记忆复习看板：下方按「今天最该复习 → 已掌握」排序，先清逾期/到期和最生疏的内容；坚持按间隔复习，记忆才牢。';
   $('#wbTotalLab').textContent = isMistake ? '总题数' : '总条目';
-  $('#wbListTitle').textContent = isMistake ? '📋 错题明细（越靠前越该先重做）' : '📋 内容明细（越靠前越该先复习）';
+  $('#wbListTitle').innerHTML = isMistake ? '' + svgIcon('clipboard-list') + ' 错题明细（越靠前越该先重做）' : '' + svgIcon('clipboard-list') + ' 内容明细（越靠前越该先复习）';
   // 统计卡片标签：错题用"攻克"，背书用"掌握"
   const masteredStatLab = document.querySelector('.wb-stat.s-mastered .lab');
   if (masteredStatLab) masteredStatLab.textContent = isMistake ? '已攻克' : '已掌握';
@@ -11540,14 +11540,14 @@ function renderWeaknessBoard(p) {
     });
     futureDays.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
     var futureHtml = futureDays.length
-      ? '<div class="wb-heat-detail-section"><h4>📅 未来复习计划（全部）</h4><div class="wb-heat-plan-note">间隔重复算法下，计划会随你每天的复习评价动态调整，以实际打开时为准</div><div class="wb-heat-detail-list">' + futureDays.map(function(fd){
+      ? '<div class="wb-heat-detail-section"><h4>' + svgIcon('calendar') + ' 未来复习计划（全部）</h4><div class="wb-heat-plan-note">间隔重复算法下，计划会随你每天的复习评价动态调整，以实际打开时为准</div><div class="wb-heat-detail-list">' + futureDays.map(function(fd){
           return '<div class="hd-future-day"><span class="hd-future-date">' + fd.date + '</span><span class="hd-future-count">' + fd.count + '题</span><span class="hd-future-preview">' + fd.preview + '</span></div>';
         }).join('') + '</div></div>'
       : '';
     bodyEl.innerHTML =
       '<div class="wb-heat-detail-rate">' + rateHtml + '</div>' +
-      '<div class="wb-heat-detail-section"><h4>📋 当天计划复习</h4>' + plannedHtml + '</div>' +
-      '<div class="wb-heat-detail-section"><h4>✅ 当天实际复习</h4>' + actualHtml + '</div>' +
+      '<div class="wb-heat-detail-section"><h4>' + svgIcon('clipboard-list') + ' 当天计划复习</h4>' + plannedHtml + '</div>' +
+      '<div class="wb-heat-detail-section"><h4>' + svgIcon('check-circle') + ' 当天实际复习</h4>' + actualHtml + '</div>' +
       futureHtml;
     detailEl.hidden = false;
   }
@@ -11586,7 +11586,7 @@ function renderWeaknessBoard(p) {
     // 提取逻辑：如果是未复习的条目，提供提前复习按钮
     const isUnreviewed = !isMastered(it) && (it.reviews || []).length <= 1 && (!it.nextReviewDate || it.nextReviewDate > today);
     const earlyBtn = isUnreviewed
-      ? `<button class="early-review-btn" data-wb-early="${esc(it.id)}" title="加入今日复习" style="padding:4px 8px;font-size:11px;white-space:nowrap">⏩ 提前复习</button>`
+      ? `<button class="early-review-btn" data-wb-early="${esc(it.id)}" title="加入今日复习" style="padding:4px 8px;font-size:11px;white-space:nowrap">${svgIcon('fast-forward', 12)} 提前复习</button>`
       : '';
     return `<li class="wb-item ${mastery.cls}" data-id="${esc(it.id)}">
       <div class="wb-item-main">
@@ -11660,7 +11660,7 @@ function renderWeaknessBoard(p) {
     // 区分两种空态：完全没有条目 vs 有筛选条件但筛空
     const _wbEmptyText = (items.length === 0)
       ? (isMistake ? '还没有错题，录入一道看看吧' : '还没有条目，录入一条看看吧')
-      : '没有符合条件的条目 🎉';
+      : '没有符合条件的条目 ' + svgIcon('party-popper') + '';
     list.innerHTML = '<div class="wb-empty">' + _wbEmptyText + '</div>';
   } else if (useUnit) {
     const units = [...p.units].sort((a, b) => (a.startPage || 0) - (b.startPage || 0));
@@ -11735,7 +11735,7 @@ function renderWeaknessBoard(p) {
       const childInfo = hasChildren ? ` · ${u.children.length}个子单元` : '';
       let html = `<div class="wb-unit-group" style="margin-left:${indent}px">
         <div class="wb-unit-group-head">
-          <span>${level > 0 ? '└ ' : ''}📁 ${esc(u.name || '未命名单元')} <span class="muted" style="font-size:12px">P${s}-P${e} · ${totalInUnit}条${childInfo}</span></span>
+          <span>${level > 0 ? '└ ' : ''}${svgIcon('folder')} ${esc(u.name || '未命名单元')} <span class="muted" style="font-size:12px">P${s}-P${e} · ${totalInUnit}条${childInfo}</span></span>
           <span style="font-size:12.5px;font-weight:600;color:${uBarColor}">${upct > 0 ? upct + '% · ' : ''}${umi.label}</span>
         </div>
         <div class="wb-unit-group-bar"><div style="height:100%;width:${upct}%;background:${uBarColor};border-radius:3px"></div></div>
@@ -11748,7 +11748,7 @@ function renderWeaknessBoard(p) {
     const noUnit = filtered.filter(({ it }) => !unitOfItem(it));
     if (noUnit.length) {
       html += `<div class="wb-unit-group">
-        <div class="wb-unit-group-head"><span>📂 未归类 <span class="muted" style="font-size:12px">${noUnit.length}条</span></span></div>
+        <div class="wb-unit-group-head"><span>${svgIcon('folder-open')} 未归类 <span class="muted" style="font-size:12px">${noUnit.length}条</span></span></div>
         <ul class="wb-unit-items">${noUnit.map(itemLi).join('')}</ul>
       </div>`;
     }
@@ -11809,7 +11809,7 @@ function renderWeaknessBoard(p) {
         const relMastered = rel.filter(isMastered).length;
         return `<div class="wb-pie-row" data-reason="${esc(name)}" title="历史累计 ${n} 次 · 涉及 ${rel.length} 题 · 已攻克 ${relMastered} 题">
           <span class="dot" style="background:${bg}"></span>
-          <span class="nm">${esc(name)} <span class="muted" style="font-size:11px">✓${relMastered}/${rel.length}</span></span>
+          <span class="nm">${esc(name)} <span class="muted" style="font-size:11px">${svgIcon('check')}${relMastered}/${rel.length}</span></span>
           <span class="ct">${n}</span>
           <span class="pc">${pc}%</span></div>`;
       }).join('');
@@ -11820,7 +11820,7 @@ function renderWeaknessBoard(p) {
           <text x="85" y="100" text-anchor="middle" font-size="11" class="wb-pie-label">累计错次</text>
         </svg>
         <div class="wb-pie-legend">
-          <div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">按历史累计统计，做对后仍保留；✓已攻克/涉及题数</div>
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:2px">按历史累计统计，做对后仍保留；${svgIcon('check')}已攻克/涉及题数</div>
           ${legend}
         </div>`;
       const showDetail = name => {
@@ -11831,7 +11831,7 @@ function renderWeaknessBoard(p) {
           (matched.length ? matched.map(it => {
             const loc = getItemSource(it, p);
             const status = isMastered(it)
-              ? '<span style="color:var(--ok);font-weight:600;white-space:nowrap">✓ 已攻克</span>'
+              ? '<span style="color:var(--ok);font-weight:600;white-space:nowrap">' + svgIcon('check') + ' 已攻克</span>'
               : `<span style="color:${scoreOf(it) < weakThreshold ? '#b02e24' : '#96600c'};font-weight:600;white-space:nowrap">${getMasteryInfo(it).label}</span>`;
             const locTxt = [loc, fmtCN(it.learnedDate)].filter(Boolean).join(' · ');
             return `<div class="rd-item"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.content)}</span><span style="display:flex;gap:8px;align-items:center;flex:0 0 auto"><span class="muted" style="white-space:nowrap">${esc(locTxt)}</span>${status}</span></div>`;
@@ -12113,7 +12113,7 @@ function doImport(imported, mode) {
   closeForm();
   render();
   hideBusy();
-  showToast('✅', '导入成功', '数据已导入完成。', 3000);
+  showToast('' + svgIcon('check-circle') + '', '导入成功', '数据已导入完成。', 3000);
 }
 
 /* ============ 事件绑定 ============ */
@@ -12214,7 +12214,7 @@ $('#btnLinkExisting').addEventListener('click', () => {
         $('#linkedMistakesMask').hidden = true;
         unlockBodyScroll();
         render();
-        showToast('✅', '已关联', `「${m.name}」已关联到当前刷题本。`, 3000);
+        showToast('' + svgIcon('check-circle') + '', '已关联', `「${m.name}」已关联到当前刷题本。`, 3000);
       });
     });
   }
@@ -12254,7 +12254,7 @@ $('#btnCreateLinkedFromList').addEventListener('click', () => {
     renderUnitEditor(p.units, $('#fUnitEditList'));
   }
   if (p.unit === 'set') $('#fTotal').value = p.total || '';
-  showToast('📝', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
+  showToast('' + svgIcon('square-pen') + '', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
 });
 
 $('#formClose').addEventListener('click', closeForm);
@@ -12299,7 +12299,7 @@ function submitFormCreate() {
   if (needBookEnd && (isNaN(bookEnd) || bookEnd < 1)) { setFieldError($('#fBookEnd'), '请填写正文结束页（资料的最后一页）'); $('#fBookEnd').focus(); return; }
   if (usePageRange && bookStartRaw && (isNaN(bookStart) || bookStart < 1)) { setFieldError($('#fBookStart'), '正文起始页必须 ≥ 1'); $('#fBookStart').focus(); return; }
   if (needBookEnd && bookStart > bookEnd) { setFieldError($('#fBookEnd'), '起始页不能大于结束页'); $('#fBookEnd').focus(); return; }
-  if (scopeMode && !scopePageCount) { showToast('⚠️', '请填写页码区间', '至少一个要做的页码区间（只填“起”=单页）', 2800); return; }
+  if (scopeMode && !scopePageCount) { showToast('' + svgIcon('alert-triangle') + '', '请填写页码区间', '至少一个要做的页码区间（只填“起”=单页）', 2800); return; }
   if (!deadline) { setFieldError($('#fDeadline'), '请选择计划完成日期'); $('#fDeadline').focus(); return; }
   if (deadline && diffDays(todayStr(), deadline) < 0) { setFieldError($('#fDeadline'), '计划完成日期不能早于今天'); $('#fDeadline').focus(); return; }
   if (startDate && diffDays(startDate, deadline) < 0) { setFieldError($('#fStartDate'), '开始日期不能晚于截止日期'); $('#fStartDate').focus(); return; }
@@ -12504,12 +12504,12 @@ function switchMistakeFormat(targetMode) {
       <p style="margin:0 0 10px">转为「<b>${modeName}</b>」后：</p>
       <ul style="margin:0 0 12px;padding-left:20px">
         <li>${modeDesc}</li>
-        <li>已有 <b>${oldCount}</b> 条错题会进入「📂 未归类」分组</li>
+        <li>已有 <b>${oldCount}</b> 条错题会进入「${svgIcon('folder-open')} 未归类」分组</li>
         <li>不会丢失任何数据，可之后逐条补${isPage ? '页码' : '套号'}</li>
         <li>原有复习规划（间隔、排期、容量）完全不变</li>
       </ul>
       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 12px;margin-bottom:8px">
-        <div style="color:#dc2626;font-weight:700;font-size:13px;margin-bottom:4px">⚠️ 此切换不可逆</div>
+        <div style="color:#dc2626;font-weight:700;font-size:13px;margin-bottom:4px">${svgIcon('alert-triangle')} 此切换不可逆</div>
         <div style="color:#991b1b;font-size:12.5px;line-height:1.6">
           转换后<b>不能</b>从${isPage ? '习题册' : '套卷'}模式转回自由出处模式，也不能在习题册和套卷之间互转。请确认后再操作。
         </div>
@@ -12522,7 +12522,7 @@ function switchMistakeFormat(targetMode) {
     saveStore();
     closeSettings();
     render();
-    showToast('✅', `已转为${modeName}`, `旧错题已进入「未归类」，可逐条补${isPage ? '页码' : '套号'}。`, 4000);
+    showToast('' + svgIcon('check-circle') + '', `已转为${modeName}`, `旧错题已进入「未归类」，可逐条补${isPage ? '页码' : '套号'}。`, 4000);
   });
 }
 $('#btnSwitchToPage').addEventListener('click', () => switchMistakeFormat('page'));
@@ -12539,7 +12539,7 @@ $('#sRefProject').addEventListener('change', function() {
     p.updatedAt = Date.now();
     saveStore();
     $('#refProjectInfo').hidden = true;
-    showToast('✅', '已解除关联', '单元结构保留，不再读取刷题本进度。', 3000);
+    showToast('' + svgIcon('check-circle') + '', '已解除关联', '单元结构保留，不再读取刷题本进度。', 3000);
     return;
   }
   const ref = store.projects[refId];
@@ -12549,8 +12549,8 @@ $('#sRefProject').addEventListener('change', function() {
     p.updatedAt = Date.now();
     saveStore();
     $('#refProjectInfo').hidden = false;
-    $('#refProjectInfoText').textContent = '✅ 已关联「' + ref.name + '」，单元结构已对齐';
-    showToast('✅', '已关联', '单元卡现在会显示刷题进度。', 3000);
+    $('#refProjectInfoText').innerHTML = '' + svgIcon('check-circle') + ' 已关联「' + esc(ref.name) + '」，单元结构已对齐';
+    showToast('' + svgIcon('check-circle') + '', '已关联', '单元卡现在会显示刷题进度。', 3000);
   } else {
     // 结构不一致，二次确认
     const bodyHtml = `
@@ -12568,9 +12568,9 @@ $('#sRefProject').addEventListener('change', function() {
       applyRefStructure(p, ref);
       saveStore();
       $('#refProjectInfo').hidden = false;
-      $('#refProjectInfoText').textContent = '✅ 已关联「' + ref.name + '」并重新归类';
+      $('#refProjectInfoText').innerHTML = '' + svgIcon('check-circle') + ' 已关联「' + esc(ref.name) + '」并重新归类';
       renderUnitEditor(p.units || []);
-      showToast('✅', '已关联并重新归类', '旧错题已按新结构归类，归类不到的进入「未归类」。', 4000);
+      showToast('' + svgIcon('check-circle') + '', '已关联并重新归类', '旧错题已按新结构归类，归类不到的进入「未归类」。', 4000);
     }, () => {
       // 用户取消：恢复下拉为原来的值
       this.value = p.refProjectId || '';
@@ -12587,7 +12587,7 @@ $('#btnUnlinkRef').addEventListener('click', () => {
   saveStore();
   $('#refProjectInfo').hidden = true;
   $('#sRefProject').value = '';
-  showToast('✅', '已解除关联', '单元结构保留，不再读取刷题本进度。', 3000);
+  showToast('' + svgIcon('check-circle') + '', '已解除关联', '单元结构保留，不再读取刷题本进度。', 3000);
 });
 
 // 从刷题本创建关联错题本
@@ -12640,7 +12640,7 @@ $('#btnCreateLinkedMistake').addEventListener('click', () => {
   if (p.unit === 'set') {
     $('#fTotal').value = p.total || '';
   }
-  showToast('📝', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
+  showToast('' + svgIcon('square-pen') + '', '创建关联错题本', '名称、模式、单元结构已从刷题本复制，保存后自动关联。', 4000);
 });
 
 // [v2 M6/K] 设置页「战略放弃」入口：任何时候都能打开砍题面板，不锁死在临考≤30天
@@ -12678,8 +12678,8 @@ document.addEventListener('click', (e) => {
     <div style="font-size:13.5px;line-height:1.8;color:var(--text)">
       <p style="margin:0 0 12px">当前是<b>自由出处</b>模式，可切换为以下模式（单向不可逆）：</p>
       <div style="display:flex;gap:10px">
-        <button type="button" class="ghost-btn" id="tagSwitchPage" style="flex:1">📄 习题册模式</button>
-        <button type="button" class="ghost-btn" id="tagSwitchSet" style="flex:1">📑 套卷模式</button>
+        <button type="button" class="ghost-btn" id="tagSwitchPage" style="flex:1">${svgIcon('file-text')} 习题册模式</button>
+        <button type="button" class="ghost-btn" id="tagSwitchSet" style="flex:1">${svgIcon('copy')} 套卷模式</button>
       </div>
       <p style="margin:12px 0 0;color:var(--muted);font-size:12.5px">切换后旧错题进入「未归类」，可逐条补录；原有复习规划不变。</p>
     </div>`;
@@ -12732,11 +12732,11 @@ function confirmModeSwitch(newMode) {
   const target = $('#modeSwitchConfirmTarget');
   if (isBalanced) {
     target.className = 'mode-help-card mode-balanced';
-    target.innerHTML = '<div style="font-weight:700;margin-bottom:6px;color:#2e6b4f">⚖️ 均匀分布模式</div>' +
+    target.innerHTML = '<div style="font-weight:700;margin-bottom:6px;color:#2e6b4f">' + svgIcon('scale') + ' 均匀分布模式</div>' +
       '<div style="color:var(--muted);font-size:13px;line-height:1.7">自动把复习错峰到每天，避免某天突然要' + (isRecite ? '背' : '做') + '一大堆。<br><b>适合</b>：经常批量录入、希望每天复习量稳定。</div>';
   } else {
     target.className = 'mode-help-card mode-classic';
-    target.innerHTML = '<div style="font-weight:700;margin-bottom:6px">📖 经典间隔模式</div>' +
+    target.innerHTML = '<div style="font-weight:700;margin-bottom:6px">' + svgIcon('book-open') + ' 经典间隔模式</div>' +
       '<div style="color:var(--muted);font-size:13px;line-height:1.7">严格按间隔天数（1→2→4→7→15→30天）提醒复习。<br><b>适合</b>：量少、能跟上节奏、希望严格遵循记忆曲线。</div>';
   }
   $('#modeSwitchConfirmMask').hidden = false;
@@ -12759,9 +12759,9 @@ $('#modeSwitchConfirmOk').addEventListener('click', () => {
   rebalanceAllItems(p);
   render();
   if (newMode === 'balanced') {
-    showToast('⚖️', '已切换到均匀分布模式', '今天该复习的内容已保留，之后的复习会按每日容量自动错峰、均匀安排，新录入也会自动错峰。', 3800);
+    showToast('' + svgIcon('scale') + '', '已切换到均匀分布模式', '今天该复习的内容已保留，之后的复习会按每日容量自动错峰、均匀安排，新录入也会自动错峰。', 3800);
   } else {
-    showToast('📖', '已切换到经典间隔模式', '今天该复习的内容已保留，之后严格按记忆间隔提醒，到期就复习。', 3500);
+    showToast('' + svgIcon('book-open') + '', '已切换到经典间隔模式', '今天该复习的内容已保留，之后严格按记忆间隔提醒，到期就复习。', 3500);
   }
 });
 
@@ -12827,7 +12827,7 @@ function handleUnitEditClick(e, listEl) {
     return;
   }
   if (action === 'add-child') {
-    if (curLevel >= 2) { showToast('⚠️', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
+    if (curLevel >= 2) { showToast('' + svgIcon('alert-triangle') + '', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
     const newRow = addUnitRowToList(listEl, '', '', '', curLevel + 1);
     // 找到当前单元后面所有连续的子单元，把新子单元追加到最后一个子单元后面（而非紧挨着父单元）
     let insertAfter = row;
@@ -12839,11 +12839,11 @@ function handleUnitEditClick(e, listEl) {
     }
     insertAfter.after(newRow);
   } else if (action === 'indent-right') {
-    if (curLevel >= 2) { showToast('⚠️', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
+    if (curLevel >= 2) { showToast('' + svgIcon('alert-triangle') + '', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
     const prev = row.previousElementSibling;
-    if (!prev) { showToast('⚠️', '无法降级', '第一个单元不能降级为子单元', 1500); return; }
+    if (!prev) { showToast('' + svgIcon('alert-triangle') + '', '无法降级', '第一个单元不能降级为子单元', 1500); return; }
     const prevLevel = parseInt(prev.dataset.level || '0', 10);
-    if (curLevel >= prevLevel + 1) { showToast('⚠️', '无法降级', '只能比上一个单元深一级', 1500); return; }
+    if (curLevel >= prevLevel + 1) { showToast('' + svgIcon('alert-triangle') + '', '无法降级', '只能比上一个单元深一级', 1500); return; }
     row.dataset.level = curLevel + 1;
     row.querySelector('.unit-edit-main').style.paddingLeft = (curLevel + 1) * 24 + 'px';
     const treeLine = row.querySelector('.unit-tree-line');
@@ -12855,7 +12855,7 @@ function handleUnitEditClick(e, listEl) {
     const newRow = addUnitRowToList(listEl, unitName, us, ue, curLevel + 1);
     row.replaceWith(newRow);
   } else if (action === 'indent-left') {
-    if (curLevel <= 0) { showToast('⚠️', '无法升级', '已经是最顶级单元', 1500); return; }
+    if (curLevel <= 0) { showToast('' + svgIcon('alert-triangle') + '', '无法升级', '已经是最顶级单元', 1500); return; }
     row.dataset.level = curLevel - 1;
     row.querySelector('.unit-edit-main').style.paddingLeft = (curLevel - 1) * 24 + 'px';
     if (curLevel - 1 <= 0) {
@@ -13065,7 +13065,7 @@ function submitSettings() {
       const th = parseInt($('#sSpreadThreshold').value, 10);
       if (!isNaN(th) && th < 4) {
         p.spreadThreshold = 4;
-        setTimeout(() => showToast('ℹ️', '已自动调整', '智能模式下每日舒适复习量最低为 4 条，已按 4 保存。', 2600), 400);
+        setTimeout(() => showToast(svgIcon('circle-help'), '已自动调整', '智能模式下每日舒适复习量最低为 4 条，已按 4 保存。', 2600), 400);
       }
     }
   }
@@ -13098,7 +13098,7 @@ function submitSettings() {
     // 模式变化时直接按新模式重新排期
     rebalanceAllItems(p);
     render();
-    showToast('🔄', '已按新模式重新排期', '今天该复习的内容已保留，其余未攻克条目按新复习模式调整日期。', 3200);
+    showToast('' + svgIcon('refresh-cw') + '', '已按新模式重新排期', '今天该复习的内容已保留，其余未攻克条目按新复习模式调整日期。', 3200);
   } else {
     render();
   }
@@ -13219,7 +13219,7 @@ $('#projectList').addEventListener('click', e => {
     p.updatedAt = Date.now();
     saveStore();
     render();
-    showToast('📦', '已取消归档', `「${p.name}」已恢复到首页。`, 2500);
+    showToast('' + svgIcon('package') + '', '已取消归档', `「${p.name}」已恢复到首页。`, 2500);
     return;
   }
   const delBtn = e.target.closest('.pi-del');
@@ -13368,7 +13368,7 @@ function renderSetScopeMulti(p) {
   list.innerHTML = secs.map(s => {
     const on = setSelectedSecIds.includes(s.id);
     return `<div class="sec-multi-row${on ? ' sel' : ''}" data-sid="${esc(s.id)}">
-      <span class="ck">${on ? '✓' : ''}</span>
+      <span class="ck">${on ? '' + svgIcon('check') + '' : ''}</span>
       <span class="nm">${esc(s.name)}</span>
       <span class="w">权重${s.weight ?? 0}%</span>
     </div>`;
@@ -13540,10 +13540,10 @@ $('#btnSetCheckin').addEventListener('click', () => {
   p.updatedAt = Date.now();
   saveStore();
   if (window.__lastSetCapWarn) {
-    showToast('⚠️', '部分板块已达100%封顶', window.__lastSetCapWarn);
+    showToast('' + svgIcon('alert-triangle') + '', '部分板块已达100%封顶', window.__lastSetCapWarn);
     window.__lastSetCapWarn = null;
   } else {
-    showToast('✅', '已记录', `第 ${setNo} 套`);
+    showToast('' + svgIcon('check-circle') + '', '已记录', `第 ${setNo} 套`);
   }
   $('#inSetDone').value = '';
   $('#inSetTotalQ').value = '';
@@ -13623,12 +13623,12 @@ $('#btnCheckin').addEventListener('click', () => {
   p.updatedAt = Date.now();
   saveStore();
   const isSinglePage = startPage != null && startPage === endPage;
-  showToast('✅', '已记录', startPage != null
+  showToast('' + svgIcon('check-circle') + '', '已记录', startPage != null
     ? (isSinglePage ? `第 ${endPage} 页` : `第 ${startPage}-${endPage} 页`)
     : `学到第 ${endPage} 页`);
   if (gapFilled > 0) {
     // 延后到里程碑表扬（800ms）之后再弹，确保数据口径提示最终可见、不被覆盖
-    setTimeout(() => showToast('💡', '检测到此前跳过的页', `按“连续学到第 ${endPage} 页”，之前跳过的 ${gapFilled} 页也已计入完成。如果这些页其实还没做，建议改用「按区间录入」分别记录，进度会更准。`, 4000), 1500);
+    setTimeout(() => showToast('' + svgIcon('lightbulb') + '', '检测到此前跳过的页', `按“连续学到第 ${endPage} 页”，之前跳过的 ${gapFilled} 页也已计入完成。如果这些页其实还没做，建议改用「按区间录入」分别记录，进度会更准。`, 4000), 1500);
   }
   $('#inPageStart').value = '';
   $('#inPageEnd').value = '';
@@ -13650,12 +13650,12 @@ $('#btnReciteAdd').addEventListener('click', () => {
   if (!p || p.type === 'exercise') return;
   // [v3 P0] pauseNewCollection：临考期暂停新题收录
   if (p.pauseNewCollection && p.type === 'mistake') {
-    showToast('⏸️', '已暂停新题收录', '临考期先消化存量，取消暂停可在琥珀色策略条操作。', 3000);
+    showToast(svgIcon('pause'), '已暂停新题收录', '临考期先消化存量，取消暂停可在琥珀色策略条操作。', 3000);
     return;
   }
   // [v2 背书 M6] pauseNewLearning：背书本暂停新学，只复习已学内容
   if (p.pauseNewLearning && p.type === 'recite') {
-    showToast('⏸️', '已暂停新学', '当前只复习已学内容。可在设置页或临考策略条恢复新学。', 3000);
+    showToast(svgIcon('pause'), '已暂停新学', '当前只复习已学内容。可在设置页或临考策略条恢复新学。', 3000);
     return;
   }
 
@@ -13689,7 +13689,7 @@ $('#btnReciteAdd').addEventListener('click', () => {
   if (!content) { setFieldError($('#reciteContent'), isMistake ? '请填写错题内容' : '请填写学习内容'); $('#reciteContent').focus(); return; }
   // 超长文本边界：避免误粘贴整段文章撑爆本地存储与渲染（500 字足够记录一道错题/一个知识点）
   if (content.length > 500) { setFieldError($('#reciteContent'), (isMistake ? '错题内容' : '学习内容') + '超过 500 字，提炼一下关键题干再记录'); $('#reciteContent').focus(); return; }
-  if (!reciteQuality) { showToast('⚠️', '请先选择学习效果', '在下方点选「记得/模糊/忘记」后再提交', 2600); return; }
+  if (!reciteQuality) { showToast('' + svgIcon('alert-triangle') + '', '请先选择学习效果', '在下方点选「记得/模糊/忘记」后再提交', 2600); return; }
   if (date > todayStr()) { setFieldError($('#reciteDate'), '学习日期不能晚于今天'); $('#reciteDate').focus(); return; }
 
   const intervals = getIntervals(p);
@@ -13752,9 +13752,9 @@ $('#btnReciteAdd').addEventListener('click', () => {
   if (qWrap) qWrap.querySelectorAll('.rec-qbtn').forEach(b => b.classList.remove('active'));
   updateRecitePreview();
   if (isMistake) {
-    showToast('🎯', '已收录一道错题', `又锁定一个提分点，到复习日会自动提醒你重做`);
+    showToast('' + svgIcon('target') + '', '已收录一道错题', `又锁定一个提分点，到复习日会自动提醒你重做`);
   } else {
-    showToast('🎉', '已添加', `系统会按记忆节奏自动安排下次复习`);
+    showToast('' + svgIcon('party-popper') + '', '已添加', `系统会按记忆节奏自动安排下次复习`);
   }
   render();
   maybeShowProgressPraise(p);
@@ -13830,21 +13830,21 @@ let __fxFlying = 0;
 function getReviewFeedback(quality, p, item) {
   const isMistake = p.type === 'mistake';
   if (item.mastered) {
-    return { icon: '🎉', text: isMistake ? '攻克啦，偶尔巩固' : '掌握啦，偶尔巩固' };
+    return { icon: '' + svgIcon('party-popper') + '', text: isMistake ? '攻克啦，偶尔巩固' : '掌握啦，偶尔巩固' };
   }
   let pool;
   if (quality === 'good') {
     pool = isMistake
-      ? ['✓ 做对了，下次见', '✓ 稳了，下次见', '✓ 拿下']
-      : ['✓ 记住啦，下次见', '✓ 很稳，下次见', '✓ 拿下'];
+      ? ['' + svgIcon('check') + ' 做对了，下次见', '' + svgIcon('check') + ' 稳了，下次见', '' + svgIcon('check') + ' 拿下']
+      : ['' + svgIcon('check') + ' 记住啦，下次见', '' + svgIcon('check') + ' 很稳，下次见', '' + svgIcon('check') + ' 拿下'];
   } else if (quality === 'fuzzy') {
     pool = isMistake
       ? ['～ 看答案了，下次再练', '～ 差一点，下次巩固', '～ 再眼熟两遍']
       : ['～ 还差一点，下次巩固', '～ 再眼熟两遍', '～ 有点模糊'];
   } else {
     pool = isMistake
-      ? ['✗ 没关系，下次重做', '✗ 忘了正常，下次再来', '✗ 多过一次就牢了']
-      : ['✗ 忘了正常，下次再来', '✗ 下次再过一遍', '✗ 多过一次就牢了'];
+      ? ['' + svgIcon('x') + ' 没关系，下次重做', '' + svgIcon('x') + ' 忘了正常，下次再来', '' + svgIcon('x') + ' 多过一次就牢了']
+      : ['' + svgIcon('x') + ' 忘了正常，下次再来', '' + svgIcon('x') + ' 下次再过一遍', '' + svgIcon('x') + ' 多过一次就牢了'];
   }
   const full = _pick(pool);
   let text = full.slice(2);
@@ -13861,7 +13861,7 @@ function getReviewFeedback(quality, p, item) {
 // 保持复习评价的反馈
 function getRetentionFeedback(item, result) {
   if (result === 'pass') {
-    const full = _pick(['✓ 还记得，下次再巩固', '✓ 记得很牢，下次见', '✓ 稳，下次再巩固']);
+    const full = _pick(['' + svgIcon('check') + ' 还记得，下次再巩固', '' + svgIcon('check') + ' 记得很牢，下次见', '' + svgIcon('check') + ' 稳，下次再巩固']);
     return { icon: full.slice(0, 1), text: full.slice(2) };
   }
   const full = _pick(['～ 模糊了，已排到最近重做', '～ 没关系，回到复习列表多过两遍']);
@@ -13904,7 +13904,7 @@ function playReviewFx(itemEl, kind, fb) {
   if (!itemEl || !fb) { render(); return; }
   const pill = document.createElement('div');
   pill.className = 'ri-fx';
-  const ic = document.createElement('span'); ic.className = 'ri-fx-ic'; ic.textContent = fb.icon;
+  const ic = document.createElement('span'); ic.className = 'ri-fx-ic'; ic.innerHTML = fb.icon;
   const tx = document.createElement('span'); tx.className = 'ri-fx-tx'; tx.textContent = fb.text;
   pill.appendChild(ic); pill.appendChild(tx);
   itemEl.appendChild(pill);
@@ -13949,7 +13949,7 @@ $('#reviewList').addEventListener('click', e => {
       clearRetention(item);
       p.updatedAt = Date.now();
       saveStore();
-      playReviewFx(skipBtn.closest('.review-item'), 'good', { icon: '🎉', text: '已熟知，不再出现在复习列表' });
+      playReviewFx(skipBtn.closest('.review-item'), 'good', { icon: '' + svgIcon('party-popper') + '', text: '已熟知，不再出现在复习列表' });
       return;
     }
 
@@ -14054,7 +14054,7 @@ function checkReviewMilestone(p) {
     } else {
       tip = `还有 ${remaining} 条，可以分散到未来减轻压力。`;
     }
-    showToast('🎉', `今天已经复习 ${reviewedToday} 条，辛苦了！`, tip, 5000);
+    showToast('' + svgIcon('party-popper') + '', `今天已经复习 ${reviewedToday} 条，辛苦了！`, tip, 5000);
   }
 }
 
@@ -14069,20 +14069,20 @@ $('#overdueBanner').addEventListener('click', e => {
   if (r.moved > 0 || r.blocked > 0) {
     render();
     if (r.moved > 0 && r.blocked > 0) {
-      showToast('📅', `已分散 ${r.moved} 条，${r.blocked} 条紧急逾期移回今天`, `可推迟的已均匀安排到未来 ${days} 天；逾期太久或多次推迟的不能再推，建议今天优先完成。`, 5200);
+      showToast('' + svgIcon('calendar') + '', `已分散 ${r.moved} 条，${r.blocked} 条紧急逾期移回今天`, `可推迟的已均匀安排到未来 ${days} 天；逾期太久或多次推迟的不能再推，建议今天优先完成。`, 5200);
     } else if (r.moved > 0) {
-      showToast('📅', `已分散 ${r.moved} 条内容`, `未来 ${days} 天均匀安排，今天不再堆积。`);
+      showToast('' + svgIcon('calendar') + '', `已分散 ${r.moved} 条内容`, `未来 ${days} 天均匀安排，今天不再堆积。`);
     } else {
-      showToast('⚠️', `${r.blocked} 条逾期内容不能再推迟了`, '它们逾期太久或已多次推迟，再推会真的忘掉，已移到今天，建议优先清掉。', 4200);
+      showToast('' + svgIcon('alert-triangle') + '', `${r.blocked} 条逾期内容不能再推迟了`, '它们逾期太久或已多次推迟，再推会真的忘掉，已移到今天，建议优先清掉。', 4200);
     }
   } else {
     const cap = getComfortCap(p, todayStr());
     const dueN = getDueItems(p).length;
     if (dueN > cap) {
       // 还超舒适量却一条没动：全部被防饥饿锁死（逾期太久），不能再往后推
-      showToast('⚠️', '逾期内容不能再推迟了', '这些题逾期太久或已多次推迟，再推会真的忘掉，建议今天先清最上面的几条。', 4200);
+      showToast('' + svgIcon('alert-triangle') + '', '逾期内容不能再推迟了', '这些题逾期太久或已多次推迟，再推会真的忘掉，建议今天先清最上面的几条。', 4200);
     } else {
-      showToast('✅', '今天的量在舒适范围内', `共 ${dueN} 条（舒适量 ${cap}），逾期的几条建议今天直接清掉，不必再往后分散。`, 4200);
+      showToast('' + svgIcon('check-circle') + '', '今天的量在舒适范围内', `共 ${dueN} 条（舒适量 ${cap}），逾期的几条建议今天直接清掉，不必再往后分散。`, 4200);
     }
   }
 });
@@ -14104,16 +14104,16 @@ $('#overdueBanner').addEventListener('click', e => {
     if (count > 0) {
       render();
       if (isGentle) {
-        showToast('📋', `已分散 ${count} 条到未来`, `今天保留一半左右继续做，其余 ${days} 天内均匀安排。`);
+        showToast('' + svgIcon('clipboard-list') + '', `已分散 ${count} 条到未来`, `今天保留一半左右继续做，其余 ${days} 天内均匀安排。`);
       } else {
-        showToast('📋', `已分散 ${count} 条到未来`, `优先保留最该复习的，其余 ${days} 天内均匀安排。`);
+        showToast('' + svgIcon('clipboard-list') + '', `已分散 ${count} 条到未来`, `优先保留最该复习的，其余 ${days} 天内均匀安排。`);
       }
     } else if (due.length > cap) {
-      showToast('⚠️', '这些内容不能再推迟了', '它们已经被推迟多次，或逾期超过当前间隔的 2 倍，再推会真的忘掉，建议今天优先完成最上面的几条。', 4200);
+      showToast('' + svgIcon('alert-triangle') + '', '这些内容不能再推迟了', '它们已经被推迟多次，或逾期超过当前间隔的 2 倍，再推会真的忘掉，建议今天优先完成最上面的几条。', 4200);
     } else if (isGentle) {
-      showToast('✅', '剩余量不多', '已经做到这里了，剩下的直接清掉会更轻松。');
+      showToast('' + svgIcon('check-circle') + '', '剩余量不多', '已经做到这里了，剩下的直接清掉会更轻松。');
     } else {
-      showToast('✅', '今天的量刚好', '不需要分散，直接做完就好。');
+      showToast('' + svgIcon('check-circle') + '', '今天的量刚好', '不需要分散，直接做完就好。');
     }
   });
 });
@@ -14133,7 +14133,7 @@ $('#recordList').addEventListener('click', e => {
     p.updatedAt = Date.now();
     saveStore();
     render();
-    showToast('⏩', '已加入今日复习', '这条内容现在出现在上方「今日复习」列表中。');
+    showToast(svgIcon('fast-forward'), '已加入今日复习', '这条内容现在出现在上方「今日复习」列表中。');
     return;
   }
 
@@ -14156,7 +14156,7 @@ $('#recordList').addEventListener('click', e => {
     p.updatedAt = Date.now();
     saveStore();
     render();
-    showToast('📍', '已补页码', `这道错题已归类到第 ${item.pageStart}${item.pageEnd > item.pageStart ? '-' + item.pageEnd : ''} 页。`);
+    showToast('' + svgIcon('map-pin') + '', '已补页码', `这道错题已归类到第 ${item.pageStart}${item.pageEnd > item.pageStart ? '-' + item.pageEnd : ''} 页。`);
     return;
   }
 
@@ -14178,7 +14178,7 @@ $('#recordList').addEventListener('click', e => {
     p.updatedAt = Date.now();
     saveStore();
     render();
-    showToast('📍', '已补套号', `这道错题已归类到第 ${no} 套。`);
+    showToast('' + svgIcon('map-pin') + '', '已补套号', `这道错题已归类到第 ${no} 套。`);
     return;
   }
 
@@ -14352,7 +14352,7 @@ $('#weaknessMask').addEventListener('click', e => {
     renderWeaknessBoard(p);
 
     // 提示
-    showToast('⏩', '已加入今日复习', '这条错题现在出现在复习列表中了，关闭看板即可看到。');
+    showToast(svgIcon('fast-forward'), '已加入今日复习', '这条错题现在出现在复习列表中了，关闭看板即可看到。');
   }
 });
 document.querySelectorAll('.wb-filter-btn').forEach(btn => {
@@ -14371,7 +14371,7 @@ $('#btnRandomReview').addEventListener('click', () => {
   if (!p || p.type !== 'mistake') return;
   const mastered = (p.items || []).filter(it => it.mastered || it.manualMastered);
   if (mastered.length < 1) {
-    showToast('📭', '还没有已攻克的错题', '先攻克一些错题，再来抽查吧～', 3000);
+    showToast('' + svgIcon('inbox') + '', '还没有已攻克的错题', '先攻克一些错题，再来抽查吧～', 3000);
     return;
   }
   const n = Math.min(5, mastered.length);
@@ -14461,7 +14461,7 @@ $('#randomReviewConfirmOk').addEventListener('click', () => {
   unlockBodyScroll(); // 补上 randomReviewConfirmMask 的解锁
   closeWeaknessBoard();
   render();
-  showToast('🎲', `已从已攻克中随机抽出 ${n} 道`, '做错了会自动继续复习，做对了可重新标记为已攻克。', 4000);
+  showToast('' + svgIcon('dice-5') + '', `已从已攻克中随机抽出 ${n} 道`, '做错了会自动继续复习，做对了可重新标记为已攻克。', 4000);
 });
 
 /* 完成情况面板 */
@@ -14531,15 +14531,15 @@ function fillDataSecurityContent() {
 
   // 各平台保护措施卡片标题
   const protectTitle = {
-    iOS: '🛡️ 已针对 iOS 做了多重数据保护',
-    HarmonyOS: '🛡️ 已为你开启多重数据保护',
-    Other: '🛡️ 已为你开启多重数据保护'
+    iOS: '' + svgIcon('shield') + ' 已针对 iOS 做了多重数据保护',
+    HarmonyOS: '' + svgIcon('shield') + ' 已为你开启多重数据保护',
+    Other: '' + svgIcon('shield') + ' 已为你开启多重数据保护'
   };
 
   const ending = protectEnding[plat.name] || protectEnding.Other;
   const title = protectTitle[plat.name] || protectTitle.Other;
   // "同学你好"本身就是问候，不需要再加"欢迎使用"
-  const greetLine = plat.name === 'Other' ? `${plat.greeting} 👋` : `${plat.greeting}，欢迎使用 Study Tracker 👋`;
+  const greetLine = plat.name === 'Other' ? `${plat.greeting} ${svgIcon('hand')}` : `${plat.greeting}，欢迎使用 Study Tracker ${svgIcon('hand')}`;
 
   if (plat.name === 'iOS') {
     // iOS 版：暖黄色提醒卡片（柔和不刺眼）
@@ -14554,7 +14554,7 @@ function fillDataSecurityContent() {
         </p>
       </div>
       <div style="background:#fff8e6;border:1px solid #f5e4b8;border-radius:10px;padding:12px 14px;margin-bottom:14px">
-        <p style="font-weight:600;color:#92600a;margin-bottom:6px">📌 由于 iOS 系统的数据安全机制，仍建议</p>
+        <p style="font-weight:600;color:#92600a;margin-bottom:6px">${svgIcon('pin')} 由于 iOS 系统的数据安全机制，仍建议</p>
         <p style="color:#7a5a10;font-size:13.5px;line-height:1.75">
           · 定期到「设置 → 导出备份」保存 JSON 文件到 iCloud 云盘或「文件」App<br>
           · 不要使用<strong>无痕/隐私浏览模式</strong>（关闭后数据会被清除）<br>
@@ -14577,7 +14577,7 @@ function fillDataSecurityContent() {
         </p>
       </div>
       <div style="background:#f0f4ff;border:1px solid #d4ddf8;border-radius:10px;padding:12px 14px;margin-bottom:14px">
-        <p style="font-weight:600;color:#3b4fb8;margin-bottom:6px">📌 以下情况仍会导致数据丢失，请注意</p>
+        <p style="font-weight:600;color:#3b4fb8;margin-bottom:6px">${svgIcon('pin')} 以下情况仍会导致数据丢失，请注意</p>
         <p style="color:#4a5a9e;font-size:13.5px;line-height:1.7">
           ${lossList}
         </p>
@@ -14856,7 +14856,7 @@ async function openStudyRoomPage() {
   try {
     await loadStudyRoomMe();
   } catch (e) {
-    showToast('⚠️', '加载失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('alert-triangle') + '', '加载失败', e.message || '请稍后重试', 2500);
     studyRoomState.room = null;
     studyRoomState.members = [];
     renderStudyRoomViews();
@@ -14882,7 +14882,7 @@ async function loadStudyRoomMe() {
   // 轮询/刷新时房间由有变无（被踢或解散，后端 /me 不返回原因，无法区分）：
   // 诚实提示，统一说「房间已不可用」，不编造具体原因。
   if (hadRoom && !studyRoomState.room) {
-    showToast('ℹ️', '房间已不可用', '你已被移出该房间或房间已解散', 3000);
+    showToast(svgIcon('circle-help'), '房间已不可用', '你已被移出该房间或房间已解散', 3000);
     // 若此时正停留在广场视图，加入按钮仍停留在「已在其他自习室」禁用态，需重新拉取广场
     var plazaView = $('#srPlazaView');
     if (plazaView && !plazaView.hidden) {
@@ -14916,7 +14916,7 @@ function renderStudyRoomViews() {
   $('#srMemberCount').textContent = (studyRoomState.members.length || 0) + '/' + SR_MAX_MEMBERS;
   // 公开/私有徽章
   var badge = $('#srVisibilityBadge');
-  if (badge) badge.textContent = studyRoomState.room.isPublic ? '🌍 公开' : '🔒 私有';
+  if (badge) badge.innerHTML = studyRoomState.room.isPublic ? '' + svgIcon('globe') + ' 公开' : '' + svgIcon('lock') + ' 私有';
   // 是否房主：房间标记优先，否则从成员里找自己的 isOwner
   var selfMember = (studyRoomState.members || []).find(function(m){ return m.isSelf; });
   studyRoomState.iAmOwner = !!(studyRoomState.room.isOwner || (selfMember && selfMember.isOwner));
@@ -14934,23 +14934,23 @@ function renderMemberList() {
   listEl.innerHTML = members.map(function(m) {
     var avatarHtml = m.avatar
       ? '<img src="' + esc(m.avatar) + '" alt="">'
-      : '<span class="sr-avatar-fallback">👤</span>';
+      : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
     // 连续打卡 streak（基础社交信息，对所有成员可见，后端已真实返回）
     var streak = (typeof m.streak === 'number') ? m.streak : 0;
     var streakHtml = streak > 0
-      ? '<span class="sr-meta-streak">🔥 连续 ' + streak + ' 天</span>'
+      ? '<span class="sr-meta-streak">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
       : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
     // 今日状态：publicData||isSelf 显示具体次数；未公开者只显示是否打卡（基础社交信息），不显示具体次数
     var todayHtml;
     if (!(m.publicData || m.isSelf)) {
       var hasToday = !!m.checkedInToday;
       todayHtml = hasToday
-        ? '<span class="sr-meta-today sr-today-ok">✅ 今日已打卡</span>'
+        ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已打卡</span>'
         : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
     } else {
       var n = m.todayReviewCount || 0;
       todayHtml = n > 0
-        ? '<span class="sr-meta-today sr-today-ok">✅ 今日复习 ' + n + ' 次</span>'
+        ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日复习 ' + n + ' 次</span>'
         : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
     }
     var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
@@ -15000,7 +15000,7 @@ async function openMemberDetail(userId) {
     var dm = $('#srMemberDetailMask');
     if (dm) dm.hidden = false;
   } catch (e) {
-    showToast('⚠️', '加载失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('alert-triangle') + '', '加载失败', e.message || '请稍后重试', 2500);
   }
 }
 
@@ -15010,7 +15010,7 @@ function renderMemberDetail(profile) {
   if (avatarEl) {
     avatarEl.innerHTML = profile.avatar
       ? '<img src="' + esc(profile.avatar) + '" alt="">'
-      : '<span class="sr-avatar-fallback">👤</span>';
+      : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
   }
   var unEl = $('#srDetailUsername');
   if (unEl) unEl.textContent = profile.username || '';
@@ -15140,7 +15140,7 @@ async function submitCreateRoom() {
     nameInput.value = '';
     if (errEl) errEl.hidden = true;
     await loadStudyRoomMe();
-    showToast('🎉', '创建成功', '房间号已生成，可分享给朋友', 2500);
+    showToast('' + svgIcon('party-popper') + '', '创建成功', '房间号已生成，可分享给朋友', 2500);
   } catch (e) {
     if (errEl) { errEl.textContent = e.message || '创建失败'; errEl.hidden = false; }
   }
@@ -15161,7 +15161,7 @@ async function submitJoinRoom() {
     codeInput.value = '';
     if (errEl) errEl.hidden = true;
     await loadStudyRoomMe();
-    showToast('✅', '加入成功', '欢迎来到自习室', 2500);
+    showToast('' + svgIcon('check-circle') + '', '加入成功', '欢迎来到自习室', 2500);
   } catch (e) {
     if (errEl) { errEl.textContent = e.message || '加入失败'; errEl.hidden = false; }
   }
@@ -15198,9 +15198,9 @@ async function confirmLeaveRoom() {
     var msg = '已退出自习室';
     if (data && data.roomDisbanded) msg = '房间已解散';
     else if (data && data.transferredTo) msg = '已退出，房间转让给 ' + data.transferredTo;
-    showToast('👋', '退出成功', msg, 2500);
+    showToast('' + svgIcon('hand') + '', '退出成功', msg, 2500);
   } catch (e) {
-    showToast('⚠️', '退出失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('alert-triangle') + '', '退出失败', e.message || '请稍后重试', 2500);
   }
 }
 
@@ -15208,7 +15208,7 @@ async function confirmLeaveRoom() {
 function askDisbandRoom() {
   if (!studyRoomState.room) return;
   var tEl = $('#srDisbandConfirmText');
-  if (tEl) tEl.textContent = '⚠️ 解散后所有成员将被移出，不可恢复。确定解散？';
+  if (tEl) tEl.innerHTML = '' + svgIcon('alert-triangle') + ' 解散后所有成员将被移出，不可恢复。确定解散？';
   var dm = $('#srDisbandConfirmMask'); if (dm) dm.hidden = false;
 }
 
@@ -15225,9 +15225,9 @@ async function confirmDisbandRoom() {
       var m = $('#' + mid); if (m) m.hidden = true;
     });
     renderStudyRoomViews();
-    showToast('🗑️', '已解散', '自习室已解散，所有成员已移出', 2600);
+    showToast('' + svgIcon('trash-2') + '', '已解散', '自习室已解散，所有成员已移出', 2600);
   } catch (e) {
-    showToast('⚠️', '解散失败', e.message || '请稍后重试', 2600);
+    showToast('' + svgIcon('alert-triangle') + '', '解散失败', e.message || '请稍后重试', 2600);
   }
 }
 
@@ -15237,7 +15237,7 @@ function copyRoomCode() {
   if (!code) return;
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(code).then(function(){
-      showToast('📋', '已复制', '房间号 ' + code + ' 已复制到剪贴板', 2000);
+      showToast('' + svgIcon('clipboard-list') + '', '已复制', '房间号 ' + code + ' 已复制到剪贴板', 2000);
     }).catch(function(){ fallbackCopyRoomCode(code); });
   } else {
     fallbackCopyRoomCode(code);
@@ -15246,8 +15246,8 @@ function copyRoomCode() {
 function fallbackCopyRoomCode(text) {
   var ta = document.createElement('textarea');
   ta.value = text; document.body.appendChild(ta); ta.select();
-  try { document.execCommand('copy'); showToast('📋', '已复制', text, 2000); }
-  catch(e){ showToast('⚠️', '复制失败', '请手动复制：' + text, 3000); }
+  try { document.execCommand('copy'); showToast('' + svgIcon('clipboard-list') + '', '已复制', text, 2000); }
+  catch(e){ showToast('' + svgIcon('alert-triangle') + '', '复制失败', '请手动复制：' + text, 3000); }
   document.body.removeChild(ta);
 }
 
@@ -15276,7 +15276,7 @@ async function loadStudyRoomPlaza() {
     var data = await STAuth.apiRequest('/api/study-room/plaza');
     renderPlazaList((data && data.rooms) || []);
   } catch (e) {
-    showToast('⚠️', '加载失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('alert-triangle') + '', '加载失败', e.message || '请稍后重试', 2500);
     if (list) list.innerHTML = '';
     if (empty) empty.hidden = false; // 出错时落到空态，避免白屏
   } finally {
@@ -15324,10 +15324,10 @@ async function joinPlazaRoom(roomCode) {
     await STAuth.apiRequest('/api/study-room/join', { method: 'POST', body: { roomCode: roomCode } });
     closeStudyRoomPlaza(); // 关闭广场，回到引导页/房间主页
     await loadStudyRoomMe();
-    showToast('✅', '加入成功', '欢迎来到自习室', 2500);
+    showToast('' + svgIcon('check-circle') + '', '加入成功', '欢迎来到自习室', 2500);
   } catch (e) {
     // 不吞错：后端原消息（如已在某个自习室、房间人数已满）原样提示，引导用户先退出
-    showToast('⚠️', '加入失败', e.message || '请稍后重试', 2800);
+    showToast('' + svgIcon('alert-triangle') + '', '加入失败', e.message || '请稍后重试', 2800);
   }
 }
 
@@ -15358,9 +15358,9 @@ async function confirmKickMember() {
     var km = $('#srKickConfirmMask'); if (km) km.hidden = true;
     studyRoomState.pendingKickUserId = null;
     await loadStudyRoomMe();
-    showToast('👢', '已踢出', '该成员已被移出房间', 2200);
+    showToast('' + svgIcon('user-minus') + '', '已踢出', '该成员已被移出房间', 2200);
   } catch (e) {
-    showToast('⚠️', '操作失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('alert-triangle') + '', '操作失败', e.message || '请稍后重试', 2500);
   }
 }
 
@@ -15392,7 +15392,7 @@ async function saveRoomSettings() {
     await STAuth.apiRequest('/api/study-room/settings', { method: 'PATCH', body: { name: name, isPublic: !!pubCb.checked } });
     var m = $('#srRoomSettingsMask'); if (m) m.hidden = true;
     await loadStudyRoomMe();
-    showToast('✅', '已保存', '房间设置已更新', 2000);
+    showToast('' + svgIcon('check-circle') + '', '已保存', '房间设置已更新', 2000);
   } catch (e) {
     if (errEl) { errEl.textContent = e.message || '保存失败'; errEl.hidden = false; }
   }
@@ -15418,9 +15418,9 @@ function stopStudyRoomPolling() {
 async function saveStudyRoomPublic(val) {
   try {
     await STAuth.apiRequest('/api/study-room/privacy', { method: 'PATCH', body: { public: !!val } });
-    showToast('✅', '隐私设置已保存', val ? '已公开学习数据到自习室' : '已关闭学习数据公开', 2200);
+    showToast('' + svgIcon('check-circle') + '', '隐私设置已保存', val ? '已公开学习数据到自习室' : '已关闭学习数据公开', 2200);
   } catch (e) {
-    showToast('⚠️', '保存失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('alert-triangle') + '', '保存失败', e.message || '请稍后重试', 2500);
     var cb = $('#srStudyRoomPublic');
     if (cb) cb.checked = !val; // 回滚
   }
@@ -15889,7 +15889,7 @@ if (document.readyState === 'loading') {
     var p = state.anchorProjectId ? (store.projects && store.projects[state.anchorProjectId]) : null;
     if (p) {
       chip.hidden = false;
-      chip.textContent = '📚 ' + (p.name || '项目');
+      chip.innerHTML = '' + svgIcon('library') + ' ' + esc(p.name || '项目');
     } else {
       chip.hidden = true;
     }
@@ -15959,12 +15959,12 @@ if (document.readyState === 'loading') {
     // 操作栏：复制 + 编辑
     var bar = document.createElement('div');
     bar.className = 'ai-msg-actions';
-    bar.innerHTML = '<button class="ai-msg-btn ai-copy" type="button" title="复制">📋 复制</button>'
-                  + '<button class="ai-msg-btn ai-edit" type="button" title="编辑">✎ 编辑</button>';
+    bar.innerHTML = '<button class="ai-msg-btn ai-copy" type="button" title="复制">' + svgIcon('clipboard-list') + ' 复制</button>'
+                  + '<button class="ai-msg-btn ai-edit" type="button" title="编辑">' + svgIcon('pencil') + ' 编辑</button>';
     // 复制原始文本
     bar.querySelector('.ai-copy').onclick = function(){
       var btn = this;
-      var done = function(){ btn.textContent = '✓ 已复制'; setTimeout(function(){ btn.textContent = '📋 复制'; }, 1500); };
+      var done = function(){ btn.innerHTML = '' + svgIcon('check') + ' 已复制'; setTimeout(function(){ btn.innerHTML = '' + svgIcon('clipboard-list') + ' 复制'; }, 1500); };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
       } else { fallbackCopy(text, done); }
@@ -16001,13 +16001,13 @@ if (document.readyState === 'loading') {
     // 操作栏：复制 + 重新回答
     var bar = document.createElement('div');
     bar.className = 'ai-msg-actions';
-    bar.innerHTML = '<button class="ai-msg-btn ai-copy" type="button" title="复制回复">📋 复制</button>'
+    bar.innerHTML = '<button class="ai-msg-btn ai-copy" type="button" title="复制回复">' + svgIcon('clipboard-list') + ' 复制</button>'
                   + '<button class="ai-msg-btn ai-regen" type="button" title="重新回答">↻ 重新回答</button>';
     // 复制
     bar.querySelector('.ai-copy').onclick = function(){
       var text = div.querySelector('.md') ? div.querySelector('.md').innerText : div.innerText;
       var btn = this;
-      var done = function(){ btn.textContent = '✓ 已复制'; setTimeout(function(){ btn.textContent = '📋 复制'; }, 1500); };
+      var done = function(){ btn.innerHTML = '' + svgIcon('check') + ' 已复制'; setTimeout(function(){ btn.innerHTML = '' + svgIcon('clipboard-list') + ' 复制'; }, 1500); };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
       } else { fallbackCopy(text, done); }
@@ -16107,7 +16107,7 @@ if (document.readyState === 'loading') {
         + '</div>';
     });
     card.innerHTML =
-      '<div class="ai-suggest-title">💡 AI 建议</div>'
+      '<div class="ai-suggest-title">' + svgIcon('lightbulb') + ' AI 建议</div>'
       + rowsHtml
       + '<div class="ai-suggest-bar">'
       +   '<button class="ai-sel-all" type="button">全选</button>'
@@ -16451,7 +16451,7 @@ if (document.readyState === 'loading') {
       rec.state = 'applied';
       rec.actionLogId = resp.actionLogId;
       paintApplied(rec);
-      if (typeof showToast === 'function') showToast('✅', '已写入系统', '可随时撤销');
+      if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已写入系统', '可随时撤销');
     } catch(e) {
       // 6) 上报失败：用刚算好的 inverse 把本地改动回滚，不留脏数据
       for (var ri = selected.length - 1; ri >= 0; ri--) {
@@ -16461,7 +16461,7 @@ if (document.readyState === 'loading') {
       if (typeof render === 'function') render();
       card.style.opacity = '';
       if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = '应用选中 ' + selected.length + ' 条 →'; }
-      if (typeof showToast === 'function') showToast('⚠️', '应用失败', (e.message || '请稍后再试') + '，本地改动已回滚');
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '应用失败', (e.message || '请稍后再试') + '，本地改动已回滚');
     }
   }
 
@@ -16471,7 +16471,7 @@ if (document.readyState === 'loading') {
     var rows = card.querySelectorAll('.ai-act-row');
     for (var i = 0; i < rows.length; i++) rows[i].classList.add('applied-row');
     var bar = card.querySelector('.ai-suggest-bar');
-    bar.innerHTML = '<button class="ghost-btn ai-undo" type="button">↩ 已应用 · 撤销</button>';
+    bar.innerHTML = '<button class="ghost-btn ai-undo" type="button">' + svgIcon('corner-up-left', 14) + ' 已应用 · 撤销</button>';
     bar.querySelector('.ai-undo').onclick = function(){ undoApplied(rec); };
   }
 
@@ -16486,9 +16486,9 @@ if (document.readyState === 'loading') {
       rec.state = 'undone';
       rec.el.classList.add('undone');
       rec.el.querySelector('.ai-suggest-bar').innerHTML = '已撤销 · 改动已回滚';
-      if (typeof showToast === 'function') showToast('↩️', '已撤销', '改动已回滚');
+      if (typeof showToast === 'function') showToast(svgIcon('corner-up-left'), '已撤销', '改动已回滚');
     } catch(e) {
-      if (typeof showToast === 'function') showToast('⚠️', '撤销失败', e.message || '请稍后再试');
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '撤销失败', e.message || '请稍后再试');
     }
   }
 
@@ -16507,11 +16507,11 @@ if (document.readyState === 'loading') {
   function setSendStopUI(isStop){
     if (!els.sendBtn) return;
     if (isStop) {
-      els.sendBtn.textContent = '■';
+      els.sendBtn.innerHTML = svgIcon('stop-circle');
       els.sendBtn.classList.add('stop');
       els.sendBtn.disabled = false;
     } else {
-      els.sendBtn.textContent = '➤';
+      els.sendBtn.innerHTML = '' + svgIcon('send-horizontal') + '';
       els.sendBtn.classList.remove('stop');
       els.sendBtn.disabled = false;
     }
@@ -16854,13 +16854,13 @@ if (document.readyState === 'loading') {
         var title = c.title || (c.lastMessage ? c.lastMessage.slice(0,18) : '新会话');
         item.innerHTML =
           '<div class="hi-main">'
-          + '<div class="hi-title">' + (c.isPinned ? '<span class="hi-pin-icon">📌</span>' : '') + esc(title) + '</div>'
+          + '<div class="hi-title">' + (c.isPinned ? '<span class="hi-pin-icon">' + svgIcon('pin') + '</span>' : '') + esc(title) + '</div>'
           + '<div class="hi-preview">' + esc(c.lastMessage || '') + ' · ' + esc(formatTime(c.lastAt || c.updatedAt)) + '</div>'
           + '</div>'
           + '<div class="hi-actions">'
-          + '<button class="hi-btn hi-rename" type="button" title="重命名">✎</button>'
-          + '<button class="hi-btn hi-pin" type="button" title="' + (c.isPinned ? '取消置顶' : '置顶') + '">' + (c.isPinned ? '📌' : '📍') + '</button>'
-          + '<button class="hi-btn hi-del" type="button" title="删除会话">🗑</button>'
+          + '<button class="hi-btn hi-rename" type="button" title="重命名">' + svgIcon('pencil') + '</button>'
+          + '<button class="hi-btn hi-pin" type="button" title="' + (c.isPinned ? '取消置顶' : '置顶') + '">' + (c.isPinned ? '' + svgIcon('pin') + '' : '' + svgIcon('map-pin') + '') + '</button>'
+          + '<button class="hi-btn hi-del" type="button" title="删除会话">' + svgIcon('trash-2') + '</button>'
           + '</div>';
         item.onclick = function(ev){
           if (ev.target.closest('.hi-actions')) return;
@@ -16972,9 +16972,9 @@ if (document.readyState === 'loading') {
       clearMemBtn.onclick = function(){
         if (!confirm('确定要清空所有AI记忆吗？这会删除AI记住的你的所有偏好和习惯，历史对话记录不受影响。')) return;
         aiFetch('/api/ai/memory', { method: 'DELETE' }).then(function(){
-          if (typeof showToast === 'function') showToast('🧠', '已清空', 'AI记忆已重置');
+          if (typeof showToast === 'function') showToast('' + svgIcon('brain') + '', '已清空', 'AI记忆已重置');
         }).catch(function(e){
-          if (typeof showToast === 'function') showToast('⚠️', '清空失败', e.message || '');
+          if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '清空失败', e.message || '');
         });
       };
     }
@@ -17050,12 +17050,12 @@ if (document.readyState === 'loading') {
       if (kv) body.apiKey = kv;
       var r = await aiFetch('/api/ai/config/test', { method: 'POST', body: body });
       result.classList.add('ok');
-      result.textContent = '✓ 连接成功（' + (r.latencyMs || '?') + 'ms）';
-      if (typeof showToast === 'function') showToast('✅', '连接成功', (r.latencyMs || '?') + 'ms');
+      result.innerHTML = '' + svgIcon('check') + ' 连接成功（' + (r.latencyMs || '?') + 'ms）';
+      if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '连接成功', (r.latencyMs || '?') + 'ms');
     } catch(e) {
       result.classList.add('bad');
-      result.textContent = '✗ ' + (e.message || '连接失败');
-      if (typeof showToast === 'function') showToast('⚠️', '连接失败', e.message || '请检查 Key');
+      result.innerHTML = '' + svgIcon('x') + ' ' + (e.message || '连接失败');
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '连接失败', e.message || '请检查 Key');
     } finally {
       if (testBtn) { testBtn.disabled = false; testBtn.textContent = '测试连接'; }
     }
@@ -17078,13 +17078,13 @@ if (document.readyState === 'loading') {
       state.config = c; configLoaded = true;
       result.classList.remove('field-error');
       result.style.color = 'var(--ok)';
-      result.textContent = '✓ 已保存';
+      result.innerHTML = '' + svgIcon('check') + ' 已保存';
       if (saveBtn) {
         var orig = saveBtn.textContent;
-        saveBtn.textContent = '✓ 已保存';
+        saveBtn.innerHTML = '' + svgIcon('check') + ' 已保存';
         setTimeout(function(){ if (saveBtn) saveBtn.textContent = orig; }, 2000);
       }
-      if (typeof showToast === 'function') showToast('✅', '设置已保存');
+      if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '设置已保存');
       refreshChatEmptyState();
       loadUsage();
       setTimeout(function(){ result.hidden = true; }, 2000);
@@ -17092,7 +17092,7 @@ if (document.readyState === 'loading') {
       result.style.color = '';
       result.classList.add('field-error');
       result.textContent = e.message || '保存失败';
-      if (typeof showToast === 'function') showToast('⚠️', '保存失败', e.message || '');
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '保存失败', e.message || '');
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -17105,9 +17105,9 @@ if (document.readyState === 'loading') {
       state.convId = null;
       els.msgs.innerHTML = '';
       loadHistory();
-      if (typeof showToast === 'function') showToast('🗑', '已清空', '全部对话历史已删除');
+      if (typeof showToast === 'function') showToast('' + svgIcon('trash-2') + '', '已清空', '全部对话历史已删除');
     } catch(e) {
-      if (typeof showToast === 'function') showToast('⚠️', '清空失败', e.message || '');
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '清空失败', e.message || '');
     }
   }
 
