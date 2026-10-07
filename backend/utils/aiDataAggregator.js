@@ -957,9 +957,17 @@ function getRecentRecords(userId, projectId, limit) {
       if (!r.date) continue;
       let detail;
       if (p.type === 'exercise') {
-        const sp = Number(r.startPage) || 0;
-        const ep = Number(r.endPage) || sp;
-        detail = `P${sp}-P${ep}`;
+        const sp = Number(r.startPage);
+        const ep = Number(r.endPage);
+        if (isFinite(sp) && sp > 0 && isFinite(ep) && ep > 0 && ep >= sp) {
+          detail = sp === ep ? `P${sp}` : `P${sp}-P${ep}`;
+        } else if (isFinite(ep) && ep > 0) {
+          detail = `P${ep}`;
+        } else if (isFinite(sp) && sp > 0) {
+          detail = `P${sp}`;
+        } else {
+          detail = '打卡';
+        }
       } else {
         detail = '打卡';
       }

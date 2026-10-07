@@ -1,4 +1,4 @@
-/* 文案用词记一下：错题用「攻克」，背书用「掌握」，刷题用「完成」，
+﻿/* 文案用词记一下：错题用「攻克」，背书用「掌握」，刷题用「完成」，
    混在一起分不清类型就用「完成」。变量名里的 mastered 不用改。
    「已熟知」是手动跳过的意思，跟上面不是一回事。 */
 
@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v128', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v130', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -98,6 +98,22 @@ const StudyTime = {
     if (this._estimating) {
       studiedEl.textContent = '估算中';
       remainingEl.textContent = '估算中';
+      return;
+    }
+    // 检查是否有今天的预估数据，没有则显示"待估算"（不用旧模式误导）
+    var hasTodayEst = false;
+    try {
+      var today = todayStr();
+      var projs = (store && store.projects) || {};
+      Object.keys(projs).forEach(function(pid) {
+        var p = projs[pid];
+        if (p && p.todayEstimateDate && String(p.todayEstimateDate).slice(0,10) === today &&
+            Number(p.todayEstimatedTotalMinutes) > 0) hasTodayEst = true;
+      });
+    } catch(e) {}
+    if (!hasTodayEst) {
+      studiedEl.textContent = '待估算';
+      remainingEl.textContent = '待估算';
       return;
     }
     var studiedMin = this.getDisplayStudiedMin();
@@ -414,7 +430,7 @@ const StudyTime = {
         signal: estCtrl.signal,
         body: JSON.stringify({
           silent: true,
-          message: '以下是今日所有项目的任务清单：' + taskJson + '。请根据每个项目的今日任务量（units），分别预估每个项目今日完成所有任务需要的总分钟数。这是考研备考系统，所有项目都是考研相关学习材料。参考考研真题典型做题速度：数学真题分类习题册一页约7-8题，考试平均每题8分钟，计算时长需要包含做题+对答案+整理，一页约1小时；408计算机真题分类习题册一页约4-5题，选择题每题1.5-2分钟、综合题每题20-30分钟，一页约15分钟；错题复习每条5分钟；背书项目根据条目内容多少和页数自行判断。如果项目是整套试卷模式（isPaperSet=true），按考研考试标准估算：数学/408/英语均为180分钟一套，每个部分按分值占比计算时长（比如英语阅读10分占总分100分的10%就是18分钟），总时长=套数×180分钟。如果不在以上范围内且你对某科速度不确定，可以调用 web_search 工具搜索，参数格式为 {"query": "搜索关键词"}。结合你对我的长期记忆（比如我之前说过的学习习惯、某类任务的速度），用 set_task_estimates 工具给清单里**所有**项目分别写回预估，参数格式为 {"estimates": [{"projectId": "项目id", "totalMinutes": 该项目今日总时长分钟数, "totalUnits": 该项目今日任务总数}]}。每个项目都要预估，不能遗漏。如果长期记忆中有特别提到对某项任务速度快或者慢，请合理调整幅度，但也要合理，符合人类正常速度。totalMinutes 是该项目今日完成所有任务需要的总分钟数，totalUnits 直接用清单里的 units 值。只调用工具，不需要给我文字回复。',
+          message: '以下是今日所有项目的任务清单：' + taskJson + '。请根据每个项目的今日任务量（units），分别预估每个项目今日完成所有任务需要的总分钟数。这是考研备考系统，所有项目都是考研相关学习材料。参考考研真题典型做题速度：数学真题分类习题册一页约7-8题，考试平均每题8分钟，计算时长需要包含做题+对答案+整理，一页约1小时；408计算机真题分类习题册一页约4-5题，选择题每题1.5-2分钟、综合题每题20-30分钟，一页约15分钟；错题复习每条5分钟；背书项目根据条目内容多少和页数自行判断。如果项目是整套试卷模式（isPaperSet=true），units表示今日需要完成的套数（可以是小数，比如0.3表示今天做30%的一套），按考研考试标准估算：数学/408/英语均为180分钟一套，总时长=units×180分钟，不要因为units小于1就跳过。如果不在以上范围内且你对某科速度不确定，可以调用 web_search 工具搜索，参数格式为 {"query": "搜索关键词"}。结合你对我的长期记忆（比如我之前说过的学习习惯、某类任务的速度），用 set_task_estimates 工具给清单里**所有**项目分别写回预估，参数格式为 {"estimates": [{"projectId": "项目id", "totalMinutes": 该项目今日总时长分钟数, "totalUnits": 该项目今日任务总数}]}。每个项目都要预估，不能遗漏，包括套卷模式和units很小的项目。如果长期记忆中有特别提到对某项任务速度快或者慢，请合理调整幅度，但也要合理，符合人类正常速度。totalMinutes 是该项目今日完成所有任务需要的总分钟数，totalUnits 直接用清单里的 units 值。只调用工具，不需要给我文字回复。',
           context: { silentEstimate: true }
         })
       }).then(function(resp) {
@@ -17570,7 +17586,7 @@ if (document.readyState === 'loading') {
           context: ctx
         })
       });
-      removeTyping();
+      // 不在发送后立即 removeTyping，等收到第一个 delta 或 meta 事件再移除
 
       if (!streamResp.ok) {
         var errText = '';
@@ -17619,6 +17635,7 @@ if (document.readyState === 'loading') {
 
           if (eventName === 'meta') {
             // 工具调用完成，开始输出正文
+            removeTyping();
             if (parsed.toolCalls && parsed.toolCalls.length && !toolCallsShown) {
               // 先创建消息元素，插入工具调用 trace
               streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
@@ -17629,6 +17646,7 @@ if (document.readyState === 'loading') {
             }
           } else if (eventName === 'delta') {
             // 逐字追加
+            removeTyping();
             if (!streamMsgEl) {
               streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
               currentMdEl = streamMsgEl.querySelector('.md p');

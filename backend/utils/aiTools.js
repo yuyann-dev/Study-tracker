@@ -397,12 +397,8 @@ function implSetTaskEstimates(userId, args) {
     const totalUnits = Math.round(Number(est.totalUnits));
     if (Number.isFinite(totalMinutes) && totalMinutes >= 1 && totalMinutes <= 600 &&
         Number.isFinite(totalUnits) && totalUnits >= 1) {
-      // 合理下限：即使很快，也要在人类正常时间范围内
-      // 刷题每页至少15分钟（做题+对答案+整理，考研真题更久），错题每条至少5分钟，背书每条至少2分钟
-      const minPerUnit = project.type === 'exercise' ? 15 : project.type === 'mistake' ? 5 : 2;
-      const minTotal = totalUnits * minPerUnit;
-      const finalMinutes = Math.max(totalMinutes, minTotal);
-      project.todayEstimatedTotalMinutes = finalMinutes;
+      // 不设硬性下限：用户可能有二刷/快速复习等特殊情况，以 AI 预估为准
+      project.todayEstimatedTotalMinutes = totalMinutes;
       project.todayTotalUnits = totalUnits;
       const _d = new Date();
       project.todayEstimateDate = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
@@ -428,6 +424,48 @@ function implSetTaskEstimates(userId, args) {
   }
 
   if (updated > 0) {
+    // 兜底：AI 可能遗漏套卷模式项目，自动按 180 分钟/套补上
+    const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+    Object.keys(store.projects || {}).forEach(function(pid) {
+      const p = store.projects[pid];
+      if (!p || p.archived || p.type !== 'exercise' || p.unit !== 'set') return;
+      if (p.todayEstimatedTotalMinutes && Number(p.todayEstimatedTotalMinutes) > 0) return;
+      // 计算今日任务量
+      const totalSets = Number(p.total) || 0;
+      let doneSets = 0;
+      const recs = Array.isArray(p.records) ? p.records : [];
+      const setState = {};
+      recs.forEach(function(r) {
+        if (!r || r.set == null) return;
+        if (!setState[r.set]) setState[r.set] = { secs: {} };
+        if (r.secId) setState[r.set].secs[r.secId] = Number(r.pct) || 0;
+      });
+      const sections = Array.isArray(p.paperSections) ? p.paperSections : [];
+      const totalWeight = sections.reduce(function(s, sec) { return s + (Number(sec.weight) || 0); }, 0);
+      Object.keys(setState).forEach(function(no) {
+        const st = setState[no];
+        let f = 0;
+        sections.forEach(function(sec) {
+          const pct = (st.secs[sec.id] || 0) / 100;
+          f += pct * ((Number(sec.weight) || 0) / Math.max(1, totalWeight));
+        });
+        doneSets += Math.max(0, Math.min(1, f));
+      });
+      const remSets = Math.max(0, totalSets - doneSets);
+      let per = 0;
+      if (remSets > 0 && p.deadline) {
+        const dl = String(p.deadline).slice(0, 10);
+        const daysLeft = Math.ceil((new Date(dl) - new Date(todayStr)) / 86400000) + 1;
+        per = remSets / Math.max(1, daysLeft);
+      }
+      if (per > 0) {
+        p.todayEstimatedTotalMinutes = Math.round(per * 180);
+        p.todayTotalUnits = Math.round(per * 10) / 10;
+        p.todayEstimateDate = todayStr;
+        updated++;
+      }
+    });
+
     const newJson = JSON.stringify(store);
     db.prepare('UPDATE user_data SET store_json = ?, updated_at = datetime(\'now\') WHERE user_id = ?').run(newJson, userId);
   }
