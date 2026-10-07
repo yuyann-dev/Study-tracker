@@ -115,69 +115,83 @@ async function callLLM(cfg, messages, opts = {}) {
   }
   await assertSafeBaseUrl(baseUrl);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  // 429/瞬时 5xx/网络抖动：最多尝试 2 次，中间退避 1s；
+  // 超时/401/402/其他 4xx 不重试（重试无意义或放大问题），最终错误形态与之前完全一致。
+  const MAX_ATTEMPTS = 2;
+  const RETRY_DELAY_MS = 1000;
 
   let res;
-  try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${cfg.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: cfg.model,
-        messages,
-        temperature: opts.temperature != null ? opts.temperature : 0.7,
-        ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
-        ...(Array.isArray(opts.tools) && opts.tools.length
-          ? { tools: opts.tools, tool_choice: opts.toolChoice || 'auto' }
-          : {}),
-      }),
-      signal: controller.signal,
-    });
-  } catch (e) {
-    clearTimeout(timer);
-    if (e.name === 'AbortError') {
-      const err = new Error('AI开小差了，请稍后再试');
-      err.kind = 'timeout'; err.status = 504;
-      err.aiCode = 'TIMEOUT'; err.aiMessage = 'AI开小差了，请稍后再试';
+  for (let attempt = 1; ; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+      res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${cfg.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: cfg.model,
+          messages,
+          temperature: opts.temperature != null ? opts.temperature : 0.7,
+          ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+          ...(Array.isArray(opts.tools) && opts.tools.length
+            ? { tools: opts.tools, tool_choice: opts.toolChoice || 'auto' }
+            : {}),
+        }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      if (e.name === 'AbortError') {
+        const err = new Error('AI开小差了，请稍后再试');
+        err.kind = 'timeout'; err.status = 504;
+        err.aiCode = 'TIMEOUT'; err.aiMessage = 'AI开小差了，请稍后再试';
+        throw err;
+      }
+      const err = new Error('AI服务暂时不可用，请稍后再试');
+      err.kind = 'network'; err.status = 502;
+      err.aiCode = 'UPSTREAM_ERROR'; err.aiMessage = 'AI服务暂时不可用，请稍后再试';
+      if (attempt < MAX_ATTEMPTS) { await new Promise(r => setTimeout(r, RETRY_DELAY_MS)); continue; }
       throw err;
     }
-    const err = new Error('AI服务暂时不可用，请稍后再试');
-    err.kind = 'network'; err.status = 502;
-    err.aiCode = 'UPSTREAM_ERROR'; err.aiMessage = 'AI服务暂时不可用，请稍后再试';
-    throw err;
-  }
-  clearTimeout(timer);
+    clearTimeout(timer);
 
-  // 错误分类：统一不把上游原文抛给用户；每个错误带 aiCode（前端据此显示友好提示/重试按钮）
-  if (!res.ok) {
-    // 先读上游响应体，挂到 err.upstreamBody 供路由判断"模型不支持 tools"等场景（不直接展示给用户）
-    let errBodyText = '';
-    try { errBodyText = await res.text(); } catch (_) { /* 忽略读取失败 */ }
-    const err = new Error('AI服务暂时不可用，请稍后再试');
-    err.status = 502;
-    err.aiCode = 'UPSTREAM_ERROR';
-    err.aiMessage = 'AI服务暂时不可用，请稍后再试';
-    err.upstreamBody = String(errBodyText || '').slice(0, 800);
-    if (res.status === 401 || res.status === 403) {
-      err.kind = 'unauthorized'; err.status = 401;
-      err.aiCode = 'INVALID_KEY'; err.aiMessage = 'API key似乎无效，请检查后重新输入';
-    } else if (res.status === 402) {
-      err.kind = 'insufficient_balance'; err.status = 402;
-      err.aiCode = 'INSUFFICIENT_BALANCE';
-      err.aiMessage = 'AI服务余额不足，请前往服务商控制台充值后继续使用';
-      err.aiDetail = cfg.docsUrl || 'https://platform.deepseek.com/';
-    } else if (res.status === 429) {
-      err.kind = 'rate_limited'; err.status = 429;
-      err.aiCode = 'RATE_LIMITED'; err.aiMessage = '问得太快啦，歇一秒再问';
-    } else if (res.status >= 500) {
-      err.kind = 'upstream_5xx'; err.status = 502;
-      err.aiCode = 'UPSTREAM_ERROR'; err.aiMessage = 'AI服务暂时不可用，请稍后再试';
+    // 错误分类：统一不把上游原文抛给用户；每个错误带 aiCode（前端据此显示友好提示/重试按钮）
+    if (!res.ok) {
+      // 先读上游响应体，挂到 err.upstreamBody 供路由判断"模型不支持 tools"等场景（不直接展示给用户）
+      let errBodyText = '';
+      try { errBodyText = await res.text(); } catch (_) { /* 忽略读取失败 */ }
+      const err = new Error('AI服务暂时不可用，请稍后再试');
+      err.status = 502;
+      err.aiCode = 'UPSTREAM_ERROR';
+      err.aiMessage = 'AI服务暂时不可用，请稍后再试';
+      err.upstreamBody = String(errBodyText || '').slice(0, 800);
+      if (res.status === 401 || res.status === 403) {
+        err.kind = 'unauthorized'; err.status = 401;
+        err.aiCode = 'INVALID_KEY'; err.aiMessage = 'API key似乎无效，请检查后重新输入';
+      } else if (res.status === 402) {
+        err.kind = 'insufficient_balance'; err.status = 402;
+        err.aiCode = 'INSUFFICIENT_BALANCE';
+        err.aiMessage = 'AI服务余额不足，请前往服务商控制台充值后继续使用';
+        err.aiDetail = cfg.docsUrl || 'https://platform.deepseek.com/';
+      } else if (res.status === 429) {
+        err.kind = 'rate_limited'; err.status = 429;
+        err.aiCode = 'RATE_LIMITED'; err.aiMessage = '问得太快啦，歇一秒再问';
+      } else if (res.status >= 500) {
+        err.kind = 'upstream_5xx'; err.status = 502;
+        err.aiCode = 'UPSTREAM_ERROR'; err.aiMessage = 'AI服务暂时不可用，请稍后再试';
+      }
+      if (attempt < MAX_ATTEMPTS && (err.kind === 'rate_limited' || err.kind === 'upstream_5xx')) {
+        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        continue;
+      }
+      throw err;
     }
-    throw err;
+
+    break;
   }
 
   let data;

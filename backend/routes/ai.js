@@ -83,6 +83,51 @@ function bumpUsage(userId, date, tokensIn, tokensOut) {
   ).run(userId, date, tokensIn, tokensOut);
 }
 
+// 长期记忆上限：DB 最多保留 MEMORY_MAX 条，超出时按「强度低→最久未用→最早」淘汰。
+// /chat 与 /chat/stream 注入同一条数，避免两个入口记忆表现不一致。
+const MEMORY_MAX = 15;
+const MEMORY_INJECT_LIMIT = 15;
+const MEMORY_STRENGTH_CAP = 20;
+
+/**
+ * 取要注入到 system prompt 的记忆，并顺带把这些记忆标记为"刚被使用"：
+ * strength+1（封顶）、last_used_at=now，让淘汰真正变成 LRU（旧逻辑 strength 恒为 1，
+ * last_used_at 从不写，淘汰退化为按 id 的 FIFO）。
+ * 注意：必须在把 memories 传给 buildSystemPrompt 之前调用，且与记忆开关解耦——
+ * 开关关闭时调用方直接传 []，不走这里。
+ */
+function selectMemoriesForPrompt(userId) {
+  const rows = db.prepare(
+    'SELECT id, content FROM ai_memory WHERE user_id=? ORDER BY strength DESC, last_used_at DESC, id ASC LIMIT ?'
+  ).all(userId, MEMORY_INJECT_LIMIT);
+  if (rows.length) {
+    const idList = rows.map((r) => r.id);
+    db.prepare(
+      `UPDATE ai_memory SET strength = MIN(strength + 1, ${MEMORY_STRENGTH_CAP}), last_used_at = datetime('now')
+       WHERE user_id=? AND id IN (${idList.map(() => '?').join(',')})`
+    ).run(userId, ...idList);
+  }
+  return rows;
+}
+
+/**
+ * 落库一条长期记忆：内容精确去重；达到上限先淘汰最弱/最久未用；
+ * sourceMessageId 关联本轮消息，删除会话时按消息级联清理（修复此前恒写 NULL 导致级联失效）。
+ */
+function saveMemoryForUser(userId, kind, content, sourceMessageId) {
+  const exists = db.prepare('SELECT id FROM ai_memory WHERE user_id=? AND content=?').get(userId, content);
+  if (exists) return;
+  const count = db.prepare('SELECT COUNT(*) AS c FROM ai_memory WHERE user_id=?').get(userId).c;
+  if (count >= MEMORY_MAX) {
+    db.prepare(
+      'DELETE FROM ai_memory WHERE user_id=? ORDER BY strength ASC, last_used_at ASC, id ASC LIMIT 1'
+    ).run(userId);
+  }
+  db.prepare(
+    "INSERT INTO ai_memory (user_id, kind, content, strength, source_message_id, created_at) VALUES (?, ?, ?, 1, ?, datetime('now'))"
+  ).run(userId, kind, content, sourceMessageId);
+}
+
 /** 读取该用户 store 里所有 project id（用于校验 actions.projectId） */
 function storeProjects(userId) {
   const store = aggregator.loadStore(userId);
@@ -376,8 +421,9 @@ router.put('/conversations/:id', (req, res) => {
     const sets = [];
     const params = [];
     if (body.title != null) {
-      sets.push('title = ?');
-      params.push(String(body.title).slice(0, 60));
+      // 空串/纯空格视为无效重命名，忽略（不把标题刷成空白）；正常标题截到 60 字
+      const t = String(body.title).trim().slice(0, 60);
+      if (t) { sets.push('title = ?'); params.push(t); }
     }
     if (body.isPinned != null) {
       sets.push('is_pinned = ?');
@@ -524,9 +570,7 @@ router.post('/chat', async (req, res) => {
     // 长期记忆：用户关闭记忆开关时不读取，每次对话相当于全新开始（历史对话仍保留）
     const memories = (cfg.memory_enabled === 0)
       ? []
-      : db.prepare(
-          'SELECT content FROM ai_memory WHERE user_id=? ORDER BY strength DESC LIMIT 5'
-        ).all(req.user.id);
+      : selectMemoriesForPrompt(req.user.id);
 
     const promptCtx = Object.assign({}, ctx, { budgetMin });
     // 历史近 10 轮（只存 user/assistant 正文；tool role 消息不入历史）
@@ -550,6 +594,7 @@ router.post('/chat', async (req, res) => {
     const trace = [];
     const searchReferences = []; // 收集 web_search 返回的来源 URL，用于前端渲染参考文献
     let degradedReason = null;
+    const pendingMemories = []; // 本轮 save_memory 收集，待消息落库后关联 source_message_id 写入
 
     if (useTools) {
       // ── FC 模式：轻量 prompt + 工具循环（最多 5 轮 / 12 次调用）──
@@ -589,16 +634,7 @@ router.post('/chat', async (req, res) => {
                   if (cfg.memory_enabled !== 0) {
                     const content = String(tc.args.content || '').trim().slice(0, 200);
                     const kind = ['preference', 'goal', 'fact'].includes(tc.args.kind) ? tc.args.kind : 'fact';
-                    if (content) {
-                      const exists = db.prepare('SELECT id FROM ai_memory WHERE user_id=? AND content=?').get(req.user.id, content);
-                      if (!exists) {
-                        const count = db.prepare('SELECT COUNT(*) AS c FROM ai_memory WHERE user_id=?').get(req.user.id).c;
-                        if (count >= 30) {
-                          db.prepare('DELETE FROM ai_memory WHERE user_id=? ORDER BY strength ASC, id ASC LIMIT 1').run(req.user.id);
-                        }
-                        db.prepare('INSERT INTO ai_memory (user_id, kind, content, strength, source_message_id, created_at) VALUES (?, ?, ?, 1, NULL, datetime(\'now\'))').run(req.user.id, kind, content);
-                      }
-                    }
+                    if (content) pendingMemories.push({ kind, content });
                   }
                   result = { ok: true };
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
@@ -703,6 +739,8 @@ router.post('/chat', async (req, res) => {
     const convId = await ensureConversation(req, body.conversationId, userMessage);
     await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
     const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', replyBody, intent, validActions, totalTokensIn, totalTokensOut);
+    // 本轮收集到的长期记忆：关联到本轮 assistant 消息，删除会话时可级联清理
+    for (const m of pendingMemories) saveMemoryForUser(req.user.id, m.kind, m.content, assistantMsgId);
     bumpUsage(req.user.id, date, totalTokensIn, totalTokensOut);
     touchConversation(convId);
 
@@ -735,13 +773,32 @@ router.post('/chat/stream', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
 
+  // 客户端断连检测：网络中断/关页面后停止打字机循环、不再写库，避免挂起与对死 socket 写入
+  // （正常 end 后 req 也会触发 close，加 writableEnded 判断避免误标）
+  let clientGone = false;
+  req.on('close', () => { if (!res.writableEnded) clientGone = true; });
+
+  // 心跳：工具调用阶段（可能连续多次 30s 上游请求）期间无任何字节输出，
+  // Nginx/浏览器代理会因读超时而断开 SSE。每 10s 发一条 SSE 注释行（前端解析时自动忽略）。
+  const beat = setInterval(() => {
+    if (res.writableEnded || res.destroyed || clientGone) return;
+    try { res.write(': ping\n\n'); } catch (_) { clientGone = true; }
+  }, 10000);
+  if (beat.unref) beat.unref();
+  const stopBeat = () => clearInterval(beat);
+
   const sendSSE = (event, data) => {
-    res.write(`event: ${event}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (res.writableEnded || res.destroyed || clientGone) return false;
+    try {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      return true;
+    } catch (_) { clientGone = true; return false; }
   };
   const sendError = (code, message) => {
     sendSSE('error', { code, message });
-    res.end();
+    try { if (!res.writableEnded && !res.destroyed) res.end(); } catch (_) {}
+    stopBeat();
   };
 
   try {
@@ -787,7 +844,7 @@ router.post('/chat/stream', async (req, res) => {
     }
     const memories = (cfg.memory_enabled === 0)
       ? []
-      : db.prepare('SELECT content FROM ai_memory WHERE user_id=? ORDER BY strength DESC LIMIT 5').all(req.user.id);
+      : selectMemoriesForPrompt(req.user.id);
 
     const promptCtx = Object.assign({}, ctx, { budgetMin });
     const history = loadRecentMessages(req.user.id, body.conversationId, 10);
@@ -806,6 +863,7 @@ router.post('/chat/stream', async (req, res) => {
     const trace = [];
     const searchReferences = [];
     let degradedReason = null;
+    const pendingMemories = []; // 本轮 save_memory 收集，待消息落库后关联 source_message_id 写入
 
     // ── 工具调用循环（和 /chat 完全一样）──
     if (useTools) {
@@ -842,25 +900,20 @@ router.post('/chat/stream', async (req, res) => {
                   if (cfg.memory_enabled !== 0) {
                     const content = String(tc.args.content || '').trim().slice(0, 200);
                     const kind = ['preference', 'goal', 'fact'].includes(tc.args.kind) ? tc.args.kind : 'fact';
-                    if (content) {
-                      const exists = db.prepare('SELECT id FROM ai_memory WHERE user_id=? AND content=?').get(req.user.id, content);
-                      if (!exists) {
-                        const count = db.prepare('SELECT COUNT(*) AS c FROM ai_memory WHERE user_id=?').get(req.user.id).c;
-                        if (count >= 30) db.prepare('DELETE FROM ai_memory WHERE user_id=? ORDER BY strength ASC, id ASC LIMIT 1').run(req.user.id);
-                        db.prepare('INSERT INTO ai_memory (user_id, kind, content, strength, source_message_id, created_at) VALUES (?, ?, ?, 1, NULL, datetime(\'now\'))').run(req.user.id, kind, content);
-                      }
-                    }
+                    if (content) pendingMemories.push({ kind, content });
                   }
                   result = { ok: true };
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
                 } else if (tc.name === 'web_search') {
                   const tavilySearch = require('../utils/tavilySearch');
-                  result = await tavilySearch.search(tc.args.query, req.user.id);
+                  result = await tavilySearch.search(tc.args.query, req.user.id, isAdmin);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: result.searched ? 'ok' : 'skipped', durationMs: Date.now() - start });
                   if (result.searched && Array.isArray(result.results)) {
                     result.results.forEach(function (r) {
                       if (r && r.url && !searchReferences.some(function (s) { return s.url === r.url; })) {
-                        searchReferences.push({ title: (r.title || '').slice(0, 80), url: r.url });
+                        var cleanTitle = String(r.title || '').replace(/[^一-龥a-zA-Z0-9\s\-\—\:\：\(\)（）\[\]【】《》""''！!？?，,。.、；;]/g, '').trim();
+                        if (!cleanTitle || cleanTitle.length < 2) cleanTitle = r.url;
+                        searchReferences.push({ title: cleanTitle.slice(0, 80), url: r.url });
                       }
                     });
                   }
@@ -928,10 +981,12 @@ router.post('/chat/stream', async (req, res) => {
     const fullText = finalContent || '';
     const chunkSize = 3; // 每次推 3 个字，模拟打字机速度
     for (let i = 0; i < fullText.length; i += chunkSize) {
+      if (clientGone) break; // 客户端已断开，停止推送
       const chunk = fullText.slice(i, i + chunkSize);
       sendSSE('delta', { text: chunk });
       await new Promise(r => setTimeout(r, 15)); // 15ms 间隔，约 200 字/秒
     }
+    if (clientGone) { stopBeat(); return; } // 半截回复不再解析 actions/落库/发 done
 
     // 解析 actions
     const { body: replyBody, actions: rawActions } = aiPrompt.parseReply(fullText);
@@ -948,6 +1003,8 @@ router.post('/chat/stream', async (req, res) => {
     const convId = await ensureConversation(req, body.conversationId, userMessage);
     await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
     const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', finalReply, intent, validActions, totalTokensIn, totalTokensOut);
+    // 本轮收集到的长期记忆：关联到本轮 assistant 消息，删除会话时可级联清理
+    for (const m of pendingMemories) saveMemoryForUser(req.user.id, m.kind, m.content, assistantMsgId);
     bumpUsage(req.user.id, date, totalTokensIn, totalTokensOut);
     touchConversation(convId);
 
@@ -964,9 +1021,11 @@ router.post('/chat/stream', async (req, res) => {
       searchReferences: searchReferences.length > 0 ? searchReferences : null,
       ...(degradedReason ? { degraded: degradedReason } : {}),
     });
+    stopBeat();
     res.end();
   } catch (e) {
     console.error('POST /api/ai/chat/stream error:', e.message);
+    stopBeat();
     sendError('UPSTREAM_ERROR', 'AI 服务暂不可用，请稍后重试');
   }
 });

@@ -23,11 +23,14 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  DEFAULT_MIN_MISTAKE: 3,
-  DEFAULT_MIN_RECITE: 2,
-  DEFAULT_MIN_PER_PAGE: 8,
+  BUILD_VERSION: 'v125', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
+
+  /* 用户是否配置了 AI API（由 AI 模块加载配置后设置全局标记） */
+  hasAi: function() {
+    return window.__aiConfigured === true;
+  },
 
   getBudgetMin: function() {
     var v = Number(localStorage.getItem(this._key('budget')));
@@ -47,67 +50,29 @@ const StudyTime = {
     localStorage.setItem(this._key('studied_offset'), String(Math.round(offset)));
   },
 
-  /* 校准系数：从 store 读，默认 1.0 */
-  getCalibration: function(type) {
-    try {
-      var cal = (store && store.aiCalibration) || {};
-      var v = Number(cal[type]);
-      return (isFinite(v) && v > 0.1 && v < 5) ? v : 1.0;
-    } catch(e) { return 1.0; }
+  /* 今日已学时长（增量累加，打卡时加，取消时减） */
+  getAutoStudiedMin: function() {
+    var v = Number(localStorage.getItem(this._key('studied_auto')));
+    return isFinite(v) && v > 0 ? Math.round(v) : 0;
   },
-  _applyCalibration: function(minutes, type) {
-    return Math.round(minutes * this.getCalibration(type));
+  addStudied: function(min) {
+    min = Math.round(Number(min));
+    if (!isFinite(min) || min <= 0) return;
+    var cur = this.getAutoStudiedMin();
+    localStorage.setItem(this._key('studied_auto'), String(cur + min));
+    this.updateDisplay();
   },
-
-  /* 从今日打卡记录重新计算自动已学时长（分钟） */
-  recalcAutoStudied: function() {
-    var today = todayStr();
-    var total = 0;
-    var projects = (store && store.projects) || {};
-    var self = this;
-
-    Object.keys(projects).forEach(function(pid) {
-      var p = projects[pid];
-      if (!p || p.archived) return;
-
-      if (p.type === 'exercise') {
-        // 刷题：今日完成页数 × 每页预估分钟
-        var recs = Array.isArray(p.records) ? p.records : [];
-        var pages = 0;
-        recs.forEach(function(r) {
-          if (String(r.date || '').slice(0, 10) !== today) return;
-          var s = Number(r.startPage) || 0;
-          var e = Number(r.endPage) || s;
-          pages += Math.max(e - s, 0);
-        });
-        var perPage = self._applyCalibration(self.DEFAULT_MIN_PER_PAGE, 'exercise');
-        total += pages * perPage;
-      } else {
-        // 错题/背书：今日复习过的条目 × 每条预估分钟
-        var items = Array.isArray(p.items) ? p.items : [];
-        items.forEach(function(it) {
-          var revs = Array.isArray(it.reviews) ? it.reviews : [];
-          var reviewedToday = false;
-          for (var i = 0; i < revs.length; i++) {
-            if (String(revs[i].date || '').slice(0, 10) === today) { reviewedToday = true; break; }
-          }
-          if (!reviewedToday) return;
-          var defaultMin = p.type === 'mistake' ? self.DEFAULT_MIN_MISTAKE : self.DEFAULT_MIN_RECITE;
-          var min = Number(it.estimatedMinutes);
-          if (!isFinite(min) || min <= 0) {
-            min = self._applyCalibration(defaultMin, p.type);
-          }
-          total += min;
-        });
-      }
-    });
-
-    return Math.max(0, Math.round(total));
+  subtractStudied: function(min) {
+    min = Math.round(Number(min));
+    if (!isFinite(min) || min <= 0) return;
+    var cur = this.getAutoStudiedMin();
+    localStorage.setItem(this._key('studied_auto'), String(Math.max(0, cur - min)));
+    this.updateDisplay();
   },
 
-  /* 显示用已学时长 = 自动计算 + 用户手动偏移 */
+  /* 显示用已学时长 = 增量累加 + 用户手动偏移 */
   getDisplayStudiedMin: function() {
-    return Math.max(0, this.recalcAutoStudied() + this.getStudiedOffset());
+    return Math.max(0, this.getAutoStudiedMin() + this.getStudiedOffset());
   },
 
   getRemainingMin: function() {
@@ -118,50 +83,354 @@ const StudyTime = {
   setManualStudied: function(minutes) {
     minutes = Math.round(Number(minutes));
     if (!isFinite(minutes) || minutes < 0) minutes = 0;
-    var auto = this.recalcAutoStudied();
+    var auto = this.getAutoStudiedMin();
     this.setStudiedOffset(minutes - auto);
-    // 学习校准系数：根据用户手动调整推算
-    this._learnCalibration(minutes, auto);
     this.updateDisplay();
-  },
-
-  /* 从用户手动修改学习校准系数 */
-  _learnCalibration: function(manualMin, autoMin) {
-    if (!autoMin || autoMin < 5 || manualMin < 5) return; // 数据太少不校准
-    var ratio = manualMin / autoMin;
-    if (ratio < 0.3 || ratio > 3) return; // 极端值不采纳
-    try {
-      if (!store.aiCalibration || typeof store.aiCalibration !== 'object') store.aiCalibration = {};
-      // 按项目类型加权平均（简化：全局系数，近期权重高）
-      var projects = store.projects || {};
-      var typeCounts = { mistake: 0, recite: 0, exercise: 0 };
-      Object.keys(projects).forEach(function(pid) {
-        var p = projects[pid];
-        if (!p || p.archived) return;
-        if (p.type === 'exercise') typeCounts.exercise++;
-        else if (p.type === 'mistake') typeCounts.mistake++;
-        else if (p.type === 'recite') typeCounts.recite++;
-      });
-      // 简单做法：只更新有活跃项目的类型
-      var self = this;
-      Object.keys(typeCounts).forEach(function(t) {
-        if (typeCounts[t] === 0) return;
-        var old = self.getCalibration(t);
-        // 指数移动平均：新系数权重 0.3
-        store.aiCalibration[t] = Math.round((old * 0.7 + ratio * 0.3) * 100) / 100;
-      });
-    } catch(e) {}
   },
 
   /* 更新 UI 显示（AI面板输入区） */
   updateDisplay: function() {
+    var row = document.querySelector('.ai-time-row');
+    if (row) row.style.display = this.hasAi() ? '' : 'none';
     var studiedEl = document.getElementById('aiStudiedMin');
     var remainingEl = document.getElementById('aiRemainingMin');
     if (!studiedEl || !remainingEl) return;
+    if (this._estimating) {
+      studiedEl.textContent = '估算中';
+      remainingEl.textContent = '估算中';
+      return;
+    }
     var studiedMin = this.getDisplayStudiedMin();
     var remainingMin = this.getRemainingMin();
     studiedEl.textContent = (studiedMin / 60).toFixed(1) + 'h';
     remainingEl.textContent = (remainingMin / 60).toFixed(1) + 'h';
+  },
+
+  /* 今天是否已经预估过任务时长 */
+  _estimatedToday: function() {
+    return localStorage.getItem(this._key('estimated_done')) === this.BUILD_VERSION;
+  },
+  _markEstimated: function() {
+    localStorage.setItem(this._key('estimated_done'), this.BUILD_VERSION);
+  },
+
+  /* 计算今日任务总数（包括已完成，用于检测自动均衡/新增项目导致的变化） */
+  _getTodayTaskCount: function() {
+    var today = todayStr();
+    var count = 0;
+    var projects = (store && store.projects) || {};
+    Object.keys(projects).forEach(function(pid) {
+      var p = projects[pid];
+      if (!p || p.archived) return;
+      if (p.type === 'exercise') {
+        // 刷题项目：用 dailyCapacity 作为指纹，新增/修改刷题项目可触发重估
+        count += Number(p.dailyCapacity) || 0;
+        return;
+      }
+      var items = Array.isArray(p.items) ? p.items : [];
+      for (var j = 0; j < items.length; j++) {
+        var it = items[j];
+        if (!it) continue;
+        var dueToday = it.nextReviewDate && String(it.nextReviewDate).slice(0, 10) <= today;
+        var revToday = Array.isArray(it.reviews) && it.reviews.some(function(r) {
+          return r && String(r.date).slice(0, 10) === today;
+        });
+        if (dueToday || revToday) count++;
+      }
+    });
+    return count;
+  },
+
+  /* 预估完成后追溯计算今天已打卡的时长（按比例：已完成/总任务 × 总时长） */
+  _recomputeTodayStudied: function() {
+    var today = todayStr();
+    var total = 0;
+    var projects = (store && store.projects) || {};
+    var self = this;
+
+    Object.keys(projects).forEach(function(pid) {
+      var p = projects[pid];
+      if (!p || p.archived) return;
+
+      var totalMin = Number(p.todayEstimatedTotalMinutes);
+      var totalUnits = Number(p.todayTotalUnits);
+      var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+      var hasNewMode = estDate === today && isFinite(totalMin) && totalMin >= 1 && totalMin <= 600
+                    && isFinite(totalUnits) && totalUnits >= 1;
+
+      if (p.type === 'exercise') {
+        var records = Array.isArray(p.records) ? p.records : [];
+        var todayRecords = records.filter(function(r) { return r && r.date === today; });
+
+        if (hasNewMode) {
+          // 新模式：按比例计算
+          var ratio;
+          if (p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
+            // 套卷模式：按完成的分块数 / 总分块数计算
+            var sectionsPerSet = p.paperSections.length;
+            var totalSections = totalUnits * sectionsPerSet;
+            var doneSections = todayRecords.filter(function(r) { return r && Number(r.pct) > 0; }).length;
+            ratio = Math.min(1, doneSections / totalSections);
+          } else {
+            // 普通模式：按页数计算
+            var donePages = self._calcDonePages(records, todayRecords, today);
+            ratio = Math.min(1, donePages / totalUnits);
+          }
+          total += Math.round(ratio * totalMin);
+        } else {
+          // 兼容旧模式：estMinPerPage × 页数
+          var perPage = Number(p.estMinPerPage);
+          if (!isFinite(perPage) || perPage <= 0) perPage = 8;
+          todayRecords.forEach(function(r) {
+            var pages = self._calcRecordPages(r, records, today);
+            if (pages > 0) total += Math.round(pages * perPage);
+          });
+        }
+      } else {
+        // 错题/背书项目
+        var items = Array.isArray(p.items) ? p.items : [];
+        var reviewedToday = items.filter(function(it) {
+          if (!it || !Array.isArray(it.reviews)) return false;
+          return it.reviews.some(function(r) {
+            return r && String(r.date).slice(0, 10) === today;
+          });
+        }).length;
+
+        if (hasNewMode) {
+          var ratio = Math.min(1, reviewedToday / totalUnits);
+          total += Math.round(ratio * totalMin);
+        } else {
+          // 兼容旧模式：每条 estimatedMinutes
+          items.forEach(function(it) {
+            if (!it) return;
+            var revToday = Array.isArray(it.reviews) && it.reviews.some(function(r) {
+              return r && String(r.date).slice(0, 10) === today;
+            });
+            if (!revToday) return;
+            var em = Number(it.estimatedMinutes);
+            if (isFinite(em) && em >= 1 && em <= 120) {
+              total += Math.round(em);
+            } else if (!isFinite(em) || em <= 0) {
+              // 旧模式无默认值兜底：错题5min，背书2min
+              total += Math.round(p.type === 'recite' ? 2 : 5);
+            }
+          });
+        }
+      }
+    });
+
+    localStorage.setItem(this._key('studied_auto'), String(Math.max(0, total)));
+  },
+
+  /* 计算今日已完成页数（去重，修复只有endPage的情况） */
+  _calcDonePages: function(allRecords, todayRecords, today) {
+    var self = this;
+    var pageSet = {};
+    todayRecords.forEach(function(r) {
+      var pages = self._calcRecordPages(r, allRecords, today);
+      if (pages <= 0) return;
+      var start = r.startPage != null ? Number(r.startPage) : null;
+      var end = r.endPage != null ? Number(r.endPage) : null;
+      if (start != null && end != null) {
+        for (var i = start; i <= end; i++) pageSet[i] = true;
+      } else if (end != null) {
+        // 只有endPage：从上一次打卡的endPage+1开始
+        var prevEnd = self._findPrevEndPage(allRecords, r, today);
+        var s = prevEnd != null ? prevEnd + 1 : 1;
+        if (s > end) {
+          pageSet[end] = true;
+        } else {
+          for (var j = s; j <= end; j++) pageSet[j] = true;
+        }
+      }
+    });
+    return Object.keys(pageSet).length;
+  },
+
+  /* 计算单条打卡记录的页数 */
+  _calcRecordPages: function(r, allRecords, today) {
+    var pages = Number(r.pages);
+    if (isFinite(pages) && pages > 0) return pages;
+    if (r.startPage != null && r.endPage != null) {
+      return Math.max(Number(r.endPage) - Number(r.startPage) + 1, 0);
+    }
+    if (r.endPage != null) {
+      var prevEnd = this._findPrevEndPage(allRecords, r, today);
+      if (prevEnd != null && prevEnd < Number(r.endPage)) {
+        return Number(r.endPage) - prevEnd;
+      }
+      return 1;
+    }
+    return 0;
+  },
+
+  /* 找到这条打卡之前最近一次打卡的endPage（不含今天这条及之后的） */
+  _findPrevEndPage: function(allRecords, currentRec, today) {
+    var prev = null;
+    var curIdx = allRecords.indexOf(currentRec);
+    allRecords.forEach(function(r, idx) {
+      if (!r || r === currentRec) return;
+      if (r.endPage == null) return;
+      if (r.date < today || (r.date === today && idx < curIdx)) {
+        prev = Number(r.endPage);
+      }
+    });
+    return prev;
+  },
+
+  /* 每天首次上线：后台让 AI 预估今日任务时长（不显示在对话里） */
+  estimateTodayIfNeeded: function() {
+    if (!this.hasAi()) return;
+    if (this._estimating) return;
+    // 任务数变化检测：今日未完成任务数变了就重新预估
+    var curCount = this._getTodayTaskCount();
+    var lastCount = Number(localStorage.getItem(this._key('task_count')));
+    // 额外检查：store里没有任何预估数据时，强制重新预估（防止标记存在但数据丢失）
+    var hasEstData = false;
+    try {
+      var projs = (store && store.projects) || {};
+      Object.keys(projs).forEach(function(pid) {
+        var p = projs[pid];
+        if (p && p.todayEstimatedTotalMinutes && Number(p.todayEstimatedTotalMinutes) > 0) hasEstData = true;
+      });
+    } catch(e) {}
+    if (this._estimatedToday() && lastCount === curCount && hasEstData) return;
+
+    var wasEstimated = this._estimatedToday();
+
+    this._estimating = true;
+    this.updateDisplay();
+
+    var self = this;
+    var estimateOk = false;
+    var estCtrl = null;   // 静默预估也挂 AbortController：后端挂死时 120s 主动断开，避免 reader 永久悬挂
+    var estTimer = null;
+    var finish = function(success) {
+      try { if (estTimer) { clearTimeout(estTimer); estTimer = null; } } catch(_){}
+      self._estimating = false;
+      if (success) {
+        self._markEstimated();
+        localStorage.setItem(self._key('task_count'), String(self._getTodayTaskCount()));
+      }
+      // AI 写回 estMinPerPage 到后端后，前端 store 还是旧的，需要重新拉取
+      setTimeout(function() {
+        try {
+          var tok = null;
+          try {
+            var persist = localStorage.getItem('st_auth_persist');
+            if (persist === null) tok = localStorage.getItem('st_auth_token') || sessionStorage.getItem('st_auth_token');
+            else if (persist === 'true') tok = localStorage.getItem('st_auth_token');
+            else tok = sessionStorage.getItem('st_auth_token');
+          } catch(e) {}
+          var headers = {};
+          if (tok) headers['Authorization'] = 'Bearer ' + tok;
+          fetch('/api/data', { headers: headers, credentials: 'include' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data && data.data && data.data.store) {
+                store = data.data.store;
+              } else if (data && data.store) {
+                store = data.store;
+              }
+              if (!wasEstimated) localStorage.setItem(self._key('studied_offset'), '0');
+              self._recomputeTodayStudied();
+              self.updateDisplay();
+            })
+            .catch(function() {
+              if (!wasEstimated) localStorage.setItem(self._key('studied_offset'), '0');
+              self._recomputeTodayStudied();
+              self.updateDisplay();
+            });
+        } catch(e) {
+          if (!wasEstimated) localStorage.setItem(self._key('studied_offset'), '0');
+          self._recomputeTodayStudied();
+          self.updateDisplay();
+        }
+      }, 500);
+    };
+
+    try {
+      var headers = { 'Content-Type': 'application/json' };
+      // 直接读 token，不依赖 aiToken() 函数（StudyTime 在文件头部定义，aiToken 在后面）
+      var tok = null;
+      try {
+        var persist = localStorage.getItem('st_auth_persist');
+        if (persist === null) {
+          tok = localStorage.getItem('st_auth_token') || sessionStorage.getItem('st_auth_token');
+        } else if (persist === 'true') {
+          tok = localStorage.getItem('st_auth_token');
+        } else {
+          tok = sessionStorage.getItem('st_auth_token');
+        }
+      } catch(e) {}
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+
+      // 用首页同一口径（getDailyTarget）算好每个项目今日任务量，直接传给AI
+      var todayTaskList = [];
+      try {
+        var allProj = (store && store.projects) || {};
+        Object.keys(allProj).forEach(function(pid) {
+          var p = allProj[pid];
+          if (!p || p.archived) return;
+          if (p.type === 'exercise') {
+            var m = typeof getMetrics === 'function' ? getMetrics(p) : null;
+            var per = m && typeof getDailyTarget === 'function' ? getDailyTarget(p, m).per : 0;
+            if (per > 0) {
+              var taskItem = { projectId: pid, name: p.name, kind: 'exercise', units: Math.round(per * 10) / 10 };
+              if (p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
+                taskItem.isPaperSet = true;
+                taskItem.sections = p.paperSections.map(function(s) { return { name: s.name, weight: s.weight }; });
+              }
+              todayTaskList.push(taskItem);
+            }
+          } else if (p.type === 'mistake' || p.type === 'recite') {
+            var due = typeof getDueItems === 'function' ? getDueItems(p).length : 0;
+            if (due > 0) todayTaskList.push({ projectId: pid, name: p.name, kind: p.type, units: due });
+          }
+        });
+      } catch(e) { console.warn('算今日任务量出错:', e); }
+      var taskJson = JSON.stringify(todayTaskList);
+
+      estCtrl = new AbortController();
+      estTimer = setTimeout(function () { try { estCtrl && estCtrl.abort(); } catch (_) {} }, 120000);
+      fetch('/api/ai/chat/stream', {
+        method: 'POST',
+        headers: headers,
+        credentials: 'include',
+        signal: estCtrl.signal,
+        body: JSON.stringify({
+          silent: true,
+          message: '以下是今日所有项目的任务清单：' + taskJson + '。请根据每个项目的今日任务量（units），分别预估每个项目今日完成所有任务需要的总分钟数。这是考研备考系统，所有项目都是考研相关学习材料。参考考研真题典型做题速度：数学真题分类习题册一页约7-8题，考试平均每题8分钟，计算时长需要包含做题+对答案+整理，一页约1小时；408计算机真题分类习题册一页约4-5题，选择题每题1.5-2分钟、综合题每题20-30分钟，一页约15分钟；错题复习每条5分钟；背书项目根据条目内容多少和页数自行判断。如果项目是整套试卷模式（isPaperSet=true），按考研考试标准估算：数学/408/英语均为180分钟一套，每个部分按分值占比计算时长（比如英语阅读10分占总分100分的10%就是18分钟），总时长=套数×180分钟。如果不在以上范围内且你对某科速度不确定，可以调用 web_search 工具搜索，参数格式为 {"query": "搜索关键词"}。结合你对我的长期记忆（比如我之前说过的学习习惯、某类任务的速度），用 set_task_estimates 工具给清单里**所有**项目分别写回预估，参数格式为 {"estimates": [{"projectId": "项目id", "totalMinutes": 该项目今日总时长分钟数, "totalUnits": 该项目今日任务总数}]}。每个项目都要预估，不能遗漏。如果长期记忆中有特别提到对某项任务速度快或者慢，请合理调整幅度，但也要合理，符合人类正常速度。totalMinutes 是该项目今日完成所有任务需要的总分钟数，totalUnits 直接用清单里的 units 值。只调用工具，不需要给我文字回复。',
+          context: { silentEstimate: true }
+        })
+      }).then(function(resp) {
+        if (!resp.ok) throw new Error('estimate failed');
+        var reader = resp.body.getReader();
+        var decoder = new TextDecoder();
+        var buf = '';
+        function pump() {
+          reader.read().then(function(chunk) {
+            if (chunk.done) { finish(estimateOk); return; }
+            buf += decoder.decode(chunk.value, { stream: true });
+            var parts = buf.split('\n\n');
+            buf = parts.pop() || '';
+            for (var i = 0; i < parts.length; i++) {
+              var p = parts[i];
+              if (!p.trim()) continue;
+              var lines = p.split('\n');
+              var ev = 'message', ed = '';
+              for (var j = 0; j < lines.length; j++) {
+                if (lines[j].startsWith('event: ')) ev = lines[j].slice(7).trim();
+                else if (lines[j].startsWith('data: ')) ed += lines[j].slice(6);
+              }
+              if (ev === 'done') { estimateOk = true; finish(true); return; } if (ev === 'error') { finish(false); return; }
+            }
+            pump();
+          }).catch(function() { finish(false); });
+        }
+        pump();
+      }).catch(function() { finish(false); });
+    } catch(e) { finish(false); }
   },
 
   /* 绑定事件：已学时长可点击修改 */
@@ -4110,6 +4379,25 @@ function applyReview(item, quality, p, note) {
   delete item.originalNextReviewDate; // 已复习，清掉提前复习的追踪字段
   p.updatedAt = Date.now();
   saveStore(); // 立即存盘，避免弹出确认弹窗时刷新导致本次评价丢失
+
+  // 更新已学时长
+  if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+    var totalMin = Number(p.todayEstimatedTotalMinutes);
+    var totalUnits = Number(p.todayTotalUnits);
+    if (isFinite(totalMin) && totalMin > 0 && isFinite(totalUnits) && totalUnits > 0) {
+      // 新模式：按比例重新计算
+      StudyTime._recomputeTodayStudied();
+      StudyTime.updateDisplay();
+    } else {
+      // 旧模式：每条 estimatedMinutes
+      var itemMin = Number(item.estimatedMinutes);
+      if (isFinite(itemMin) && itemMin >= 1 && itemMin <= 120) {
+        StudyTime.addStudied(itemMin);
+      } else {
+        StudyTime.addStudied(p.type === 'recite' ? 2 : 5);
+      }
+    }
+  }
 
   if (isFirstLearn) {
     item.mastered = false;
@@ -14015,14 +14303,34 @@ $('#btnCheckin').addEventListener('click', () => {
     if (cp && cp.endPage != null && endPage < cp.endPage) {
       if (!confirm(`今天已经学到第 ${cp.endPage} 页，现在改成第 ${endPage} 页会回退进度。\n\n确定要回退吗？`)) return;
     }
-    if (cp) cp.endPage = endPage;
-    else p.records.push({ rid: genId(), date, endPage });
+    var seqPages = 1 + (gapFilled || 0);
+    if (cp) { cp.endPage = endPage; cp.pages = seqPages; }
+    else p.records.push({ rid: genId(), date, endPage, pages: seqPages });
   } else {
     const dup = p.records.find(r => r.date === date && r.startPage === startPage && r.endPage === endPage);
-    if (!dup) p.records.push({ rid: genId(), date, startPage, endPage });
+    if (!dup) p.records.push({ rid: genId(), date, startPage, endPage, pages: Math.max(Number(endPage) - Number(startPage) + 1, 1) });
   }
   p.updatedAt = Date.now();
   saveStore();
+  // 更新已学时长
+  if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+    var totalMin = Number(p.todayEstimatedTotalMinutes);
+    var totalUnits = Number(p.todayTotalUnits);
+    if (isFinite(totalMin) && totalMin > 0 && isFinite(totalUnits) && totalUnits > 0) {
+      // 新模式：按比例重新计算
+      StudyTime._recomputeTodayStudied();
+      StudyTime.updateDisplay();
+    } else {
+      // 旧模式：estMinPerPage × 页数
+      var perPage = Number(p.estMinPerPage);
+      if (!isFinite(perPage) || perPage <= 0) perPage = 8;
+      if (perPage > 120) perPage = 120;
+      var pages = startPage != null ? Math.max(Number(endPage) - Number(startPage) + 1, 0) : (1 + (gapFilled || 0));
+      if (pages > 0) {
+        StudyTime.addStudied(Math.round(pages * perPage));
+      }
+    }
+  }
   const isSinglePage = startPage != null && startPage === endPage;
   showToast('' + svgIcon('check-circle') + '', '已记录', startPage != null
     ? (isSinglePage ? `第 ${endPage} 页` : `第 ${startPage}-${endPage} 页`)
@@ -14652,6 +14960,23 @@ $('#recordList').addEventListener('click', e => {
       if (idx >= 0) {
         const [removed] = p.records.splice(idx, 1);
         if (removed && removed.rid) store.tombstones[removed.rid] = Date.now();
+        // 更新已学时长
+        var delMin1 = 0;
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          var tm1 = Number(p.todayEstimatedTotalMinutes);
+          var tu1 = Number(p.todayTotalUnits);
+          if (isFinite(tm1) && tm1 > 0 && isFinite(tu1) && tu1 > 0) {
+            StudyTime._recomputeTodayStudied();
+            StudyTime.updateDisplay();
+          } else {
+            var pp1 = Number(p.estMinPerPage);
+            if (isFinite(pp1) && pp1 > 0) {
+              var dp1 = removed.startPage != null ? (Number(removed.endPage) - Number(removed.startPage) + 1) : 1;
+              delMin1 = Math.round(Math.max(0, dp1) * pp1);
+              if (delMin1 > 0) StudyTime.subtractStudied(delMin1);
+            }
+          }
+        }
         p.updatedAt = Date.now();
         saveStore();
         render();
@@ -14659,6 +14984,16 @@ $('#recordList').addEventListener('click', e => {
           if (!store.projects[p.id]) return;
           p.records.splice(Math.min(idx, p.records.length), 0, removed);
           if (removed && removed.rid) delete store.tombstones[removed.rid];
+          if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+            var tm1b = Number(p.todayEstimatedTotalMinutes);
+            var tu1b = Number(p.todayTotalUnits);
+            if (isFinite(tm1b) && tm1b > 0 && isFinite(tu1b) && tu1b > 0) {
+              StudyTime._recomputeTodayStudied();
+              StudyTime.updateDisplay();
+            } else if (delMin1 > 0) {
+              StudyTime.addStudied(delMin1);
+            }
+          }
           p.updatedAt = Date.now();
           saveStore();
           render();
@@ -14673,6 +15008,23 @@ $('#recordList').addEventListener('click', e => {
       if (idx >= 0) {
         const [removed] = p.records.splice(idx, 1);
         if (removed && removed.rid) store.tombstones[removed.rid] = Date.now();
+        // 更新已学时长
+        var delMin2 = 0;
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          var tm2 = Number(p.todayEstimatedTotalMinutes);
+          var tu2 = Number(p.todayTotalUnits);
+          if (isFinite(tm2) && tm2 > 0 && isFinite(tu2) && tu2 > 0) {
+            StudyTime._recomputeTodayStudied();
+            StudyTime.updateDisplay();
+          } else {
+            var pp2 = Number(p.estMinPerPage);
+            if (isFinite(pp2) && pp2 > 0) {
+              var dp2 = removed.startPage != null ? (Number(removed.endPage) - Number(removed.startPage) + 1) : 1;
+              delMin2 = Math.round(Math.max(0, dp2) * pp2);
+              if (delMin2 > 0) StudyTime.subtractStudied(delMin2);
+            }
+          }
+        }
         p.updatedAt = Date.now();
         saveStore();
         render();
@@ -14680,6 +15032,16 @@ $('#recordList').addEventListener('click', e => {
           if (!store.projects[p.id]) return;
           p.records.splice(Math.min(idx, p.records.length), 0, removed);
           if (removed && removed.rid) delete store.tombstones[removed.rid];
+          if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+            var tm2b = Number(p.todayEstimatedTotalMinutes);
+            var tu2b = Number(p.todayTotalUnits);
+            if (isFinite(tm2b) && tm2b > 0 && isFinite(tu2b) && tu2b > 0) {
+              StudyTime._recomputeTodayStudied();
+              StudyTime.updateDisplay();
+            } else if (delMin2 > 0) {
+              StudyTime.addStudied(delMin2);
+            }
+          }
           p.updatedAt = Date.now();
           saveStore();
           render();
@@ -14695,6 +15057,10 @@ $('#recordList').addEventListener('click', e => {
       removed.forEach(function(r){ if (r.rid) store.tombstones[r.rid] = Date.now(); });
       p.updatedAt = Date.now();
       saveStore();
+      if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+        StudyTime._recomputeTodayStudied();
+        StudyTime.updateDisplay();
+      }
       render();
       showUndo(`已删除 ${removed.length} 条打卡记录`, () => {
         if (!store.projects[p.id]) return;
@@ -14702,6 +15068,10 @@ $('#recordList').addEventListener('click', e => {
         p.records = (p.records || []).concat(removed);
         p.updatedAt = Date.now();
         saveStore();
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          StudyTime._recomputeTodayStudied();
+          StudyTime.updateDisplay();
+        }
         render();
       });
     }
@@ -14716,6 +15086,10 @@ $('#recordList').addEventListener('click', e => {
         if (removed && removed.id) store.tombstones[removed.id] = Date.now();
         p.updatedAt = Date.now();
         saveStore();
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          StudyTime._recomputeTodayStudied();
+          StudyTime.updateDisplay();
+        }
         render();
         showUndo(`已删除「${removed.content.slice(0, 12)}…」`, () => {
           if (!store.projects[p.id]) return;
@@ -14723,6 +15097,10 @@ $('#recordList').addEventListener('click', e => {
           if (removed && removed.id) delete store.tombstones[removed.id];
           p.updatedAt = Date.now();
           saveStore();
+          if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+            StudyTime._recomputeTodayStudied();
+            StudyTime.updateDisplay();
+          }
           render();
         });
       }
@@ -16287,6 +16665,7 @@ if (document.readyState === 'loading') {
     mask.hidden = false;
     if (typeof lockBodyScroll === 'function') lockBodyScroll();
     dot.hidden = true;   // 打开即消红点
+    try { localStorage.removeItem('ai_dot_ts'); } catch(_) {} // 同步其他标签页消红点
     // 首次打开按需加载配置
     ensureConfig();
     // 若未配置 key，对话 Tab 显示空态
@@ -16356,9 +16735,14 @@ if (document.readyState === 'loading') {
   }
   function refreshChatEmptyState(){
     var hasKey = hasKeyConfigured();
+    window.__aiConfigured = hasKey;
     if (els.empty) els.empty.hidden = hasKey;
     if (els.msgs) els.msgs.style.display = hasKey ? '' : 'none';
     updateInputVisibility();   // 未配置 Key 时连输入区一起隐藏
+    if (typeof StudyTime !== 'undefined') {
+      StudyTime.updateDisplay();
+      StudyTime.estimateTodayIfNeeded();
+    }
   }
 
   /* ---- 消息渲染 ---- */
@@ -16432,6 +16816,7 @@ if (document.readyState === 'loading') {
     };
     // 重新回答
     bar.querySelector('.ai-regen').onclick = function(){
+      if (state.sending) return; // 生成中忽略：避免删掉正在输出/历史回复并覆盖输入框
       var userMsgs = els.msgs.querySelectorAll('.ai-msg.user');
       if (userMsgs.length) {
         var lastUser = userMsgs[userMsgs.length - 1];
@@ -17257,13 +17642,19 @@ if (document.readyState === 'loading') {
         // 没有收到 done 事件（异常断开），用已收到的文本渲染
         if (streamMsgEl) streamMsgEl.remove();
         renderAiReply(fullText, null, null);
+      } else {
+        // 既无 done 也无任何 delta：连接异常中断，不能静默，给用户明确反馈
+        addErrorBubble('NETWORK', '连接中断，没有收到回复，请重试');
       }
 
       updateSamplesVisibility();
-      if (mask && mask.hidden && dot) dot.hidden = false;
+      if (mask && mask.hidden && dot) { dot.hidden = false; try { localStorage.setItem('ai_dot_ts', String(Date.now())); } catch(_) {} }
     } catch(e) {
       removeTyping();
-      if (e.code === 'ABORTED') {
+      // 流式用的是原生 fetch（非 aiFetch 包装），abort 抛的是 DOMException{name:'AbortError'}，
+      // 其 code 是遗留数字而非字符串 'ABORTED'，必须同时认两种形态，否则点“停止”会被当成错误气泡。
+      var isAbort = !!(e && (e.code === 'ABORTED' || e.name === 'AbortError'));
+      if (isAbort) {
         // 用户主动停止：移除流式临时消息，显示浅灰提示，不报错
         if (streamMsgEl) { streamMsgEl.remove(); streamMsgEl = null; }
         if (!state.editAborted) {
@@ -17331,7 +17722,11 @@ if (document.readyState === 'loading') {
           ev.stopPropagation();
           if (!confirm('删除这个会话？')) return;
           aiFetch('/api/ai/conversations/' + c.id, { method: 'DELETE' }).then(function(){
-            if (state.convId === c.id) state.convId = null;
+            if (state.convId === c.id) {
+              state.convId = null;
+              els.msgs.innerHTML = '';
+              refreshChatEmptyState();
+            }
             loadHistory();
           }).catch(function(){});
         };
@@ -17573,6 +17968,14 @@ if (document.readyState === 'loading') {
     mask = document.getElementById('aiMask');
     dot = document.getElementById('aiFabDot');
     if (!fab || !mask) return;
+    // 红点多标签同步：其他标签页生成回复时置位、打开面板时清除；storage 事件双向同步
+    try {
+      window.addEventListener('storage', function (e) {
+        if (!e || e.key !== 'ai_dot_ts' || !dot) return;
+        if (e.newValue) { if (mask && mask.hidden) dot.hidden = false; }
+        else { dot.hidden = true; }
+      });
+    } catch (_) {}
     // 未登录时隐藏AI入口
     if (typeof STAuth === 'undefined' || !STAuth.isLoggedIn()) { fab.style.display = 'none'; return; }
     drawer = mask.querySelector('.ai-drawer');
@@ -17633,6 +18036,7 @@ if (document.readyState === 'loading') {
       initHours = StudyTime.getBudgetMin() / 60;
       StudyTime.bindEvents();
       StudyTime.updateDisplay();
+      StudyTime.estimateTodayIfNeeded();
     }
     setBudgetHours(initHours);
     if (els.budgetHours) {
@@ -17674,6 +18078,8 @@ if (document.readyState === 'loading') {
       // 判断是否为触屏设备（手机/平板）：触屏回车换行，非触屏回车发送
       var isTouchDevice = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
       els.input.addEventListener('keydown', function(e){
+        // 中文/日文输入法组词中（含 keyCode 229），回车是确认候选词，不能发送也不能 preventDefault
+        if (e.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter' && !e.shiftKey) {
           if (isTouchDevice) {
             // 触屏设备：回车默认换行，不发送（点发送按钮才发）

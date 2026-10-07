@@ -156,6 +156,13 @@ async function callTavily(query) {
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
       console.error(`[tavilySearch] API error ${resp.status}: ${text.slice(0, 200)}`);
+      // 429（第三方限流/免费额度耗尽）与 5xx 给模型更明确的降级信号，便于其直接基于已有知识回答
+      if (resp.status === 429) {
+        return { searched: false, reason: '联网搜索被限流，本次未联网，可基于已有知识直接回答' };
+      }
+      if (resp.status >= 500) {
+        return { searched: false, reason: '联网搜索服务暂不可用，本次未联网，可基于已有知识直接回答' };
+      }
       return { searched: false, reason: `搜索服务返回 ${resp.status}` };
     }
 

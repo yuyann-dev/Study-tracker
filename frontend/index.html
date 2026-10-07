@@ -2,6 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=5">
 <script>
@@ -29,15 +32,24 @@ if ('serviceWorker' in navigator) {
       var barShown = false;
       function showUpdateBar(){
         if (barShown) return; barShown = true;
-        // 检测到新版本后自动刷新：先 postMessage 让 waiting SW 立即激活，再 reload
+        var oldCtrl = navigator.serviceWorker.controller;
+        // 让 waiting SW 立即激活
         try { if (reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'}); } catch(e){}
-        // 短暂提示后自动刷新，用户无需手动点击
         var bar = document.createElement('div');
         bar.id = 'swUpdateBar';
         bar.style.cssText = 'position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--brand);color:#fff;padding:12px 20px;border-radius:12px;font-size:13.5px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);z-index:260;max-width:calc(100vw - 32px)';
-        bar.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;vertical-align:-0.15em"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg> 检测到新版本，正在刷新…';
+        bar.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;vertical-align:-0.15em"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg> 检测到新版本，正在激活…';
         if (document.body) document.body.appendChild(bar); else document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(bar); });
-        setTimeout(function(){ window.location.reload(); }, 800);
+        // 轮询 controller 变化，变化了就刷新（PWA 下 controllerchange 可能不触发）
+        var pollCount = 0;
+        var poll = setInterval(function(){
+          pollCount++;
+          var newCtrl = navigator.serviceWorker.controller;
+          if ((newCtrl && newCtrl !== oldCtrl) || pollCount >= 20) {
+            clearInterval(poll);
+            if (!_swAutoRefreshed) { _swAutoRefreshed = true; window.location.reload(); }
+          }
+        }, 500);
       }
       // 已有 controller（非首次安装）且有 waiting worker → 提示
       if (navigator.serviceWorker.controller && reg.waiting) showUpdateBar();
@@ -76,7 +88,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=icon1026">
+<link rel="stylesheet" href="css/style.css?v=b125">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1927,9 +1939,9 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/icons.js?v=icon1026"></script>
-<script src="js/auth.js?v=icon1026"></script>
-<script src="js/app.js?v=icon1026"></script>
+<script src="js/icons.js?v=b125"></script>
+<script src="js/auth.js?v=b126"></script>
+<script src="js/app.js?v=b126"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2344,7 +2356,6 @@ if (document.readyState === 'loading') {
         <button class="ai-budget-chip active" type="button" data-h="7">7h</button>
         <button class="ai-budget-chip" type="button" data-h="8">8h</button>
         <button class="ai-budget-chip" type="button" data-h="10">10h</button>
-        <button class="ai-budget-chip" type="button" data-h="12">12h</button>
       </div>
       <!-- 已学 / 剩余时长 -->
       <div class="ai-time-row">

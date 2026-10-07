@@ -4,15 +4,15 @@
    注意：JS/CSS 的缓存失效靠 index.html 里的 ?v= 版本号，
    改了文件记得顺手升版本号，不然 SW 会一直吐旧缓存。
    API 请求不缓存，里面有用户数据。 */
-var CACHE = 'yystudy-v92';
+var CACHE = 'yystudy-v126';
 var CORE = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=icon1026',
-  './js/icons.js?v=icon1026',
-  './js/app.js?v=icon1026',
-  './js/auth.js?v=icon1026',
+  './css/style.css?v=b126',
+  './js/icons.js?v=b126',
+  './js/app.js?v=b126',
+  './js/auth.js?v=b126',
   './icon-192.png?v=4',
   './icon-512.png?v=4',
   './apple-touch-icon.png?v=4',
@@ -25,12 +25,24 @@ self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
       return Promise.all(CORE.map(function (url) {
-        return c.add(url).catch(function (err) {
+        // cache: 'reload' 强制绕过浏览器 HTTP 缓存，从服务器拉取最新内容
+        return fetch(url, { cache: 'reload' }).then(function (res) {
+          if (res && res.status === 200) {
+            return c.put(url, res.clone());
+          }
+        }).catch(function (err) {
           console.warn('[SW] 预缓存失败:', url, err);
         });
       }));
     }).then(function () { return self.skipWaiting(); })
   );
+});
+
+/* 前端检测到新版本后发 SKIP_WAITING，让 waiting SW 立即激活 */
+self.addEventListener('message', function (e) {
+  if (e.data && e.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', function (e) {

@@ -93,11 +93,17 @@ function exerciseDonePages(p) {
   const bStart = Number(p.bookStartPage) || 0;
   const bEnd = Number(p.bookEndPage) || Number(p.total) || 0;
   if (bEnd <= bStart) return 0;
+  // 按日期排序，只有 endPage 没有 startPage 时从上一条 endPage+1 开始
+  const sorted = recs.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  let prevEnd = bStart - 1;
   let done = 0;
-  for (const r of recs) {
-    const s = Math.max(Number(r.startPage) || bStart, bStart);
+  for (const r of sorted) {
+    let s = Number(r.startPage);
+    if (!isFinite(s) || s <= 0) s = prevEnd + 1;
+    s = Math.max(s, bStart);
     const e = Math.min(Number(r.endPage) || s, bEnd);
     if (e > s) done += (e - s);
+    if (e > prevEnd) prevEnd = e;
   }
   return done;
 }
@@ -113,7 +119,8 @@ function recentOutput(p, days) {
     if (p.type === 'exercise') {
       const s = Number(r.startPage) || 0;
       const e = Number(r.endPage) || s;
-      out += (e - s);
+      // 与 getWeeklyStats 口径一致：异常记录(end<start)按 0 计，避免负产出把 recent7Rate 拉成负数、误判"落后"
+      out += Math.max(e - s, 0);
     } else {
       out += 1; // recite/mistake 按打卡条数计
     }
@@ -169,7 +176,7 @@ function projectStats(p, summary) {
     let total, done;
     if (isSetMode) {
       // 套卷模式：total = 套卷数，done = 已完成套卷数
-      total = Array.isArray(p.units) ? p.units.length : (Number(p.total) || 0);
+      total = (Array.isArray(p.units) && p.units.length) ? p.units.length : (Number(p.total) || 0);
       done = Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
     } else {
       // 页码模式
@@ -524,7 +531,8 @@ function getMistakeReport(userId, projectIdOrIds) {
   if (Array.isArray(projectIdOrIds) && projectIdOrIds.length) {
     mistakeProjects = projectIdOrIds
       .map((id) => findProject(store, id))
-      .filter((x) => x && x.type === 'mistake');
+      // 与全局视角 projectList() 口径一致：归档项目不纳入聚合，避免前端多选列表带入归档项后数据混入
+      .filter((x) => x && x.type === 'mistake' && !x.archived);
     isMulti = mistakeProjects.length > 1;
     if (!mistakeProjects.length) return { found: false, reason: '所选项目中没有错题本' };
   } else if (projectIdOrIds) {
@@ -687,7 +695,8 @@ function getReciteStatus(userId, projectIdOrIds) {
     // 多选视角：仅汇总用户勾选的背书本
     const selected = projectIdOrIds
       .map((id) => findProject(store, id))
-      .filter((x) => x && x.type === 'recite');
+      // 与全局视角 projectList() 口径一致：归档背书本不纳入多选聚合
+      .filter((x) => x && x.type === 'recite' && !x.archived);
     if (!selected.length) return { found: false, reason: '所选项目中没有背书本' };
     p = {
       name: '多选背书',
@@ -717,7 +726,9 @@ function getReciteStatus(userId, projectIdOrIds) {
   for (const it of items) {
     const isMastered = it.mastered || it.manualMastered;
     if (isMastered) { mastered++; continue; }
-    const nd = nextReviewDay(it, p.intervals);
+    // 与 projectStats(recite) / getReviewForecast 口径一致：优先用前端写入的 nextReviewDate，
+    // 没有才按间隔档推算。此前误用 nextReviewDay，导致已均衡/分散排期的条目到期数算错。
+    const nd = getItemNextReview(it, p.intervals);
     if (!nd) continue;
     if (nd <= today) {
       dueToday++;
@@ -801,29 +812,51 @@ function getTodayPlan(userId, budgetMin) {
   const budget = Number.isFinite(n) && n > 0 ? Math.min(n, 720) : 720;
   const list = projectList(store).map(projectStats);
 
-  // 收集需要安排的项：落后的刷题 + 到期背书 + 高危错题
+  // 收集所有有今日任务的项目：未完成刷题 + 今日到期背书 + 今日到期错题
   const blocks = [];
   for (const s of list) {
     const mpu = s.minutesPerUnit || (s.type === 'exercise' ? 7 : s.type === 'recite' ? 3 : 5);
-    if (s.type === 'exercise' && s.gap < -20) {
-      blocks.push({ projectId: s.id, name: s.name, kind: 'exercise', minutesPerUnit: mpu, gap: s.gap, priority: 'P0' });
+    if (s.type === 'exercise') {
+      // 所有未完成的刷题本都纳入今日计划
+      const remain = Math.max((s.total || 0) - (s.done || 0), 0);
+      if (remain <= 0) continue;
+      // 今日任务量：优先 dailyCapacity，其次近7天平均速率，最后默认4页
+      let todayUnits = Number(s.dailyCapacity) || 0;
+      if (todayUnits <= 0) todayUnits = Number(s.recent7Rate) || 0;
+      if (todayUnits <= 0) todayUnits = 4;
+      if (todayUnits < 2) todayUnits = 2;
+      todayUnits = Math.min(Math.round(todayUnits), remain);
+      blocks.push({
+        projectId: s.id, name: s.name, kind: 'exercise',
+        units: todayUnits, minutesPerUnit: mpu,
+        gap: s.gap, priority: s.gap < -40 ? 'P0' : s.gap < -20 ? 'P1' : 'P2',
+      });
     } else if (s.type === 'recite' && s.dueToday > 0) {
-      blocks.push({ projectId: s.id, name: s.name, kind: 'recite', units: s.dueToday, minutesPerUnit: mpu, gap: -10, priority: s.backlog > 5 ? 'P0' : 'P1' });
-    } else if (s.type === 'mistake' && s.streakyCount > 0) {
-      blocks.push({ projectId: s.id, name: s.name, kind: 'mistake', units: Math.min(s.streakyCount, 5), minutesPerUnit: mpu, gap: -5, priority: 'P1' });
+      blocks.push({
+        projectId: s.id, name: s.name, kind: 'recite',
+        units: s.dueToday, minutesPerUnit: mpu,
+        gap: s.backlog > 5 ? -15 : -5,
+        priority: s.backlog > 5 ? 'P0' : 'P1',
+      });
+    } else if (s.type === 'mistake' && s.dueToday > 0) {
+      // 所有今日到期的错题都纳入，units = 今日到期数（不是连错数）
+      blocks.push({
+        projectId: s.id, name: s.name, kind: 'mistake',
+        units: s.dueToday, minutesPerUnit: mpu,
+        gap: s.backlog > 5 ? -12 : (s.streakyCount > 0 ? -8 : -3),
+        priority: s.backlog > 5 ? 'P0' : s.streakyCount > 0 ? 'P1' : 'P2',
+      });
     }
   }
-  // ROI：gap 越小（越落后）越优先
+  // 优先级：gap 越小（越落后/逾期越多）越优先
   blocks.sort((a, b) => a.gap - b.gap);
 
-  // 在预算内做时间守恒分配
+  // 在预算内做时间守恒分配（仅用于建议时长，不影响 totalUnits 的真实性）
   let used = 0;
   const plan = [];
   for (const b of blocks) {
-    if (used >= budget) { b.priority = 'P2'; b.estMin = 0; continue; }
-    let estMin;
-    if (b.kind === 'exercise') estMin = Math.round(b.minutesPerUnit * (b.gap < -40 ? 8 : 4));
-    else estMin = Math.round((b.units || 3) * b.minutesPerUnit);
+    if (used >= budget) { b.priority = 'P2'; b.estMin = 0; plan.push(b); continue; }
+    let estMin = Math.round((b.units || 1) * b.minutesPerUnit);
     if (used + estMin > budget) estMin = Math.max(budget - used, 0);
     b.estMin = estMin;
     used += estMin;

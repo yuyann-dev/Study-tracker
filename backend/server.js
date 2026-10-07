@@ -160,3 +160,17 @@ process.on('SIGTERM', () => {
   // 10 秒内未结束则强制退出，避免 hang 住
   setTimeout(() => process.exit(1), 10000).unref();
 });
+
+// 进程级异常兜底：异步回调里漏接的 Promise rejection 不应直接拖垮整个进程
+// （例如对已断开的 SSE socket 写入等边角场景）；记录日志后继续服务。
+process.on('unhandledRejection', (reason) => {
+  try { logger.log('error', 'unhandledRejection: ' + (reason && reason.message ? reason.message : String(reason))); }
+  catch (_) { console.error('unhandledRejection:', reason); }
+});
+
+// 未捕获异常属于真正的状态损坏：记日志后退出，交由 systemd 自动拉起（不强行续命）。
+process.on('uncaughtException', (err) => {
+  try { logger.log('error', 'uncaughtException: ' + (err && err.message ? err.message : String(err && err.stack || err))); }
+  catch (_) { console.error('uncaughtException:', err); }
+  setTimeout(() => process.exit(1), 1000).unref();
+});

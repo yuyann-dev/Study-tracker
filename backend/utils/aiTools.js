@@ -217,12 +217,15 @@ const TOOL_SCHEMAS = [
             description: 'List of per-item estimates to write.',
             items: {
               type: 'object',
+              description: 'Per-project estimate. Two modes: (A) whole-project daily estimate via totalMinutes+totalUnits (preferred); (B) legacy per-item/page estimate via estimatedMinutes (+ optional itemId).',
               properties: {
                 projectId: { type: 'string', description: 'Project id from get_today_tasks.' },
-                itemId: { type: 'string', description: 'Item id within the project. Omit for exercise projects (page-based).' },
-                estimatedMinutes: { type: 'number', description: 'Estimated minutes for this item (1-60).' },
+                itemId: { type: 'string', description: 'Legacy mode only: item id within a recite/mistake project. Omit for exercise projects (page-based).' },
+                estimatedMinutes: { type: 'number', description: 'Legacy mode: estimated minutes for one item or one page (1-60). Prefer totalMinutes+totalUnits instead.' },
+                totalMinutes: { type: 'number', description: 'Whole-project mode: total estimated minutes for this project\'s entire task list today (1-600). Use together with totalUnits.' },
+                totalUnits: { type: 'number', description: 'Whole-project mode: total number of task units today for this project (pages for exercise, due items for recite/mistake, >=1). Use together with totalMinutes.' },
               },
-              required: ['projectId', 'estimatedMinutes'],
+              required: ['projectId'],
             },
           },
         },
@@ -272,7 +275,7 @@ function implGetUserProfile(userId) {
     projectCount: summary.projectCount,
     byType: summary.byType,
     subjects: summary.subjects,
-    projectNames: (summary.projects || []).map((p) => p.name),
+    projects: summary.projects || [],
   };
 }
 
@@ -382,12 +385,34 @@ function implSetTaskEstimates(userId, args) {
   let updated = 0;
 
   for (const est of estimates) {
+    if (!est || typeof est !== 'object') continue;
     const projectId = String(est.projectId || '').trim();
-    const estimatedMinutes = Math.round(Number(est.estimatedMinutes));
-    if (!projectId || !Number.isFinite(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 120) continue;
+    if (!projectId) continue;
 
     const project = aggregator.findProject(store, projectId);
-    if (!project) continue;
+    if (!project || project.archived) continue;
+
+    // 新模式：预估今日总时长 + 总任务数（按比例计算已学）
+    const totalMinutes = Math.round(Number(est.totalMinutes));
+    const totalUnits = Math.round(Number(est.totalUnits));
+    if (Number.isFinite(totalMinutes) && totalMinutes >= 1 && totalMinutes <= 600 &&
+        Number.isFinite(totalUnits) && totalUnits >= 1) {
+      // 合理下限：即使很快，也要在人类正常时间范围内
+      // 刷题每页至少15分钟（做题+对答案+整理，考研真题更久），错题每条至少5分钟，背书每条至少2分钟
+      const minPerUnit = project.type === 'exercise' ? 15 : project.type === 'mistake' ? 5 : 2;
+      const minTotal = totalUnits * minPerUnit;
+      const finalMinutes = Math.max(totalMinutes, minTotal);
+      project.todayEstimatedTotalMinutes = finalMinutes;
+      project.todayTotalUnits = totalUnits;
+      const _d = new Date();
+      project.todayEstimateDate = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
+      updated++;
+      continue;
+    }
+
+    // 兼容旧模式：每页/每条预估时长
+    const estimatedMinutes = Math.round(Number(est.estimatedMinutes));
+    if (!Number.isFinite(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 120) continue;
 
     const itemId = est.itemId ? String(est.itemId).trim() : '';
     if (itemId && Array.isArray(project.items)) {
@@ -397,14 +422,12 @@ function implSetTaskEstimates(userId, args) {
         updated++;
       }
     } else if (!itemId && project.type === 'exercise') {
-      // 刷题项目：记录每页预估时长到项目级
       project.estMinPerPage = estimatedMinutes;
       updated++;
     }
   }
 
   if (updated > 0) {
-    // 写回 store_json
     const newJson = JSON.stringify(store);
     db.prepare('UPDATE user_data SET store_json = ?, updated_at = datetime(\'now\') WHERE user_id = ?').run(newJson, userId);
   }
