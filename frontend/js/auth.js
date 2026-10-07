@@ -193,7 +193,7 @@
 
   // 发送验证码成功后的统一提示（提醒查垃圾邮件/广告文件夹）
   function showCodeSentToast() {
-    if (typeof showToast === 'function') showToast('📧', '验证码已发送', '若未收到，请检查垃圾邮件/广告文件夹', 4200);
+    if (typeof showToast === 'function') showToast('' + svgIcon('mail') + '', '验证码已发送', '若未收到，请检查垃圾邮件/广告文件夹', 4200);
   }
   // 发送验证码按钮 60s 倒计时：成功后调用，期间禁用按钮，结束后恢复 idleText
   // （后端成功才进入冷却；发送失败返回 502 不占冷却，catch 里立即恢复按钮允许重试）
@@ -431,7 +431,7 @@
     }
     try { await apiRequest('/api/auth/logout', { method: 'POST' }); } catch(e) {}
     await forceLogout();
-    if (typeof showToast === 'function') showToast('👋','已退出登录','请重新登录');
+    if (typeof showToast === 'function') showToast('' + svgIcon('hand') + '','已退出登录','请重新登录');
   }
   async function fetchMe() {
     var data = await apiRequest('/api/auth/me', { method: 'GET' });
@@ -447,16 +447,16 @@
       var avatar = currentUser.avatar;
       var displayName = currentUser.username || '';
       if (avatar && (avatar.indexOf('data:') === 0 || avatar.indexOf('http') === 0 || avatar.indexOf('/uploads/') === 0)) {
-        btn.innerHTML = '<span class="user-avatar-btn"><img src="' + avatar + '" alt="" onerror="this.outerHTML=\'👤\'"></span>';
+        btn.innerHTML = '<span class="user-avatar-btn"><img src="' + esc(avatar) + '" alt="" onerror="avatarFallback(this)"></span>';
       } else if (avatar && avatar.length <= 4) {
-        btn.innerHTML = '<span class="user-avatar-btn">' + avatar + '</span>';
+        btn.innerHTML = '<span class="user-avatar-btn">' + esc(avatar) + '</span>';
       } else {
         var ch = displayName.charAt(0).toUpperCase();
         btn.innerHTML = '<span class="user-avatar-btn"><span class="av-text">' + esc(ch) + '</span></span>';
       }
       btn.title = displayName + ' · 个人中心';
     } else {
-      btn.innerHTML = '<span class="user-avatar-btn">👤</span>';
+      btn.innerHTML = '<span class="user-avatar-btn">' + svgIcon('user') + '</span>';
       btn.title = '登录 / 注册';
     }
     var btnAdm = document.getElementById('btnAdmin');
@@ -806,7 +806,7 @@
           saveStore();
           if (typeof render === 'function') render();
           if (addedFromCloud > 0 && typeof showToast === 'function') {
-            showToast('☁️','已从云端同步', addedFromCloud + ' 条新记录', 3000);
+            showToast('' + svgIcon('cloud') + '','已从云端同步', addedFromCloud + ' 条新记录', 3000);
           }
         }
         if (needPush){
@@ -817,7 +817,7 @@
           updateSyncStatus('ok', formatTime(lastCloudSync));
         }
         if (wasEmptyLocal && typeof showToast === 'function'){
-          showToast('☁️','已从云端恢复数据','共 ' + cloudProjectCount + ' 个任务');
+          showToast('' + svgIcon('cloud') + '','已从云端恢复数据','共 ' + cloudProjectCount + ' 个任务');
         }
       }
       _syncOk = true;
@@ -827,7 +827,7 @@
       // 失败也要把 shimmer 还原成真实列表（否则骨架条一直占着）
       if (typeof render === 'function') { try { render(); } catch (er) {} }
       // ux-14：顶部可点击重试的 toast
-      if (typeof showToast === 'function') showToast('⚠️','同步失败','网络异常，点此重试', 4000, function(){ syncFromCloud({ skeleton: true }); });
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','同步失败','网络异常，点此重试', 4000, function(){ syncFromCloud({ skeleton: true }); });
       // 指数退避自动重试：10s → 30s → 60s，共 3 次；之后停止，等 60s 周期同步或用户手动重试
       if (_syncRetryCount < 3) {
         var retryDelays = [10000, 30000, 60000];
@@ -857,7 +857,7 @@
 
   function triggerSync() {
     if (!isLoggedIn()) {
-      if (typeof showToast === 'function') showToast('☁️','请先登录后再同步');
+      if (typeof showToast === 'function') showToast('' + svgIcon('cloud') + '','请先登录后再同步');
       return;
     }
     if (isSyncing) { syncPending = true; updateSyncStatus('ing'); return; } // 同步中：排队等当前结束后补一次
@@ -924,7 +924,7 @@
   var _installConfirm = document.getElementById('installConfirm');
   if (_installConfirm) _installConfirm.addEventListener('click', async function(){
     if (!_deferredInstall){
-      if (typeof showToast === 'function') showToast('💡','请用 Chrome 或 Edge 浏览器打开本页再安装');
+      if (typeof showToast === 'function') showToast('' + svgIcon('lightbulb') + '','请用 Chrome 或 Edge 浏览器打开本页再安装');
       return;
     }
     _deferredInstall.prompt();
@@ -947,12 +947,12 @@
     if (currentUser && currentUser.avatar) {
       var av = currentUser.avatar;
       if (av.indexOf('data:') === 0 || av.indexOf('http') === 0 || av.indexOf('/uploads/') === 0) {
-        avEl.innerHTML = '<img src="' + av + '" alt="头像" onerror="this.outerHTML=\'👤\'">';
+        avEl.innerHTML = '<img src="' + esc(av) + '" alt="头像" onerror="avatarFallback(this)">';
       } else {
         avEl.textContent = av;
       }
     } else {
-      avEl.textContent = (currentUser && currentUser.username) ? currentUser.username.charAt(0).toUpperCase() : '👤';
+      avEl.innerHTML = (currentUser && currentUser.username) ? currentUser.username.charAt(0).toUpperCase() : '' + svgIcon('user') + '';
     }
     document.getElementById('profileUsername').value = currentUser ? (currentUser.username || '') : '';
     document.getElementById('profileEmail').value = currentUser ? (currentUser.email || '') : '';
@@ -1239,7 +1239,7 @@
     }).join('');
   }
   function _chartDrill(kind, label, count){
-    if (typeof showToast === 'function') showToast('📊', label, (kind === 'new' ? '新增用户 ' : '活跃用户 ') + count + ' 人', 2600);
+    if (typeof showToast === 'function') showToast('' + svgIcon('bar-chart-3') + '', label, (kind === 'new' ? '新增用户 ' : '活跃用户 ') + count + ' 人', 2600);
     if (kind === 'new') switchAdminTab('users');
   }
 
@@ -1348,7 +1348,7 @@
         + '<div class="dsec">最近登录</div>' + logins
         + '<div class="dsec">关联邀请码</div>' + codes;
       document.getElementById('userDrawerMask').hidden = false;
-    } catch(e){ if (typeof showToast === 'function') showToast('❌', e.message || '加载失败'); }
+    } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '加载失败'); }
   }
   async function _resetPw(id){
     try {
@@ -1357,7 +1357,7 @@
         '<p class="msub">' + esc(d.message || '临时密码已生成，请转告用户并提醒其登录后立即修改') + '</p>'
         + '<div class="invite-code-display">' + esc(d.tempPassword) + '</div>';
       document.getElementById('resetPwMask').hidden = false;
-    } catch(e){ if (typeof showToast === 'function') showToast('❌', e.message || '重置失败'); }
+    } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '重置失败'); }
   }
   var _banUserId = null;
   function _openBan(id){
@@ -1375,22 +1375,22 @@
     try {
       await apiRequest('/api/admin/users/' + _banUserId + '/status', {method:'PUT', body:body});
       document.getElementById('banMask').hidden = true;
-      if (typeof showToast === 'function') showToast('✅', '已封禁并强制下线');
+      if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已封禁并强制下线');
       loadAdminUsers(true); loadAdminStats();
     } catch(e){ document.getElementById('banErr').hidden = false; document.getElementById('banErr').textContent = e.message || '操作失败'; }
   }
   async function _setStatus(id, status){
     try {
       await apiRequest('/api/admin/users/' + id + '/status', {method:'PUT', body:{status:status}});
-      if (typeof showToast === 'function') showToast('✅', status === 'active' ? '已启用' : '已禁用');
+      if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', status === 'active' ? '已启用' : '已禁用');
       loadAdminUsers(true); loadAdminStats();
-    } catch(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); }
+    } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '操作失败'); }
   }
   function _doToggleAdmin(id, makeAdmin, password){
     var _body = {isAdmin:makeAdmin}; if (password) _body.password = password;
     apiRequest('/api/admin/users/' + id + '/admin', {method:'PUT', body:_body})
-      .then(function(){ if (typeof showToast === 'function') showToast('✅', makeAdmin ? '已设为管理员' : '已取消管理员'); loadAdminUsers(true); loadAdminStats(); })
-      .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); });
+      .then(function(){ if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', makeAdmin ? '已设为管理员' : '已取消管理员'); loadAdminUsers(true); loadAdminStats(); })
+      .catch(function(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '操作失败'); });
   }
   function _toggleAdmin(id, makeAdmin){
     makeAdmin = (makeAdmin === 'true' || makeAdmin === true);
@@ -1405,23 +1405,23 @@
     openConfirm({title:'软删除用户', msg:'将用户「' + username + '」移入回收站？其云端数据将先导出备份。请输入该用户名以确认。', expectName:username,
       onOk:function(){
         apiRequest('/api/admin/users/' + id, {method:'DELETE'})
-          .then(function(){ if (typeof showToast === 'function') showToast('✅', '已移入回收站'); adminState.selected = {}; loadAdminUsers(true); loadAdminStats(); })
-          .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '删除失败'); });
+          .then(function(){ if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已移入回收站'); adminState.selected = {}; loadAdminUsers(true); loadAdminStats(); })
+          .catch(function(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '删除失败'); });
       }});
   }
   function _restoreUser(id){
     openConfirm({title:'恢复用户', msg:'将该用户从回收站恢复为正常状态？', onOk:function(){
       apiRequest('/api/admin/users/' + id + '/restore', {method:'POST'})
-        .then(function(){ if (typeof showToast === 'function') showToast('✅', '已恢复'); loadAdminUsers(true); loadAdminStats(); })
-        .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); });
+        .then(function(){ if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已恢复'); loadAdminUsers(true); loadAdminStats(); })
+        .catch(function(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '操作失败'); });
     }});
   }
   function _permanentUser(id, username){
     openConfirm({title:'永久删除用户', msg:'将物理删除用户「' + username + '」及其全部数据，不可恢复！请输入用户名并重输当前管理员密码。', expectName:username, needPassword:true,
       onOk:function(d){
         apiRequest('/api/admin/users/' + id + '/permanent', {method:'DELETE', body:{password: d && d.password}})
-          .then(function(){ if (typeof showToast === 'function') showToast('✅', '已永久删除'); adminState.selected = {}; loadAdminUsers(true); loadAdminStats(); })
-          .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '删除失败'); });
+          .then(function(){ if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已永久删除'); adminState.selected = {}; loadAdminUsers(true); loadAdminStats(); })
+          .catch(function(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '删除失败'); });
       }});
   }
   async function _exportCsv(){
@@ -1434,15 +1434,15 @@
       var a = document.createElement('a'); a.href = url; a.download = 'users-' + Date.now() + '.csv';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      if (typeof showToast === 'function') showToast('✅', '已导出 CSV');
-    } catch(e){ if (typeof showToast === 'function') showToast('❌', e.message || '导出失败'); }
+      if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已导出 CSV');
+    } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '导出失败'); }
   }
   function _batchDisable(){
     var ids = Object.keys(adminState.selected);
     if (!ids.length) return;
     openConfirm({title:'批量禁用', msg:'将禁用选中的 ' + ids.length + ' 个用户（并强制其下线）？', onOk:function(){
       Promise.all(ids.map(function(id){ return apiRequest('/api/admin/users/' + id + '/status', {method:'PUT', body:{status:'disabled'}}).catch(function(){ return null; }); }))
-        .then(function(){ adminState.selected = {}; if (typeof showToast === 'function') showToast('✅', '已批量禁用'); loadAdminUsers(true); loadAdminStats(); });
+        .then(function(){ adminState.selected = {}; if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已批量禁用'); loadAdminUsers(true); loadAdminStats(); });
     }});
   }
 
@@ -1523,30 +1523,30 @@
   function _batchDeleteInvites(){
     try {
       var codes = Object.keys(adminState.selectedInvites || {});
-      if (!codes.length) { if (typeof showToast === 'function') showToast('⚠️', '请先勾选邀请码'); return; }
+      if (!codes.length) { if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '请先勾选邀请码'); return; }
       openConfirm({title:'批量清理邀请码', msg:'确定永久删除选中的 ' + codes.length + ' 个已用/已作废/已过期邀请码？此操作不可恢复。', onOk:function(){
         apiRequest('/api/admin/invite/batch-delete', {method:'POST', body:{codes: codes}})
           .then(function(d){
             adminState.selectedInvites = {};
-            if (typeof showToast === 'function') showToast('✅', '已清理 ' + (d.deleted || codes.length) + ' 个邀请码');
+            if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已清理 ' + (d.deleted || codes.length) + ' 个邀请码');
             loadInviteList(); loadAdminStats();
           })
-          .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); });
+          .catch(function(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '操作失败'); });
       }});
     } catch(e) {
       console.error('[batchDelete]', e);
-      if (typeof showToast === 'function') showToast('❌', e.message || '批量清理失败');
+      if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '批量清理失败');
     }
   }
   async function _deleteCode(code){
     openConfirm({title:'作废邀请码', msg:'确定作废未使用的邀请码 ' + code + '？', onOk:function(){
       apiRequest('/api/admin/invite/' + encodeURIComponent(code), {method:'DELETE'})
-        .then(function(){ if (typeof showToast === 'function') showToast('✅', '邀请码已作废'); loadInviteList(); loadAdminStats(); })
-        .catch(function(e){ if (typeof showToast === 'function') showToast('❌', e.message || '操作失败'); });
+        .then(function(){ if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '邀请码已作废'); loadInviteList(); loadAdminStats(); })
+        .catch(function(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '操作失败'); });
     }});
   }
   function _copyCode(code){
-    var done = function(){ if (typeof showToast === 'function') showToast('✅', '已复制 ' + code); };
+    var done = function(){ if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '已复制 ' + code); };
     if (navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(code).then(done).catch(function(){ _copyFallback(code, done); });
     } else { _copyFallback(code, done); }
@@ -1555,7 +1555,7 @@
     try{
       var ta = document.createElement('textarea'); ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
-    }catch(e){ if (typeof showToast === 'function') showToast('⚠️', '请手动复制'); }
+    }catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '请手动复制'); }
   }
 
   /* ---- 系统 admin-45/46 ---- */
@@ -1664,9 +1664,9 @@
   async function _sendDelAcctCode(){
     try {
       await apiRequest('/api/auth/send-code', {method:'POST', body:{email: currentUser.email, type:'delete'}});
-      if (typeof showToast === 'function') showToast('📧', '验证码已发送', '请查收邮箱', 3500);
+      if (typeof showToast === 'function') showToast('' + svgIcon('mail') + '', '验证码已发送', '请查收邮箱', 3500);
       armCodeCooldown(document.getElementById('delAcctSend'), 60, '发送验证码');
-    } catch(e){ if (typeof showToast === 'function') showToast('❌', e.message || '发送失败'); }
+    } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '发送失败'); }
   }
   async function _doDeleteAccount(){
     var code = document.getElementById('delAcctCode').value.trim();
@@ -1675,7 +1675,7 @@
     try {
       await apiRequest('/api/user', {method:'DELETE', body:{code:code}});
       document.getElementById('delAcctMask').hidden = true;
-      if (typeof showToast === 'function') showToast('👋', '账号已注销');
+      if (typeof showToast === 'function') showToast('' + svgIcon('hand') + '', '账号已注销');
       doLogout();
     } catch(e){ errEl.hidden = false; errEl.textContent = e.message || '注销失败'; }
   }
@@ -1762,10 +1762,10 @@
           document.getElementById('newInviteDisplay').hidden = false;
           var cel = document.getElementById('newInviteCode');
           cel.textContent = codes.join('  ·  ');
-          cel.onclick = function(){ if (navigator.clipboard) navigator.clipboard.writeText(codes.join(',')); if (typeof showToast === 'function') showToast('✅', '邀请码已复制'); };
+          cel.onclick = function(){ if (navigator.clipboard) navigator.clipboard.writeText(codes.join(',')); if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '', '邀请码已复制'); };
         }
         loadInviteList(); loadAdminStats();
-      } catch(e){ if (typeof showToast === 'function') showToast('❌', e.message || '生成失败'); }
+      } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '生成失败'); }
     });
     // 共享弹窗
     var bindClose = function(id, fn){ var el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
@@ -1850,7 +1850,7 @@
               if (!/[a-zA-Z]/.test(pw) || !/\d/.test(pw)) { showAuthError('密码需同时包含字母和数字'); return; }
               if (pw !== cf) { showAuthError('两次输入的密码不一致'); return; }
               await doRegister(email3, code3, regName, pw, inviteCode, remember);
-              if (typeof showToast === 'function') showToast('🎉','注册成功，欢迎加入！','已自动登录');
+              if (typeof showToast === 'function') showToast('' + svgIcon('party-popper') + '','注册成功，欢迎加入！','已自动登录');
             }
           } else {
             var email2 = document.getElementById('loginEmail').value.trim();
@@ -1859,7 +1859,7 @@
             if (!pw2) { showAuthError('请输入密码'); return; }
             await doLogin(email2, pw2, remember);
             var dn = currentUser ? currentUser.username : '';
-            if (typeof showToast === 'function') showToast('✅','欢迎回来，' + dn + '！','正在同步数据…');
+            if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '','欢迎回来，' + dn + '！','正在同步数据…');
           }
           updateHeaderUI();
           disableLoginWall();
@@ -1921,7 +1921,7 @@
       btnSaveProf.addEventListener('click', async function(){
         var newName = document.getElementById('profileUsername').value.trim();
         if (!newName || newName.length > 20) {
-          if (typeof showToast === 'function') showToast('⚠️','请输入用户名（不超过20个字符）'); return;
+          if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','请输入用户名（不超过20个字符）'); return;
         }
         try {
           var data = await apiRequest('/api/user/profile', { method: 'PUT', body: { username: newName } });
@@ -1930,9 +1930,9 @@
           updateHeaderUI();
           btnSaveProf.dataset.origName = newName;
           btnSaveProf.disabled = true;
-          if (typeof showToast === 'function') showToast('✅','用户名已更新');
+          if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '','用户名已更新');
         } catch(e) {
-          if (typeof showToast === 'function') showToast('❌', e.message || '修改失败');
+          if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '修改失败');
         }
       });
     }
@@ -1942,7 +1942,7 @@
       btnSendCode.addEventListener('click', async function(){
         var newEmail = document.getElementById('profileEmail').value.trim();
         if (!newEmail || !EMAIL_RE.test(newEmail)) {
-          if (typeof showToast === 'function') showToast('⚠️','请输入有效的邮箱地址'); return;
+          if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','请输入有效的邮箱地址'); return;
         }
         btnSendCode.disabled = true;
         btnSendCode.textContent = '发送中…';
@@ -1953,7 +1953,7 @@
         } catch(e) {
           btnSendCode.textContent = '发送验证码到新邮箱';
           btnSendCode.disabled = false;
-          if (typeof showToast === 'function') showToast('❌', e.message || '发送失败，请重试');
+          if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '发送失败，请重试');
         }
       });
     }
@@ -1964,7 +1964,7 @@
         var newEmail = document.getElementById('profileEmail').value.trim();
         var code = document.getElementById('changeEmailCode').value.trim();
         if (!code) {
-          if (typeof showToast === 'function') showToast('⚠️','请输入新邮箱收到的验证码'); return;
+          if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','请输入新邮箱收到的验证码'); return;
         }
         try {
           var data2 = await apiRequest('/api/user/change-email/confirm', { method: 'POST', body: { newEmail: newEmail, code: code } });
@@ -1974,9 +1974,9 @@
           document.getElementById('profileEmail').value = data2.user.email;
           document.getElementById('changeEmailCode').value = '';
           document.getElementById('changeEmailBox').hidden = true;
-          if (typeof showToast === 'function') showToast('✅','邮箱已更换为 ' + data2.user.email);
+          if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '','邮箱已更换为 ' + data2.user.email);
         } catch(e) {
-          if (typeof showToast === 'function') showToast('❌', e.message || '绑定失败');
+          if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '绑定失败');
         }
       });
     }
@@ -1994,18 +1994,18 @@
         var oldP = document.getElementById('oldPassword').value;
         var newP = document.getElementById('newPassword').value;
         var confP = document.getElementById('confirmNewPassword').value;
-        if (!oldP || !newP) { if (typeof showToast === 'function') showToast('⚠️','请填写完整'); return; }
-        if (newP.length < 8) { if (typeof showToast === 'function') showToast('⚠️','新密码至少8位'); return; }
-        if (newP !== confP) { if (typeof showToast === 'function') showToast('⚠️','两次新密码不一致'); return; }
+        if (!oldP || !newP) { if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','请填写完整'); return; }
+        if (newP.length < 8) { if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','新密码至少8位'); return; }
+        if (newP !== confP) { if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','两次新密码不一致'); return; }
         try {
           await apiRequest('/api/user/password', { method: 'PUT', body: { oldPassword: oldP, newPassword: newP } });
-          if (typeof showToast === 'function') showToast('✅','密码已修改');
+          if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '','密码已修改');
           document.getElementById('oldPassword').value = '';
           document.getElementById('newPassword').value = '';
           document.getElementById('confirmNewPassword').value = '';
           refreshChgBtn();
         } catch(e) {
-          if (typeof showToast === 'function') showToast('❌', e.message || '修改失败');
+          if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '修改失败');
         }
       });
     }
@@ -2036,7 +2036,7 @@
         if (!fileInput.files || !fileInput.files[0]) return;
         var file = fileInput.files[0];
         if (file.size > 2 * 1024 * 1024) {
-          if (typeof showToast === 'function') showToast('⚠️','图片不能超过2MB');
+          if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','图片不能超过2MB');
           fileInput.value='';
           return;
         }
@@ -2049,11 +2049,11 @@
           var data = await apiRequest('/api/user/avatar', { method: 'POST', body: fd });
           currentUser.avatar = data.avatar;
           setStoredUser(currentUser);
-          document.getElementById('profileAvatar').innerHTML = '<img src="' + data.avatar + '" alt="头像" onerror="this.outerHTML=\'👤\'">';
+          document.getElementById('profileAvatar').innerHTML = '<img src="' + esc(data.avatar) + '" alt="头像" onerror="avatarFallback(this)">';
           updateHeaderUI();
-          if (typeof showToast === 'function') showToast('✅','头像已更新');
+          if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '','头像已更新');
         } catch(e) {
-          if (typeof showToast === 'function') showToast('❌', e.message || '上传失败');
+          if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '上传失败');
         }
         fileInput.value = '';
       });
@@ -2097,7 +2097,7 @@
             if (np !== cp) { errEl.textContent = '两次输入不一致'; errEl.classList.add('show'); return; }
             await apiRequest('/api/auth/reset-password', { method: 'POST', body: { email: email, code: code3, newPassword: np } });
             closeForgot();
-            if (typeof showToast === 'function') showToast('✅','密码已重置','请使用新密码登录');
+            if (typeof showToast === 'function') showToast('' + svgIcon('check-circle') + '','密码已重置','请使用新密码登录');
           }
         } catch(err) {
           errEl.textContent = err.message || '操作失败';
@@ -2161,7 +2161,7 @@
       else if (cur==='system') loadAdminSystem();
       else if (cur==='invites') loadInviteList();
       else if (cur==='audit') loadAuditLogs();
-      if (typeof showToast==='function') showToast('✅','已刷新');
+      if (typeof showToast==='function') showToast('' + svgIcon('check-circle') + '','已刷新');
     });
     bindAdminEvents();
     // 注意：#btnGenInvite 的点击绑定已在 bindAdminEvents() 内完成（完整版，含 note/channel）。

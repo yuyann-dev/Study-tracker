@@ -132,8 +132,14 @@ function nextReviewDay(item, intervals) {
   return new Date(learned + add * 86400000).toISOString().slice(0, 10);
 }
 
-/** 汇总单项目进度（通用） */
-function projectStats(p) {
+/** 取 item 的下次复习日：优先用前端写入的 nextReviewDate（含自动均衡/分散后的值），没有才按间隔推算 */
+function getItemNextReview(it, intervals) {
+  if (it && it.nextReviewDate) return String(it.nextReviewDate).slice(0, 10);
+  return nextReviewDay(it, intervals);
+}
+
+/** 汇总单项目进度（通用）。summary=true 时只返回一级单元摘要，用于控制 token */
+function projectStats(p, summary) {
   const today = todayStr();
   const type = p.type || 'exercise';
   const deadline = p.deadline || DEFAULT_EXAM_ANCHOR;
@@ -146,15 +152,32 @@ function projectStats(p) {
     deadline,
     daysLeft: daysLeft == null ? null : r1(daysLeft),
     dailyCapacity: Number(p.dailyCapacity) || 0,
+    dailyComfort: Number(p.dailyComfort) || 0,
+    reviewMode: p.reviewMode || null,
     minutesPerUnit: Number(p.minutesPerUnit) || 0,
     targetScoreTier: p.targetScoreTier || null,
+    refProjectId: p.refProjectId || null,
+    archived: !!p.archived,
   };
 
   if (type === 'exercise') {
-    const bStart = Number(p.bookStartPage) || 0;
-    const bEnd = Number(p.bookEndPage) || Number(p.total) || 0;
-    const total = Math.max(bEnd - bStart, 0);
-    const done = Math.min(exerciseDonePages(p), total);
+    const isSetMode = p.unit === 'set';
+    const unitMode = p.unitMode || (Array.isArray(p.units) && p.units.length ? 'ranges' : 'pages');
+    s.unit = p.unit || 'page';
+    s.isSetMode = isSetMode;
+    s.unitMode = unitMode;
+    let total, done;
+    if (isSetMode) {
+      // 套卷模式：total = 套卷数，done = 已完成套卷数
+      total = Array.isArray(p.units) ? p.units.length : (Number(p.total) || 0);
+      done = Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
+    } else {
+      // 页码模式
+      const bStart = Number(p.bookStartPage) || 0;
+      const bEnd = Number(p.bookEndPage) || Number(p.total) || 0;
+      total = Math.max(bEnd - bStart, 0);
+      done = Math.min(exerciseDonePages(p), total);
+    }
     s.total = r1(total);
     s.done = r1(done);
     s.completionRate = total > 0 ? r1((done / total) * 100) : 0;
@@ -162,15 +185,42 @@ function projectStats(p) {
     const remain = Math.max(total - done, 0);
     s.requiredRate = (daysLeft && daysLeft > 0) ? r1(remain / daysLeft) : 0;
     s.gap = s.requiredRate > 0 ? r1((s.recent7Rate - s.requiredRate) / s.requiredRate * 100) : 0;
+    s.totalSets = isSetMode ? total : null;
+    s.doneSets = isSetMode ? done : null;
+    s.totalPages = !isSetMode ? total : null;
+    s.donePages = !isSetMode ? done : null;
+    s.todayReviewed = getTodayReviewedCount(p);
+    if (!isSetMode && Array.isArray(p.units) && p.units.length) {
+      const uc = getUnitCompletion(p);
+      s.unitCompletion = summary ? uc.slice(0, 10).map(u => ({ unit: u.unit, completion: u.completion, total: u.total, done: u.done })) : uc;
+    }
+    if (isSetMode) {
+      // 套卷模式：返回套卷名和各sections完成情况
+      s.setMode = true;
+      s.paperLabelMode = p.paperLabelMode || 'set';
+      s.paperYearStart = p.paperYearStart || null;
+      if (Array.isArray(p.paperSections) && p.paperSections.length) {
+        s.sections = p.paperSections.map(sec => ({ name: sec.name, weight: sec.weight || 0 }));
+      }
+      // 套卷完成情况
+      const setRecords = (Array.isArray(p.records) ? p.records : []).filter(r => r.set != null);
+      const setMap = {};
+      setRecords.forEach(r => {
+        const key = String(r.set);
+        if (!setMap[key]) setMap[key] = { set: r.set, sections: {} };
+        if (r.secId) setMap[key].sections[r.secId] = r.pct || 0;
+      });
+      s.setCompletion = Object.values(setMap).slice(0, 20);
+    }
   } else if (type === 'recite') {
     const items = Array.isArray(p.items) ? p.items : [];
     const total = items.length;
     const mastered = items.filter((it) => it.mastered || it.manualMastered).length;
-    let due = 0;       // 今日到期（含逾期）
+    let due = 0;       // 今日到期（含逾期，与前端 getDueItems 一致）
     let backlog = 0;   // 已逾期（nextReview < today 且未掌握）
     for (const it of items) {
       if (it.mastered || it.manualMastered) continue;
-      const nd = nextReviewDay(it, p.intervals);
+      const nd = getItemNextReview(it, p.intervals);
       if (!nd) continue;
       if (nd <= today) { due++; if (nd < today) backlog++; }
     }
@@ -186,31 +236,253 @@ function projectStats(p) {
     s.dueToday = due;
     s.backlog = backlog;
     s.highRisk = highRisk;
+    s.todayReviewed = getTodayReviewedCount(p);
+    // 背书章节分布：按unit统计掌握率
+    if (Array.isArray(p.units) && p.units.length) {
+      const reciteByUnit = [];
+      for (const u of p.units) {
+        const unitItems = items.filter(it => {
+          const ps = Number(it.pageStart) || 0;
+          return ps >= (Number(u.startPage) || 0) && ps <= (Number(u.endPage) || 0);
+        });
+        if (unitItems.length) {
+          const unitMastered = unitItems.filter(it => it.mastered || it.manualMastered).length;
+          reciteByUnit.push({
+            unit: u.name,
+            total: unitItems.length,
+            mastered: unitMastered,
+            masteryRate: r1(unitMastered / unitItems.length * 100),
+          });
+        }
+      }
+      s.byUnit = summary ? reciteByUnit.slice(0, 10) : reciteByUnit;
+    }
   } else if (type === 'mistake') {
     const items = Array.isArray(p.items) ? p.items : [];
     const tags = {};
     let streaky = 0;
+    let due = 0;       // 今日到期（含逾期，与前端 getDueItems 一致）
+    let backlog = 0;   // 已逾期
+    let mastered = 0;
     for (const it of items) {
+      if (it.mastered || it.manualMastered) { mastered++; continue; }
       for (const t of Array.isArray(it.errTags) ? it.errTags : []) {
         tags[t] = (tags[t] || 0) + 1;
       }
       if ((Number(it.wrongStreak) || 0) >= 2) streaky++;
+      const nd = getItemNextReview(it, p.intervals);
+      if (nd && nd <= today) { due++; if (nd < today) backlog++; }
     }
     s.totalItems = items.length;
+    s.mastered = mastered;
+    s.masteryRate = items.length > 0 ? r1(mastered / items.length * 100) : 0;
+    s.dueToday = due;
+    s.backlog = backlog;
     s.streakyCount = streaky;
     s.errTagDist = tags;
+    s.todayReviewed = getTodayReviewedCount(p);
+    const bu = getMistakeByUnit(p);
+    s.byUnit = summary ? bu.slice(0, 5) : bu;
   }
   return s;
 }
 
 // ── 对外聚合函数 ────────────────────────────────────────────────────────────
 
+// ── 章节级分析（刷题本完成率 + 错题分布 + 薄弱判断）──────────────────────────
+
+/** 计算刷题本各单元的完成率（按页码范围统计已完成页数） */
+function getUnitCompletion(p) {
+  if (!p || !Array.isArray(p.units) || !p.units.length) return [];
+  const recs = Array.isArray(p.records) ? p.records : [];
+  // 把所有 record 的页码范围合并成已完成页集合
+  const donePages = new Set();
+  for (const r of recs) {
+    const s = Number(r.startPage) || 1;
+    const e = Number(r.endPage) || s;
+    for (let pg = s; pg <= e; pg++) donePages.add(pg);
+  }
+  return p.units.map(u => {
+    const s = Number(u.startPage) || 0;
+    const e = Number(u.endPage) || 0;
+    const total = Math.max(e - s + 1, 0);
+    let done = 0;
+    for (let pg = s; pg <= e; pg++) if (donePages.has(pg)) done++;
+    return {
+      name: u.name,
+      startPage: s,
+      endPage: e,
+      totalPages: total,
+      donePages: done,
+      completionRate: total > 0 ? r1(done / total * 100) : 0,
+      children: Array.isArray(u.children) ? u.children.map(c => {
+        const cs = Number(c.startPage) || 0;
+        const ce = Number(c.endPage) || 0;
+        const ctotal = Math.max(ce - cs + 1, 0);
+        let cdone = 0;
+        for (let pg = cs; pg <= ce; pg++) if (donePages.has(pg)) cdone++;
+        return { name: c.name, startPage: cs, endPage: ce, totalPages: ctotal, donePages: cdone, completionRate: ctotal > 0 ? r1(cdone / ctotal * 100) : 0 };
+      }) : [],
+    };
+  });
+}
+
+/** 今日已复习数（错题/背书：今天有 review 记录的条目数） */
+function getTodayReviewedCount(p) {
+  if (!p || !Array.isArray(p.items)) return 0;
+  const today = todayStr();
+  let count = 0;
+  for (const it of p.items) {
+    const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+    if (rvs.some(r => String(r.date || '').slice(0, 10) === today)) count++;
+  }
+  return count;
+}
+
+/** 错题本按章节的错题分布（含掌握率、连错数、最近复习情况） */
+function getMistakeByUnit(p) {
+  if (!p || !Array.isArray(p.items)) return [];
+  const units = Array.isArray(p.units) ? p.units : [];
+  const items = p.items;
+  const today = todayStr();
+
+  function findUnit(page) {
+    if (!page) return null;
+    // 先找最具体的子章节（深度优先，返回"父 > 子"格式）
+    function deepFind(nodes, parentName) {
+      for (const u of nodes || []) {
+        const s = Number(u.startPage) || 0;
+        const e = Number(u.endPage) || 0;
+        const fullName = parentName ? `${parentName} > ${u.name}` : u.name;
+        if (page >= s && page <= e) {
+          // 如果有子章节且页码落在子章节内，返回更具体的子章节名
+          if (Array.isArray(u.children) && u.children.length) {
+            const child = deepFind(u.children, fullName);
+            if (child) return child;
+          }
+          return fullName;
+        }
+      }
+      return null;
+    }
+    return deepFind(units, null) || '未分类';
+  }
+
+  const byUnit = {};
+  for (const it of items) {
+    const page = Number(it.pageStart) || Number(it.pageEnd) || 0;
+    const unitName = findUnit(page);
+    if (!byUnit[unitName]) byUnit[unitName] = { total: 0, mastered: 0, streaky: 0, dueToday: 0, reviewedToday: 0, avgWrongStreak: 0, errTags: {} };
+    const bucket = byUnit[unitName];
+    bucket.total++;
+    if (it.mastered || it.manualMastered) bucket.mastered++;
+    if ((Number(it.wrongStreak) || 0) >= 2) bucket.streaky++;
+    const nd = getItemNextReview(it, p.intervals);
+    if (nd && nd <= today) bucket.dueToday++;
+    const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+    if (rvs.some(r => String(r.date || '').slice(0, 10) === today)) bucket.reviewedToday++;
+    bucket.avgWrongStreak += Number(it.wrongStreak) || 0;
+    for (const t of Array.isArray(it.errTags) ? it.errTags : []) bucket.errTags[t] = (bucket.errTags[t] || 0) + 1;
+  }
+
+  return Object.entries(byUnit).map(([name, b]) => ({
+    unit: name,
+    total: b.total,
+    mastered: b.mastered,
+    masteryRate: b.total > 0 ? r1(b.mastered / b.total * 100) : 0,
+    streaky: b.streaky,
+    dueToday: b.dueToday,
+    reviewedToday: b.reviewedToday,
+    avgWrongStreak: b.total > 0 ? r1(b.avgWrongStreak / b.total) : 0,
+    topErrTags: Object.entries(b.errTags).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([tag, count]) => ({ tag, count })),
+  })).sort((a, b) => b.total - a.total);
+}
+
+/** 章节错题分布分析：相对排名，区分未开始，中性措辞 */
+function analyzeWeakUnits(mistakeProject, exerciseProject) {
+  if (!mistakeProject) return { found: false, reason: '错题本不存在' };
+  const mistakeByUnit = getMistakeByUnit(mistakeProject);
+  const exerciseUnits = exerciseProject ? getUnitCompletion(exerciseProject) : [];
+
+  // 把错题分布和刷题完成率按章节名对齐
+  // 支持"父 > 子"格式：先匹配子章节，匹配不到再匹配父章节
+  const exByName = {};
+  const exChildByName = {};
+  for (const u of exerciseUnits) {
+    exByName[u.name] = u;
+    if (Array.isArray(u.children)) {
+      for (const c of u.children) {
+        exChildByName[`${u.name} > ${c.name}`] = c;
+        exChildByName[c.name] = c;
+      }
+    }
+  }
+  function findExerciseUnit(unitName) {
+    if (exChildByName[unitName]) return exChildByName[unitName];
+    if (exByName[unitName]) return exByName[unitName];
+    // "父 > 子"格式，取父章节
+    const parentName = unitName.split(' > ')[0];
+    if (exByName[parentName]) return exByName[parentName];
+    return null;
+  }
+
+  // 先标记每个章节的状态
+  const withStatus = mistakeByUnit.map(m => {
+    const ex = findExerciseUnit(m.unit);
+    const exCompletion = ex ? ex.completionRate : null;
+    const notStarted = exCompletion != null && exCompletion === 0;
+    return {
+      unit: m.unit,
+      mistakeCount: m.total,
+      mastered: m.mastered,
+      masteryRate: m.masteryRate,
+      streakyCount: m.streaky,
+      dueToday: m.dueToday,
+      exerciseCompletion: exCompletion,
+      notStarted,
+      topErrTags: m.topErrTags,
+    };
+  });
+
+  // 只对"已开始"的章节做相对排名（未开始的单独归类，不参与薄弱判定）
+  const started = withStatus.filter(x => !x.notStarted);
+  const notStartedList = withStatus.filter(x => x.notStarted);
+
+  // 相对排名：按错题数排序，前40%标记为"错题相对集中"，后60%为"分布较均匀"
+  // （不用绝对分数，因为不同错题本题量差异大）
+  started.sort((a, b) => b.mistakeCount - a.mistakeCount);
+  const threshold = Math.max(1, Math.ceil(started.length * 0.4));
+  const ranked = started.map((x, i) => ({
+    ...x,
+    rank: i + 1,
+    totalUnits: started.length,
+    // 相对标签：错题最多的前40%章节
+    relativeLabel: i < threshold ? '错题相对集中' : '分布较均匀',
+  }));
+
+  return {
+    found: true,
+    mistakeBook: mistakeProject.name,
+    linkedExerciseBook: exerciseProject ? exerciseProject.name : null,
+    totalUnits: withStatus.length,
+    startedUnits: started.length,
+    notStartedUnits: notStartedList.length,
+    // 错题相对集中的章节（按错题数排序）
+    concentrated: ranked.filter(x => x.relativeLabel === '错题相对集中'),
+    // 所有已开始章节的相对排名
+    allRanked: ranked,
+    // 尚未开始的章节（刷题完成率为0，不参与薄弱判定）
+    notStarted: notStartedList.map(x => ({ unit: x.unit, exerciseCompletion: 0 })),
+    note: '有错题是正常的，说明在主动发现知识漏洞。这里只做相对分布参考，不代表章节"好坏"。',
+  };
+}
+
 /**
  * 全项目概览（用于首次画像）：科目、类型、完成率、deadline、近7天速率。
  */
 function getUserProfileSummary(userId) {
   const store = loadStore(userId);
-  const list = projectList(store).map(projectStats);
+  const list = projectList(store).map(p => projectStats(p, true));
   const byType = { exercise: 0, recite: 0, mistake: 0 };
   for (const s of list) byType[s.type] = (byType[s.type] || 0) + 1;
   return {
@@ -245,107 +517,98 @@ function getProgressSummary(userId, projectId) {
  */
 function getMistakeReport(userId, projectIdOrIds) {
   const store = loadStore(userId);
-  let p;
+
+  // 收集要分析的错题本列表
+  let mistakeProjects = [];
+  let isMulti = false;
   if (Array.isArray(projectIdOrIds) && projectIdOrIds.length) {
-    // 多选视角：仅汇总用户勾选的错题本
-    const selected = projectIdOrIds
+    mistakeProjects = projectIdOrIds
       .map((id) => findProject(store, id))
       .filter((x) => x && x.type === 'mistake');
-    if (!selected.length) return { found: false, reason: '所选项目中没有错题本' };
-    p = {
-      name: '多选错题',
-      type: 'mistake',
-      items: selected.flatMap((x) => Array.isArray(x.items) ? x.items : []),
-      units: selected.flatMap((x) => Array.isArray(x.units) ? x.units : []),
-      intervals: selected[0].intervals || null,
-    };
+    isMulti = mistakeProjects.length > 1;
+    if (!mistakeProjects.length) return { found: false, reason: '所选项目中没有错题本' };
   } else if (projectIdOrIds) {
-    p = findProject(store, projectIdOrIds);
+    const p = findProject(store, projectIdOrIds);
     if (!p || p.type !== 'mistake') return { found: false, reason: '不是错题项目或项目不存在' };
+    mistakeProjects = [p];
   } else {
-    // 全局视角：聚合所有错题项目
-    const allMistake = projectList(store).filter((x) => x.type === 'mistake');
-    if (!allMistake.length) return { found: false, reason: '暂无错题项目' };
-    p = {
-      name: '全部错题',
-      type: 'mistake',
-      items: allMistake.flatMap((x) => Array.isArray(x.items) ? x.items : []),
-      units: allMistake.flatMap((x) => Array.isArray(x.units) ? x.units : []),
-      intervals: allMistake[0].intervals || null,
-    };
+    mistakeProjects = projectList(store).filter((x) => x.type === 'mistake');
+    isMulti = mistakeProjects.length > 1;
+    if (!mistakeProjects.length) return { found: false, reason: '暂无错题项目' };
   }
 
-  const items = Array.isArray(p.items) ? p.items : [];
-  const units = Array.isArray(p.units) ? p.units : [];
-
-  // errTags 分布
+  // errTags 分布（全局汇总）
   const errTagDist = {};
-  for (const it of items) {
-    for (const t of Array.isArray(it.errTags) ? it.errTags : []) {
-      errTagDist[t] = (errTagDist[t] || 0) + 1;
-    }
-  }
-
-  // 章节聚类：按 pageStart 映射到 units 叶子章
-  const unitClusters = {};
-  function walkUnits(nodes) {
-    const out = {};
-    for (const u of nodes || []) {
-      out[u.name] = u;
-      if (Array.isArray(u.children)) Object.assign(out, walkUnits(u.children));
-    }
-    return out;
-  }
-  const leafByName = walkUnits(units);
-  const unitRanges = units.map((u) => ({ name: u.name, s: Number(u.startPage) || 0, e: Number(u.endPage) || 0 }));
-
-  // 题型聚类（questionType）
+  // 题型聚类
   const typeClusters = {};
-  // 语义聚类：content 关键词（简单取前 6 字做桶）
+  // 语义聚类
   const semanticClusters = {};
-
   const streaky = [];
   const pseudoMastered = [];
   const crossYear = [];
   const thisYear = new Date().getFullYear();
+  // 章节聚类：多本时按"错题本名 > 章节名"区分，避免不同错题本页码冲突
+  const unitClusters = {};
 
-  for (const it of items) {
-    // 章节
-    const ps = Number(it.pageStart) || 0;
-    let unitName = '未分类';
-    for (const ur of unitRanges) {
-      if (ps >= ur.s && ps <= ur.e) { unitName = ur.name; break; }
+  function findUnitDeep(page, nodes, parentName) {
+    for (const u of nodes || []) {
+      const s = Number(u.startPage) || 0;
+      const e = Number(u.endPage) || 0;
+      const fullName = parentName ? `${parentName} > ${u.name}` : u.name;
+      if (page >= s && page <= e) {
+        if (Array.isArray(u.children) && u.children.length) {
+          const child = findUnitDeep(page, u.children, fullName);
+          if (child) return child;
+        }
+        return fullName;
+      }
     }
-    (unitClusters[unitName] = unitClusters[unitName] || []).push(it);
+    return null;
+  }
 
-    // 题型
-    const qt = it.questionType || '未标注';
-    typeClusters[qt] = (typeClusters[qt] || 0) + 1;
+  for (const mp of mistakeProjects) {
+    const items = Array.isArray(mp.items) ? mp.items : [];
+    const units = Array.isArray(mp.units) ? mp.units : [];
+    const prefix = isMulti ? `${mp.name} > ` : '';
 
-    // 语义（按 content 前 8 字）
-    const key = cut40(it.content).slice(0, 8);
-    semanticClusters[key] = (semanticClusters[key] || 0) + 1;
-
-    // wrongStreak 高危清单
-    if ((Number(it.wrongStreak) || 0) >= 2) {
-      streaky.push({ content: cut40(it.content), wrongStreak: it.wrongStreak, unit: unitName });
-    }
-    // 伪掌握：manualMastered 且后续 reviews 仍有忘记
-    if (it.manualMastered) {
-      const rvForget = (Array.isArray(it.reviews) ? it.reviews : [])
-        .some((r) => ['forget', '忘记', '模糊'].includes(String(r.result)));
-      if (rvForget) pseudoMastered.push({ content: cut40(it.content) });
-    }
-    // 跨年顽固：learnedDate 年份早于今年且仍在错
-    if (it.learnedDate) {
-      const y = new Date(parseDay(it.learnedDate)).getFullYear();
-      if (Number.isFinite(y) && y < thisYear && (Number(it.wrongStreak) || 0) >= 1) {
-        crossYear.push({ content: cut40(it.content), learnedYear: y, unit: unitName });
+    for (const it of items) {
+      // errTags
+      for (const t of Array.isArray(it.errTags) ? it.errTags : []) {
+        errTagDist[t] = (errTagDist[t] || 0) + 1;
+      }
+      // 题型
+      const qt = it.questionType || '未标注';
+      typeClusters[qt] = (typeClusters[qt] || 0) + 1;
+      // 语义
+      const key = cut40(it.content).slice(0, 8);
+      semanticClusters[key] = (semanticClusters[key] || 0) + 1;
+      // 章节（按各自错题本的units匹配，多本时加前缀）
+      const ps = Number(it.pageStart) || 0;
+      const unitName = prefix + (findUnitDeep(ps, units, null) || '未分类');
+      (unitClusters[unitName] = unitClusters[unitName] || []).push(it);
+      // wrongStreak
+      if ((Number(it.wrongStreak) || 0) >= 2) {
+        streaky.push({ content: cut40(it.content), wrongStreak: it.wrongStreak, unit: unitName, book: mp.name });
+      }
+      // 伪掌握
+      if (it.manualMastered) {
+        const rvForget = (Array.isArray(it.reviews) ? it.reviews : [])
+          .some((r) => ['forget', '忘记', '模糊'].includes(String(r.result)));
+        if (rvForget) pseudoMastered.push({ content: cut40(it.content), book: mp.name });
+      }
+      // 跨年顽固
+      if (it.learnedDate) {
+        const y = new Date(parseDay(it.learnedDate)).getFullYear();
+        if (Number.isFinite(y) && y < thisYear && (Number(it.wrongStreak) || 0) >= 1) {
+          crossYear.push({ content: cut40(it.content), learnedYear: y, unit: unitName, book: mp.name });
+        }
       }
     }
   }
 
-  // 章节聚类汇总（每章错题数、高危数）
+  const totalItems = mistakeProjects.reduce((sum, mp) => sum + (Array.isArray(mp.items) ? mp.items.length : 0), 0);
+
+  // 章节聚类汇总
   const unitSummary = Object.keys(unitClusters).map((name) => {
     const arr = unitClusters[name];
     return {
@@ -357,9 +620,23 @@ function getMistakeReport(userId, projectIdOrIds) {
 
   streaky.sort((a, b) => b.wrongStreak - a.wrongStreak);
 
+  // 单项目视角：查找关联的刷题本，做薄弱章节综合分析
+  let weakUnitsAnalysis = null;
+  if (!isMulti && mistakeProjects.length === 1) {
+    const p = mistakeProjects[0];
+    if (p.refProjectId) {
+      const linkedExercise = findProject(store, p.refProjectId);
+      if (linkedExercise) {
+        weakUnitsAnalysis = analyzeWeakUnits(p, linkedExercise);
+      }
+    }
+  }
+
   return {
     found: true,
-    total: items.length,
+    total: totalItems,
+    bookCount: mistakeProjects.length,
+    bookNames: mistakeProjects.map((x) => x.name),
     errTagDist,
     byUnit: unitSummary,
     byQuestionType: typeClusters,
@@ -367,6 +644,7 @@ function getMistakeReport(userId, projectIdOrIds) {
     streakyTop: streaky.slice(0, 10),
     pseudoMastered,
     crossYear: crossYear.slice(0, 10),
+    weakUnits: weakUnitsAnalysis,
   };
 }
 
@@ -755,7 +1033,7 @@ function getReviewForecast(userId, days) {
     const items = Array.isArray(p.items) ? p.items : [];
     for (const it of items) {
       if (it.mastered || it.manualMastered) continue;
-      const nd = nextReviewDay(it, p.intervals);
+      const nd = getItemNextReview(it, p.intervals);
       if (!nd) continue;
       // 已逾期的条目归到今天，体现积压压力
       const bucketDate = parseDay(nd) < parseDay(today) ? today : nd;
@@ -810,7 +1088,12 @@ module.exports = (function () {
     getRecentRecords: safe(getRecentRecords, () => ({ records: [] })),
     generateSchedule: safe(generateSchedule, () => ({ today: { budgetMin: 240, allocatedMin: 0, plan: [] }, projection: [], overallVerdict: '' })),
     getReviewForecast: safe(getReviewForecast, () => ({ days: [], peakDate: null, peakLoad: 0 })),
+    // 章节级分析
+    getUnitCompletion: safe(getUnitCompletion, () => []),
+    getTodayReviewedCount: safe(getTodayReviewedCount, () => 0),
+    getMistakeByUnit: safe(getMistakeByUnit, () => []),
+    analyzeWeakUnits: safe(analyzeWeakUnits, () => ({ found: false })),
     // 导出供路由复用
-    loadStore, findProject, projectList, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR,
+    loadStore, findProject, projectList, projectStats, r1, cut40, todayStr, DEFAULT_EXAM_ANCHOR, getItemNextReview,
   };
 })();
