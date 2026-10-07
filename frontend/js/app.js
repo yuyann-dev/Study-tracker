@@ -7955,11 +7955,15 @@ function renderReview(p) {
         <input class="ri-note${it.note ? ' prefilled' : ''}" placeholder="备注（选填）" value="${esc(it.note || '')}">
       </div>
       <div class="ri-actions">
-        <button class="q-btn q-good" data-quality="good">${btnLabels.good}</button>
-        <button class="q-btn q-fuzzy" data-quality="fuzzy">${btnLabels.fuzzy}</button>
-        <button class="q-btn q-forgot" data-quality="forgot">${btnLabels.forgot}</button>
-        ${p.type === 'mistake' ? `<button class="tag-btn" data-reasonpicker="${it.id}">${svgIcon('tag', 14)} 错因${(it.errTags||[]).length ? `(${it.errTags.length})` : ''}</button>` : ''}
-        <button class="skip-btn" data-skip="${it.id}" title="标记为已熟知（快捷键 S），不再出现在复习列表" aria-label="标记为已熟知 ${esc(it.content)}">已熟知</button>
+        <div class="ri-group ri-group-q">
+          <button class="q-btn q-good" data-quality="good">${btnLabels.good}</button>
+          <button class="q-btn q-fuzzy" data-quality="fuzzy">${btnLabels.fuzzy}</button>
+          <button class="q-btn q-forgot" data-quality="forgot">${btnLabels.forgot}</button>
+        </div>
+        <div class="ri-group ri-group-extra">
+          ${p.type === 'mistake' ? `<button class="tag-btn" data-reasonpicker="${it.id}">${svgIcon('tag', 14)} 错因${(it.errTags||[]).length ? `(${it.errTags.length})` : ''}</button>` : ''}
+          <button class="skip-btn" data-skip="${it.id}" title="标记为已熟知（快捷键 S），不再出现在复习列表" aria-label="标记为已熟知 ${esc(it.content)}">已熟知</button>
+        </div>
       </div>
     </li>`;
   });
@@ -7990,8 +7994,10 @@ function renderReview(p) {
           </div>
         </div>
         <div class="ri-actions">
-          <button class="q-btn q-retention-pass" data-retention="pass">${retBtnLabels.pass}</button>
-          <button class="q-btn q-retention-fail" data-retention="fail">${retBtnLabels.fail}</button>
+          <div class="ri-group ri-group-ret">
+            <button class="q-btn q-retention-pass" data-retention="pass">${retBtnLabels.pass}</button>
+            <button class="q-btn q-retention-fail" data-retention="fail">${retBtnLabels.fail}</button>
+          </div>
         </div>
       </li>`;
     }).join('');

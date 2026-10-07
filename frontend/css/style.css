@@ -45,7 +45,7 @@
   .sub{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.5;overflow-wrap:anywhere}
   #deadlineLabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .head-actions{display:flex;gap:7px;flex:0 0 auto;min-width:0;flex-wrap:nowrap;justify-content:flex-start;align-items:center}
-  .user-avatar-wrap{background:none;border:none;padding:0;cursor:pointer;flex:0 0 auto;line-height:0;border-radius:50%}
+  .user-avatar-wrap{position:relative;background:none;border:none;padding:0;cursor:pointer;flex:0 0 auto;line-height:0;border-radius:50%}
   /* 个人中心入口固定在第一行最右：登录时同步点+头像整体靠右，未登录时头像自己靠右 */
   #syncIndicator:not([hidden]){margin-left:auto}
   #syncIndicator[hidden] + #btnUser{margin-left:auto}
@@ -431,6 +431,7 @@
   .ri-meta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .ri-meta .overdue-tag{color:#96600c;font-weight:600}
   .ri-actions{display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap}
+  .ri-group{display:flex;gap:6px;flex:0 0 auto;min-width:0}
   .q-btn{
     border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;
     padding:7px 12px;border-radius:8px;transition:.15s;
@@ -1249,9 +1250,11 @@
     .modal .two-col label{margin-bottom:14px}
     .type-picker{grid-template-columns:1fr}
     .review-item{flex-direction:column;align-items:stretch}
-    .ri-actions{justify-content:stretch}
-    .q-btn{flex:1 1 0;min-width:0;text-align:center;white-space:nowrap;padding:9px 6px}
-    .tag-btn,.skip-btn{flex:1 1 0;min-width:0;min-height:44px;justify-content:center;padding:9px 6px}
+    .ri-actions{flex-direction:column;align-items:stretch;gap:6px}
+    .ri-group{width:100%;gap:6px}
+    .ri-group-q .q-btn{flex:1 1 0;min-width:0;text-align:center;white-space:nowrap;padding:9px 6px}
+    .ri-group-extra .tag-btn,.ri-group-extra .skip-btn{flex:1 1 0;min-width:0;min-height:44px;justify-content:center;padding:9px 6px}
+    .ri-group-ret .q-btn{flex:1 1 0;min-width:0;min-height:44px;padding:9px 6px}
     .skip-btn{background:#fff;border:1px solid var(--line);color:#555}
     html[data-theme="dark"] .skip-btn{background:var(--card);border-color:var(--line);color:var(--text)}
     .unit-edit-row{grid-template-columns:1fr 1fr 1fr auto;gap:5px}
@@ -1407,8 +1410,9 @@
   html[data-theme="dark"] #swUpdateBar{color:#10302a !important}
   html[data-theme="dark"] .sec-multi-row.sel,
   html[data-theme="dark"] .reason-dd-row.sel,
-  html[data-theme="dark"] .rp-row.sel,
   html[data-theme="dark"] .project-item.active{background:#4a628e}
+  html[data-theme="dark"] #reasonPopover .rp-row.sel{background:#4a628e;color:var(--text)}
+  html[data-theme="dark"] #reasonPopover .rp-row.sel .rp-check{color:#7fc7a4}
   html[data-theme="dark"] .type-opt-inner,
   html[data-theme="dark"] .seg-opt span{background:#2c3f63;color:var(--muted);border-color:var(--line)}
   html[data-theme="dark"] .ri-note{background:#2c3f63;color:var(--text);border-color:var(--line)}
@@ -1610,6 +1614,7 @@
 
   /* === 账号系统 & 云端同步 CSS === */
   .sync-indicator{display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;border-radius:50%;margin-left:2px;flex:0 0 auto}
+  .user-avatar-wrap>.sync-indicator{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;margin-left:0;border:2px solid var(--bg);box-sizing:border-box}
   .sync-indicator.sync-ok{background:#096f4e}
   .sync-indicator.sync-ing{background:var(--brand);animation:syncPulse 1.2s ease-in-out infinite}
   .sync-indicator.sync-fail{background:#e5484d}
