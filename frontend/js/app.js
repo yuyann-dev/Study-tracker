@@ -220,6 +220,7 @@ function openReasonDropdown() {
 // 记录当前打开 popover 所属的 itemId，用于"新增错因"直接挂到条目上
 let pendingNewReason = null;
 let pendingNewReasonItemId = null;
+let qeRefreshCallback = null; // 快录编辑面板：新增错因后刷新 chip 列表
 
 function openReasonPopover(anchor, itemId) {
   const p = cur(); if (!p) return;
@@ -6029,10 +6030,10 @@ function editQuickRecordItem(itemId) {
   const curTags = Array.isArray(it.errTags) ? it.errTags : [];
 
   mask.innerHTML = `<div class="modal" style="max-width:480px">
-    <div class="modal-head"><h2>${svgIcon('square-pen')} 完善快录错题</h2><button class="x-btn" id="qeClose">${svgIcon('x', 16)}</button></div>
+    <div class="modal-head"><h2>${svgIcon('square-pen')} 完善错题快录</h2><button class="x-btn" id="qeClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">
       <div style="font-weight:600;color:var(--text);margin-bottom:4px">${esc(locText)}</div>
-      补全错因和备注后，这条就从「快录占位」转为正常错题。
+      补全错因和备注后，这条就从「快录占位」转为普通错题。
     </div>
     <div style="margin-bottom:14px">
       <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text)">错因标签（可多选）</div>
@@ -6045,30 +6046,61 @@ function editQuickRecordItem(itemId) {
           </button>`;
         }).join('')}
       </div>
+      <button class="reason-dd-add" id="qeAddReason" style="margin-top:8px">＋ 新增错因…</button>
     </div>
-    <div style="margin-bottom:16px">
       <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text)">备注（选填）</div>
       <textarea id="qeNote" rows="2" placeholder="比如：卡在哪一步、正确思路关键词…" style="width:100%;resize:vertical;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">${esc(it.note || '')}</textarea>
     </div>
     <div style="display:flex;gap:10px">
       <button class="ghost-btn" id="qeCancel" style="flex:1">取消</button>
-      <button class="primary" id="qeSave" style="flex:1">保存为正常错题</button>
+      <button class="primary" id="qeSave" style="flex:1">保存为普通错题</button>
     </div>
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
 
   // 错因chip切换
   const selected = new Set(curTags);
-  mask.querySelectorAll('.qe-reason-chip').forEach(chip => {
-    chip.onclick = () => {
-      const nm = chip.dataset.name;
-      if (selected.has(nm)) { selected.delete(nm); chip.classList.remove('on'); }
-      else { selected.add(nm); chip.classList.add('on'); }
-    };
-  });
+  const bindChips = () => {
+    mask.querySelectorAll('.qe-reason-chip').forEach(chip => {
+      chip.onclick = () => {
+        const nm = chip.dataset.name;
+        if (selected.has(nm)) { selected.delete(nm); chip.classList.remove('on'); }
+        else { selected.add(nm); chip.classList.add('on'); }
+      };
+    });
+  };
+  bindChips();
+  // 新增错因后刷新 chip 列表（同步 item.errTags 到 selected）
+  const refreshQeReasons = () => {
+    (it.errTags || []).forEach(t => selected.add(t));
+    const opts = reasonOptionList(p);
+    const container = mask.querySelector('#qeReasons');
+    container.innerHTML = opts.map(r => {
+      const on = selected.has(r.name);
+      const [bg] = reasonColor(r.name);
+      return `<button class="qe-reason-chip${on ? ' on' : ''}" data-name="${esc(r.name)}" style="border-color:${bg}33">
+        <span class="qe-dot" style="background:${bg}"></span>${esc(r.name)}
+      </button>`;
+    }).join('');
+    bindChips();
+  };
+  mask.querySelector('#qeAddReason').onclick = () => {
+    const nm = prompt('输入新的错因标签：');
+    if (nm && nm.trim()) {
+      const v = nm.trim().slice(0, 20);
+      if (ERROR_REASONS.includes(v) || (p.customErrorReasons||[]).some(x => x.name === v)) {
+        alert('这个错因已经存在'); return;
+      }
+      pendingNewReason = v;
+      pendingNewReasonItemId = it.id;
+      qeRefreshCallback = refreshQeReasons;
+      $('#reasonKindMask').hidden = false;
+      modalTop($('#reasonKindMask'));
+    }
+  };
 
-  mask.querySelector('#qeClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
-  mask.querySelector('#qeCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  mask.querySelector('#qeClose').onclick = () => { qeRefreshCallback = null; mask.hidden = true; unlockBodyScroll(); };
+  mask.querySelector('#qeCancel').onclick = () => { qeRefreshCallback = null; mask.hidden = true; unlockBodyScroll(); };
   mask.querySelector('#qeSave').onclick = () => {
     it.errTags = Array.from(selected);
     it.note = mask.querySelector('#qeNote').value.trim();
@@ -6079,7 +6111,7 @@ function editQuickRecordItem(itemId) {
     (it.reviews || []).forEach(r => { if (r.note === '刷题打卡快录占位') r.note = ''; });
     p.updatedAt = Date.now(); saveStore();
     mask.hidden = true; unlockBodyScroll(); render();
-    showToast(svgIcon('check-circle'), '已完善', '这条快录错题已转为正常错题。', 2000);
+    showToast(svgIcon('check-circle'), '已完善', '这条快录错题已转为普通错题。', 2000);
   };
 }
 
@@ -8586,7 +8618,7 @@ function renderReciteRecords(p) {
         if (!loc) return '';
         const isQuick = p.type === 'mistake' && isQuickRecordItem(it);
         const quickBadge = isQuick
-          ? `<button class="quick-record-badge" data-quick-edit="${esc(it.id)}" title="刷题快录，点击编辑错因和备注">快录</button>`
+          ? `<button class="quick-record-badge" data-quick-edit="${esc(it.id)}" title="错题快录，点击编辑错因和备注">快录</button>`
           : '';
         return `${quickBadge}<span class="r-page">${esc(loc)}</span>`;
       })(fmtItemLocator(p, it))) +
@@ -13957,6 +13989,7 @@ function finishNewReason(permanent) {
   $('#reasonKindMask').hidden = true;
   unlockBodyScroll();
   render();
+  if (typeof qeRefreshCallback === 'function') { const cb = qeRefreshCallback; qeRefreshCallback = null; cb(); }
   // 从录入表单来的：自动在新错因下拉里勾选
   if (v && !forItemId) {
     setTimeout(() => {
