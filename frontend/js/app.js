@@ -16716,7 +16716,7 @@ if (document.readyState === 'loading') {
   function setSendStopUI(isStop){
     if (!els.sendBtn) return;
     if (isStop) {
-      els.sendBtn.innerHTML = svgIcon('stop-circle');
+      els.sendBtn.innerHTML = svgIcon('square');
       els.sendBtn.classList.add('stop');
       els.sendBtn.disabled = false;
     } else {
