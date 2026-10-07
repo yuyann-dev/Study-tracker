@@ -2515,7 +2515,7 @@ html[data-theme="dark"] .ai-tut-list code{background:rgba(255,255,255,.12)}
   background:var(--brand);color:#fff;font-size:15px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
 }
-.ai-send svg{width:22px;height:22px;transform:translateX(1px)}
+.ai-send svg{width:22px;height:22px;transform:translateX(2px)}
 html[data-theme="dark"] .ai-send{color:#10302a}
 .ai-send:disabled{background:var(--line);cursor:not-allowed}
 .ai-send.stop{background:var(--bad);font-size:12px}
