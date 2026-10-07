@@ -14,6 +14,204 @@ const fmtCN = s => { if (!s) return '未设置'; const d = parseDate(s); return 
 const WEEK = ['周日','周一','周二','周三','周四','周五','周六'];
 const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'&#92;' }[c]));
 
+/* ============ AI 学习时长统计（今日已学/剩余可学） ============ */
+/* 设计：
+   - 自动已学时长：从今日打卡记录重新计算（recompute），不维护增量计数器，避免撤销/删除导致不一致
+   - 用户手动校准：offset 偏移量存 localStorage，显示值 = 自动值 + offset
+   - 跨天自动重置：所有 key 带日期后缀
+   - 预估时长默认值：错题每题3min、背书每条2min、刷题每页8min；item.estimatedMinutes 可覆盖
+   - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
+const StudyTime = {
+  DEFAULT_HOURS: 7,
+  DEFAULT_MIN_MISTAKE: 3,
+  DEFAULT_MIN_RECITE: 2,
+  DEFAULT_MIN_PER_PAGE: 8,
+
+  _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
+
+  getBudgetMin: function() {
+    var v = Number(localStorage.getItem(this._key('budget')));
+    return (isFinite(v) && v > 0) ? Math.round(v) : this.DEFAULT_HOURS * 60;
+  },
+  setBudgetMin: function(min) {
+    min = Math.round(Number(min));
+    if (!isFinite(min) || min < 10) min = this.DEFAULT_HOURS * 60;
+    localStorage.setItem(this._key('budget'), String(min));
+  },
+
+  getStudiedOffset: function() {
+    var v = Number(localStorage.getItem(this._key('studied_offset')));
+    return isFinite(v) ? Math.round(v) : 0;
+  },
+  setStudiedOffset: function(offset) {
+    localStorage.setItem(this._key('studied_offset'), String(Math.round(offset)));
+  },
+
+  /* 校准系数：从 store 读，默认 1.0 */
+  getCalibration: function(type) {
+    try {
+      var cal = (store && store.aiCalibration) || {};
+      var v = Number(cal[type]);
+      return (isFinite(v) && v > 0.1 && v < 5) ? v : 1.0;
+    } catch(e) { return 1.0; }
+  },
+  _applyCalibration: function(minutes, type) {
+    return Math.round(minutes * this.getCalibration(type));
+  },
+
+  /* 从今日打卡记录重新计算自动已学时长（分钟） */
+  recalcAutoStudied: function() {
+    var today = todayStr();
+    var total = 0;
+    var projects = (store && store.projects) || {};
+    var self = this;
+
+    Object.keys(projects).forEach(function(pid) {
+      var p = projects[pid];
+      if (!p || p.archived) return;
+
+      if (p.type === 'exercise') {
+        // 刷题：今日完成页数 × 每页预估分钟
+        var recs = Array.isArray(p.records) ? p.records : [];
+        var pages = 0;
+        recs.forEach(function(r) {
+          if (String(r.date || '').slice(0, 10) !== today) return;
+          var s = Number(r.startPage) || 0;
+          var e = Number(r.endPage) || s;
+          pages += Math.max(e - s, 0);
+        });
+        var perPage = self._applyCalibration(self.DEFAULT_MIN_PER_PAGE, 'exercise');
+        total += pages * perPage;
+      } else {
+        // 错题/背书：今日复习过的条目 × 每条预估分钟
+        var items = Array.isArray(p.items) ? p.items : [];
+        items.forEach(function(it) {
+          var revs = Array.isArray(it.reviews) ? it.reviews : [];
+          var reviewedToday = false;
+          for (var i = 0; i < revs.length; i++) {
+            if (String(revs[i].date || '').slice(0, 10) === today) { reviewedToday = true; break; }
+          }
+          if (!reviewedToday) return;
+          var defaultMin = p.type === 'mistake' ? self.DEFAULT_MIN_MISTAKE : self.DEFAULT_MIN_RECITE;
+          var min = Number(it.estimatedMinutes);
+          if (!isFinite(min) || min <= 0) {
+            min = self._applyCalibration(defaultMin, p.type);
+          }
+          total += min;
+        });
+      }
+    });
+
+    return Math.max(0, Math.round(total));
+  },
+
+  /* 显示用已学时长 = 自动计算 + 用户手动偏移 */
+  getDisplayStudiedMin: function() {
+    return Math.max(0, this.recalcAutoStudied() + this.getStudiedOffset());
+  },
+
+  getRemainingMin: function() {
+    return Math.max(0, this.getBudgetMin() - this.getDisplayStudiedMin());
+  },
+
+  /* 用户手动修改已学时长：设偏移量 = 用户输入 - 当前自动值 */
+  setManualStudied: function(minutes) {
+    minutes = Math.round(Number(minutes));
+    if (!isFinite(minutes) || minutes < 0) minutes = 0;
+    var auto = this.recalcAutoStudied();
+    this.setStudiedOffset(minutes - auto);
+    // 学习校准系数：根据用户手动调整推算
+    this._learnCalibration(minutes, auto);
+    this.updateDisplay();
+  },
+
+  /* 从用户手动修改学习校准系数 */
+  _learnCalibration: function(manualMin, autoMin) {
+    if (!autoMin || autoMin < 5 || manualMin < 5) return; // 数据太少不校准
+    var ratio = manualMin / autoMin;
+    if (ratio < 0.3 || ratio > 3) return; // 极端值不采纳
+    try {
+      if (!store.aiCalibration || typeof store.aiCalibration !== 'object') store.aiCalibration = {};
+      // 按项目类型加权平均（简化：全局系数，近期权重高）
+      var projects = store.projects || {};
+      var typeCounts = { mistake: 0, recite: 0, exercise: 0 };
+      Object.keys(projects).forEach(function(pid) {
+        var p = projects[pid];
+        if (!p || p.archived) return;
+        if (p.type === 'exercise') typeCounts.exercise++;
+        else if (p.type === 'mistake') typeCounts.mistake++;
+        else if (p.type === 'recite') typeCounts.recite++;
+      });
+      // 简单做法：只更新有活跃项目的类型
+      var self = this;
+      Object.keys(typeCounts).forEach(function(t) {
+        if (typeCounts[t] === 0) return;
+        var old = self.getCalibration(t);
+        // 指数移动平均：新系数权重 0.3
+        store.aiCalibration[t] = Math.round((old * 0.7 + ratio * 0.3) * 100) / 100;
+      });
+    } catch(e) {}
+  },
+
+  /* 更新 UI 显示（AI面板输入区） */
+  updateDisplay: function() {
+    var studiedEl = document.getElementById('aiStudiedMin');
+    var remainingEl = document.getElementById('aiRemainingMin');
+    if (!studiedEl || !remainingEl) return;
+    var studiedMin = this.getDisplayStudiedMin();
+    var remainingMin = this.getRemainingMin();
+    studiedEl.textContent = (studiedMin / 60).toFixed(1) + 'h';
+    remainingEl.textContent = (remainingMin / 60).toFixed(1) + 'h';
+  },
+
+  /* 绑定事件：已学时长可点击修改 */
+  bindEvents: function() {
+    var self = this;
+    var el = document.getElementById('aiStudiedMin');
+    if (!el || el._bound) return;
+    el._bound = true;
+    el.addEventListener('click', function() {
+      if (el.classList.contains('editing')) return;
+      var curH = self.getDisplayStudiedMin() / 60;
+      el.classList.add('editing');
+      el.contentEditable = 'true';
+      el.textContent = curH.toFixed(1);
+      el.focus();
+      // 选中全部文字
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      var finish = function() {
+        el.contentEditable = 'false';
+        el.classList.remove('editing');
+        var v = parseFloat(el.textContent);
+        if (isFinite(v) && v >= 0) {
+          self.setManualStudied(v * 60);
+        } else {
+          self.updateDisplay();
+        }
+      };
+      el.addEventListener('blur', finish, { once: true });
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+        if (e.key === 'Escape') { el.textContent = ''; el.blur(); }
+      });
+    });
+  },
+
+  /* 供 AI 模块调用：获取当前时间状态（发送给后端） */
+  getTimeStatus: function() {
+    return {
+      budgetMin: this.getBudgetMin(),
+      studiedMin: this.getDisplayStudiedMin(),
+      remainingMin: this.getRemainingMin()
+    };
+  }
+};
+
 /* ============ 主题管理 ============ */
 const THEME_KEY = 'study_tracker_theme';
 function getThemePref() {
@@ -6647,6 +6845,8 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   } else {
     document.title = 'Study Tracker';
   }
+  // 全局渲染后刷新AI面板的今日已学/剩余时长显示（recompute模式自动反映增删打卡）
+  if (typeof StudyTime !== 'undefined') StudyTime.updateDisplay();
 }
 
 /* ===== v3 方案C：过期提示banner ===== */
@@ -13840,6 +14040,7 @@ $('#btnCheckin').addEventListener('click', () => {
     setTimeout(() => openWrongQuickRecord(p, { startPage: startPage != null ? startPage : endPage, endPage: endPage }), 900);
   }
   markOfflineWrite('checkin'); // ux-28
+  if (typeof StudyTime !== 'undefined') StudyTime.updateDisplay();
   // ux-30：首次成功打卡后，触发一次 PWA 安装引导（之后永不自动弹）
   if (typeof STAuth !== 'undefined' && STAuth.tryPromptInstallOnce) STAuth.tryPromptInstallOnce();
 });
@@ -14213,6 +14414,7 @@ $('#reviewList').addEventListener('click', e => {
   applyReview(item, _quality, p, note);
   if ($('#confirmMasterMask').hidden) {
     saveStore();
+    if (typeof StudyTime !== 'undefined') StudyTime.updateDisplay();
     playReviewFx(itemEl, _quality, getReviewFeedback(_quality, p, item));
     // 复习完阈值条数后，弹窗提示可分散剩余
     checkReviewMilestone(p);
@@ -15802,7 +16004,7 @@ if (document.readyState === 'loading') {
   var state = {
     convId: null,
     anchorProjectId: null,
-    budgetMin: 240,
+    budgetMin: 420,
     sending: false,
     currentTab: 'chat',
     perspective: 'global',     // global | current | multi
@@ -15896,7 +16098,7 @@ if (document.readyState === 'loading') {
   }
 
   /* ---- 学习时长（自由输入 + 快捷按钮） ---- */
-  var lastValidHours = 4;
+  var lastValidHours = 7;
   function setBudgetHours(h){
     h = Number(h);
     if (!isFinite(h) || h <= 0) h = lastValidHours;
@@ -15904,6 +16106,11 @@ if (document.readyState === 'loading') {
     lastValidHours = h;
     state.budgetMin = Math.round(h * 60);
     if (els.budgetHours) els.budgetHours.value = h;
+    // 同步到 StudyTime（按日期持久化）
+    if (typeof StudyTime !== 'undefined') {
+      StudyTime.setBudgetMin(state.budgetMin);
+      StudyTime.updateDisplay();
+    }
     // 快捷按钮高亮：恰好等于某快捷值才高亮
     var chips = document.querySelectorAll('.ai-budget-row .ai-budget-chip');
     for (var i = 0; i < chips.length; i++) {
@@ -16086,6 +16293,8 @@ if (document.readyState === 'loading') {
     refreshChatEmptyState();
     // 空对话时随机换一批示例问题
     renderSamples();
+    // 刷新今日已学/剩余时长显示
+    if (typeof StudyTime !== 'undefined') StudyTime.updateDisplay();
   }
   function closePanel(){
     mask.hidden = true;
@@ -16245,7 +16454,32 @@ if (document.readyState === 'loading') {
     return div;
   }
   function scrollBottom(){
-    if (els.body) els.body.scrollTop = els.body.scrollHeight;
+    if (els.body && autoScrollEnabled) els.body.scrollTop = els.body.scrollHeight;
+  }
+  // 智能跟随：用户往上滚就停，滚回底部附近就重新跟随
+  var autoScrollEnabled = true;
+  var scrollBtn = null;
+  function ensureScrollBtn(){
+    if (scrollBtn || !els.body) return;
+    scrollBtn = document.createElement('button');
+    scrollBtn.className = 'ai-scroll-bottom';
+    scrollBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+    scrollBtn.title = '回到底部';
+    scrollBtn.style.cssText = 'position:absolute;right:16px;bottom:8px;width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:5';
+    els.body.style.position = 'relative';
+    els.body.appendChild(scrollBtn);
+    scrollBtn.onclick = () => { autoScrollEnabled = true; scrollBottom(); scrollBtn.style.display = 'none'; };
+  }
+  function onAiBodyScroll(){
+    if (!els.body) return;
+    var dist = els.body.scrollHeight - els.body.scrollTop - els.body.clientHeight;
+    if (dist > 80) {
+      autoScrollEnabled = false;
+      if (scrollBtn) scrollBtn.style.display = 'flex';
+    } else {
+      autoScrollEnabled = true;
+      if (scrollBtn) scrollBtn.style.display = 'none';
+    }
   }
 
   /* ---- 错误气泡 ---- */
@@ -16885,6 +17119,11 @@ if (document.readyState === 'loading') {
 
     // 按视角组装 context
     var ctx = { budgetMin: state.budgetMin || undefined };
+    if (typeof StudyTime !== 'undefined') {
+      var ts = StudyTime.getTimeStatus();
+      ctx.studiedMin = ts.studiedMin;
+      ctx.remainingMin = ts.remainingMin;
+    }
     if (state.perspective === 'current') {
       if (state.anchorProjectId) ctx.projectId = state.anchorProjectId;
       else { removeTyping(); addErrorBubble(null, '请先在主界面打开一个项目，或切换到全局视角'); state.sending=false; setSendStopUI(false); return; }
@@ -17364,6 +17603,10 @@ if (document.readyState === 'loading') {
       budgetHours: document.getElementById('aiBudgetHours')
     };
 
+    // 智能滚动：用户往上滚停跟随，滚回底部重新跟随
+    ensureScrollBtn();
+    if (els.body) els.body.addEventListener('scroll', onAiBodyScroll);
+
     fab.onclick = function(){ mask.hidden ? openPanel() : closePanel(); };
     document.getElementById('aiClose').onclick = closePanel;
     mask.addEventListener('click', function(e){ if (e.target === mask) closePanel(); });
@@ -17384,8 +17627,14 @@ if (document.readyState === 'loading') {
     }
     updatePerspHint();
 
-    // 学习时长：自由输入 + 快捷按钮
-    setBudgetHours(4);
+    // 学习时长：自由输入 + 快捷按钮（从 StudyTime 加载今日预算，默认 7h）
+    var initHours = 7;
+    if (typeof StudyTime !== 'undefined') {
+      initHours = StudyTime.getBudgetMin() / 60;
+      StudyTime.bindEvents();
+      StudyTime.updateDisplay();
+    }
+    setBudgetHours(initHours);
     if (els.budgetHours) {
       // input 事件：只更新内部状态，不写回输入框（避免打断用户输入小数如 0.5）
       els.budgetHours.addEventListener('input', function(){

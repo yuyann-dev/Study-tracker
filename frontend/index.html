@@ -76,7 +76,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=icon1024">
+<link rel="stylesheet" href="css/style.css?v=icon1025">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1927,9 +1927,9 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/icons.js?v=icon1024"></script>
-<script src="js/auth.js?v=icon1024"></script>
-<script src="js/app.js?v=icon1024"></script>
+<script src="js/icons.js?v=icon1025"></script>
+<script src="js/auth.js?v=icon1025"></script>
+<script src="js/app.js?v=icon1025"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2336,14 +2336,23 @@ if (document.readyState === 'loading') {
 
       <!-- 学习时长：自由输入 + 快捷按钮 -->
       <div class="ai-budget-row">
-        <input type="text" id="aiBudgetHours" class="ai-budget-num" inputmode="decimal" value="4">
+        <input type="text" id="aiBudgetHours" class="ai-budget-num" inputmode="decimal" value="7">
         <span class="ai-budget-unit">小时</span>
         <button class="ai-budget-chip" type="button" data-h="2">2h</button>
-        <button class="ai-budget-chip active" type="button" data-h="4">4h</button>
+        <button class="ai-budget-chip" type="button" data-h="4">4h</button>
         <button class="ai-budget-chip" type="button" data-h="6">6h</button>
+        <button class="ai-budget-chip active" type="button" data-h="7">7h</button>
         <button class="ai-budget-chip" type="button" data-h="8">8h</button>
         <button class="ai-budget-chip" type="button" data-h="10">10h</button>
         <button class="ai-budget-chip" type="button" data-h="12">12h</button>
+      </div>
+      <!-- 已学 / 剩余时长 -->
+      <div class="ai-time-row">
+        <span class="ai-time-label">今日已学</span>
+        <span class="ai-time-studied" id="aiStudiedMin" title="点击修改">0.0h</span>
+        <span class="ai-time-sep">·</span>
+        <span class="ai-time-label">剩余</span>
+        <span class="ai-time-remaining" id="aiRemainingMin">7.0h</span>
       </div>
 
       <!-- 示例问题（空对话时显示） -->
