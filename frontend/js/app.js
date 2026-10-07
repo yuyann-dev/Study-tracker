@@ -88,13 +88,45 @@ function deleteReasonByName(p, name) {
   saveStore();
   return true;
 }
+function _hexToHsl(hex){
+  let x = hex.replace('#','');
+  if (x.length===3) x = x.split('').map(c=>c+c).join('');
+  const r=parseInt(x.slice(0,2),16)/255, g=parseInt(x.slice(2,4),16)/255, b=parseInt(x.slice(4,6),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let hh=0, ss=0; const ll=(max+min)/2;
+  if (max!==min){
+    const d=max-min;
+    ss = ll>0.5 ? d/(2-max-min) : d/(max+min);
+    if (max===r) hh=(g-b)/d+(g<b?6:0);
+    else if (max===g) hh=(b-r)/d+2;
+    else hh=(r-g)/d+4;
+    hh/=6;
+  }
+  return [hh, ss, ll];
+}
+function _hslToHex(h,s,l){
+  const h2r=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+  let r,g,b;
+  if (s===0){ r=g=b=l; } else {
+    const q = l<0.5 ? l*(1+s) : l+s-l*s, p = 2*l-q;
+    r=h2r(p,q,h+1/3); g=h2r(p,q,h); b=h2r(p,q,h-1/3);
+  }
+  const to=v=>Math.round(v*255).toString(16).padStart(2,'0');
+  return '#'+to(r)+to(g)+to(b);
+}
+/* 深色模式下把为浅底设计的深色文字提亮，保证对比度 */
+function _darkenFg(fg){
+  const [h,s] = _hexToHsl(fg);
+  return _hslToHex(h, Math.min(1, s*0.85+0.08), 0.66);
+}
 function reasonPill(name) {
   if (!name) return '';
   const [bg, fg] = reasonColor(name);
-  // 深色模式下浅底白亮刺眼：把浅底降到 ~18% 透明度，文字色保持（深色卡上呈淡色晕）
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const bgCss = dark ? bg + '2e' : bg;
-  return `<span class="reason-pill" style="background:${bgCss};color:${fg}">${esc(name)}</span>`;
+  if (dark) {
+    return `<span class="reason-pill" style="background:${fg}24;color:${_darkenFg(fg)}">${esc(name)}</span>`;
+  }
+  return `<span class="reason-pill" style="background:${bg};color:${fg}">${esc(name)}</span>`;
 }
 function reasonOptionList(p) {
   if (!p || typeof p !== 'object') return [];
@@ -5930,7 +5962,7 @@ function syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec) {
   const newSet = new Set(newMarks);
   // 1) 删除 old 里有、new 里没有的占位条目；P1-1：只动 fromExerciseRid===本rid 的，避免跨记录误删
   (mk.items || []).forEach(it => {
-    if (!it || !/刷题快录占位$/.test(it.content || '')) return;
+    if (!it || !/刷题快录占位/.test(it.content || '')) return;
     if (rec && rec.rid && it.fromExerciseRid !== rec.rid) return; // 别的 record 推的占位不动
     const m = String(it.content || '').match(/第(\d+)[页套]\s*第(.+?)题/);
     if (!m) return;
@@ -5948,7 +5980,7 @@ function syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec) {
 function editQuickRecordItem(itemId) {
   const p = cur(); if (!p || p.type !== 'mistake') return;
   const it = (p.items || []).find(x => x.id === itemId);
-  if (!it || !/刷题快录占位$/.test(it.content || '')) return;
+  if (!it || !/刷题快录占位/.test(it.content || '')) return;
 
   // 从 content 提取定位信息
   const m = String(it.content).match(/第(\d+)[页套]\s*第(.+?)题（刷题快录占位）/);
@@ -7907,7 +7939,7 @@ function renderReview(p) {
       <div class="ri-main">
         <div class="ri-content">${esc(it.content)}</div>
         <div class="ri-meta">
-          ${(p.type === 'mistake' && /刷题快录占位$/.test(it.content || '')) ? '<span class="ri-quick-tag">快录</span><span>·</span>' : ''}
+          ${(p.type === 'mistake' && /刷题快录占位/.test(it.content || '')) ? '<span class="ri-quick-tag">快录</span><span>·</span>' : ''}
           ${(loc => loc ? `<span>${esc(loc)}</span><span>·</span>` : '')(fmtItemLocator(p, it))}
           <span>学习于 ${fmtCN(it.learnedDate)}</span>
           <span>·</span>
@@ -8503,17 +8535,20 @@ function renderReciteRecords(p) {
     const li = document.createElement('li');
     li.className = mastery.cls;
     li.innerHTML =
-      `<div class="r-line" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">` +
+      `<div class="r-line">` +
+      `<div class="r-line-main">` +
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日</span>` +
       `<span class="r-content" title="${esc(it.content)}">${esc(it.content)}</span>` +
       ((loc => {
         if (!loc) return '';
-        const isQuick = p.type === 'mistake' && /刷题快录占位$/.test(it.content || '');
+        const isQuick = p.type === 'mistake' && /刷题快录占位/.test(it.content || '');
         const quickBadge = isQuick
           ? `<button class="quick-record-badge" data-quick-edit="${esc(it.id)}" title="刷题快录，点击编辑错因和备注">快录</button>`
           : '';
         return `${quickBadge}<span class="r-page">${esc(loc)}</span>`;
       })(fmtItemLocator(p, it))) +
+      `</div>` +
+      `<div class="r-line-meta">` +
       ((it.errTags || []).map(reasonPill).join('')) +
       newTag +
       `<span class="m-badge ${mastery.cls}" style="font-size:10.5px"><span class="dot-sm"></span>${mastery.label}</span>` +
@@ -8521,6 +8556,7 @@ function renderReciteRecords(p) {
       earlyBtn +
       fillLocBtn +
       (it.reviews && it.reviews.length ? '<button class="hist-toggle">历史</button>' : '') +
+      `</div>` +
       `</div>` +
       `<button class="r-del" data-item="${esc(it.id)}" title="删除">${svgIcon('x', 15)}</button>` +
       histHtml;
