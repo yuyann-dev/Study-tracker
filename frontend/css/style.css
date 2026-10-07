@@ -2645,7 +2645,7 @@ html[data-theme="dark"] .ai-tool-trace-header{color:var(--muted)}
 .ai-tool-trace-err{font-size:11px;opacity:.7}
 
 /* ===== 统一线性 SVG 图标（currentColor 自动适配深浅主题） ===== */
-.ic{display:inline-block;vertical-align:-0.15em;flex:0 0 auto;width:18px;height:18px}
+.ic{display:inline-block;vertical-align:-0.12em;flex:0 0 auto;width:18px;height:18px}
 /* 独立大图标容器：跟随容器 font-size 缩放 */
 .wt-ico>.ic,.ob-icon>.ic,.ob-advice-icon>.ic,.status-icon>.ic,.lazy-warning-icon>.ic,
 .type-icon>.ic,.empty-icon>.ic,.cm-icon>.ic,.warn-icon>.ic,.sr-welcome-hero>.ic,
@@ -2656,10 +2656,12 @@ html[data-theme="dark"] .ai-tool-trace-header{color:var(--muted)}
 .toast-icon svg{width:30px;height:30px}
 @media (max-width:640px){.toast-icon svg{width:26px;height:26px}}
 /* 按钮/标题内联图标与文字间距 */
-button>.ic,.ghost-btn>.ic,.soft-btn>.ic,.primary>.ic,.danger-btn>.ic{margin-right:6px}
+button>.ic,.ghost-btn>.ic,.soft-btn>.ic,.primary>.ic,.danger-btn>.ic{margin-right:5px}
 .wb-section-title>.ic,.modal-head h2>.ic,h2>.ic,.sec-title>.ic,.welcome-feat>.ic{margin-right:6px}
+/* 小按钮内图标缩小 */
+.ghost-btn.small>.ic,.soft-btn.small>.ic{width:15px;height:15px}
 
 /* ===== 标题衬线字体（Noto Serif SC，正文保持无衬线） ===== */
-h1,h2,h3{font-family:var(--font-serif)}
-.modal-head h2,.sec-title,.wb-section-title,.welcome h2,.welcome-badge,.card h2{font-family:var(--font-serif)}
+h1,h2,h3{font-family:var(--font-serif);font-weight:600;letter-spacing:0.01em}
+.modal-head h2,.sec-title,.wb-section-title,.welcome h2,.welcome-badge,.card h2{font-family:var(--font-serif);font-weight:600}
 
