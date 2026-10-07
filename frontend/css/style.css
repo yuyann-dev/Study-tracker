@@ -45,10 +45,9 @@
   .sub{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.5;overflow-wrap:anywhere}
   #deadlineLabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .head-actions{display:flex;gap:7px;flex:0 0 auto;min-width:0;flex-wrap:nowrap;justify-content:flex-start;align-items:center}
-  .user-avatar-wrap{position:relative;background:none;border:none;padding:0;cursor:pointer;flex:0 0 auto;line-height:0;border-radius:50%}
-  /* 个人中心入口固定在第一行最右：登录时同步点+头像整体靠右，未登录时头像自己靠右 */
-  #syncIndicator:not([hidden]){margin-left:auto}
-  #syncIndicator[hidden] + #btnUser{margin-left:auto}
+  .user-avatar-shell{position:relative;display:inline-block;flex:0 0 auto;margin-left:auto;line-height:0;font-size:0;border-radius:50%}
+  .user-avatar-wrap{display:block;background:none;border:none;padding:0;cursor:pointer;line-height:0;border-radius:50%}
+  /* 个人中心入口固定在第一行最右：头像与同步角标作为整体靠右 */
   .user-avatar-btn{width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0;border:2px solid var(--brand);background:var(--card);color:var(--brand);font-size:15px;font-weight:700;overflow:hidden;transition:.16s}
   .user-avatar-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%}
   .user-avatar-btn .av-text{color:var(--brand);font-weight:700;line-height:1}
@@ -1235,8 +1234,7 @@
     .head-main,.head-actions{flex:1 1 100%;max-width:100%}
     .head-actions{flex-wrap:wrap;justify-content:flex-start}
     .head-actions .ghost-btn{flex:1 1 auto;min-width:max-content;padding:9px 12px;justify-content:center}
-    .head-actions #syncIndicator{flex:0 0 auto}
-    .head-actions .user-avatar-wrap{flex:0 0 auto}
+    .head-actions .user-avatar-shell{flex:0 0 auto}
   }
 
   @media(max-width:520px){
@@ -1614,7 +1612,7 @@
 
   /* === 账号系统 & 云端同步 CSS === */
   .sync-indicator{display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;border-radius:50%;margin-left:2px;flex:0 0 auto}
-  .user-avatar-wrap>.sync-indicator{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;margin-left:0;border:2px solid var(--bg);box-sizing:border-box}
+  .user-avatar-shell>.sync-indicator{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;margin-left:0;border:2px solid var(--bg);box-sizing:border-box}
   .sync-indicator.sync-ok{background:#096f4e}
   .sync-indicator.sync-ing{background:var(--brand);animation:syncPulse 1.2s ease-in-out infinite}
   .sync-indicator.sync-fail{background:#e5484d}
