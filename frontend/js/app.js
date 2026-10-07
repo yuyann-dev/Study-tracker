@@ -5880,15 +5880,22 @@ function isQuickRecordItem(it) {
   return !!it && (it.quickRecord === true || /刷题快录占位/.test(it.content || ''));
 }
 
-// 统计某条打卡记录当前关联的错题数量（实时遍历关联错题本，删除/编辑后自动准确，含已完善的正常错题）
-function countLinkedWrongItems(p, rid) {
-  if (!p || !rid) return 0;
+// 统计关联错题本中，落在指定页码范围或套号内的错题数量（含已编辑/已攻克等所有状态，实时准确）
+function countWrongItemsInRange(p, rangeStart, rangeEnd, setNo) {
+  if (!p) return 0;
   const linked = getLinkedMistakeProjects(p);
   if (!linked.length) return 0;
   let n = 0;
   linked.forEach(mk => {
     (mk.items || []).forEach(it => {
-      if (it && it.fromExerciseRid === rid) n++;
+      if (!it) return;
+      if (setNo != null) {
+        if (it.setNo === setNo) n++;
+      } else if (rangeStart != null) {
+        const s = it.pageStart != null ? it.pageStart : 0;
+        const e = it.pageEnd != null ? it.pageEnd : s;
+        if (e >= rangeStart && s <= rangeEnd) n++;
+      }
     });
   });
   return n;
@@ -8418,7 +8425,7 @@ function renderExerciseRecords(p) {
       const dl = deltaOf[i];
       const dlStr = dl > 0 ? `+${fmtUnitNum(dl)} 套` : (Math.abs(dl) < 1e-9 ? '±0' : `${fmtUnitNum(dl)} 套`);
       const li = document.createElement('li');
-      const wmCount = countLinkedWrongItems(p, r.rid || '');
+      const wmCount = countWrongItemsInRange(p, null, null, r.set);
       li.innerHTML =
         `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
         `<span class="r-page">${textOf[i]}</span>` +
@@ -8441,17 +8448,22 @@ function renderExerciseRecords(p) {
     const after = countClippedRanges(accRanges, p);
     deltaByIdx[i] = after - before;
   });
+  let prevEnd = 0;
   ascRecs.forEach((r, i) => {
     const d = parseDate(r.date);
     const isRange = r.startPage != null;
     const end = r.endPage != null ? r.endPage : (r.page || 0);
+    // 这条打卡实际覆盖的页码范围：range 模式用起止页；累积模式（学到第X页）用 上条结束+1 到 本条结束
+    const rs = isRange ? r.startPage : (prevEnd + 1);
+    const re = isRange ? (r.endPage != null ? r.endPage : r.startPage) : end;
+    prevEnd = Math.max(prevEnd, re);
     const rangeStr = isRange
       ? `第 ${r.startPage}-${end} 页`
       : `学到第 ${end} 页`;
     const delta = deltaByIdx[i];
     const deltaStr = delta > 0 ? `+${delta} 页` : (delta === 0 ? '±0' : `${delta} 页`);
     const li = document.createElement('li');
-    const wmCount = countLinkedWrongItems(p, r.rid || '');
+    const wmCount = countWrongItemsInRange(p, rs, re, null);
     li.innerHTML =
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
       `<span class="r-page">${rangeStr}</span>` +
