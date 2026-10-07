@@ -5832,7 +5832,8 @@ function parseWrongMarks(str) {
   const out = [];
   String(str).split(/[,，、\s]+/).forEach(s => {
     s = s.trim();
-    if (/^\d+\s*[-–]\s*\d+$/.test(s)) out.push(s.replace(/\s*[-–]\s*/, '-'));
+    // 支持 "22-5"、"22-下方5"、"22-下方5（2）"、"3-5(2)" 等格式
+    if (/^\d+\s*[-–]\s*[\w\u4e00-\u9fa5（）()]+$/.test(s)) out.push(s.replace(/\s*[-–]\s*/, '-'));
   });
   return out;
 }
@@ -5855,11 +5856,13 @@ function pushWrongMarksToLinkedMistake(p, marks, fromRec) {
   const setMode = isSetMode(p);
   const fromRid = (fromRec && fromRec.rid) ? fromRec.rid : null;
   marks.forEach(mark => {
-    const [pg, qno] = mark.split('-').map(x => parseInt(x, 10));
-    if (!isFinite(pg)) return;
+    const parts = mark.split('-');
+    const pg = parseInt(parts[0], 10);
+    const qno = parts.slice(1).join('-'); // 题号可能包含中文/括号，如 "下方5（2）"
+    if (!isFinite(pg) || !qno) return;
     const item = {
       id: genId(),
-      content: setMode ? `第${pg}套 第${qno || '?'}题（刷题快录占位）` : `第${pg}页 第${qno || '?'}题（刷题快录占位）`,
+      content: setMode ? `第${pg}套 第${qno}题（刷题快录占位）` : `第${pg}页 第${qno}题（刷题快录占位）`,
       errTags: [], note: '',
       learnedDate: today,
       stage: 0,
@@ -5929,9 +5932,9 @@ function syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec) {
   (mk.items || []).forEach(it => {
     if (!it || !/刷题快录占位$/.test(it.content || '')) return;
     if (rec && rec.rid && it.fromExerciseRid !== rec.rid) return; // 别的 record 推的占位不动
-    const m = String(it.content || '').match(/第(\d+)[页套]\s*第([^）]+)题/);
+    const m = String(it.content || '').match(/第(\d+)[页套]\s*第(.+?)题/);
     if (!m) return;
-    const mark = `${m[1]}-${/^\d+$/.test(m[2]) ? m[2] : '?'}`;
+    const mark = `${m[1]}-${m[2]}`;
     if (oldSet.has(mark) && !newSet.has(mark)) { it.__drop = true; }
   });
   mk.items = (mk.items || []).filter(it => !it.__drop);
@@ -5939,6 +5942,81 @@ function syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec) {
   const addMarks = newMarks.filter(x => !oldSet.has(x));
   if (addMarks.length) pushWrongMarksToLinkedMistake(p, addMarks, rec);
   mk.updatedAt = Date.now();
+}
+
+/* ---- 刷题快录占位条目：点击「快录」徽章打开编辑面板 ---- */
+function editQuickRecordItem(itemId) {
+  const p = cur(); if (!p || p.type !== 'mistake') return;
+  const it = (p.items || []).find(x => x.id === itemId);
+  if (!it || !/刷题快录占位$/.test(it.content || '')) return;
+
+  // 从 content 提取定位信息
+  const m = String(it.content).match(/第(\d+)[页套]\s*第(.+?)题（刷题快录占位）/);
+  const locText = m ? (isMistakeSetMode(p) ? `第${m[1]}套 第${m[2]}题` : `第${m[1]}页 第${m[2]}题`) : it.content.replace(/（刷题快录占位）$/, '');
+
+  const maskId = 'quickEditMask';
+  let mask = document.getElementById(maskId);
+  if (!mask) {
+    mask = document.createElement('div');
+    mask.id = maskId; mask.className = 'mask'; mask.hidden = true;
+    document.body.appendChild(mask);
+  }
+
+  const allReasons = reasonOptionList(p);
+  const curTags = Array.isArray(it.errTags) ? it.errTags : [];
+
+  mask.innerHTML = `<div class="modal" style="max-width:480px">
+    <div class="modal-head"><h2>${svgIcon('square-pen')} 完善快录错题</h2><button class="x-btn" id="qeClose">${svgIcon('x', 16)}</button></div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      <div style="font-weight:600;color:var(--text);margin-bottom:4px">${esc(locText)}</div>
+      补全错因和备注后，这条就从「快录占位」转为正常错题。
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text)">错因标签（可多选）</div>
+      <div id="qeReasons" style="display:flex;flex-wrap:wrap;gap:6px">
+        ${allReasons.map(r => {
+          const on = curTags.includes(r.name);
+          const [bg] = reasonColor(r.name);
+          return `<button class="qe-reason-chip${on ? ' on' : ''}" data-name="${esc(r.name)}" style="border-color:${bg}33">
+            <span class="qe-dot" style="background:${bg}"></span>${esc(r.name)}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text)">备注（选填）</div>
+      <textarea id="qeNote" rows="2" placeholder="比如：卡在哪一步、正确思路关键词…" style="width:100%;resize:vertical;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">${esc(it.note || '')}</textarea>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="ghost-btn" id="qeCancel" style="flex:1">取消</button>
+      <button class="primary" id="qeSave" style="flex:1">保存为正常错题</button>
+    </div>
+  </div>`;
+  mask.hidden = false; modalTop(mask); lockBodyScroll();
+
+  // 错因chip切换
+  const selected = new Set(curTags);
+  mask.querySelectorAll('.qe-reason-chip').forEach(chip => {
+    chip.onclick = () => {
+      const nm = chip.dataset.name;
+      if (selected.has(nm)) { selected.delete(nm); chip.classList.remove('on'); }
+      else { selected.add(nm); chip.classList.add('on'); }
+    };
+  });
+
+  mask.querySelector('#qeClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  mask.querySelector('#qeCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  mask.querySelector('#qeSave').onclick = () => {
+    it.errTags = Array.from(selected);
+    it.note = mask.querySelector('#qeNote').value.trim();
+    // 去掉占位标记
+    it.content = String(it.content).replace(/（刷题快录占位）$/, '');
+    // 清理reviews里的占位note
+    (it.reviews || []).forEach(r => { if (r.note === '刷题打卡快录占位') r.note = ''; });
+    p.updatedAt = Date.now(); saveStore();
+    mask.hidden = true; unlockBodyScroll(); render();
+    showToast(svgIcon('check-circle'), '已完善', '这条快录错题已转为正常错题。', 2000);
+  };
 }
 
 /* ============ 主渲染 ============ */
@@ -7829,6 +7907,7 @@ function renderReview(p) {
       <div class="ri-main">
         <div class="ri-content">${esc(it.content)}</div>
         <div class="ri-meta">
+          ${(p.type === 'mistake' && /刷题快录占位$/.test(it.content || '')) ? '<span class="ri-quick-tag">快录</span><span>·</span>' : ''}
           ${(loc => loc ? `<span>${esc(loc)}</span><span>·</span>` : '')(fmtItemLocator(p, it))}
           <span>学习于 ${fmtCN(it.learnedDate)}</span>
           <span>·</span>
@@ -8402,7 +8481,7 @@ function renderReciteRecords(p) {
     const reviewedToday = (it.reviews || []).some(r => r.date === today);
     const canEarlyReview = !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate > today && !reviewedToday;
     const earlyBtn = canEarlyReview
-      ? `<button class="early-review-btn" data-early="${it.id}" title="提前复习这条">${svgIcon('fast-forward', 14)} 提前复习</button>`
+      ? `<button class="early-review-btn" data-early="${it.id}">${svgIcon('fast-forward', 14)} 提前复习</button>`
       : '';
 
     // 新录入条目（尚未复习过）加「新」标签，与已有复习历史的条目区分
@@ -8427,7 +8506,14 @@ function renderReciteRecords(p) {
       `<div class="r-line" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">` +
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日</span>` +
       `<span class="r-content" title="${esc(it.content)}">${esc(it.content)}</span>` +
-      ((loc => loc ? `<span class="r-page">${esc(loc)}</span>` : '')(fmtItemLocator(p, it))) +
+      ((loc => {
+        if (!loc) return '';
+        const isQuick = p.type === 'mistake' && /刷题快录占位$/.test(it.content || '');
+        const quickBadge = isQuick
+          ? `<button class="quick-record-badge" data-quick-edit="${esc(it.id)}" title="刷题快录，点击编辑错因和备注">快录</button>`
+          : '';
+        return `${quickBadge}<span class="r-page">${esc(loc)}</span>`;
+      })(fmtItemLocator(p, it))) +
       ((it.errTags || []).map(reasonPill).join('')) +
       newTag +
       `<span class="m-badge ${mastery.cls}" style="font-size:10.5px"><span class="dot-sm"></span>${mastery.label}</span>` +
@@ -14137,6 +14223,13 @@ $('#recordList').addEventListener('click', e => {
     saveStore();
     render();
     showToast(svgIcon('fast-forward'), '已加入今日复习', '这条内容现在出现在上方「今日复习」列表中。');
+    return;
+  }
+
+  // 刷题快录占位：点击「快录」徽章打开编辑面板
+  const quickBadge = e.target.closest('[data-quick-edit]');
+  if (quickBadge) {
+    editQuickRecordItem(quickBadge.dataset.quickEdit);
     return;
   }
 

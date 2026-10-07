@@ -450,6 +450,8 @@
   .ri-meta .retention-overdue-tag{color:#96600c;font-weight:600}
   /* 关键薄弱点：反复错的题，考前最该拿下的点（正向"重点"标记，而非红色告警） */
   .ri-meta .weak-key-tag{font-size:10.5px;font-weight:700;color:#2e6b4f;background:#e9ebdb;padding:1px 7px;border-radius:6px;white-space:nowrap}
+  .ri-meta .ri-quick-tag{font-size:10px;font-weight:700;letter-spacing:.5px;color:#2e6b4f;background:#e9ebdb;border:1px solid #b9d2c4;padding:0 5px;border-radius:5px;white-space:nowrap}
+  html[data-theme="dark"] .ri-meta .ri-quick-tag{color:#83bca9;background:rgba(131,188,169,.15);border-color:rgba(131,188,169,.35)}
   .ri-meta .retry-cnt{font-size:10.5px;font-weight:600;color:#96600c;background:#fbf0da;padding:1px 7px;border-radius:6px;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
 
   /* ============ 评价小反馈：点击「记得/模糊/忘记」后条目原地给出结果反馈再退场 ============ */
@@ -751,6 +753,15 @@
   .records li.m-mastered{border-left-color:var(--m-mastered)}
   .r-date{color:var(--muted);width:110px;flex:0 0 auto;font-size:13px}
   .r-page{font-weight:600;flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+  .quick-record-badge{
+    background:#e9ebdb;border:1px solid #b9d2c4;color:#2e6b4f;
+    font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.5px;
+    padding:1px 6px;border-radius:6px;cursor:pointer;transition:.15s;flex:0 0 auto;
+    line-height:1.4;
+  }
+  .quick-record-badge:hover{background:#d8e6dc;border-color:#9cc4b0}
+  html[data-theme="dark"] .quick-record-badge{background:rgba(131,188,169,.15);border-color:rgba(131,188,169,.35);color:#83bca9}
+  html[data-theme="dark"] .quick-record-badge:hover{background:rgba(131,188,169,.25)}
   .r-content{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .r-delta{color:var(--ok);font-weight:600;font-size:12.5px;font-variant-numeric:tabular-nums;flex:0 0 auto}
   .r-delta.zero{color:#c3cbd9}
@@ -990,6 +1001,11 @@
   .wb-reason-chip b{font-size:14px;margin-left:4px}
   .wb-reason-chip[draggable]{cursor:grab;user-select:none}
   .reason-pill{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;vertical-align:middle;margin-right:4px;margin-bottom:2px}
+  .qe-reason-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);transition:.15s}
+  .qe-reason-chip:hover{border-color:#b9d2c4}
+  .qe-reason-chip.on{background:#e9ebdb;border-color:#b9d2c4;color:#2e6b4f;font-weight:600}
+  .qe-reason-chip .qe-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  html[data-theme="dark"] .qe-reason-chip.on{background:rgba(131,188,169,.15);border-color:rgba(131,188,169,.35);color:#83bca9}
   .reason-dd{position:relative}
   .reason-dd-btn{width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;text-align:left;font-size:13px;cursor:pointer;font-family:inherit;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
   .reason-dd-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.12);z-index:60;max-height:280px;overflow-y:auto;padding:6px}
@@ -2663,10 +2679,14 @@ html[data-theme="dark"] .ai-tool-trace-header{color:var(--muted)}
 .toast-icon svg{width:30px;height:30px}
 @media (max-width:640px){.toast-icon svg{width:26px;height:26px}}
 /* 按钮/标题内联图标与文字间距 */
-button>.ic,.ghost-btn>.ic,.soft-btn>.ic,.primary>.ic,.danger-btn>.ic{margin-right:5px}
-.wb-section-title>.ic,.modal-head h2>.ic,h2>.ic,.sec-title>.ic,.welcome-feat>.ic{margin-right:6px}
+button>.ic,.ghost-btn>.ic,.soft-btn>.ic,.primary>.ic,.danger-btn>.ic{margin-right:5px;width:15px;height:15px}
+.wb-section-title>.ic,.modal-head h2>.ic,h2>.ic,.sec-title>.ic,.welcome-feat>.ic{margin-right:6px;width:17px;height:17px}
 /* 小按钮内图标缩小 */
-.ghost-btn.small>.ic,.soft-btn.small>.ic{width:15px;height:15px}
+.ghost-btn.small>.ic,.soft-btn.small>.ic{width:14px;height:14px}
+/* 任务列表图标与文字匹配 */
+.pi-icon>.ic{width:18px;height:18px}
+.pi-meta>.ic{width:13px;height:13px;vertical-align:-2px}
+.pi-meta .ic{width:13px;height:13px;vertical-align:-2px}
 
 /* ===== 标题衬线字体（Noto Serif SC，正文保持无衬线） ===== */
 h1,h2,h3{font-family:var(--font-serif);font-weight:600;letter-spacing:0.01em}
