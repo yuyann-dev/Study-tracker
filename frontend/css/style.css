@@ -42,6 +42,7 @@
   .type-badge{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:#e9ebdb;color:var(--brand);letter-spacing:0}
   .type-badge.recite{background:#e4ecd5;color:#096f4e}
   .type-badge.mistake{background:#fbf0da;color:#96600c}
+  .type-badge .ic{width:14px;height:14px;vertical-align:-2px;margin-right:3px}
   .sub{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.5;overflow-wrap:anywhere}
   #deadlineLabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .head-actions{display:flex;gap:7px;flex:0 0 auto;min-width:0;flex-wrap:nowrap;justify-content:flex-start;align-items:center}
