@@ -1092,6 +1092,11 @@ async function loadStore() {
       if (it.masteredDate === undefined) it.masteredDate = null;
       if (it.learnedDate == null) it.learnedDate = todayStr();
       if (it.finalReviewDate === undefined) it.finalReviewDate = null;
+      // 老数据：快录占位用 content 后缀标记，统一改为 quickRecord 字段并去掉后缀文字
+      if (it.quickRecord == null && /刷题快录占位/.test(it.content || '')) {
+        it.content = String(it.content).replace(/（刷题快录占位）\s*$/, '').trim();
+        it.quickRecord = true;
+      }
     });
     if (!Array.isArray(p.shownMilestones)) p.shownMilestones = [];
     if (!Array.isArray(p.units)) p.units = [];
@@ -5822,7 +5827,7 @@ function openWrongQuickRecord(p, meta) {
   const endP = meta && meta.endPage != null ? meta.endPage : '';
   const rangeHint = startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这';
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
+  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-下方第五题';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
@@ -5870,6 +5875,25 @@ function parseWrongMarks(str) {
   return out;
 }
 
+// 判断是否为刷题快录占位条目（新数据用 quickRecord 标记，老数据兼容 content 后缀）
+function isQuickRecordItem(it) {
+  return !!it && (it.quickRecord === true || /刷题快录占位/.test(it.content || ''));
+}
+
+// 统计某条打卡记录当前关联的错题数量（实时遍历关联错题本，删除/编辑后自动准确，含已完善的正常错题）
+function countLinkedWrongItems(p, rid) {
+  if (!p || !rid) return 0;
+  const linked = getLinkedMistakeProjects(p);
+  if (!linked.length) return 0;
+  let n = 0;
+  linked.forEach(mk => {
+    (mk.items || []).forEach(it => {
+      if (it && it.fromExerciseRid === rid) n++;
+    });
+  });
+  return n;
+}
+
 function findTodayPageRecord(p) {
   const t = todayStr();
   const recs = (p.records || []).slice().sort((a, b) => (a.rid || '') < (b.rid || '') ? 1 : -1);
@@ -5892,9 +5916,11 @@ function pushWrongMarksToLinkedMistake(p, marks, fromRec) {
     const pg = parseInt(parts[0], 10);
     const qno = parts.slice(1).join('-'); // 题号可能包含中文/括号，如 "下方5（2）"
     if (!isFinite(pg) || !qno) return;
+    const qLabel = /^\d+$/.test(qno) ? `第${qno}题` : qno;
     const item = {
       id: genId(),
-      content: setMode ? `第${pg}套 第${qno}题（刷题快录占位）` : `第${pg}页 第${qno}题（刷题快录占位）`,
+      content: setMode ? `第${pg}套 ${qLabel}` : `第${pg}页 ${qLabel}`,
+      quickRecord: true,
       errTags: [], note: '',
       learnedDate: today,
       stage: 0,
@@ -5926,7 +5952,7 @@ function editRecordWrongMarks(p, rid) {
   const cur = Array.isArray(rec.wrongMarks) ? rec.wrongMarks.join(', ') : '';
   const setMode = isSetMode(p);
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
+  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-下方第五题';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步增删关联错题本里的占位条目。</div>
@@ -5962,11 +5988,10 @@ function syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec) {
   const newSet = new Set(newMarks);
   // 1) 删除 old 里有、new 里没有的占位条目；P1-1：只动 fromExerciseRid===本rid 的，避免跨记录误删
   (mk.items || []).forEach(it => {
-    if (!it || !/刷题快录占位/.test(it.content || '')) return;
+    if (!isQuickRecordItem(it)) return;
     if (rec && rec.rid && it.fromExerciseRid !== rec.rid) return; // 别的 record 推的占位不动
-    const m = String(it.content || '').match(/第(\d+)[页套]\s*第(.+?)题/);
-    if (!m) return;
-    const mark = `${m[1]}-${m[2]}`;
+    const mark = it.fromExerciseMark;
+    if (!mark) return;
     if (oldSet.has(mark) && !newSet.has(mark)) { it.__drop = true; }
   });
   mk.items = (mk.items || []).filter(it => !it.__drop);
@@ -5980,11 +6005,10 @@ function syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec) {
 function editQuickRecordItem(itemId) {
   const p = cur(); if (!p || p.type !== 'mistake') return;
   const it = (p.items || []).find(x => x.id === itemId);
-  if (!it || !/刷题快录占位/.test(it.content || '')) return;
+  if (!isQuickRecordItem(it)) return;
 
-  // 从 content 提取定位信息
-  const m = String(it.content).match(/第(\d+)[页套]\s*第(.+?)题（刷题快录占位）/);
-  const locText = m ? (isMistakeSetMode(p) ? `第${m[1]}套 第${m[2]}题` : `第${m[1]}页 第${m[2]}题`) : it.content.replace(/（刷题快录占位）$/, '');
+  // 从 content 提取定位信息（直接用原文，自由输入题号保持原样）
+  const locText = String(it.content).replace(/（刷题快录占位）\s*$/, '').trim();
 
   const maskId = 'quickEditMask';
   let mask = document.getElementById(maskId);
@@ -6042,7 +6066,8 @@ function editQuickRecordItem(itemId) {
     it.errTags = Array.from(selected);
     it.note = mask.querySelector('#qeNote').value.trim();
     // 去掉占位标记
-    it.content = String(it.content).replace(/（刷题快录占位）$/, '');
+    it.content = String(it.content).replace(/（刷题快录占位）\s*$/, '').trim();
+    delete it.quickRecord;
     // 清理reviews里的占位note
     (it.reviews || []).forEach(r => { if (r.note === '刷题打卡快录占位') r.note = ''; });
     p.updatedAt = Date.now(); saveStore();
@@ -7939,7 +7964,7 @@ function renderReview(p) {
       <div class="ri-main">
         <div class="ri-content">${esc(it.content)}</div>
         <div class="ri-meta">
-          ${(p.type === 'mistake' && /刷题快录占位/.test(it.content || '')) ? '<span class="ri-quick-tag">快录</span><span>·</span>' : ''}
+          ${(p.type === 'mistake' && isQuickRecordItem(it)) ? '<span class="ri-quick-tag">快录</span><span>·</span>' : ''}
           ${(loc => loc ? `<span>${esc(loc)}</span><span>·</span>` : '')(fmtItemLocator(p, it))}
           <span>学习于 ${fmtCN(it.learnedDate)}</span>
           <span>·</span>
@@ -8393,7 +8418,7 @@ function renderExerciseRecords(p) {
       const dl = deltaOf[i];
       const dlStr = dl > 0 ? `+${fmtUnitNum(dl)} 套` : (Math.abs(dl) < 1e-9 ? '±0' : `${fmtUnitNum(dl)} 套`);
       const li = document.createElement('li');
-      const wmCount = Array.isArray(r.wrongMarks) ? r.wrongMarks.length : 0;
+      const wmCount = countLinkedWrongItems(p, r.rid || '');
       li.innerHTML =
         `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
         `<span class="r-page">${textOf[i]}</span>` +
@@ -8426,7 +8451,7 @@ function renderExerciseRecords(p) {
     const delta = deltaByIdx[i];
     const deltaStr = delta > 0 ? `+${delta} 页` : (delta === 0 ? '±0' : `${delta} 页`);
     const li = document.createElement('li');
-    const wmCount = Array.isArray(r.wrongMarks) ? r.wrongMarks.length : 0;
+    const wmCount = countLinkedWrongItems(p, r.rid || '');
     li.innerHTML =
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
       `<span class="r-page">${rangeStr}</span>` +
@@ -8547,7 +8572,7 @@ function renderReciteRecords(p) {
       `<span class="r-content" title="${esc(it.content)}">${esc(it.content)}</span>` +
       ((loc => {
         if (!loc) return '';
-        const isQuick = p.type === 'mistake' && /刷题快录占位/.test(it.content || '');
+        const isQuick = p.type === 'mistake' && isQuickRecordItem(it);
         const quickBadge = isQuick
           ? `<button class="quick-record-badge" data-quick-edit="${esc(it.id)}" title="刷题快录，点击编辑错因和备注">快录</button>`
           : '';
