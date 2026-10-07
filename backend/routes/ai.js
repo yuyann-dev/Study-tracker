@@ -617,6 +617,10 @@ router.post('/chat', async (req, res) => {
                       }
                     });
                   }
+                } else if (tc.name === 'set_task_estimates') {
+                  // 写入工具：AI 预估任务时长写回 store
+                  result = aiTools.implSetTaskEstimates(req.user.id, tc.args);
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
                 } else {
                   result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
@@ -860,6 +864,10 @@ router.post('/chat/stream', async (req, res) => {
                       }
                     });
                   }
+                } else if (tc.name === 'set_task_estimates') {
+                  // 写入工具：AI 预估任务时长写回 store
+                  result = aiTools.implSetTaskEstimates(req.user.id, tc.args);
+                  trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
                 } else {
                   result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
