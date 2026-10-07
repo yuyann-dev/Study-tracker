@@ -136,7 +136,7 @@ function renderReasonDropdown(p) {
   list.innerHTML = opts.map(r => {
     const [bg, fg] = reasonColor(r.name);
     const on = cur.includes(r.name);
-    const del = `<span class="reason-del" data-del="${esc(r.name)}" title="删除该错因">×</span>`;
+    const del = `<span class="reason-del" data-del="${esc(r.name)}" title="删除该错因">${svgIcon('x', 11)}</span>`;
     return `<div class="reason-dd-row${on ? ' sel' : ''}" data-name="${esc(r.name)}" draggable="${r.permanent}">
       <span class="reason-dd-check">${on ? '' + svgIcon('check') + '' : ''}</span>
       <span class="reason-dd-dot" style="background:${bg}"></span>
@@ -200,7 +200,7 @@ function openReasonPopover(anchor, itemId) {
     + opts.map(r => {
       const on = item.errTags.includes(r.name);
       const [bg] = reasonColor(r.name);
-      const del = `<span class="reason-del" data-del="${esc(r.name)}" title="删除">×</span>`;
+      const del = `<span class="reason-del" data-del="${esc(r.name)}" title="删除">${svgIcon('x', 11)}</span>`;
       return `<div class="rp-row${on ? ' sel' : ''}" data-name="${esc(r.name)}" draggable="${r.permanent}">
         <span class="reason-dd-handle">⠿</span>
         <span class="rp-check">${on ? '' + svgIcon('check') + '' : ''}</span>
@@ -226,7 +226,7 @@ function openReasonPopover(anchor, itemId) {
         const itemEl = document.querySelector(`.review-item[data-id="${itemId}"]`);
         if (itemEl) {
           const b = itemEl.querySelector('[data-reasonpicker]');
-          if (b) b.innerHTML = `${svgIcon('tag')} 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
+          if (b) b.innerHTML = `${svgIcon('tag', 14)} 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
         }
       }
       return;
@@ -255,7 +255,7 @@ function openReasonPopover(anchor, itemId) {
     const itemEl = document.querySelector(`.review-item[data-id="${itemId}"]`);
     if (itemEl) {
       const b = itemEl.querySelector('[data-reasonpicker]');
-      if (b) b.innerHTML = `${svgIcon('tag')} 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
+      if (b) b.innerHTML = `${svgIcon('tag', 14)} 错因${item.errTags.length ? `(${item.errTags.length})` : ''}`;
     }
   };
   let dragFrom = null;
@@ -1412,7 +1412,7 @@ function showStorageWarning(html) {
   const bar = document.createElement('div');
   bar.id = 'storageWarnBar';
   bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b02e24;color:#fff;padding:12px 44px 12px 16px;font-size:13px;line-height:1.55;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.25);max-height:40vh;overflow-y:auto';
-  bar.innerHTML = html + '<span id="storageWarnClose" style="position:absolute;top:8px;right:12px;font-size:22px;opacity:.8;cursor:pointer;line-height:1;padding:4px 8px">×</span>';
+  bar.innerHTML = html + '<span id="storageWarnClose" style="position:absolute;top:8px;right:12px;display:inline-flex;align-items:center;justify-content:center;opacity:.8;cursor:pointer;line-height:1;padding:4px 8px">'+svgIcon('x',16)+'</span>';
   document.body.appendChild(bar);
   document.body.style.paddingTop = '56px';
   const closeIt = () => { bar.remove(); document.body.style.paddingTop = ''; _storageWarnShown = false; };
@@ -3082,7 +3082,7 @@ function updateSpreadPressureHint() {
     }
   }
 
-  hintEl.textContent = msg;
+  hintEl.innerHTML = msg;  // msg 可能含 svgIcon()，必须 innerHTML
 }
 
 /* 活动日集合（比"完成日"更宽：收录、复习、攻克、刷题打卡都算"今天学了"）。
@@ -5258,8 +5258,8 @@ function _dgShow(box, fill, line, praise, mood, pct, l, pr) {
   box.className = 'daily-goal dg-' + mood;
   praise.className = 'dg-praise dg-' + mood;
   fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
-  line.textContent = l;
-  praise.textContent = pr;
+  line.textContent = l;            // l 是纯文本
+  praise.innerHTML = pr;           // pr 常含 svgIcon()，必须 innerHTML（无用户原始输入，安全）
 }
 
 /* 在第三张"目标"卡片内，显示今天已做多少 / 还差多少 / 超额多少，并按状态给不同鼓励 */
@@ -5715,7 +5715,7 @@ function openAbandonPanel(p) {
   }).join('');
 
   mask.innerHTML = `<div class="modal" style="max-width:560px">
-    <div class="modal-head"><h2>${svgIcon('scissors')} 战略放弃部分 ${setMode ? '套' : '页'}</h2><button class="x-btn" id="abClose">×</button></div>
+    <div class="modal-head"><h2>${svgIcon('scissors')} 战略放弃部分 ${setMode ? '套' : '页'}</h2><button class="x-btn" id="abClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px">
       把低性价比、来不及做的${setMode ? '套' : '页'}标记放弃，它们会从总量里扣除，每日目标自动降下来。
       关联错题 ≥5 道的章节通常是你的薄弱点，建议保留；≤1 道的可考虑放弃。可随时取消。
@@ -5792,7 +5792,7 @@ function openWrongQuickRecord(p, meta) {
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
   const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
-    <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">×</button></div>
+    <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
     <input id="wqInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
@@ -5893,7 +5893,7 @@ function editRecordWrongMarks(p, rid) {
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
   const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-18';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
-    <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">×</button></div>
+    <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步增删关联错题本里的占位条目。</div>
     <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" value="${esc(cur)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
@@ -6383,7 +6383,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
     const hasContent = (p.items || []).length > 0 || (p.records || []).length > 0;
     if (!doneAll && lazy.days >= 3 && hasContent) {
       lazyEl.hidden = false;
-      lazyTextEl.textContent = getLazyMessage(p, m, lazy);
+      lazyTextEl.innerHTML = getLazyMessage(p, m, lazy);  // 返回值含 svgIcon()，必须 innerHTML
     } else {
       lazyEl.hidden = true;
     }
@@ -7467,9 +7467,8 @@ function renderReview(p) {
   const honestEl = $('#honestHint');
   if (honestEl) {
     honestEl.hidden = false;
-    honestEl.textContent = p.type === 'mistake'
-      ? '' + svgIcon('lightbulb') + ' 请如实选择，以便系统为你精准安排复习哦~'
-      : '' + svgIcon('lightbulb') + ' 请如实选择，以便系统为你精准安排复习哦~';
+    // 含 svgIcon() 的 HTML 片段，必须用 innerHTML；textContent 会把 <svg> 标签原样当文本显示
+    honestEl.innerHTML = svgIcon('lightbulb') + ' 请如实选择，以便系统为你精准安排复习哦~';
   }
   const countEl = $('#reviewCount');
   countEl.textContent = due.length;
@@ -7817,11 +7816,14 @@ function renderReview(p) {
       ? `<span class="weak-key-tag">${svgIcon('key')} 关键薄弱点</span>` : '';
     // 本轮没做对被打回：用极简计数体现"已重做几次"，做对即进下一轮（错题/背书通用）
     const ws = it.wrongStreak || 0;
-    const retryHtml = ws >= 1 ? ` <span class="retry-cnt" title="本轮已重做 ${ws} 次 · 做对后进入下一轮">↻ ${ws}</span>` : '';
+    const retryHtml = ws >= 1 ? ` <span class="retry-cnt" title="本轮已重做 ${ws} 次 · 做对后进入下一轮">${svgIcon('refresh-cw', 11)} ${ws}</span>` : '';
 
+    // 按钮文案只用纯文本字符（✓ ~ ✕），绝不把 svgIcon() 的 HTML 混进来——
+    // 否则含双引号的 SVG 字符串会打断 title="..." 属性，导致 '">' 泄漏到页面上。
+    // 顶部已有快捷键提示条，按钮 title 不再重复"（快捷键 N）"。
     const btnLabels = p.type === 'mistake'
-      ? { good: '' + svgIcon('check') + ' 做对了', fuzzy: '~ 看答案', forgot: '' + svgIcon('x') + ' 又错了' }
-      : { good: '' + svgIcon('check') + ' 记得', fuzzy: '~ 模糊', forgot: '' + svgIcon('x') + ' 忘记' };
+      ? { good: '✓ 做对了', fuzzy: '~ 看答案', forgot: '✕ 又错了' }
+      : { good: '✓ 记得', fuzzy: '~ 模糊', forgot: '✕ 忘记' };
 
     return `<li class="review-item ${mastery.cls}${isOverdue ? ' overdue-item' : ''}" data-id="${esc(it.id)}">
       <div class="ri-main">
@@ -7842,10 +7844,10 @@ function renderReview(p) {
         <input class="ri-note${it.note ? ' prefilled' : ''}" placeholder="备注（选填）" value="${esc(it.note || '')}">
       </div>
       <div class="ri-actions">
-        <button class="q-btn q-good" data-quality="good" title="${btnLabels.good}（快捷键 1）">${btnLabels.good}</button>
-        <button class="q-btn q-fuzzy" data-quality="fuzzy" title="${btnLabels.fuzzy}（快捷键 2）">${btnLabels.fuzzy}</button>
-        <button class="q-btn q-forgot" data-quality="forgot" title="${btnLabels.forgot}（快捷键 3）">${btnLabels.forgot}</button>
-        ${p.type === 'mistake' ? `<button class="tag-btn" data-reasonpicker="${it.id}">${svgIcon('tag')} 错因${(it.errTags||[]).length ? `(${it.errTags.length})` : ''}</button>` : ''}
+        <button class="q-btn q-good" data-quality="good">${btnLabels.good}</button>
+        <button class="q-btn q-fuzzy" data-quality="fuzzy">${btnLabels.fuzzy}</button>
+        <button class="q-btn q-forgot" data-quality="forgot">${btnLabels.forgot}</button>
+        ${p.type === 'mistake' ? `<button class="tag-btn" data-reasonpicker="${it.id}">${svgIcon('tag', 14)} 错因${(it.errTags||[]).length ? `(${it.errTags.length})` : ''}</button>` : ''}
         <button class="skip-btn" data-skip="${it.id}" title="标记为已熟知（快捷键 S），不再出现在复习列表" aria-label="标记为已熟知 ${esc(it.content)}">已熟知</button>
       </div>
     </li>`;
@@ -7860,7 +7862,7 @@ function renderReview(p) {
     const retExpanded = _retentionExpanded.has(p.id);
     // 默认只展示最早的几条，避免长期未处理时列表冗长造成压力
     const shownRet = retExpanded ? retentionDue : retentionDue.slice(0, RETENTION_SHOWN_CAP);
-    const retBtnLabels = { pass: '' + svgIcon('check') + ' 还记得', fail: '~ 模糊了' };
+    const retBtnLabels = { pass: '✓ 还记得', fail: '~ 模糊了' };
     const itemsHtml = shownRet.map(it => {
       const isRetOverdue = it.retentionDate < today;
       const retOverdueHtml = isRetOverdue
@@ -7965,7 +7967,7 @@ function ensureKbdHintBar(p){
       + '<span><b style="color:var(--brand)">2</b> 模糊</span>'
       + '<span><b style="color:var(--brand)">3</b> 忘记</span>'
       + '<span><b style="color:var(--brand)">S</b> 跳过/已熟知</span>'
-      + '<button type="button" id="reviewKbdClose" aria-label="关闭快捷键说明" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 6px">×</button>';
+      + '<button type="button" id="reviewKbdClose" aria-label="关闭快捷键说明" style="margin-left:auto;display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer;line-height:1;padding:2px 6px">'+svgIcon('x', 14)+'</button>';
     const list = $('#reviewList');
     section.insertBefore(bar, list);
     const close = document.getElementById('reviewKbdClose');
@@ -8280,7 +8282,7 @@ function renderExerciseRecords(p) {
         `<span class="r-page">${textOf[i]}</span>` +
         `<span class="r-delta${dl > 0 ? '' : ' zero'}" style="margin-left:auto">${dlStr}</span>` +
         `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条记录里的错题（格式：套号-题号，如 3-5）">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
-        `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" data-set="${esc(r.set)}" title="删除">×</button>`;
+        `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" data-set="${esc(r.set)}" title="删除">${svgIcon('x', 15)}</button>`;
       list.insertBefore(li, list.firstChild);
     });
     return;
@@ -8313,7 +8315,7 @@ function renderExerciseRecords(p) {
       `<span class="r-page">${rangeStr}</span>` +
       `<span class="r-delta${delta > 0 ? '' : ' zero'}" style="margin-left:auto">${deltaStr}</span>` +
       `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条打卡里的错题">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
-      `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" title="删除">×</button>`;
+      `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" title="删除">${svgIcon('x', 15)}</button>`;
     list.insertBefore(li, list.firstChild);
   });
 }
@@ -8406,16 +8408,16 @@ function renderReciteRecords(p) {
     // 新录入条目（尚未复习过）加「新」标签，与已有复习历史的条目区分
     const isFreshNew = (!it.reviews || it.reviews.length === 0) && !it.mastered && !it.manualMastered;
     const newTag = isFreshNew
-      ? '<span class="m-badge" style="background:#e9ebdb;color:#2e6b4f;font-size:10.5px">' + svgIcon('sparkle') + ' 新</span>'
+      ? '<span class="m-badge" style="background:#e9ebdb;color:#2e6b4f;font-size:10.5px">' + svgIcon('sparkle', 11) + ' 新</span>'
       : '';
 
     // 错题本：补页码/补套号入口（转换后旧条目无定位字段时显示）
     let fillLocBtn = '';
     if (p.type === 'mistake') {
       if (isMistakePageMode(p) && !hasPageLocator(it)) {
-        fillLocBtn = `<button class="early-review-btn" data-fill-page="${it.id}" title="补页码" style="background:#e9ebdb;color:#2e6b4f">${svgIcon('map-pin')} 补页码</button>`;
+        fillLocBtn = `<button class="early-review-btn" data-fill-page="${it.id}" title="补页码" style="background:#e9ebdb;color:#2e6b4f">${svgIcon('map-pin', 14)} 补页码</button>`;
       } else if (isMistakeSetMode(p) && !hasSetLocator(it)) {
-        fillLocBtn = `<button class="early-review-btn" data-fill-set="${it.id}" title="补套号" style="background:#e9ebdb;color:#2e6b4f">${svgIcon('map-pin')} 补套号</button>`;
+        fillLocBtn = `<button class="early-review-btn" data-fill-set="${it.id}" title="补套号" style="background:#e9ebdb;color:#2e6b4f">${svgIcon('map-pin', 14)} 补套号</button>`;
       }
     }
 
@@ -8434,7 +8436,7 @@ function renderReciteRecords(p) {
       fillLocBtn +
       (it.reviews && it.reviews.length ? '<button class="hist-toggle">历史</button>' : '') +
       `</div>` +
-      `<button class="r-del" data-item="${esc(it.id)}" title="删除">×</button>` +
+      `<button class="r-del" data-item="${esc(it.id)}" title="删除">${svgIcon('x', 15)}</button>` +
       histHtml;
     return li;
   };
@@ -8879,7 +8881,7 @@ function renderProjectList() {
         </div>
         <div class="pi-meta">${fmtUnitNum(m.currentPage)} / ${fmtUnitNum(m.total)} ${unitName(p)} · ${pct.toFixed(0)}% · 目标 ${p.deadline}${extra}${linkInfo}</div>
       </div>
-      <button class="pi-del" data-del="${p.id}" title="删除">×</button>
+      <button class="pi-del" data-del="${p.id}" title="删除">${svgIcon('x', 15)}</button>
     </li>`;
   };
 
@@ -9582,7 +9584,7 @@ function openDashboard() {
   const timeRows = getReminder().times.map(t =>
     `<div class="rt-row" style="display:flex;gap:6px;align-items:center">
         <input type="time" class="rt-time" value="${t}" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
-        <button type="button" class="rt-del ghost-btn" title="删除这个时间" style="padding:6px 10px">×</button>
+        <button type="button" class="rt-del ghost-btn" title="删除这个时间" style="padding:6px 10px">${svgIcon('x', 14)}</button>
       </div>`).join('');
   const toggleStyle = remind.enabled
     ? 'background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;font-weight:600'
@@ -9875,31 +9877,31 @@ function buildReminderBody() {
   
   if (overdueItems.length) {
     parts.push('' + svgIcon('alert-triangle') + ' 逾期（先清掉）');
-    overdueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    overdueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
   if (dueItems.length) {
     parts.push('' + svgIcon('square-pen') + ' 今日待复习');
-    dueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    dueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
   if (planItems.length) {
     parts.push('' + svgIcon('book-open') + ' 今日计划');
-    planItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    planItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
   if (doneItems.length && !overdueItems.length && !dueItems.length && !planItems.length) {
     // 全部完成
     parts.push('' + svgIcon('party-popper') + ' 今天的任务都达标啦！');
-    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
     parts.push('' + svgIcon('activity') + ' 保持节奏，明天继续加油！');
   } else if (doneItems.length) {
     parts.push('' + svgIcon('check-circle') + ' 已达标');
-    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${it.name}：${it.text}`); });
+    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
@@ -9943,7 +9945,7 @@ function ensureInAppReminderEl() {
     el = document.createElement('div');
     el.id = 'inAppReminder';
     el.className = 'inapp-reminder';
-    el.innerHTML = '<span class="iar-close">×</span><div class="iar-icon">' + svgIcon('bell') + '</div><div class="iar-content"><div class="iar-title"></div><div class="iar-body"></div></div>';
+    el.innerHTML = '<span class="iar-close">'+svgIcon('x',16)+'</span><div class="iar-icon">' + svgIcon('bell') + '</div><div class="iar-content"><div class="iar-title"></div><div class="iar-body"></div></div>';
     document.body.appendChild(el);
     const closeIt = () => el.classList.remove('show');
     el.querySelector('.iar-close').addEventListener('click', closeIt);
@@ -9955,7 +9957,8 @@ let _iarTimer = null;
 function showInAppReminder(title, body) {
   const el = ensureInAppReminderEl();
   el.querySelector('.iar-title').textContent = title;
-  el.querySelector('.iar-body').textContent = body;
+  // body 含 svgIcon() 与 \n 换行：用 innerHTML 渲染图标，\n 转 <br>（项目名已在 buildReminderBody 内 esc 转义）
+  el.querySelector('.iar-body').innerHTML = String(body).replace(/\n/g, '<br>');
   el.classList.add('show');
   if (_iarTimer) clearTimeout(_iarTimer);
   // 提醒不自动关闭，需用户手动点×关闭
@@ -10377,7 +10380,7 @@ function addPaperSecRow(listEl, name, weight, id) {
     <input type="text" class="ps-name" maxlength="12" placeholder="板块名，如 选择/阅读A" value="${esc(name || '')}">
     <input type="number" class="ps-w" min="0" max="100" placeholder="权重" value="${weight === undefined || weight === '' ? '' : weight}">
     <span class="ps-pct">%</span>
-    <button type="button" class="ps-del" title="删除">×</button>`;
+    <button type="button" class="ps-del" title="删除">${svgIcon('x', 15)}</button>`;
   row.querySelector('.ps-del').addEventListener('click', () => { row.remove(); refreshPaperSecSum(listEl); });
   row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => refreshPaperSecSum(listEl)));
   listEl.appendChild(row);
@@ -16002,7 +16005,7 @@ if (document.readyState === 'loading') {
     var bar = document.createElement('div');
     bar.className = 'ai-msg-actions';
     bar.innerHTML = '<button class="ai-msg-btn ai-copy" type="button" title="复制回复">' + svgIcon('clipboard-list') + ' 复制</button>'
-                  + '<button class="ai-msg-btn ai-regen" type="button" title="重新回答">↻ 重新回答</button>';
+                  + '<button class="ai-msg-btn ai-regen" type="button" title="重新回答">' + svgIcon('refresh-cw') + ' 重新回答</button>';
     // 复制
     bar.querySelector('.ai-copy').onclick = function(){
       var text = div.querySelector('.md') ? div.querySelector('.md').innerText : div.innerText;
@@ -17250,7 +17253,7 @@ if (document.readyState === 'loading') {
       if (e.target.closest && e.target.closest('#aiLegalBtn')) {
         var html = '<div class="ai-legal-modal" id="aiLegalModal">'
           + '<div class="ai-legal-content">'
-          + '<div class="ai-legal-head">用户协议与免责声明<button class="ai-legal-close" id="aiLegalClose" type="button">×</button></div>'
+          + '<div class="ai-legal-head">用户协议与免责声明<button class="ai-legal-close" id="aiLegalClose" type="button">'+svgIcon('x',15)+'</button></div>'
           + '<div class="ai-legal-body">'
           + '<h4>一、AI 生成内容的性质</h4>'
           + '<p>本系统的 AI 学习助手由第三方大语言模型驱动，其回复内容由算法自动生成，仅供学习参考，不构成任何形式的专业建议。AI 可能会出现错误、遗漏或过时信息，请务必结合官方资料和自身判断进行核实。</p>'
