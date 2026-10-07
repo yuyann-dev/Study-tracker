@@ -846,6 +846,14 @@ router.post('/chat/stream', async (req, res) => {
       ? []
       : selectMemoriesForPrompt(req.user.id);
 
+    // 静默预估：把长期记忆直接注入用户消息，且不进历史记录
+    const isSilentEstimate = ctx.silentEstimate === true;
+    let effectiveUserMessage = userMessage;
+    if (isSilentEstimate && memories.length > 0) {
+      const memText = memories.map(function (m) { return '- ' + (m.content || ''); }).join('\n');
+      effectiveUserMessage = '【用户长期记忆】\n' + memText + '\n\n' + userMessage + '\n\n注意：如果长期记忆中用户明确规定了某项任务的时间或速度，必须严格听取用户的，不要自行估算。';
+    }
+
     const promptCtx = Object.assign({}, ctx, { budgetMin });
     const history = loadRecentMessages(req.user.id, body.conversationId, 10);
     const store = aggregator.loadStore(req.user.id);
@@ -868,7 +876,7 @@ router.post('/chat/stream', async (req, res) => {
     // ── 工具调用循环（和 /chat 完全一样）──
     if (useTools) {
       const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories, { enableTools: true });
-      const userPrompt = aiPrompt.buildUserPrompt(intent, null, userMessage, promptCtx, { enableTools: true });
+      const userPrompt = aiPrompt.buildUserPrompt(intent, null, effectiveUserMessage, promptCtx, { enableTools: true });
       const messages = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
       const dedupCache = new Map();
       let toolCallCount = 0;
@@ -954,7 +962,7 @@ router.post('/chat/stream', async (req, res) => {
         if (e.kind === 'timeout') return sendError('TIMEOUT', e.aiMessage || 'AI开小差了');
         degradedReason = 'tools_fallback';
         const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories, { enableTools: false, data: dataSummary });
-        const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, promptCtx, { enableTools: false });
+        const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, effectiveUserMessage, promptCtx, { enableTools: false });
         const msgs = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
         const fb = await aiProxy.callLLM(llmCfg, msgs, { maxTokens: 8000 });
         totalTokensIn += fb.usage.prompt_tokens;
@@ -963,7 +971,7 @@ router.post('/chat/stream', async (req, res) => {
       }
     } else {
       const systemPrompt = aiPrompt.buildSystemPrompt(profile, memories, { enableTools: false, data: dataSummary });
-      const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, userMessage, promptCtx, { enableTools: false });
+      const userPrompt = aiPrompt.buildUserPrompt(intent, dataSummary, effectiveUserMessage, promptCtx, { enableTools: false });
       const msgs = [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: userPrompt }];
       const fb = await aiProxy.callLLM(llmCfg, msgs, { maxTokens: 8000 });
       totalTokensIn += fb.usage.prompt_tokens;
@@ -999,14 +1007,18 @@ router.post('/chat/stream', async (req, res) => {
       finalReply = replyBody + '\n\n> ⚠️ 今日 Token 用量已超过你设置的每日预算（' + budget + '），继续使用会产生额外费用，请注意控制。';
     }
 
-    // 落库
-    const convId = await ensureConversation(req, body.conversationId, userMessage);
-    await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
-    const assistantMsgId = saveMessage(req.user.id, convId, 'assistant', finalReply, intent, validActions, totalTokensIn, totalTokensOut);
-    // 本轮收集到的长期记忆：关联到本轮 assistant 消息，删除会话时可级联清理
+    // 落库（静默预估不进历史记录）
+    let convId = body.conversationId || null;
+    let assistantMsgId = null;
+    if (!isSilentEstimate) {
+      convId = await ensureConversation(req, body.conversationId, userMessage);
+      await saveMessage(req.user.id, convId, 'user', userMessage, intent, null, 0, 0);
+      assistantMsgId = saveMessage(req.user.id, convId, 'assistant', finalReply, intent, validActions, totalTokensIn, totalTokensOut);
+      touchConversation(convId);
+    }
+    // 本轮收集到的长期记忆：关联到本轮 assistant 消息（静默预估时 source_message_id 为 null）
     for (const m of pendingMemories) saveMemoryForUser(req.user.id, m.kind, m.content, assistantMsgId);
     bumpUsage(req.user.id, date, totalTokensIn, totalTokensOut);
-    touchConversation(convId);
 
     // 发送完成事件
     sendSSE('done', {

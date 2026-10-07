@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v125', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v126', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -373,8 +373,22 @@ const StudyTime = {
           var p = allProj[pid];
           if (!p || p.archived) return;
           if (p.type === 'exercise') {
-            var m = typeof getMetrics === 'function' ? getMetrics(p) : null;
-            var per = m && typeof getDailyTarget === 'function' ? getDailyTarget(p, m).per : 0;
+            var per = 0;
+            if (p.unit === 'set') {
+              // 套卷模式：自己算今日任务量（getMetrics 对套卷可能返回 0）
+              var totalSets = Number(p.total) || 0;
+              var doneSets = typeof getCompletedSets === 'function' ? getCompletedSets(p) : 0;
+              var remSets = Math.max(0, totalSets - doneSets);
+              if (remSets > 0 && p.deadline) {
+                var dl = String(p.deadline).slice(0, 10);
+                var today = new Date().toISOString().slice(0, 10);
+                var daysLeft = Math.ceil((new Date(dl) - new Date(today)) / 86400000) + 1;
+                per = remSets / Math.max(1, daysLeft);
+              }
+            } else {
+              var m = typeof getMetrics === 'function' ? getMetrics(p) : null;
+              per = m && typeof getDailyTarget === 'function' ? getDailyTarget(p, m).per : 0;
+            }
             if (per > 0) {
               var taskItem = { projectId: pid, name: p.name, kind: 'exercise', units: Math.round(per * 10) / 10 };
               if (p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
