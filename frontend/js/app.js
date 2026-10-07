@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v127', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v128', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -279,7 +279,7 @@ const StudyTime = {
   },
 
   /* 每天首次上线：后台让 AI 预估今日任务时长（不显示在对话里） */
-  estimateTodayIfNeeded: function() {
+  estimateTodayIfNeeded: function(force) {
     if (!this.hasAi()) return;
     if (this._estimating) return;
     // 任务数变化检测：今日未完成任务数变了就重新预估
@@ -294,7 +294,7 @@ const StudyTime = {
         if (p && p.todayEstimatedTotalMinutes && Number(p.todayEstimatedTotalMinutes) > 0) hasEstData = true;
       });
     } catch(e) {}
-    if (this._estimatedToday() && lastCount === curCount && hasEstData) return;
+    if (!force && this._estimatedToday() && lastCount === curCount && hasEstData) return;
 
     var wasEstimated = this._estimatedToday();
 
