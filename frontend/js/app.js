@@ -5963,7 +5963,7 @@ function editRecordWrongMarks(p, rid) {
   const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-下方第五题';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
-    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步增删关联错题本里的占位条目。</div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步更新关联错题本里的占位条目。</div>
     <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" value="${esc(cur)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="ghost-btn" id="ewCancel" style="flex:1">取消</button>
@@ -6040,18 +6040,18 @@ function editQuickRecordItem(itemId) {
       <div id="qeReasons" style="display:flex;flex-wrap:wrap;gap:6px">
         ${allReasons.map(r => {
           const on = curTags.includes(r.name);
-          const [bg] = reasonColor(r.name);
+          const [bg, fg] = reasonColor(r.name);
           return `<button class="qe-reason-chip${on ? ' on' : ''}" data-name="${esc(r.name)}" style="border-color:${bg}33">
-            <span class="qe-dot" style="background:${bg}"></span>${esc(r.name)}
+            <span class="qe-dot" style="background:${fg}"></span>${esc(r.name)}
           </button>`;
         }).join('')}
       </div>
-      <button class="reason-dd-add" id="qeAddReason" style="margin-top:8px">＋ 新增错因…</button>
+      <button class="qe-add-reason" id="qeAddReason">＋ 新增错因…</button>
     </div>
       <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text)">备注（选填）</div>
       <textarea id="qeNote" rows="2" placeholder="比如：卡在哪一步、正确思路关键词…" style="width:100%;resize:vertical;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">${esc(it.note || '')}</textarea>
     </div>
-    <div style="display:flex;gap:10px">
+    <div style="display:flex;gap:10px;margin-top:16px">
       <button class="ghost-btn" id="qeCancel" style="flex:1">取消</button>
       <button class="primary" id="qeSave" style="flex:1">保存为普通错题</button>
     </div>
@@ -6077,9 +6077,9 @@ function editQuickRecordItem(itemId) {
     const container = mask.querySelector('#qeReasons');
     container.innerHTML = opts.map(r => {
       const on = selected.has(r.name);
-      const [bg] = reasonColor(r.name);
+      const [bg, fg] = reasonColor(r.name);
       return `<button class="qe-reason-chip${on ? ' on' : ''}" data-name="${esc(r.name)}" style="border-color:${bg}33">
-        <span class="qe-dot" style="background:${bg}"></span>${esc(r.name)}
+        <span class="qe-dot" style="background:${fg}"></span>${esc(r.name)}
       </button>`;
     }).join('');
     bindChips();
