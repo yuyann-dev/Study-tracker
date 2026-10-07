@@ -40,7 +40,7 @@ function setThemePref(pref) {
 
 const TYPES = {
   exercise: { name:'刷题', icon:'' + svgIcon('book-open') + '', badgeCls:'', typeCls:'type-exercise' },
-  recite:   { name:'背书', icon:'' + svgIcon('book-open') + '', badgeCls:'recite', typeCls:'type-recite' },
+  recite:   { name:'背书', icon:'' + svgIcon('brain') + '', badgeCls:'recite', typeCls:'type-recite' },
   mistake:  { name:'错题', icon:'' + svgIcon('clipboard-list') + '', badgeCls:'mistake', typeCls:'type-mistake' }
 };
 
@@ -6288,7 +6288,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
     ? '例：线代第3题 · 特征值计算'
     : '例：第一章 极限的定义与性质';
   $('#btnReciteAdd').textContent = p.type === 'mistake' ? '+ 记录错题' : '+ 添加内容';
-  $('#checkinTitle').innerHTML = isExercise ? '今日打卡' : (p.type === 'mistake' ? '' + svgIcon('square-pen') + ' 登记 / 补录错题' : '' + svgIcon('book-open') + ' 学习 / 补录内容');
+  $('#checkinTitle').innerHTML = isExercise ? '今日打卡' : ('' + (TYPES[p.type] ? TYPES[p.type].icon : svgIcon('book-open')) + (p.type === 'mistake' ? ' 登记 / 补录错题' : ' 学习 / 补录内容'));
   const noteInput = $('#reciteNote');
   if (p.type === 'mistake') {
     noteInput.placeholder = '例：这道线代题第二问总是卡，多练同类';
@@ -8488,7 +8488,7 @@ function renderReciteRecords(p) {
   $('#recCount').textContent = items.length ? `共 ${items.length} 条` : '';
 
   if (!items.length) {
-    const ctaText = p.type === 'mistake' ? '' + svgIcon('square-pen') + ' 去记录一道错题' : '' + svgIcon('book-open') + ' 去添加学习内容';
+    const ctaText = '' + (TYPES[p.type] ? TYPES[p.type].icon : svgIcon('book-open')) + (p.type === 'mistake' ? ' 去记录一道错题' : ' 去添加学习内容');
     let emptyHtml = `<li class="empty">${svgIcon('square-pen')}<br>还没有学习记录，先添加一条吧。
       <div style="margin-top:14px"><button type="button" class="primary" id="emptyAddBtn" style="padding:9px 18px;font-size:13px">${ctaText}</button></div></li>`;
     // ux-7：自由出处错题本空状态——把「升级为习题册/套卷」入口放到显眼处（原仅在设置里，新用户不易发现）
@@ -8986,9 +8986,9 @@ function renderProjectList() {
   const archivedProjects = all.filter(p => p.archived);
   // 按类型分组：刷题、背书、错题
   const groups = [
-    { key: 'exercise', label: '' + svgIcon('library') + ' 刷题', items: [] },
-    { key: 'recite', label: '' + svgIcon('book-open') + ' 背书', items: [] },
-    { key: 'mistake', label: '' + svgIcon('square-pen') + ' 错题', items: [] },
+    { key: 'exercise', label: '' + svgIcon('book-open') + ' 刷题', items: [] },
+    { key: 'recite', label: '' + svgIcon('brain') + ' 背书', items: [] },
+    { key: 'mistake', label: '' + svgIcon('clipboard-list') + ' 错题', items: [] },
   ];
   activeProjects.forEach(p => {
     const g = groups.find(g => g.key === p.type);
@@ -10042,31 +10042,31 @@ function buildReminderBody() {
   
   if (overdueItems.length) {
     parts.push('' + svgIcon('alert-triangle') + ' 逾期（先清掉）');
-    overdueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
+    overdueItems.forEach(it => { const icon = (TYPES[it.type] ? TYPES[it.type].icon : svgIcon('book-open')); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
   if (dueItems.length) {
     parts.push('' + svgIcon('square-pen') + ' 今日待复习');
-    dueItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
+    dueItems.forEach(it => { const icon = (TYPES[it.type] ? TYPES[it.type].icon : svgIcon('book-open')); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
   if (planItems.length) {
     parts.push('' + svgIcon('book-open') + ' 今日计划');
-    planItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
+    planItems.forEach(it => { const icon = (TYPES[it.type] ? TYPES[it.type].icon : svgIcon('book-open')); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
   if (doneItems.length && !overdueItems.length && !dueItems.length && !planItems.length) {
     // 全部完成
     parts.push('' + svgIcon('party-popper') + ' 今天的任务都达标啦！');
-    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
+    doneItems.forEach(it => { const icon = (TYPES[it.type] ? TYPES[it.type].icon : svgIcon('book-open')); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
     parts.push('' + svgIcon('activity') + ' 保持节奏，明天继续加油！');
   } else if (doneItems.length) {
     parts.push('' + svgIcon('check-circle') + ' 已达标');
-    doneItems.forEach(it => { const icon = it.type === 'mistake' ? '' + svgIcon('square-pen') + '' : (it.type === 'recite' ? '' + svgIcon('book-open') + '' : '' + svgIcon('pencil') + ''); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
+    doneItems.forEach(it => { const icon = (TYPES[it.type] ? TYPES[it.type].icon : svgIcon('book-open')); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
   
@@ -16064,7 +16064,7 @@ if (document.readyState === 'loading') {
     var p = state.anchorProjectId ? (store.projects && store.projects[state.anchorProjectId]) : null;
     if (p) {
       chip.hidden = false;
-      chip.innerHTML = '' + svgIcon('library') + ' ' + esc(p.name || '项目');
+      chip.innerHTML = '' + (TYPES[p.type] ? TYPES[p.type].icon : svgIcon('book-open')) + ' ' + esc(p.name || '项目');
     } else {
       chip.hidden = true;
     }
