@@ -6375,7 +6375,7 @@ function openWrongQuickRecord(p, meta) {
   const endP = meta && meta.endPage != null ? meta.endPage : '';
   const rangeHint = startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这';
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-下方第五题';
+  const fmtExample = setMode ? '例：3-5,6,7,4-2,3' : '例：215-1,2,3,4,5,下面第六题,216-2,3';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
@@ -6392,7 +6392,7 @@ function openWrongQuickRecord(p, meta) {
   mask.querySelector('#wqNo').onclick = finish;
   if (linked.length) {
     mask.querySelector('#wqOk').onclick = () => {
-      const marks = parseWrongMarks(input.value);
+      const marks = parseWrongMarks(input.value, startP);
       // 写到本次打卡 record（取今天最后一条 page record）
       const rec = findTodayPageRecord(p);
       if (rec) rec.wrongMarks = marks;
@@ -6411,14 +6411,25 @@ function openWrongQuickRecord(p, meta) {
   setTimeout(() => input && input.focus(), 50);
 }
 
-// 解析 "45-12,45-18" → ["45-12","45-18"]
-function parseWrongMarks(str) {
+// 解析 "215-1,2,3,4,5,下面第六题,216-2,3" → ["215-1","215-2","215-3","215-4","215-5","215-下面第六题","216-2","216-3"]
+// 页码只写一次，后面逗号分隔的题号沿用最近页码，直到遇到下一个带页码的条目
+function parseWrongMarks(str, defaultPage) {
   if (!str) return [];
   const out = [];
+  let currentPage = defaultPage != null ? String(defaultPage) : null;
   String(str).split(/[,，、\s]+/).forEach(s => {
     s = s.trim();
-    // 支持 "22-5"、"22-下方5"、"22-下方5（2）"、"3-5(2)" 等格式
-    if (/^\d+\s*[-–]\s*[\w\u4e00-\u9fa5（）()]+$/.test(s)) out.push(s.replace(/\s*[-–]\s*/, '-'));
+    if (!s) return;
+    // 匹配 "页码-题号" 格式（带页码）
+    const withPage = s.match(/^(\d+)\s*[-–]\s*(.+)$/);
+    if (withPage) {
+      currentPage = withPage[1];
+      const qno = withPage[2].trim();
+      if (qno) out.push(currentPage + '-' + qno);
+    } else if (currentPage && /^[\w\u4e00-\u9fa5（）()]+$/.test(s)) {
+      // 只有题号，沿用最近一个页码
+      out.push(currentPage + '-' + s);
+    }
   });
   return out;
 }
@@ -6507,7 +6518,7 @@ function editRecordWrongMarks(p, rid) {
   const cur = Array.isArray(rec.wrongMarks) ? rec.wrongMarks.join(', ') : '';
   const setMode = isSetMode(p);
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-下方第五题';
+  const fmtExample = setMode ? '例：3-5,6,7,4-2,3' : '例：215-1,2,3,4,5,下面第六题,216-2,3';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步更新关联错题本里的占位条目。</div>
@@ -6522,7 +6533,7 @@ function editRecordWrongMarks(p, rid) {
   mask.querySelector('#ewClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
   mask.querySelector('#ewCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
   mask.querySelector('#ewSave').onclick = () => {
-    const newMarks = parseWrongMarks(input.value);
+    const newMarks = parseWrongMarks(input.value, rec.startPage);
     const oldMarks = Array.isArray(rec.wrongMarks) ? rec.wrongMarks : [];
     rec.wrongMarks = newMarks;
     // 同步：删旧的占位条目（本 record 来源的），加新的
