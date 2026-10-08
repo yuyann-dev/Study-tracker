@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v135', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v136', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -6829,9 +6829,13 @@ function render() {
     const short = refName.length > 10 ? refName.substring(0, 10) + '…' : refName;
     linkBadge = `<span class="linked-badge clickable" data-ref-project="${p.refProjectId}">${svgIcon('link')} 关联：${esc(short)}</span>`;
   } else if (p.type === 'exercise') {
-    const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
-    if (linkedCount > 0) {
-      linkBadge = `<span class="linked-badge" title="${linkedCount}个关联错题本">${svgIcon('link')} ${linkedCount}个关联错题本</span>`;
+    const linkedMistakes = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id);
+    if (linkedMistakes.length === 1) {
+      // 只有一个关联错题本：可点击直接切换
+      linkBadge = `<span class="linked-badge clickable" data-ref-project="${linkedMistakes[0].id}">${svgIcon('link')} 关联错题本</span>`;
+    } else if (linkedMistakes.length > 1) {
+      // 多个关联错题本：普通显示（上方已有切换）
+      linkBadge = `<span class="linked-badge">${svgIcon('link')} ${linkedMistakes.length}个关联错题本</span>`;
     }
   }
   $('#bookTitle').textContent = p.name;
