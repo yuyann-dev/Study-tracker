@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v134', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v135', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
