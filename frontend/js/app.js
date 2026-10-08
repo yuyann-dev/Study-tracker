@@ -16910,28 +16910,10 @@ if (document.readyState === 'loading') {
   }
   // 智能跟随：用户往上滚就停，滚回底部附近就重新跟随
   var autoScrollEnabled = true;
-  var scrollBtn = null;
-  function ensureScrollBtn(){
-    if (scrollBtn || !els.body) return;
-    scrollBtn = document.createElement('button');
-    scrollBtn.className = 'ai-scroll-bottom';
-    scrollBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
-    scrollBtn.title = '回到底部';
-    scrollBtn.style.cssText = 'position:absolute;right:16px;bottom:8px;width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:5';
-    els.body.style.position = 'relative';
-    els.body.appendChild(scrollBtn);
-    scrollBtn.onclick = () => { autoScrollEnabled = true; scrollBottom(); scrollBtn.style.display = 'none'; };
-  }
   function onAiBodyScroll(){
     if (!els.body) return;
     var dist = els.body.scrollHeight - els.body.scrollTop - els.body.clientHeight;
-    if (dist > 80) {
-      autoScrollEnabled = false;
-      if (scrollBtn) scrollBtn.style.display = 'flex';
-    } else {
-      autoScrollEnabled = true;
-      if (scrollBtn) scrollBtn.style.display = 'none';
-    }
+    autoScrollEnabled = dist <= 80;
   }
 
   /* ---- 错误气泡 ---- */
@@ -18129,7 +18111,6 @@ if (document.readyState === 'loading') {
     };
 
     // 智能滚动：用户往上滚停跟随，滚回底部重新跟随
-    ensureScrollBtn();
     if (els.body) els.body.addEventListener('scroll', onAiBodyScroll);
 
     fab.onclick = function(){ mask.hidden ? openPanel() : closePanel(); };
