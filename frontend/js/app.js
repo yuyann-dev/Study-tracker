@@ -10746,7 +10746,9 @@ function playReminderBeep() {
 /* 统一提醒触发：优先系统通知，同时显示应用内提醒（双保险） */
 function fireReminder(title, body) {
   if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification(title, { body }); } catch (e) {}
+    // 系统通知只支持纯文本，去掉 SVG/HTML 标签，避免显示原始代码
+    const plainBody = body.replace(/<[^>]+>/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    try { new Notification(title, { body: plainBody }); } catch (e) {}
   }
   showInAppReminder(title, body);
 }
