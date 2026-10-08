@@ -1677,9 +1677,10 @@
   .sync-status-info{flex:1}
   .sync-status-label{font-size:13px;font-weight:600;color:var(--text)}
   .sync-status-time{font-size:11.5px;color:var(--muted);margin-top:2px}
-  .site-footer{text-align:center;font-size:11px;color:#8a8175;margin-top:16px;line-height:1.8;padding-bottom:env(safe-area-inset-bottom)}
-  .site-footer a{color:#8a8175;text-decoration:none;transition:.15s}
-  .site-footer .police-beian{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
+  .site-footer{display:flex;justify-content:center;align-items:center;gap:0;flex-wrap:wrap;font-size:11px;color:#8a8175;margin-top:16px;line-height:1;padding-bottom:env(safe-area-inset-bottom)}
+  .site-footer a{color:#8a8175;text-decoration:none;transition:.15s;display:inline-flex;align-items:center}
+  .site-footer .police-beian{display:inline-flex;align-items:center;gap:0;margin-left:0}
+  .site-footer .beian-sep{margin:0 8px;color:#b5ac9e;user-select:none}
   html[data-theme="dark"] .site-footer{color:#556c94}
   html[data-theme="dark"] .site-footer a{color:#556c94}
   html[data-theme="dark"] .auth-tabs{background:#273859}
