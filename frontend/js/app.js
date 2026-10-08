@@ -6387,7 +6387,7 @@ function openWrongQuickRecord(p, meta) {
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
   const input = mask.querySelector('#wqInput');
-  const finish = () => { mask.hidden = true; unlockBodyScroll(); p.wrongQuickRecordShownDate = todayStr(); p.updatedAt = Date.now(); saveStore(); render(); };
+  const finish = () => { mask.hidden = true; unlockBodyScroll(); p.updatedAt = Date.now(); saveStore(); render(); };
   mask.querySelector('#wqClose').onclick = finish;
   mask.querySelector('#wqNo').onclick = finish;
   if (linked.length) {
@@ -6403,7 +6403,7 @@ function openWrongQuickRecord(p, meta) {
     };
   } else {
     mask.querySelector('#wqCreate').onclick = () => {
-      p.wrongQuickRecordShownDate = todayStr(); p.updatedAt = Date.now(); saveStore();
+      p.updatedAt = Date.now(); saveStore();
       mask.hidden = true; unlockBodyScroll();
       startCreateLinkedMistake(p);
     };
@@ -14316,8 +14316,8 @@ $('#btnSetCheckin').addEventListener('click', () => {
   $('#inSetTotalQ').value = '';
   render();
   maybeShowProgressPraise(p);
-  // [v2 M7] 套卷打卡后也弹错题快录（每天最多 1 次）
-  if (p.type === 'exercise' && p.wrongQuickRecordShownDate !== todayStr()) {
+  // [v2 M7] 套卷打卡后弹错题快录
+  if (p.type === 'exercise') {
     setTimeout(() => openWrongQuickRecord(p, { setNo }), 900);
   }
 });
@@ -14421,8 +14421,8 @@ $('#btnCheckin').addEventListener('click', () => {
   $('#inPageEnd').value = '';
   render();
   maybeShowProgressPraise(p);
-  // [v2 M7] 打卡后弹错题快录条（每天最多 1 次，wrongQuickRecordShownDate）
-  if (p.type === 'exercise' && p.wrongQuickRecordShownDate !== todayStr()) {
+  // [v2 M7] 打卡后弹错题快录
+  if (p.type === 'exercise') {
     setTimeout(() => openWrongQuickRecord(p, { startPage: startPage != null ? startPage : endPage, endPage: endPage }), 900);
   }
   markOfflineWrite('checkin'); // ux-28
