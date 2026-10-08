@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v133', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v134', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -6827,7 +6827,7 @@ function render() {
   if (p.type === 'mistake' && p.refProjectId && store.projects[p.refProjectId]) {
     const refName = store.projects[p.refProjectId].name;
     const short = refName.length > 10 ? refName.substring(0, 10) + '…' : refName;
-    linkBadge = `<span class="linked-badge clickable" data-ref-project="${p.refProjectId}" title="点击切换到关联刷题本：${esc(refName)}">${svgIcon('link')} 关联：${esc(short)}</span>`;
+    linkBadge = `<span class="linked-badge clickable" data-ref-project="${p.refProjectId}">${svgIcon('link')} 关联：${esc(short)}</span>`;
   } else if (p.type === 'exercise') {
     const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
     if (linkedCount > 0) {
