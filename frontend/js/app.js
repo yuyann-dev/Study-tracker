@@ -6396,7 +6396,13 @@ function openWrongQuickRecord(p, meta) {
   mask.querySelector('#wqNo').onclick = finish;
   if (linked.length) {
     mask.querySelector('#wqOk').onclick = () => {
-      const marks = parseWrongMarks(input.value, defaultPage);
+      const raw = input.value.trim();
+      if (!raw) { showToast(svgIcon('alert-triangle'), '还没输入', '输入题号后再保存，或点「这次没有」。', 2500); return; }
+      const marks = parseWrongMarks(raw, defaultPage);
+      if (!marks.length) {
+        showToast(svgIcon('alert-triangle'), '格式没识别到', setMode ? '请直接写题号（如 5,6,7），跨套写套号-题号（如 4-2）。' : '请按「页码-题号」填写（如 45-1,2,3），或直接写题号沿用当前页。', 3500);
+        return;
+      }
       // 写到本次打卡 record（取今天最后一条 page record）
       const rec = findTodayPageRecord(p);
       if (rec) rec.wrongMarks = marks;
@@ -6538,7 +6544,12 @@ function editRecordWrongMarks(p, rid) {
   mask.querySelector('#ewClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
   mask.querySelector('#ewCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
   mask.querySelector('#ewSave').onclick = () => {
-    const newMarks = parseWrongMarks(input.value, recDefaultPage);
+    const raw = input.value.trim();
+    const newMarks = parseWrongMarks(raw, recDefaultPage);
+    if (raw && !newMarks.length) {
+      showToast(svgIcon('alert-triangle'), '格式没识别到', setMode ? '请直接写题号（如 5,6,7），跨套写套号-题号（如 4-2）。' : '请按「页码-题号」填写（如 45-1,2,3），或直接写题号沿用当前页。', 3500);
+      return;
+    }
     const oldMarks = Array.isArray(rec.wrongMarks) ? rec.wrongMarks : [];
     rec.wrongMarks = newMarks;
     // 同步：删旧的占位条目（本 record 来源的），加新的
