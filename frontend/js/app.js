@@ -6373,12 +6373,16 @@ function openWrongQuickRecord(p, meta) {
   const setMode = isSetMode(p);
   const startP = meta && meta.startPage != null ? meta.startPage : '';
   const endP = meta && meta.endPage != null ? meta.endPage : '';
-  const rangeHint = startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这';
-  const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5,6,4-2,3' : '例：45-1,2,3,下方第五题,46-2';
+  const setNo = meta && meta.setNo != null ? meta.setNo : '';
+  const defaultPage = setMode ? setNo : startP;
+  const rangeHint = setMode
+    ? (setNo !== '' ? `第 ${setNo} 套里` : '这套里')
+    : (startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这');
+  const fmtLabel = setMode ? '题号（跨套写套号-题号）' : '页码-题号';
+  const fmtExample = setMode ? '例：5,6,7，跨套写 4-2,3' : '例：45-1,2,3,下方第五题,46-2';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">${svgIcon('x', 16)}</button></div>
-    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔，题号先占位即可。</div>
     <input id="wqInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="ghost-btn" id="wqNo" style="flex:1">这次没有</button>
@@ -6392,7 +6396,7 @@ function openWrongQuickRecord(p, meta) {
   mask.querySelector('#wqNo').onclick = finish;
   if (linked.length) {
     mask.querySelector('#wqOk').onclick = () => {
-      const marks = parseWrongMarks(input.value, startP);
+      const marks = parseWrongMarks(input.value, defaultPage);
       // 写到本次打卡 record（取今天最后一条 page record）
       const rec = findTodayPageRecord(p);
       if (rec) rec.wrongMarks = marks;
@@ -6517,11 +6521,12 @@ function editRecordWrongMarks(p, rid) {
   }
   const cur = Array.isArray(rec.wrongMarks) ? rec.wrongMarks.join(', ') : '';
   const setMode = isSetMode(p);
-  const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5,6,4-2,3' : '例：45-1,2,3,下方第五题,46-2';
+  const recDefaultPage = setMode ? (rec.set != null ? rec.set : '') : (rec.startPage != null ? rec.startPage : '');
+  const fmtLabel = setMode ? '题号（跨套写套号-题号）' : '页码-题号';
+  const fmtExample = setMode ? '例：5,6,7，跨套写 4-2,3' : '例：45-1,2,3,下方第五题,46-2';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
-    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步更新关联错题本里的占位条目。</div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔。保存后会同步更新关联错题本里的占位条目。</div>
     <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" value="${esc(cur)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="ghost-btn" id="ewCancel" style="flex:1">取消</button>
@@ -6533,7 +6538,7 @@ function editRecordWrongMarks(p, rid) {
   mask.querySelector('#ewClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
   mask.querySelector('#ewCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
   mask.querySelector('#ewSave').onclick = () => {
-    const newMarks = parseWrongMarks(input.value, rec.startPage);
+    const newMarks = parseWrongMarks(input.value, recDefaultPage);
     const oldMarks = Array.isArray(rec.wrongMarks) ? rec.wrongMarks : [];
     rec.wrongMarks = newMarks;
     // 同步：删旧的占位条目（本 record 来源的），加新的
