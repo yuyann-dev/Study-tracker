@@ -1,22 +1,39 @@
-﻿MIT License
+﻿自定义非商业使用许可证
 
 Copyright (c) 2026 yuyann-dev
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+本软件著作权正在申请中，作者保留所有权利。
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+## 授予的权利
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+在遵守本许可证条款的前提下，作者授予任何获得本软件副本的人以下非独占、不可转让的权利：
 
+1. **学习与研究**：为个人学习、研究目的阅读、分析本软件的源代码和设计
+2. **非商业使用**：为个人非商业目的使用、复制、修改本软件
+3. **分享**：向他人分享本软件的原始副本（不得修改后再分发）
+
+## 限制条件
+
+1. **禁止商业使用**：不得将本软件（包括修改后的版本）用于任何商业目的，包括但不限于：
+   - 出售、出租、出借本软件
+   - 将本软件集成到商业产品或服务中
+   - 利用本软件提供付费服务
+   - 任何直接或间接产生经济收益的使用
+
+2. **禁止再分发修改版**：不得将修改后的本软件版本公开分发或发布。个人学习目的的修改仅限本地使用。
+
+3. **保留声明**：任何使用、复制或分享本软件，必须保留本许可证原文及作者版权声明。
+
+4. **注明出处**：在学术作品、公开分享或引用本软件时，必须注明原作者及项目来源。
+
+## 免责声明
+
+本软件按"原样"提供，作者不提供任何明示或暗示的担保，包括但不限于适销性、特定用途适用性和非侵权性的担保。在任何情况下，作者均不对因使用本软件而产生的任何索赔、损害或其他责任负责。
+
+## 商业授权
+
+如需商业使用本软件，请联系作者获取商业授权：
+- 邮箱：2719752623yy@gmail.com
+- 项目地址：https://github.com/yuyann-dev/Study-tracker
+
+作者保留随时修改本许可证条款的权利。

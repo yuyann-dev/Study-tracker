@@ -1,6 +1,6 @@
 # Study Tracker 考研学习规划应用
 
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-%E9%9D%9E%E5%95%86%E4%B8%9A%E4%BD%BF%E7%94%A8-red)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-green)
 ![Platform](https://img.shields.io/badge/platform-web%20%7C%20PWA-lightgrey)
 
@@ -223,7 +223,16 @@ docker-compose up -d
 
 ## 许可证
 
-MIT License。欢迎提 Issue 与 PR。
+本项目采用**自定义非商业使用许可证**：
+
+- 允许个人学习、研究、非商业使用
+- 禁止任何形式的商业使用（包括集成到商业产品、提供付费服务等）
+- 修改后的版本不得公开分发
+- 使用时需保留版权声明并注明出处
+
+软件著作权正在申请中，作者保留所有商业权利。如需商业授权，请联系作者。
+
+详见 [LICENSE](LICENSE)。
 
 ## 联系方式
 
