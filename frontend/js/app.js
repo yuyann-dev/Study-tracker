@@ -8738,7 +8738,7 @@ function ensureKbdHintBar(p){
   const q1 = isMistake ? '做对了' : '记得';
   const q2 = isMistake ? '看答案' : '模糊';
   const q3 = isMistake ? '又错了' : '忘记';
-  const sLabel = isMistake ? '已熟知' : '跳过/已熟知';
+  const sLabel = '已熟知';
   const hintHtml = '<span>' + svgIcon('keyboard', 14) + ' 键盘快捷：</span>'
     + '<span><b style="color:var(--brand)">1</b> ' + q1 + '</span>'
     + '<span><b style="color:var(--brand)">2</b> ' + q2 + '</span>'
