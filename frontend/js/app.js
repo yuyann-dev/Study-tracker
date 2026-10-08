@@ -8734,21 +8734,32 @@ function ensureKbdHintBar(p){
   if (getUIFlag('review_kbd_hint_dismissed')) return;
   // 触屏/平板不常驻键盘，不打扰
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+  const isMistake = p && p.type === 'mistake';
+  const q1 = isMistake ? '做对了' : '记得';
+  const q2 = isMistake ? '看答案' : '模糊';
+  const q3 = isMistake ? '又错了' : '忘记';
+  const sLabel = isMistake ? '已熟知' : '跳过/已熟知';
+  const hintHtml = '<span>' + svgIcon('keyboard', 14) + ' 键盘快捷：</span>'
+    + '<span><b style="color:var(--brand)">1</b> ' + q1 + '</span>'
+    + '<span><b style="color:var(--brand)">2</b> ' + q2 + '</span>'
+    + '<span><b style="color:var(--brand)">3</b> ' + q3 + '</span>'
+    + '<span><b style="color:var(--brand)">S</b> ' + sLabel + '</span>';
   let bar = document.getElementById('reviewKbdHint');
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'reviewKbdHint';
     bar.style.cssText = 'display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted)';
-    bar.innerHTML = '<span>' + svgIcon('keyboard', 14) + ' 键盘快捷：</span>'
-      + '<span><b style="color:var(--brand)">1</b> 记得</span>'
-      + '<span><b style="color:var(--brand)">2</b> 模糊</span>'
-      + '<span><b style="color:var(--brand)">3</b> 忘记</span>'
-      + '<span><b style="color:var(--brand)">S</b> 跳过/已熟知</span>'
+    bar.innerHTML = hintHtml
       + '<button type="button" id="reviewKbdClose" aria-label="关闭快捷键说明" style="margin-left:auto;display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer;line-height:1;padding:2px 6px">'+svgIcon('x', 14)+'</button>';
     const list = $('#reviewList');
     section.insertBefore(bar, list);
     const close = document.getElementById('reviewKbdClose');
     if (close) close.addEventListener('click', () => { setUIFlag('review_kbd_hint_dismissed'); bar.remove(); });
+  } else {
+    // 已存在时更新文案（项目切换时错题/背书文案不同）
+    const closeBtn = document.getElementById('reviewKbdClose');
+    bar.innerHTML = hintHtml;
+    if (closeBtn) bar.appendChild(closeBtn);
   }
 }
 
