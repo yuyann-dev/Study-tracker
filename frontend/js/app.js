@@ -6721,8 +6721,9 @@ function render() {
     // 清理过期未做的“提前复习”（点了但没做，第二天自动回到原计划日期，不惩罚）
     cleanupExpiredEarlyPulls(p);
     // 背书冲刺期：先把已排到考试之后的沉睡条目拉回考前（classic/balanced 都需要）
+    let _sprintMoved = 0;
     if (p.type === 'recite') {
-      const _sprintMoved = rebalanceForSprint(p);
+      _sprintMoved = rebalanceForSprint(p);
       if (_sprintMoved > 0) saveStore();
     }
     let _ens = 0;
@@ -6739,6 +6740,13 @@ function render() {
         __autoBalanceToastShown[_abKey] = true;
         setTimeout(() => showToast('' + svgIcon('scale') + '', '已自动均衡今日复习', `检测到今天待复习偏多，已把 ${_moved} 条均匀安排到未来几天，避免今天堆积；你也可以在复习区横幅手动调整。`, 3500), 450);
       }
+    }
+    // 今日任务总量因自动均衡/提前拉题/settleToday/冲刺重排发生变化时，清除今日预估标记，下次打开AI重新预估
+    if (_moved > 0 || _pulled > 0 || _settled > 0 || _ens > 0 || _sprintMoved > 0) {
+      delete p.todayEstimateDate;
+      delete p.todayTotalUnits;
+      delete p.todayEstimatedTotalMinutes;
+      saveStore();
     }
     if (_pulled > 0) {
       const _pfKey = p.id + ':pf:' + todayStr();
