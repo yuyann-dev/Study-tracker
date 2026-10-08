@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v130', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v131', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -149,7 +149,9 @@ const StudyTime = {
         if (!it) continue;
         var dueToday = it.nextReviewDate && String(it.nextReviewDate).slice(0, 10) <= today;
         var revToday = Array.isArray(it.reviews) && it.reviews.some(function(r) {
-          return r && String(r.date).slice(0, 10) === today;
+          if (!r || String(r.date).slice(0, 10) !== today) return false;
+          if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
+          return true;
         });
         if (dueToday || revToday) count++;
       }
@@ -208,7 +210,10 @@ const StudyTime = {
         var reviewedToday = items.filter(function(it) {
           if (!it || !Array.isArray(it.reviews)) return false;
           return it.reviews.some(function(r) {
-            return r && String(r.date).slice(0, 10) === today;
+            if (!r || String(r.date).slice(0, 10) !== today) return false;
+            // 排除刷题快录占位的review（不是真正复习）
+            if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
+            return true;
           });
         }).length;
 
@@ -220,7 +225,9 @@ const StudyTime = {
           items.forEach(function(it) {
             if (!it) return;
             var revToday = Array.isArray(it.reviews) && it.reviews.some(function(r) {
-              return r && String(r.date).slice(0, 10) === today;
+              if (!r || String(r.date).slice(0, 10) !== today) return false;
+              if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
+              return true;
             });
             if (!revToday) return;
             var em = Number(it.estimatedMinutes);
