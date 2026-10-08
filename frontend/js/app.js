@@ -143,12 +143,19 @@ const StudyTime = {
         count += Number(p.dailyCapacity) || 0;
         return;
       }
-      var items = Array.isArray(p.items) ? p.items : [];
-      // 只统计今日到期（今日复习区）的错题/背书数，新录入的不算
-      var dueCount = typeof getDueItems === 'function' ? getDueItems(p).length : items.filter(function(it) {
-        return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
-      }).length;
-      count += dueCount;
+      // 错题/背书项目：如果今天已预估过，用 todayTotalUnits（稳定值，完成错题不会变）
+      // 未预估过时用 getDueItems 作为初始指纹
+      var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+      var totalUnits = Number(p.todayTotalUnits);
+      if (estDate === today && isFinite(totalUnits) && totalUnits > 0) {
+        count += totalUnits;
+      } else {
+        var items = Array.isArray(p.items) ? p.items : [];
+        var dueCount = typeof getDueItems === 'function' ? getDueItems(p).length : items.filter(function(it) {
+          return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
+        }).length;
+        count += dueCount;
+      }
     });
     return count;
   },
@@ -14640,19 +14647,19 @@ function getReviewFeedback(quality, p, item) {
   let pool;
   if (quality === 'good') {
     pool = isMistake
-      ? ['' + svgIcon('check') + ' 做对了，下次见', '' + svgIcon('check') + ' 稳了，下次见', '' + svgIcon('check') + ' 拿下']
-      : ['' + svgIcon('check') + ' 记住啦，下次见', '' + svgIcon('check') + ' 很稳，下次见', '' + svgIcon('check') + ' 拿下'];
+      ? [{icon: svgIcon('check'), text: '做对了，下次见'}, {icon: svgIcon('check'), text: '稳了，下次见'}, {icon: svgIcon('check'), text: '拿下'}]
+      : [{icon: svgIcon('check'), text: '记住啦，下次见'}, {icon: svgIcon('check'), text: '很稳，下次见'}, {icon: svgIcon('check'), text: '拿下'}];
   } else if (quality === 'fuzzy') {
     pool = isMistake
-      ? ['～ 看答案了，下次再练', '～ 差一点，下次巩固', '～ 再眼熟两遍']
-      : ['～ 还差一点，下次巩固', '～ 再眼熟两遍', '～ 有点模糊'];
+      ? [{icon: '～', text: '看答案了，下次再练'}, {icon: '～', text: '差一点，下次巩固'}, {icon: '～', text: '再眼熟两遍'}]
+      : [{icon: '～', text: '还差一点，下次巩固'}, {icon: '～', text: '再眼熟两遍'}, {icon: '～', text: '有点模糊'}];
   } else {
     pool = isMistake
-      ? ['' + svgIcon('x') + ' 没关系，下次重做', '' + svgIcon('x') + ' 忘了正常，下次再来', '' + svgIcon('x') + ' 多过一次就牢了']
-      : ['' + svgIcon('x') + ' 忘了正常，下次再来', '' + svgIcon('x') + ' 下次再过一遍', '' + svgIcon('x') + ' 多过一次就牢了'];
+      ? [{icon: svgIcon('x'), text: '没关系，下次重做'}, {icon: svgIcon('x'), text: '忘了正常，下次再来'}, {icon: svgIcon('x'), text: '多过一次就牢了'}]
+      : [{icon: svgIcon('x'), text: '忘了正常，下次再来'}, {icon: svgIcon('x'), text: '下次再过一遍'}, {icon: svgIcon('x'), text: '多过一次就牢了'}];
   }
-  const full = _pick(pool);
-  let text = full.slice(2);
+  const fb = _pick(pool);
+  let text = fb.text;
   // [v2 背书 M6·⑦] 冲刺期答完模糊/忘记后，反馈区显示实际 gap 天数
   if (p.type === 'recite' && p.deadline && quality !== 'good' && item.nextReviewDate) {
     const d2d = diffDays(todayStr(), p.deadline);
@@ -14661,16 +14668,16 @@ function getReviewFeedback(quality, p, item) {
       if (gap > 0) text += `（已安排 ${gap} 天后重现，考前薄弱项高频复现中）`;
     }
   }
-  return { icon: full.slice(0, 1), text: text };
+  return { icon: fb.icon, text: text };
 }
 // 保持复习评价的反馈
 function getRetentionFeedback(item, result) {
   if (result === 'pass') {
-    const full = _pick(['' + svgIcon('check') + ' 还记得，下次再巩固', '' + svgIcon('check') + ' 记得很牢，下次见', '' + svgIcon('check') + ' 稳，下次再巩固']);
-    return { icon: full.slice(0, 1), text: full.slice(2) };
+    const fb = _pick([{icon: svgIcon('check'), text: '还记得，下次再巩固'}, {icon: svgIcon('check'), text: '记得很牢，下次见'}, {icon: svgIcon('check'), text: '稳，下次再巩固'}]);
+    return fb;
   }
-  const full = _pick(['～ 模糊了，已排到最近重做', '～ 没关系，回到复习列表多过两遍']);
-  return { icon: full.slice(0, 1), text: full.slice(2) };
+  const fb = _pick([{icon: '～', text: '模糊了，已排到最近重做'}, {icon: '～', text: '没关系，回到复习列表多过两遍'}]);
+  return fb;
 }
 
 // 清理过期未做的"提前复习"：如果用户点提前复习后当天没做，第二天恢复回原计划日期，不惩罚
