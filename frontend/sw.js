@@ -4,15 +4,15 @@
    注意：JS/CSS 的缓存失效靠 index.html 里的 ?v= 版本号，
    改了文件记得顺手升版本号，不然 SW 会一直吐旧缓存。
    API 请求不缓存，里面有用户数据。 */
-var CACHE = 'yystudy-v133';
+var CACHE = 'yystudy-v134';
 var CORE = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=b133',
-  './js/icons.js?v=b133',
-  './js/app.js?v=b133',
-  './js/auth.js?v=b133',
+  './css/style.css?v=b134',
+  './js/icons.js?v=b134',
+  './js/app.js?v=b134',
+  './js/auth.js?v=b134',
   './icon-192.png?v=4',
   './icon-512.png?v=4',
   './apple-touch-icon.png?v=4',

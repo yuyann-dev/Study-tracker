@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v131', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v132', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -144,17 +144,11 @@ const StudyTime = {
         return;
       }
       var items = Array.isArray(p.items) ? p.items : [];
-      for (var j = 0; j < items.length; j++) {
-        var it = items[j];
-        if (!it) continue;
-        var dueToday = it.nextReviewDate && String(it.nextReviewDate).slice(0, 10) <= today;
-        var revToday = Array.isArray(it.reviews) && it.reviews.some(function(r) {
-          if (!r || String(r.date).slice(0, 10) !== today) return false;
-          if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
-          return true;
-        });
-        if (dueToday || revToday) count++;
-      }
+      // 只统计今日到期（今日复习区）的错题/背书数，新录入的不算
+      var dueCount = typeof getDueItems === 'function' ? getDueItems(p).length : items.filter(function(it) {
+        return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
+      }).length;
+      count += dueCount;
     });
     return count;
   },
@@ -205,13 +199,15 @@ const StudyTime = {
           });
         }
       } else {
-        // 错题/背书项目
+        // 错题/背书项目：只算今日到期（今日复习区）且今日有真实review的
         var items = Array.isArray(p.items) ? p.items : [];
-        var reviewedToday = items.filter(function(it) {
+        var dueItems = typeof getDueItems === 'function' ? getDueItems(p) : items.filter(function(it) {
+          return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
+        });
+        var reviewedToday = dueItems.filter(function(it) {
           if (!it || !Array.isArray(it.reviews)) return false;
           return it.reviews.some(function(r) {
             if (!r || String(r.date).slice(0, 10) !== today) return false;
-            // 排除刷题快录占位的review（不是真正复习）
             if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
             return true;
           });
@@ -222,7 +218,7 @@ const StudyTime = {
           total += Math.round(ratio * totalMin);
         } else {
           // 兼容旧模式：每条 estimatedMinutes
-          items.forEach(function(it) {
+          dueItems.forEach(function(it) {
             if (!it) return;
             var revToday = Array.isArray(it.reviews) && it.reviews.some(function(r) {
               if (!r || String(r.date).slice(0, 10) !== today) return false;
