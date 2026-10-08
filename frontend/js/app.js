@@ -6375,7 +6375,7 @@ function openWrongQuickRecord(p, meta) {
   const endP = meta && meta.endPage != null ? meta.endPage : '';
   const rangeHint = startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这';
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5,6,7,4-2,3' : '例：215-1,2,3,4,5,下面第六题,216-2,3';
+  const fmtExample = setMode ? '例：3-5,6,4-2,3' : '例：45-1,2,3,下方第五题,46-2';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
@@ -6518,7 +6518,7 @@ function editRecordWrongMarks(p, rid) {
   const cur = Array.isArray(rec.wrongMarks) ? rec.wrongMarks.join(', ') : '';
   const setMode = isSetMode(p);
   const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5,6,7,4-2,3' : '例：215-1,2,3,4,5,下面第六题,216-2,3';
+  const fmtExample = setMode ? '例：3-5,6,4-2,3' : '例：45-1,2,3,下方第五题,46-2';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步更新关联错题本里的占位条目。</div>
