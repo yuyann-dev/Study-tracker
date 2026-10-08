@@ -23,7 +23,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  BUILD_VERSION: 'v132', /* 升级后强制重新预估今日任务时长 */
+  BUILD_VERSION: 'v133', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
 
@@ -836,6 +836,16 @@ document.addEventListener('click', e => {
   if (pop && !pop.hidden && !e.target.closest('#reasonPopover') && !e.target.closest('[data-reasonpicker]')) pop.hidden = true;
   const scopePanel = $('#inSetScopePanel');
   if (scopePanel && !scopePanel.hidden && !e.target.closest('#inSetScopeMulti')) scopePanel.hidden = true;
+  // 关联徽标点击：切换到关联刷题本
+  const linkBadge = e.target.closest('[data-ref-project]');
+  if (linkBadge) {
+    const refId = linkBadge.dataset.refProject;
+    if (refId && store.projects[refId]) {
+      store.currentId = refId;
+      saveStore();
+      render();
+    }
+  }
 });
 
 /* ============ 存储 ============ */
@@ -6817,7 +6827,7 @@ function render() {
   if (p.type === 'mistake' && p.refProjectId && store.projects[p.refProjectId]) {
     const refName = store.projects[p.refProjectId].name;
     const short = refName.length > 10 ? refName.substring(0, 10) + '…' : refName;
-    linkBadge = `<span class="linked-badge" title="关联刷题本：${esc(refName)}">${svgIcon('link')} 关联：${esc(short)}</span>`;
+    linkBadge = `<span class="linked-badge clickable" data-ref-project="${p.refProjectId}" title="点击切换到关联刷题本：${esc(refName)}">${svgIcon('link')} 关联：${esc(short)}</span>`;
   } else if (p.type === 'exercise') {
     const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
     if (linkedCount > 0) {
