@@ -14244,6 +14244,10 @@ $('#projectList').addEventListener('click', e => {
 
 /* 页码录入：顺序 / 区间切换 */
 let pageRangeMode = false;
+function hasRangeHistory(p) {
+  if (!p || !p.records) return false;
+  return p.records.some(r => r.startPage != null && r.startPage > 1);
+}
 function applyPageModeUI() {
   const lead = $('#piLead'), st = $('#inPageStart'), dash = $('#piDash'),
         end = $('#inPageEnd'), tg = $('#btnToggleRange');
@@ -14257,7 +14261,7 @@ function applyPageModeUI() {
   }
   if (pageRangeMode) {
     lead.textContent = '第'; st.hidden = false; dash.hidden = false;
-    end.placeholder = '结束页'; tg.textContent = '回到顺序录入';
+    end.placeholder = '结束页'; tg.textContent = '顺序录入';
   } else {
     lead.textContent = '学到第'; st.hidden = true; st.value = ''; dash.hidden = true;
     end.placeholder = lastEnd > 0 ? `上次 ${lastEnd}，本次到` : '页码';
@@ -14290,7 +14294,8 @@ function retainEntryValue(el) {
 
 function resetEntryInputs() {
   const t = todayStr();
-  pageRangeMode = false; applyPageModeUI();
+  const p = cur();
+  pageRangeMode = hasRangeHistory(p); applyPageModeUI();
   ['inPageStart', 'inPageEnd'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
   if ($('#inDate')) $('#inDate').value = t;
   ['inSetNo', 'inSetDone', 'inSetTotalQ'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
