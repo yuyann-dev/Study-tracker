@@ -15240,6 +15240,20 @@ $('#recordList').addEventListener('click', e => {
       if (idx >= 0) {
         const [removed] = p.items.splice(idx, 1);
         if (removed && removed.id) store.tombstones[removed.id] = Date.now();
+        // 快录占位条目：同步从关联刷题本打卡记录的 wrongMarks 里移除
+        let undoRefInfo = null;
+        if (removed && removed.fromExerciseRid && removed.fromExerciseMark && p.refProjectId && store.projects[p.refProjectId]) {
+          const refP = store.projects[p.refProjectId];
+          const rec = (refP.records || []).find(r => r.rid === removed.fromExerciseRid);
+          if (rec && Array.isArray(rec.wrongMarks)) {
+            const before = rec.wrongMarks.length;
+            rec.wrongMarks = rec.wrongMarks.filter(m => m !== removed.fromExerciseMark);
+            if (rec.wrongMarks.length < before) {
+              undoRefInfo = { refProjectId: p.refProjectId, rid: removed.fromExerciseRid, mark: removed.fromExerciseMark };
+              refP.updatedAt = Date.now();
+            }
+          }
+        }
         p.updatedAt = Date.now();
         saveStore();
         if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
@@ -15251,6 +15265,15 @@ $('#recordList').addEventListener('click', e => {
           if (!store.projects[p.id]) return;
           p.items.splice(Math.min(idx, p.items.length), 0, removed);
           if (removed && removed.id) delete store.tombstones[removed.id];
+          // 撤销删除：加回刷题本打卡记录的 wrongMarks
+          if (undoRefInfo && store.projects[undoRefInfo.refProjectId]) {
+            const refP = store.projects[undoRefInfo.refProjectId];
+            const rec = (refP.records || []).find(r => r.rid === undoRefInfo.rid);
+            if (rec && Array.isArray(rec.wrongMarks) && !rec.wrongMarks.includes(undoRefInfo.mark)) {
+              rec.wrongMarks.push(undoRefInfo.mark);
+              refP.updatedAt = Date.now();
+            }
+          }
           p.updatedAt = Date.now();
           saveStore();
           if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
