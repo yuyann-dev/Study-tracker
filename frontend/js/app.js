@@ -15655,6 +15655,16 @@ document.addEventListener('keydown', e => {
   }
 });
 
+/* skipConfirmMask 键盘导航：Enter确认，Esc取消（Esc已在全局处理） */
+document.addEventListener('keydown', e => {
+  const mask = $('#skipConfirmMask');
+  if (!mask || mask.hidden) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    $('#skipConfirmYes').click();
+  }
+});
+
 /* 统一表单回车导航：回车跳到下一个可见输入框，最后一个回车提交 */
 setupEnterNav($('#exerciseForm'), $('#btnCheckin'));
 setupEnterNav($('#setForm'), $('#btnSetCheckin'));
