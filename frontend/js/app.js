@@ -6541,7 +6541,7 @@ function pushWrongMarksToLinkedMistake(p, marks, fromRec) {
   mk.updatedAt = Date.now();
 }
 
-/* ---- M7·B 进度明细/打卡记录里事后编辑某条 record 的 wrongMarks，并同步增删占位条目 ---- */
+/* ---- M7·B 进度明细/打卡记录里事后补记错题：追加到已有记录，不覆盖 ---- */
 function editRecordWrongMarks(p, rid) {
   const rec = (p.records || []).find(r => r.rid === rid);
   if (!rec) return;
@@ -6552,38 +6552,54 @@ function editRecordWrongMarks(p, rid) {
     mask.id = maskId; mask.className = 'mask'; mask.hidden = true;
     document.body.appendChild(mask);
   }
-  const cur = Array.isArray(rec.wrongMarks) ? rec.wrongMarks.join(', ') : '';
   const setMode = isSetMode(p);
   const recDefaultPage = setMode ? (rec.set != null ? rec.set : '') : (rec.startPage != null ? rec.startPage : '');
   const fmtLabel = setMode ? '题号（跨套写套号-题号）' : '页码-题号';
   const fmtExample = setMode ? '例：5,6,7，跨套写 4-2,3' : '例：45-1,2,3,下方第五题,46-2';
+  const rangeHint = setMode
+    ? (rec.set != null ? `第 ${rec.set} 套里` : '这套里')
+    : (rec.startPage != null ? `这 ${rec.startPage}${rec.endPage != null && rec.endPage !== rec.startPage ? '–' + rec.endPage : ''} 页里` : '这条打卡里');
   mask.innerHTML = `<div class="modal" style="max-width:520px">
-    <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
-    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔。保存后会同步更新关联错题本里的占位条目。</div>
-    <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" value="${esc(cur)}" style="width:100%">
+    <div class="modal-head"><h2>${svgIcon('square-pen')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}还有做错的题吗？${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔，题号先占位即可。追加到已有记录，不覆盖之前的。</div>
+    <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
     <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="ghost-btn" id="ewCancel" style="flex:1">取消</button>
-      <button class="primary" id="ewSave" style="flex:1">保存</button>
+      <button class="ghost-btn" id="ewCancel" style="flex:1">这次没有</button>
+      <button class="primary" id="ewSave" style="flex:1">记进关联错题本</button>
+    </div>
+    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px">
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px">Enter</span> 确认
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px;margin-left:8px">Esc</span> 取消
     </div>
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
   const input = mask.querySelector('#ewInput');
-  mask.querySelector('#ewClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
-  mask.querySelector('#ewCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  const finish = () => { mask.hidden = true; unlockBodyScroll(); p.updatedAt = Date.now(); saveStore(); render(); };
+  mask.querySelector('#ewClose').onclick = finish;
+  mask.querySelector('#ewCancel').onclick = finish;
+  // 键盘快捷键：Enter确认，Esc取消
+  const ewKeyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); finish(); }
+    else if (e.key === 'Enter') { e.preventDefault(); mask.querySelector('#ewSave').click(); }
+  };
+  input.addEventListener('keydown', ewKeyHandler);
   mask.querySelector('#ewSave').onclick = () => {
     const raw = input.value.trim();
+    if (!raw) { showToast(svgIcon('alert-triangle'), '还没输入', '输入题号后再保存，或点「这次没有」。', 2500); return; }
     const newMarks = parseWrongMarks(raw, recDefaultPage);
-    if (raw && !newMarks.length) {
+    if (!newMarks.length) {
       showToast(svgIcon('alert-triangle'), '格式没识别到', setMode ? '请直接写题号（如 5,6,7），跨套写套号-题号（如 4-2）。' : '请按「页码-题号」填写（如 45-1,2,3），或直接写题号沿用当前页。', 3500);
       return;
     }
+    // 追加到已有记录，合并去重，不覆盖
     const oldMarks = Array.isArray(rec.wrongMarks) ? rec.wrongMarks : [];
-    rec.wrongMarks = newMarks;
-    // 同步：删旧的占位条目（本 record 来源的），加新的
-    syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec);
-    p.updatedAt = Date.now(); saveStore();
-    mask.hidden = true; unlockBodyScroll(); render();
-    showToast('' + svgIcon('check-circle') + '', '已保存错题标记', `共 ${newMarks.length} 道错题占位。`, 2500);
+    const merged = Array.from(new Set([...oldMarks, ...newMarks]));
+    rec.wrongMarks = merged;
+    // 只追加新录入的错题到关联错题本，不动已有的
+    const addOnly = newMarks.filter(x => !oldMarks.includes(x));
+    if (addOnly.length) pushWrongMarksToLinkedMistake(p, addOnly, rec);
+    finish();
+    showToast('' + svgIcon('check-circle') + '', '已补记错题', `新增 ${addOnly.length} 道错题占位，累计 ${merged.length} 道。`, 2800);
   };
   setTimeout(() => input && input.focus(), 50);
 }
