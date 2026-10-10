@@ -17129,9 +17129,9 @@ if (document.readyState === 'loading') {
     var statusEl = div.querySelector('.ai-typing-status');
     var steps = [
       { at: 0,    text: '正在思考…' },
-      { at: 3000, text: '正在调取你的学习数据…' },
-      { at: 8000, text: '正在分析你的进度…' },
-      { at: 15000, text: '正在整理建议…' },
+      { at: 3000, text: '正在组织思路…' },
+      { at: 8000, text: '正在分析…' },
+      { at: 15000, text: '正在整理回复…' },
       { at: 25000, text: '还在思考中，问题比较复杂…' }
     ];
     var timers = [];
