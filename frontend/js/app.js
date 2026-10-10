@@ -6463,7 +6463,7 @@ function parseWrongMarks(str, defaultPage) {
       currentPage = withPage[1];
       const qno = withPage[2].trim();
       if (qno) out.push(currentPage + '-' + qno);
-    } else if (currentPage && /^[\w\u4e00-\u9fa5（）()]+$/.test(s)) {
+    } else if (currentPage && /^[\w\u4e00-\u9fa5（）()、．·]+$/.test(s)) {
       // 只有题号，沿用最近一个页码
       out.push(currentPage + '-' + s);
     }
