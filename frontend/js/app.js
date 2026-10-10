@@ -83,6 +83,7 @@ const StudyTime = {
   setManualStudied: function(minutes) {
     minutes = Math.round(Number(minutes));
     if (!isFinite(minutes) || minutes < 0) minutes = 0;
+    this._recomputeTodayStudied();
     var auto = this.getAutoStudiedMin();
     this._addCalibrationSample(auto, minutes);
     this.setStudiedOffset(minutes - auto);
@@ -119,10 +120,13 @@ const StudyTime = {
 
   _addCalibrationSample: function(autoMin, userMin) {
     if (!this.hasAi()) return;
-    if (autoMin <= 0) return;
-    var diffPct = Math.abs(userMin - autoMin) / autoMin;
-    if (diffPct < this.CALIB_MIN_DIFF_PCT) return;
-    if (userMin <= 0 || userMin > autoMin * 5) return;
+    if (userMin <= 0) return;
+    // autoMin 为 0 时（系统还没算出自动时长），只要用户输入了正数就尝试采样
+    if (autoMin > 0) {
+      var diffPct = Math.abs(userMin - autoMin) / autoMin;
+      if (diffPct < this.CALIB_MIN_DIFF_PCT) return;
+      if (userMin > autoMin * 5) return;
+    }
 
     var today = todayStr();
     var cal = this._getCalibrationStore();
