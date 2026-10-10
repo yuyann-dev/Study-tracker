@@ -6400,12 +6400,27 @@ function openWrongQuickRecord(p, meta) {
       <button class="ghost-btn" id="wqNo" style="flex:1">这次没有</button>
       ${linked.length ? '<button class="primary" id="wqOk" style="flex:1">记进关联错题本</button>' : '<button class="primary" id="wqCreate" style="flex:1">去创建关联错题本</button>'}
     </div>
+    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px">
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px">Enter</span> 确认
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px;margin-left:8px">Esc</span> 取消
+    </div>
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
   const input = mask.querySelector('#wqInput');
   const finish = () => { mask.hidden = true; unlockBodyScroll(); p.updatedAt = Date.now(); saveStore(); render(); };
   mask.querySelector('#wqClose').onclick = finish;
   mask.querySelector('#wqNo').onclick = finish;
+  // 键盘快捷键：Enter确认，Esc取消
+  const wqKeyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); finish(); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const okBtn = mask.querySelector('#wqOk') || mask.querySelector('#wqCreate');
+      if (okBtn) okBtn.click();
+    }
+  };
+  input.addEventListener('keydown', wqKeyHandler);
+  mask._wqKeyHandler = wqKeyHandler;
   if (linked.length) {
     mask.querySelector('#wqOk').onclick = () => {
       const raw = input.value.trim();
@@ -6439,7 +6454,7 @@ function parseWrongMarks(str, defaultPage) {
   if (!str) return [];
   const out = [];
   let currentPage = defaultPage != null ? String(defaultPage) : null;
-  String(str).split(/[,，、\s]+/).forEach(s => {
+  String(str).split(/[,，\s]+/).forEach(s => {
     s = s.trim();
     if (!s) return;
     // 匹配 "页码-题号" 格式（带页码）
