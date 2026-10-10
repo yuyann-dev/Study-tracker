@@ -2349,13 +2349,15 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 .ai-suggest.undone .ai-suggest-bar{justify-content:center;color:var(--muted);font-size:12.5px}
 
 /* 打字指示器 */
-.ai-typing{display:inline-flex;gap:4px;padding:12px}
+.ai-msg#aiTyping{display:flex;align-items:center;gap:8px}
+.ai-typing{display:inline-flex;gap:4px;padding:12px 0}
 .ai-typing i{
   width:6px;height:6px;border-radius:50%;background:var(--muted);
   animation:aiBlink 1.2s infinite;
 }
 .ai-typing i:nth-child(2){animation-delay:.2s}
 .ai-typing i:nth-child(3){animation-delay:.4s}
+.ai-typing-status{color:var(--muted);font-size:13px;opacity:.8}
 @keyframes aiBlink{
   0%,100%{opacity:.3;transform:translateY(0)}
   50%{opacity:1;transform:translateY(-3px)}

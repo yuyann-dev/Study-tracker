@@ -17121,14 +17121,34 @@ if (document.readyState === 'loading') {
   function addTyping(){
     var div = document.createElement('div');
     div.className = 'ai-msg ai';
-    div.innerHTML = '<span class="ai-typing"><i></i><i></i><i></i></span>';
     div.id = 'aiTyping';
+    div.innerHTML = '<span class="ai-typing"><i></i><i></i><i></i></span><span class="ai-typing-status">正在思考…</span>';
     els.msgs.appendChild(div);
     scrollBottom();
+    // 动态状态提示：按等待时间切换，让用户知道 AI 在做什么
+    var statusEl = div.querySelector('.ai-typing-status');
+    var steps = [
+      { at: 0,    text: '正在思考…' },
+      { at: 3000, text: '正在调取你的学习数据…' },
+      { at: 8000, text: '正在分析你的进度…' },
+      { at: 15000, text: '正在整理建议…' },
+      { at: 25000, text: '还在思考中，问题比较复杂…' }
+    ];
+    var timers = [];
+    steps.forEach(function(s) {
+      var t = setTimeout(function() {
+        if (statusEl) statusEl.textContent = s.text;
+      }, s.at);
+      timers.push(t);
+    });
+    div._typingTimers = timers;
   }
   function removeTyping(){
     var t = document.getElementById('aiTyping');
-    if (t) t.remove();
+    if (t) {
+      if (t._typingTimers) t._typingTimers.forEach(clearTimeout);
+      t.remove();
+    }
   }
   function addAiMsg(html, isProactive, createdAt){
     var div = document.createElement('div');
