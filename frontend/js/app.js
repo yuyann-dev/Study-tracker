@@ -79,13 +79,134 @@ const StudyTime = {
     return Math.max(0, this.getBudgetMin() - this.getDisplayStudiedMin());
   },
 
-  /* 用户手动修改已学时长：设偏移量 = 用户输入 - 当前自动值 */
+  /* 用户手动修改已学时长：设偏移量 = 用户输入 - 当前自动值，并采样校准 */
   setManualStudied: function(minutes) {
     minutes = Math.round(Number(minutes));
     if (!isFinite(minutes) || minutes < 0) minutes = 0;
     var auto = this.getAutoStudiedMin();
+    this._addCalibrationSample(auto, minutes);
     this.setStudiedOffset(minutes - auto);
     this.updateDisplay();
+  },
+
+  /* ============ 校准算法：手动修改后采样，长期学习实际速度 ============ */
+  CALIB_MIN_SAMPLES: 2,
+  CALIB_MAX_SAMPLES: 30,
+  CALIB_HALF_LIFE_DAYS: 7,
+  CALIB_MIN_DIFF_PCT: 0.05,
+
+  _getCalibrationStore: function() {
+    if (typeof store === 'undefined' || !store) return { perProject: {} };
+    if (!store.aiCalibration) store.aiCalibration = { perProject: {} };
+    if (!store.aiCalibration.perProject) store.aiCalibration.perProject = {};
+    return store.aiCalibration;
+  },
+
+  _calcWeightedPerUnit: function(samples) {
+    if (!samples || samples.length < this.CALIB_MIN_SAMPLES) return null;
+    var today = todayStr();
+    var totalWeight = 0, totalWeighted = 0;
+    var self = this;
+    samples.forEach(function(s) {
+      var daysAgo = Math.max(0, (new Date(today) - new Date(s.date)) / 86400000);
+      var weight = Math.pow(0.5, daysAgo / self.CALIB_HALF_LIFE_DAYS);
+      totalWeight += weight;
+      totalWeighted += s.perUnitMin * weight;
+    });
+    if (totalWeight <= 0) return null;
+    return Math.round(totalWeighted / totalWeight);
+  },
+
+  _addCalibrationSample: function(autoMin, userMin) {
+    if (!this.hasAi()) return;
+    if (autoMin <= 0) return;
+    var diffPct = Math.abs(userMin - autoMin) / autoMin;
+    if (diffPct < this.CALIB_MIN_DIFF_PCT) return;
+    if (userMin <= 0 || userMin > autoMin * 5) return;
+
+    var today = todayStr();
+    var cal = this._getCalibrationStore();
+    var self = this;
+    var projects = (typeof store !== 'undefined' && store && store.projects) || {};
+
+    var projectContrib = [];
+    var totalAuto = 0;
+    Object.keys(projects).forEach(function(pid) {
+      var p = projects[pid];
+      if (!p || p.archived) return;
+      var totalMin = Number(p.todayEstimatedTotalMinutes);
+      var totalUnits = Number(p.todayTotalUnits);
+      var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+      if (estDate !== today || !isFinite(totalMin) || totalMin < 1 || !isFinite(totalUnits) || totalUnits < 1) return;
+
+      var doneUnits = 0;
+      if (p.type === 'exercise') {
+        var records = Array.isArray(p.records) ? p.records : [];
+        var todayRecords = records.filter(function(r) { return r && r.date === today; });
+        doneUnits = self._calcDonePages(records, todayRecords, today);
+      } else {
+        var items = Array.isArray(p.items) ? p.items : [];
+        var dueItems = typeof getDueItems === 'function' ? getDueItems(p) : items.filter(function(it) {
+          return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
+        });
+        doneUnits = dueItems.filter(function(it) {
+          if (!it || !Array.isArray(it.reviews)) return false;
+          return it.reviews.some(function(r) {
+            if (!r || String(r.date).slice(0, 10) !== today) return false;
+            if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
+            return true;
+          });
+        }).length;
+      }
+      if (doneUnits <= 0) return;
+      var projAuto = Math.min(1, doneUnits / totalUnits) * totalMin;
+      projectContrib.push({ pid: pid, name: p.name, type: p.type, doneUnits: doneUnits, projAuto: projAuto });
+      totalAuto += projAuto;
+    });
+
+    if (totalAuto <= 0 || projectContrib.length === 0) return;
+
+    projectContrib.forEach(function(c) {
+      var share = totalAuto > 0 ? c.projAuto / totalAuto : 0;
+      var userProjMin = userMin * share;
+      var perUnit = userProjMin / c.doneUnits;
+      perUnit = Math.max(1, Math.min(perUnit, 240));
+
+      if (!cal.perProject[c.pid]) cal.perProject[c.pid] = { samples: [] };
+      cal.perProject[c.pid].samples.push({
+        date: today,
+        doneUnits: c.doneUnits,
+        autoMin: Math.round(c.projAuto),
+        userMin: Math.round(userProjMin),
+        perUnitMin: Math.round(perUnit)
+      });
+      if (cal.perProject[c.pid].samples.length > self.CALIB_MAX_SAMPLES) {
+        cal.perProject[c.pid].samples = cal.perProject[c.pid].samples.slice(-self.CALIB_MAX_SAMPLES);
+      }
+      cal.perProject[c.pid].weightedPerUnit = self._calcWeightedPerUnit(cal.perProject[c.pid].samples);
+      cal.perProject[c.pid].sampleCount = cal.perProject[c.pid].samples.length;
+    });
+
+    if (typeof saveStore === 'function') saveStore();
+  },
+
+  getCalibrationPrompt: function() {
+    var cal = this._getCalibrationStore();
+    var lines = [];
+    var self = this;
+    var projects = (typeof store !== 'undefined' && store && store.projects) || {};
+    Object.keys(cal.perProject || {}).forEach(function(pid) {
+      var pc = cal.perProject[pid];
+      if (!pc || !pc.samples || pc.samples.length < self.CALIB_MIN_SAMPLES) return;
+      var p = projects[pid];
+      var name = p ? p.name : pid;
+      var wpu = self._calcWeightedPerUnit(pc.samples);
+      if (!wpu) return;
+      var unit = (p && p.type === 'exercise') ? '页' : '条';
+      lines.push('- ' + name + '：实际约' + wpu + '分钟/' + unit + '（' + pc.samples.length + '次采样）');
+    });
+    if (lines.length === 0) return '';
+    return '\n\n【用户历史校准数据（实际做题速度）】\n' + lines.join('\n') + '\n请参考这些实际速度进行预估，不要用默认值。';
   },
 
   /* 更新 UI 显示（AI面板输入区） */
@@ -358,17 +479,18 @@ const StudyTime = {
               } else if (data && data.store) {
                 store = data.store;
               }
-              if (!wasEstimated) localStorage.setItem(self._key('studied_offset'), '0');
+              // 每次重新预估后重置手动偏移：预估基准变了，旧的校准不再适用
+              localStorage.setItem(self._key('studied_offset'), '0');
               self._recomputeTodayStudied();
               self.updateDisplay();
             })
             .catch(function() {
-              if (!wasEstimated) localStorage.setItem(self._key('studied_offset'), '0');
+              localStorage.setItem(self._key('studied_offset'), '0');
               self._recomputeTodayStudied();
               self.updateDisplay();
             });
         } catch(e) {
-          if (!wasEstimated) localStorage.setItem(self._key('studied_offset'), '0');
+          localStorage.setItem(self._key('studied_offset'), '0');
           self._recomputeTodayStudied();
           self.updateDisplay();
         }
@@ -440,7 +562,7 @@ const StudyTime = {
         signal: estCtrl.signal,
         body: JSON.stringify({
           silent: true,
-          message: '以下是今日所有项目的任务清单：' + taskJson + '。请根据每个项目的今日任务量（units），分别预估每个项目今日完成所有任务需要的总分钟数。这是考研备考系统，所有项目都是考研相关学习材料。参考考研真题典型做题速度：数学真题分类习题册一页约7-8题，考试平均每题8分钟，计算时长需要包含做题+对答案+整理，一页约1小时；408计算机真题分类习题册一页约4-5题，选择题每题1.5-2分钟、综合题每题20-30分钟，一页约15分钟；错题复习每条5分钟；背书项目根据条目内容多少和页数自行判断。如果项目是整套试卷模式（isPaperSet=true），units表示今日需要完成的套数（可以是小数，比如0.3表示今天做30%的一套），按考研考试标准估算：数学/408/英语均为180分钟一套，总时长=units×180分钟，不要因为units小于1就跳过。如果不在以上范围内且你对某科速度不确定，可以调用 web_search 工具搜索，参数格式为 {"query": "搜索关键词"}。结合你对我的长期记忆（比如我之前说过的学习习惯、某类任务的速度），用 set_task_estimates 工具给清单里**所有**项目分别写回预估，参数格式为 {"estimates": [{"projectId": "项目id", "totalMinutes": 该项目今日总时长分钟数, "totalUnits": 该项目今日任务总数}]}。每个项目都要预估，不能遗漏，包括套卷模式和units很小的项目。如果长期记忆中有特别提到对某项任务速度快或者慢，请合理调整幅度，但也要合理，符合人类正常速度。totalMinutes 是该项目今日完成所有任务需要的总分钟数，totalUnits 直接用清单里的 units 值。只调用工具，不需要给我文字回复。',
+          message: '以下是今日所有项目的任务清单：' + taskJson + '。请根据每个项目的今日任务量（units），分别预估每个项目今日完成所有任务需要的总分钟数。这是考研备考系统，所有项目都是考研相关学习材料。参考考研真题典型做题速度：数学真题分类习题册一页约7-8题，考试平均每题8分钟，计算时长需要包含做题+对答案+整理，一页约1小时；408计算机真题分类习题册一页约4-5题，选择题每题1.5-2分钟、综合题每题20-30分钟，一页约15分钟；错题复习每条5分钟；背书项目根据条目内容多少和页数自行判断。如果项目是整套试卷模式（isPaperSet=true），units表示今日需要完成的套数（可以是小数，比如0.3表示今天做30%的一套），按考研考试标准估算：数学/408/英语均为180分钟一套，总时长=units×180分钟，不要因为units小于1就跳过。如果不在以上范围内且你对某科速度不确定，可以调用 web_search 工具搜索，参数格式为 {"query": "搜索关键词"}。结合你对我的长期记忆（比如我之前说过的学习习惯、某类任务的速度），用 set_task_estimates 工具给清单里**所有**项目分别写回预估，参数格式为 {"estimates": [{"projectId": "项目id", "totalMinutes": 该项目今日总时长分钟数, "totalUnits": 该项目今日任务总数}]}。每个项目都要预估，不能遗漏，包括套卷模式和units很小的项目。如果长期记忆中有特别提到对某项任务速度快或者慢，请合理调整幅度，但也要合理，符合人类正常速度。totalMinutes 是该项目今日完成所有任务需要的总分钟数，totalUnits 直接用清单里的 units 值。只调用工具，不需要给我文字回复。' + self.getCalibrationPrompt(),
           context: { silentEstimate: true }
         })
       }).then(function(resp) {
