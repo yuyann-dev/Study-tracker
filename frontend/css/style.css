@@ -1516,6 +1516,7 @@
   .cm-options{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
   .cm-opt{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer;transition:.15s;text-align:left;font-family:inherit}
   .cm-opt:active{transform:scale(.99)}
+  .cm-opt:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px rgba(46,107,79,.18)}
   .cm-opt-icon{font-size:20px;flex:0 0 auto}
   .cm-opt-main{flex:1;min-width:0}
   .cm-opt-title{font-size:14px;font-weight:600;color:var(--text)}

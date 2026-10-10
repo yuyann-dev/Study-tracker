@@ -4652,6 +4652,11 @@ function showConfirmMaster(item, p, recentReviews, reason) {
 
   mask.hidden = false;
   modalTop(mask);
+  // 默认聚焦第一个选项，支持 Enter 直接确认、↑↓ 切换
+  setTimeout(() => {
+    const firstOpt = mask.querySelector('.cm-opt');
+    if (firstOpt) firstOpt.focus();
+  }, 50);
 }
 
 function confirmMasterItem(confirm, mode, customIntervals) {
@@ -15616,7 +15621,7 @@ document.addEventListener('keydown', e => {
   else if (!$('#dashMask').hidden) closeDashboard();
   else if (!$('#reasonKindMask').hidden) { $('#reasonKindClose').click(); }
   else if (!$('#skipConfirmMask').hidden) { $('#skipCancel').click(); }
-  // confirmMasterMask 不响应 ESC，必须主动选择一个选项
+  else if (!$('#confirmMasterMask').hidden) { $('#cmCancel').click(); }
   else if (!$('#settingsMask').hidden) closeSettings();
   else if (!$('#formMask').hidden) closeForm();
   else if (!$('#switchMask').hidden) closeSwitch();
@@ -15629,6 +15634,25 @@ document.addEventListener('keydown', e => {
   else if (!$('#tplManagerMask').hidden) { $('#tplManagerClose').click(); }
   else if (!$('#incognitoMask').hidden) { closeIncognito(); }
   // dataSecurityMask 不响应 ESC，必须等3秒后点击"我已知晓"
+});
+
+/* confirmMasterMask 键盘导航：Enter确认当前选项，↑↓切换选项 */
+document.addEventListener('keydown', e => {
+  const mask = $('#confirmMasterMask');
+  if (!mask || mask.hidden) return;
+  const opts = mask.querySelectorAll('.cm-opt');
+  if (!opts.length) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const focused = mask.querySelector('.cm-opt:focus') || opts[0];
+    if (focused) focused.click();
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    let idx = Array.from(opts).findIndex(o => o === document.activeElement);
+    if (idx < 0) idx = 0;
+    idx = e.key === 'ArrowDown' ? (idx + 1) % opts.length : (idx - 1 + opts.length) % opts.length;
+    opts[idx].focus();
+  }
 });
 
 /* 统一表单回车导航：回车跳到下一个可见输入框，最后一个回车提交 */
