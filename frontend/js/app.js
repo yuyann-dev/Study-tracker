@@ -6396,13 +6396,13 @@ function openWrongQuickRecord(p, meta) {
     <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔，题号先占位即可。</div>
     <input id="wqInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
-    <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="ghost-btn" id="wqNo" style="flex:1">这次没有</button>
-      ${linked.length ? '<button class="primary" id="wqOk" style="flex:1">记进关联错题本</button>' : '<button class="primary" id="wqCreate" style="flex:1">去创建关联错题本</button>'}
-    </div>
-    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px">
+    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px;margin-bottom:4px">
       <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px">Enter</span> 确认
       <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px;margin-left:8px">Esc</span> 取消
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="ghost-btn" id="wqNo" style="flex:1">这次没有</button>
+      ${linked.length ? '<button class="primary" id="wqOk" style="flex:1">记进关联错题本</button>' : '<button class="primary" id="wqCreate" style="flex:1">去创建关联错题本</button>'}
     </div>
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
@@ -6563,13 +6563,13 @@ function editRecordWrongMarks(p, rid) {
     <div class="modal-head"><h2>${svgIcon('square-pen')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
     <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}还有做错的题吗？${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔，题号先占位即可。追加到已有记录，不覆盖之前的。</div>
     <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
-    <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="ghost-btn" id="ewCancel" style="flex:1">这次没有</button>
-      <button class="primary" id="ewSave" style="flex:1">记进关联错题本</button>
-    </div>
-    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px">
+    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px;margin-bottom:4px">
       <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px">Enter</span> 确认
       <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px;margin-left:8px">Esc</span> 取消
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="ghost-btn" id="ewCancel" style="flex:1">这次没有</button>
+      <button class="primary" id="ewSave" style="flex:1">记进关联错题本</button>
     </div>
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
