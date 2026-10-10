@@ -6454,7 +6454,7 @@ function parseWrongMarks(str, defaultPage) {
   if (!str) return [];
   const out = [];
   let currentPage = defaultPage != null ? String(defaultPage) : null;
-  String(str).split(/[,，\s]+/).forEach(s => {
+  String(str).split(/[,，]+/).forEach(s => {
     s = s.trim();
     if (!s) return;
     // 匹配 "页码-题号" 格式（带页码）
@@ -6463,8 +6463,8 @@ function parseWrongMarks(str, defaultPage) {
       currentPage = withPage[1];
       const qno = withPage[2].trim();
       if (qno) out.push(currentPage + '-' + qno);
-    } else if (currentPage && /^[\w\u4e00-\u9fa5（）()、．·]+$/.test(s)) {
-      // 只有题号，沿用最近一个页码
+    } else if (currentPage) {
+      // 只有题号，沿用最近一个页码；自由输入支持任何格式
       out.push(currentPage + '-' + s);
     }
   });
