@@ -10614,18 +10614,8 @@ function openDashboard() {
 
   const streak = currentStreak(heat, today);
 
-  let msg, enc, sub, urgent = false;
+  let msg, enc, urgent = false;
   const g = timeGreeting();
-  const h = new Date().getHours();
-  // 副标题随时间段和状态变化，不固定
-  const subPool = {
-    morning: ['新的一天，先把节奏找回来', '清晨效率最高，先啃硬骨头', '早起的人已经在刷题了', '今天也要稳稳推进', '从第一题开始，进入状态'],
-    day: ['下午容易困，站起来动一动', '稳住节奏，别中断', '下午适合做套卷和错题', '保持专注，效率会更高', '已经过半了，继续加油'],
-    evening: ['晚上安静，适合深度刷题', '别拖到深夜，现在开始正好', '晚上复盘白天的内容', '今天的任务今天清', '安静的夜晚效率很高'],
-    night: ['夜深了，学完早点休息', '别熬太晚，明天还要继续', '深夜适合整理错题']
-  };
-  const subKey = h < 11 ? 'morning' : h < 14 ? 'day' : h < 18 ? 'day' : h < 23 ? 'evening' : 'night';
-  sub = Coach.pick(subPool[subKey], 'dashsub' + subKey);
 
   if (overdueTotal > 0) {
     msg = `有 <b>${overdueTotal}</b> 条已逾期，先把这些最该复习的清掉`; urgent = true;
@@ -10633,7 +10623,6 @@ function openDashboard() {
   } else if (tasksTotal > 0 && tasksDone >= tasksTotal) {
     if (tasksOver > 0) { msg = '今天的任务全部完成，还超额了'; enc = Coach.pick(Coach.overBig, 'dashover'); }
     else { msg = `今天 ${tasksTotal} 个任务全部完成`; enc = Coach.pick(Coach.done, 'dashdone'); }
-    sub = streak >= 3 ? `已经连续 ${streak} 天了，这份坚持很了不起` : '今天的目标达成，可以安心休息了';
   } else if (tasksTotal > 0 && tasksDone > 0) {
     msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 ${tasksTotal - tasksDone} 个`;
     enc = Coach.pick(Coach.dashPartial, 'dashpartial');
@@ -10719,7 +10708,6 @@ function openDashboard() {
     ${getWeeklyReviewHTML()}
     <div class="dash-hero ${urgent ? 'urgent' : ''}">
       <div class="greet-big">${g}${(typeof STAuth!=="undefined"&&STAuth.isLoggedIn()&&STAuth.getUsername())?"，"+esc(STAuth.getUsername())+"！":""}</div>
-      <div class="greet-sub">${sub}</div>
       <div class="hero-status">${msg}</div>
       <div class="hero-enc">${enc}</div>
     </div>
