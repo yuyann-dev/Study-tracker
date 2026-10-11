@@ -6318,7 +6318,7 @@ function renderDailyGoal(p, m) {
       mood = 'progress';
       // 刷题本低进度：根据速度状态选择不同文案
       if (speedState === 'fast') {
-        pr = Coach.pick(Coach.exerciseLowFast, 'elf') + '，' + Coach.pick(Coach.speedUp, 'su');
+        pr = Coach.pick(Coach.exerciseLowFast, 'elf');
       } else if (speedState === 'slow') {
         pr = Coach.pick(Coach.exerciseLowSlow, 'els');
       } else if (ratio < 0.2) {
