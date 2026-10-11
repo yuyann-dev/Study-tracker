@@ -5242,6 +5242,65 @@ const Coach = {
     '前几天是磨合期，做几天就顺了',
     '开局阶段，找到自己的节奏最重要',
   ],
+  // 速度加快检测：今天进度比平时快
+  speedUp: [
+    '今天状态不错，比平时快，保持住',
+    '手感正好，趁势多推进一些',
+    '今天效率很高，这个节奏很好',
+    '进入状态了，越做越顺',
+    '速度比平时快，说明知识点掌握得不错',
+  ],
+  // 速度变慢检测：今天进度比平时慢
+  speedSlow: [
+    '今天慢一点没关系，稳扎稳打更重要',
+    '遇到难题了？慢慢来，搞懂一道是一道',
+    '节奏放缓了，说明这部分需要多花时间',
+    '不用急，理解比速度更重要',
+    '慢工出细活，这部分吃透了后面会快',
+  ],
+  // 有逾期时的文案
+  hasOverdue: [
+    '有几道逾期了，先把最久的清掉',
+    '逾期的题最容易忘，优先处理它们',
+    '先清逾期，再做新的，记忆更牢',
+  ],
+  // 冲刺期文案
+  sprint: [
+    '冲刺阶段，保持节奏别松劲',
+    '临近目标，每一道题都算数',
+    '最后阶段，稳住就是赢',
+  ],
+  // 不可能完成（硬约束不建议延期）
+  impossibleHard: [
+    '今天任务量很大，拆成几次完成',
+    '量不小，能做多少做多少，每道都有价值',
+    '冲刺量，优先把高频考点拿下',
+  ],
+  // 刷题本低进度（更丰富，带速度检测）
+  exerciseLow: [
+    '已经动起来了，继续保持这个节奏',
+    '开了个好头，往下推进会越来越顺',
+    '进度在往前走，别停',
+    '已经开始了，这就是最重要的一步',
+    '状态不错，接着做',
+    '今天已经有进展了，继续',
+    '动起来就不难，保持住',
+    '不错的开局，一鼓作气',
+    '进入状态了，趁势多做几道',
+    '今天的状态可以，保持',
+  ],
+  // 刷题本低进度+速度快
+  exerciseLowFast: [
+    '开局很快，手感正好，继续',
+    '今天进入状态很快，保持这个速度',
+    '一开始就很顺，说明这部分掌握得不错',
+  ],
+  // 刷题本低进度+速度慢
+  exerciseLowSlow: [
+    '开头慢一点正常，后面会越来越顺',
+    '刚开始进入状态，慢慢来',
+    '第一道题总是最难的，做开就好了',
+  ],
 };
 function coachSlot() {
   const h = new Date().getHours();
@@ -5507,8 +5566,10 @@ function getStatusMessage(p, m) {
         body += `<b>想赶上 ${fmtCN(p.deadline)}，可行的方式：</b>${planText(plan.onTime)}。<br><br>`;
       }
     }
-    if (plan.delay) {
+    if (plan.delay && p.hardDeadline !== true) {
       body += `<b>如果强度太大，更现实的是把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏更稳）。截止日是规划工具不是审判，可在设置里调整。`;
+    } else if (plan.delay && p.hardDeadline === true) {
+      body += `<b>这是硬约束/考试日，不建议后移。</b>能做多少做多少，每道题都有价值。`;
     }
     body += reciteCycleLine + sparseNote;
     return { icon: overdue ? '' + svgIcon('octagon-x') + '' : '' + svgIcon('wrench') + '', cls:'bad', title: overdue ? '已过目标日，一起重新规划' : '目标偏紧，需要调整安排', desc: body };
@@ -6187,67 +6248,94 @@ function renderDailyGoal(p, m) {
   const doneR = Math.round(done * 10) / 10;
   const ratio = target > 0 ? done / target : 0;
   const pct = Math.min(100, ratio * 100);
+  const isHard = p.hardDeadline === true;
+
+  // 速度检测：今天已完成量 vs 平时每次平均量（仅当有足够数据且已完成>0时）
+  let speedState = 'normal';
+  if (done > 0 && m.enoughData && m.perStudyDayRaw > 0) {
+    // 简单判断：已完成量超过平时每次平均的50%且进度<50%，说明速度快；低于30%说明速度慢
+    const avgRate = m.perStudyDayRaw;
+    if (done >= avgRate * 0.6 && ratio < 0.5) speedState = 'fast';
+    else if (done < avgRate * 0.25 && ratio < 0.3) speedState = 'slow';
+  }
 
   let mood, l, pr;
-  // 启动量：套卷为最小单位 1 套；当目标本身不足 1 套/学习日（如 0.3 套，约几天一套）时，
-  // 明确"今天做 1 套就够"，避免与"0.3 套/天"的目标自相矛盾、让用户误以为要补量。
   const isFracPaper = u === '套' && targetR < 1;
-  const startUnit = Math.max(1, Math.round(targetR*0.3));
   const slot = coachSlot();
   if (done <= 0) {
     mood = 'idle';
     l = `今天目标 ${fmtUnitNum(targetR)} ${u} · 还没动`;
     const gap = m.prevStudyDate ? Math.max(0, diffDays(m.prevStudyDate, today) - 1) : 0;
     if (m.feasibility === 'impossible') {
-      pr = `${svgIcon('activity')} 今天任务量不小，拆成几次完成，保持节奏`;
+      if (isHard) {
+        pr = Coach.pick(Coach.impossibleHard, 'imph');
+      } else {
+        pr = `${svgIcon('activity')} 今天任务量不小，拆成几次完成，保持节奏`;
+      }
     } else if (dt0.heavy) {
       pr = `${svgIcon('alert-triangle')} 今天是冲刺量，状态好就多做，按自己的节奏来`;
     } else if (gap >= 2) {
       pr = Coach.pick(Coach.back, 'back');
+    } else if (act.streak >= 5) {
+      pr = Coach.pick(Coach.streak.hot, 'streak5') + '，今天也别断';
     } else if (act.streak >= 3) {
       pr = Coach.pick(Coach.streak.hot, 'streak');
     } else if (!m.enoughData) {
       pr = Coach.pick(Coach.cold, 'cold');
     } else if (m.feasibility === 'stretch') {
       pr = Coach.pick(Coach.start[slot], 'stretch') + '，状态好时多做一点';
+    } else if (m.feasibility === 'easy') {
+      pr = Coach.pick(Coach.start[slot], 'easy') + '，今天量不大，轻松拿下';
     } else {
       pr = Coach.pick(Coach.start[slot], 'start');
     }
   } else if (ratio < 1) {
-    const left = Math.max(0, Math.round((target - done) * 10 + 1e-9) / 10);
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
     if (p.type === 'exercise') {
       mood = 'progress';
-      const lowPool = [
-        '已经动起来了，继续保持这个节奏',
-        '开了个好头，往下推进会越来越顺',
-        '进度在往前走，别停',
-        '已经开始了，这就是最重要的一步',
-        '状态不错，接着做',
-        '今天已经有进展了，继续',
-        '动起来就不难，保持住',
-        '不错的开局，一鼓作气',
-      ];
-      pr = lowPool[Math.floor(Math.random() * lowPool.length)];
+      // 刷题本低进度：根据速度状态选择不同文案
+      if (speedState === 'fast') {
+        pr = Coach.pick(Coach.exerciseLowFast, 'elf') + '，' + Coach.pick(Coach.speedUp, 'su');
+      } else if (speedState === 'slow') {
+        pr = Coach.pick(Coach.exerciseLowSlow, 'els');
+      } else if (ratio < 0.2) {
+        pr = Coach.pick(Coach.exerciseLow, 'el0');
+      } else if (ratio < 0.5) {
+        pr = Coach.pick(Coach.progress.early, 'pe') + '，' + Coach.pick([
+          '已经进入状态了',
+          '开头顺利，后面会更顺',
+          '保持这个感觉',
+        ], 'pe2');
+      } else {
+        pr = Coach.pick(Coach.progress.mid, 'pm');
+      }
     } else if (ratio < 0.34) {
-      mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'pe');
+      mood = 'progress';
+      if (speedState === 'fast') pr = Coach.pick(Coach.speedUp, 'sue');
+      else pr = Coach.pick(Coach.progress.early, 'pe');
     } else if (ratio < 0.7) {
-      mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'pm');
+      mood = 'progress';
+      pr = Coach.pick(Coach.progress.mid, 'pm');
     } else {
-      mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'pl');
+      mood = 'almost';
+      pr = Coach.pick(Coach.progress.late, 'pl');
     }
   } else if (Math.abs(ratio - 1) < 1e-9) {
     mood = 'done';
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
-    pr = Coach.pick(Coach.done, 'done');
+    if (speedState === 'fast') {
+      pr = Coach.pick(Coach.done, 'donefast') + '，今天效率很高';
+    } else {
+      pr = Coach.pick(Coach.done, 'done');
+    }
   } else {
     const over = Math.max(0, Math.round((done - target) * 10 + 1e-9) / 10);
     const overPct = Math.round((ratio - 1) * 100);
     mood = 'over';
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}（超 ${fmtUnitNum(over)}）`;
     if (overPct < 20) pr = Coach.pick(Coach.overSmall, 'os');
-    else if (overPct < 60) pr = Coach.pick(Coach.overMid, 'os2') + ` 超额${overPct}%~`;
-    else pr = Coach.pick(Coach.overBig, 'ob') + ` 超额${overPct}%~`;
+    else if (overPct < 60) pr = Coach.pick(Coach.overMid, 'os2');
+    else pr = Coach.pick(Coach.overBig, 'ob');
   }
   _dgShow(box, fill, line, praise, mood, pct, l, pr);
 }
