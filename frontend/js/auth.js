@@ -1397,11 +1397,9 @@
       var projHtml = projects.length > 0
         ? '<div class="ud-projects" id="udProjects" style="display:none;margin-top:8px">' +
           projects.map(function(p){
-            var pct = p.total > 0 ? Math.round((p.currentPage || 0) / p.total * 100) : 0;
             return '<div class="ud-proj-item">' +
               '<span class="ud-proj-name">' + esc(p.name || '未命名') + '</span>' +
               '<span class="ud-proj-type">' + (typeMap[p.type] || p.type || '未知') + '</span>' +
-              '<span class="ud-proj-progress">' + (p.currentPage || 0) + '/' + (p.total || 0) + ' (' + pct + '%)</span>' +
               '</div>';
           }).join('') + '</div>'
         : '';
