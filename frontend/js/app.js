@@ -5603,7 +5603,8 @@ function getStatusMessage(p, m) {
       if (plan.onTime && plan.onTime.heavy) {
         let body = `还剩 ${rem} ${u}。你最近明显提速了，方向对了，但按 ${fmtCN(p.deadline)} 算，缺口仍然偏大。<br><br>`;
         body += `<b>硬要赶上，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
-        if (plan.delay) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
+        if (plan.delay && p.hardDeadline !== true) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
+        else if (plan.delay && p.hardDeadline === true) body += `<b>这是硬约束/考试日，不建议后移。</b>能做多少做多少，每道题都有价值。`;
         body += reciteCycleLine;
         return { icon:'' + svgIcon('wrench') + '', cls:'warn', title:'在提速，但还需要加量', desc: body };
       }
@@ -5612,7 +5613,8 @@ function getStatusMessage(p, m) {
         body += `<b>想在 ${fmtCN(p.deadline)} 前完成：</b>${planText(plan.onTime)}。`;
         if (plan.alt) body += `（也可${planText(plan.alt)}。）`;
       }
-      if (plan.delay) body += `<br><span class="muted">若实在加不动，可把目标日延到 ${fmtCN(plan.delay.date)} 左右。</span>`;
+      if (plan.delay && p.hardDeadline !== true) body += `<br><span class="muted">若实在加不动，可把目标日延到 ${fmtCN(plan.delay.date)} 左右。</span>`;
+      else if (plan.delay && p.hardDeadline === true) body += `<br><span class="muted">这是硬约束/考试日，不建议后移。能做多少做多少，每道题都有价值。</span>`;
       body += reciteCycleLine;
       return { icon:'' + svgIcon('trending-up') + '', cls:'ok', title:'状态在上升，继续保持', desc: body };
     }
@@ -5623,7 +5625,8 @@ function getStatusMessage(p, m) {
     if (hardPath) {
       // 缺口大到可持续方案都不可行：硬路径如实标注强度，延期不再弱化，而作为并列的现实选择
       body += `<b>想赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
-      if (plan.delay) body += `<b>更现实的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏可持续），在设置里即可调整。`;
+      if (plan.delay && p.hardDeadline !== true) body += `<b>更现实的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏可持续），在设置里即可调整。`;
+      else if (plan.delay && p.hardDeadline === true) body += `<b>这是硬约束/考试日，不建议后移。</b>能做多少做多少，每道题都有价值。`;
     } else {
       if (plan.onTime) {
         body += `<b>想按时完成，最省力的方式：</b>${planText(plan.onTime)}。`;
@@ -5631,8 +5634,10 @@ function getStatusMessage(p, m) {
         if (plan.alt) body += `<br>或者：${planText(plan.alt)}。`;
         body += '<br><br>';
       }
-      if (plan.delay) {
+      if (plan.delay && p.hardDeadline !== true) {
         body += `<span class="muted">若最近确实排不开，可把目标日延到 ${fmtCN(plan.delay.date)} 左右（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}），在设置里即可调整。</span>`;
+      } else if (plan.delay && p.hardDeadline === true) {
+        body += `<span class="muted">这是硬约束/考试日，不建议后移。能做多少做多少，每道题都有价值。</span>`;
       }
     }
     body += reciteCycleLine + sparseNote;
