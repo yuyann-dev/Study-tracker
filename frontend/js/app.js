@@ -10614,33 +10614,69 @@ function openDashboard() {
 
   const streak = currentStreak(heat, today);
 
+  // —— 整体状态观察：从各项目metrics聚合趋势、断档、活跃度 ——
+  let trendUp = 0, trendDown = 0, hadLongBreak = false, activeProjects = 0;
+  ps.forEach(p => {
+    if (p.archived) return;
+    const m = getMetrics(p);
+    if (!m || !m.enoughData) return;
+    activeProjects++;
+    if (m.trendPct != null) {
+      if (m.trendPct >= 10) trendUp++;
+      else if (m.trendPct <= -10) trendDown++;
+    }
+    if (m.longestBreak >= 3) hadLongBreak = true;
+  });
+  const isHot = streak >= 5;
+  const isWarm = streak >= 3 && streak < 5;
+  const isSpeeding = trendUp > trendDown && activeProjects > 0;
+  const isSlowing = trendDown > trendUp && activeProjects > 0;
+  const isBack = hadLongBreak && streak >= 1 && streak <= 3; // 断档后回归
+
   let msg, enc, urgent = false;
   const g = timeGreeting();
 
   if (overdueTotal > 0) {
     msg = `有 <b>${overdueTotal}</b> 条已逾期，先把这些最该复习的清掉`; urgent = true;
-    enc = Coach.pick(['越拖越忘，今天搞定就是胜利', '逾期的题最容易丢分，优先清', '先把旧账清了，再学新的', '搞定逾期，心里就踏实了'], 'dashoverdue');
+    enc = Coach.pick(['越拖越忘，今天搞定就是胜利 ⚠️', '逾期的题最容易丢分，优先清掉', '先把旧账清了，再学新的 📝', '搞定逾期，心里就踏实了 ✨'], 'dashoverdue');
   } else if (tasksTotal > 0 && tasksDone >= tasksTotal) {
-    if (tasksOver > 0) { msg = '今天的任务全部完成，还超额了'; enc = Coach.pick(Coach.overBig, 'dashover'); }
-    else { msg = `今天 ${tasksTotal} 个任务全部完成`; enc = Coach.pick(Coach.done, 'dashdone'); }
+    if (tasksOver > 0) {
+      msg = '今天的任务全部完成，还超额了';
+      enc = isHot
+        ? Coach.pick(['连续这么多天还超额，状态太强了 🔥', '超额完成+连续打卡，你势不可挡 ✨', '今天彻底爆发，这股劲头太棒了 🚀'], 'dashoverhot')
+        : Coach.pick(Coach.overBig, 'dashover');
+    }
+    else {
+      msg = `今天 ${tasksTotal} 个任务全部完成`;
+      enc = isHot
+        ? Coach.pick(['连续打卡+全部完成，节奏完美 ⭐', '又一天稳稳拿下，坚持的力量 💪', '全部完成！这份自律很了不起 🌟'], 'dashdonehot')
+        : Coach.pick(Coach.done, 'dashdone');
+    }
   } else if (tasksTotal > 0 && tasksDone > 0) {
     msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 ${tasksTotal - tasksDone} 个`;
-    enc = Coach.pick(Coach.dashPartial, 'dashpartial');
+    if (isBack) enc = Coach.pick(['回来就好，已经在推进了 💪', '断了几天又捡起来，这就够了 🌱', '重新进入状态了，继续保持 ✨'], 'dashpartialback');
+    else if (isSpeeding) enc = Coach.pick(['今天速度比平时快，手感正好 🚀', '效率在线，趁势把剩下的也拿下 ⚡', '进入状态了，越做越顺 🔥'], 'dashpartialfast');
+    else if (isHot) enc = Coach.pick(['连续这么多天，还在稳步推进 🌟', '节奏很稳，继续保持就好 ⭐', '坚持的人最厉害，加油 💪'], 'dashpartialhot');
+    else enc = Coach.pick(Coach.dashPartial, 'dashpartial');
   } else if (tasksInProgress > 0) {
     const _todoN = tasksTotal - tasksDone - tasksInProgress;
     msg = `已经开了个好头：<b>${tasksInProgress}</b> 个进行中` + (_todoN > 0 ? `，还有 <b>${_todoN}</b> 个待开始` : '') + '，顺手做完';
-    enc = Coach.pick(Coach.dashPartial, 'dashprogress');
+    enc = isSpeeding
+      ? Coach.pick(['开局很快，保持这个速度 🚀', '进入状态了，顺手做完 ⚡', '手感正好，一鼓作气 🔥'], 'dashprogressfast')
+      : Coach.pick(Coach.dashPartial, 'dashprogress');
   } else if (tasksTotal > 0) {
     msg = dueTotal > 0
       ? `今天有 <b>${dueTotal}</b> 条待复习，从它开始（共 ${tasksTotal} 个任务）`
       : `今天还有 <b>${tasksTotal}</b> 个任务待完成，从最顺手的开始`;
-    enc = Coach.pick(['迈出第一步最重要，开个好头', '先做最简单的，进入状态就顺了', '坐下来翻开书，就成功了一半', '别想太多，先动起来', '今天的目标很明确，动手吧', '开始了就不难，越做越顺'], 'dashstart');
+    if (isBack) enc = Coach.pick(['回来了就好，先从最简单的开始 💚', '断了几天没关系，今天重新出发 🌱', '能坐下来就是胜利，先动起来 ✨'], 'dashstartback');
+    else if (isHot) enc = Coach.pick(['连续这么多天，今天也别断 🔥', '状态正热，开个好头 ⭐', '保持住，今天也稳稳的 💪'], 'dashstarthot');
+    else enc = Coach.pick(['迈出第一步最重要，开个好头 📖', '先做最简单的，进入状态就顺了', '坐下来翻开书，就成功了一半 ✨', '别想太多，先动起来 🚀', '今天的目标很明确，动手吧'], 'dashstart');
   } else if (retentionTotal > 0) {
     msg = `今天任务已清完，还有 <b>${retentionTotal}</b> 条已掌握内容可快速巩固`;
-    enc = Coach.pick(['花几分钟确认还记得，记忆更牢', '快速过一遍，防止遗忘', '巩固比学新的更重要', '已掌握的也要定期复习'], 'dashretention');
+    enc = Coach.pick(['花几分钟确认还记得，记忆更牢 🧠', '快速过一遍，防止遗忘 🔄', '巩固比学新的更重要 💡'], 'dashretention');
   } else {
     msg = '今天没有待完成的任务，状态很好';
-    enc = Coach.pick(['轻松一下，也可以趁机动点新内容', '没有任务压力，可以自由安排', '今天可以复盘一下这周的内容', '休息也是学习的一部分'], 'dashfree');
+    enc = Coach.pick(['轻松一下，也可以趁机动点新内容 🌿', '没有任务压力，可以自由安排 ☁️', '今天可以复盘一下这周的内容 📊'], 'dashfree');
   }
   const statusChip = st => {
     if (!st) return '';
