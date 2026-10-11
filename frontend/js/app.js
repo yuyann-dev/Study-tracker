@@ -5123,112 +5123,124 @@ const Coach = {
   pick(arr, seedKey) {
     if (!arr || !arr.length) return '';
     let h = 0;
-    const s = todayStr() + '|' + (seedKey || '');
+    const s = todayStr() + '|' + new Date().getHours() + '|' + (seedKey || '');
     for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
     return arr[Math.abs(h) % arr.length];
   },
   start: {
     morning: [
-      '早上好！新的一天，先从今天的小目标开始，做完会很踏实～',
-      '早晨状态最好，先把今天的量完成，剩下时间都是赚的～',
-      '早！今天也按节奏来，先坐下开始，进入状态就顺了～',
-      '清晨是高效时段，先完成目标，一天都轻松～',
+      '早上好，新的一天从翻开书开始',
+      '清晨脑子最清醒，先把硬骨头啃了',
+      '早！坐下来，进入状态就顺了',
+      '新的一天，今天也要稳稳推进',
+      '早晨效率高，先动起来再说',
     ],
     day: [
-      '今天的目标已经安排好啦，找个时间开始吧～',
-      '按节奏推进就好，先从今天的第一部分开始～',
-      '今天也稳稳的，完成目标就是胜利～',
-      '不用想太多，跟着今天的安排走就好～',
-      '先开始，哪怕只做一点点，进入状态后会越做越顺～',
+      '今天的任务在等你，找个时间开始',
+      '按节奏来，先从第一题做起',
+      '今天也稳住，完成就是胜利',
+      '别想太多，先坐下翻开书',
+      '开始了就不难，进入状态越做越顺',
+      '今天的目标很明确，动手吧',
     ],
     evening: [
-      '晚上好，今天还有时间完成目标，现在开始刚刚好～',
-      '别拖到太晚哦，现在开始，做完安心休息～',
-      '晚上效率也可以很高，先做起来，时间够用～',
-      '今天还剩一点时间，完成目标再休息会更踏实～',
+      '晚上好，现在开始还来得及',
+      '晚上安静，正好适合刷题',
+      '别拖，现在开始做完更踏实',
+      '晚上效率也能很高，先做起来',
+      '今天还没结束，开始就不晚',
     ],
     night: [
-      '夜深了，如果今天还没做，做一点点也好，别给自己压力～',
-      '深夜了，量力而行，哪怕开始一点点都算数～',
+      '夜深了，能学一点是一点',
+      '深夜了，注意别熬太晚',
     ],
   },
   streak: {
     hot: [
-      '连续天数很亮眼，今天别断、保持住！',
-      '这份坚持很了不起，今天也坐下来、接着保持～',
-      '已经连续这么多天，惯性在你这边～',
+      '连续打卡很亮眼，今天继续保持',
+      '这份坚持了不起，今天也坐下来',
+      '已经连续这么多天，惯性在你这边',
+      '连续的力量，今天别断',
+      '状态正热，接着学',
     ],
     warm: [
-      '连续几天了，节奏不错，今天也跟上～',
-      '保持连续记录，今天做一点就续上了～',
+      '连续几天了，节奏不错',
+      '保持住，今天也跟上',
+      '连续记录在积累，继续',
     ],
   },
   back: [
-    '歇了几天没关系，节奏很快就会回来～',
-    '欢迎回来！不用补之前的，重新出发就好～',
-    '断几天很正常，捡起来比从零开始快得多～',
-    '回来就好，慢慢进入状态～',
-    '休息也是学习的一部分，今天重新出发～',
-    '之前学的都还在，不用有负担～',
+    '回来了就好，重新出发',
+    '断几天正常，捡起来比从零快',
+    '欢迎回来，之前学的都还在',
+    '休息够了，今天重新进入状态',
+    '回来就不晚，慢慢找感觉',
   ],
   progress: {
     early: [
-      '稳扎稳打，先完成一部分～',
-      '已经启动，保持这个感觉～',
-      '不错的开局，继续往下～',
-      '踏踏实实，一步步来～',
+      '开局不错，保持这个感觉',
+      '已经启动了，继续往下走',
+      '好的开始，稳扎稳打',
+      '动起来了，一步步推进',
+      '开头顺利，后面会更顺',
+      '已经在轨道上了，保持',
     ],
     mid: [
-      '稳扎稳打，保持这个节奏～',
-      '中间阶段最考验坚持，你做得很好，继续～',
-      '进度在稳步推进，继续保持～',
-      '保持这个势头，再接再厉～',
+      '进度过半，继续保持节奏',
+      '中间阶段最考验坚持，你做得很好',
+      '稳步推进中，势头不错',
+      '已经走了一半，再加把劲',
+      '进度在往前，别停',
+      '过半了，胜利在望',
     ],
     late: [
-      '进入后半程，一鼓作气～',
-      '快了，保持住这个状态～',
-      '收尾阶段，再加把劲～',
-      '手感正好，拿下它～',
+      '进入收尾，一鼓作气',
+      '快完成了，保持住状态',
+      '最后阶段，冲一下',
+      '手感正好，拿下它',
+      '就差一点了，别松劲',
+      '收尾了，集中注意力',
     ],
   },
   done: [
-    '今日目标达成，剩下时间自由安排～',
-    '完成！今天的任务稳稳拿下，好好放松～',
-    '达标了！按节奏走就是这么稳～',
-    '今日份学习圆满完成，辛苦啦～',
-    '目标完成，这份踏实感是你应得的～',
+    '今日目标达成，干得漂亮',
+    '完成！今天稳稳拿下',
+    '达标了，这份踏实感是你应得的',
+    '今日任务圆满完成，辛苦了',
+    '目标完成，今天很充实',
+    '拿下了！可以安心休息了',
   ],
-  // 今日只完成一部分时的收尾鼓励（句子自带动作引导，不再拼后缀，避免"继续~继续"重复）
   dashPartial: [
-    '已经开了个好头，把剩下的完成，今天就更踏实了～',
-    '进度不错，趁热打铁把今天的目标收尾～',
-    '进度在往前走，今天的任务很快就能清完～',
-    '状态已经热起来了，顺手把剩下的做完～',
-    '继续保持这个节奏，再推进一点点，今天的目标就到手了～',
+    '已经开了好头，把剩下的也完成',
+    '进度不错，趁热打铁收尾',
+    '在往前走了，很快就能清完',
+    '状态热起来了，顺手做完',
+    '保持节奏，再推进一步',
+    '已经做了不少，继续把今天的目标拿下',
   ],
   overSmall: [
-    '小超额，今天状态不错～',
-    '多做了一些，很棒，剩下时间自由安排～',
-    '超额完成，效率在线～',
-    '比目标多做了点，今天很充实～',
+    '小超额，今天状态不错',
+    '多做了一些，很棒',
+    '效率在线，比计划多推进了',
+    '今天很充实，超出预期',
   ],
   overMid: [
-    '比目标多做了不少，今天的你很高效～',
-    '状态正佳，多学了这么多，成就感满满～',
-    '一口气推进了这么多，势头很足～',
-    '今天发挥得很好，这份高效很提气～',
+    '比目标多做不少，今天很高效率',
+    '状态正佳，成就感满满',
+    '一口气推进这么多，势头很足',
+    '今天发挥很好，这份高效很提气',
   ],
   overBig: [
-    '今天彻底爆发了，状态太强了，剩下时间好好休息～',
-    '这股劲头太棒了，不用每天都这样，今天已经很厉害～',
-    '火力全开的一天，好好犒劳自己～',
-    '今天效率拉满，爆发日是加分项，按自己的节奏来～',
-    '学了这么多，今天的你超强，剩下时间完全自由～',
+    '今天彻底爆发，状态太强了',
+    '火力全开的一天，厉害',
+    '效率拉满，今天的你超强',
+    '这股劲头太棒了，继续保持',
+    '学了这么多，今天超额完成',
   ],
   cold: [
-    '刚开始，数据还在积累，先按你的状态来，不用有压力～',
-    '前几天是磨合期，做几天系统就更懂你的节奏了～',
-    '开局阶段，目标只是参考，找到自己的感觉最重要～',
+    '刚开始，先按你的状态来',
+    '前几天是磨合期，做几天就顺了',
+    '开局阶段，找到自己的节奏最重要',
   ],
 };
 function coachSlot() {
@@ -5314,7 +5326,7 @@ function getStatusMessage(p, m) {
     if (over > 0) {
       const heavy = over >= Math.max(1, due * 0.5);
       const lead = heavy
-        ? `今天有 ${due} 道待复习（含 ${over} 道逾期）。<strong>不用一次做完，也不用有负担</strong>，先从最久没复习的那条开始，其余的系统会自动摊到接下来几天。`
+        ? `今天有 ${due} 道待复习（含 ${over} 道逾期）。<strong>分批消化，先从最久没复习的开始</strong>，其余的系统会自动摊到接下来几天。`
         : `今天有 ${due} 道待复习（含 ${over} 道逾期）。先把逾期的过一遍，哪怕只做几条，记忆也会重新接上。`;
       return { icon:'' + svgIcon('pin') + '', cls:'info', title: heavy ? `有 ${over} 道逾期，分批消化就好` : `有 ${over} 道错题到期了`,
         desc:`${lead}<br>${progressPhrase}${weakPhrase ? '<br>' + weakPhrase : ''}错题按间隔滚动，做完当轮自动排下一轮，你只管清今天的。${deadlineWarn}` };
@@ -5518,7 +5530,7 @@ function getStatusMessage(p, m) {
       ], '6a') + '<br><br>';
       // 结尾按"今天是否已达标"给正确场景的话，不催已完成的人"继续"
       if (todayMet) {
-        body += `<span class="muted">今天已完成 ${fmtUnitNum(todayDone)} ${u}` + (todayDone > keepPer*1.2 ? '、超额了，可以收工休息～' : '，达标了，剩下时间自由安排～') + `</span>`;
+        body += `<span class="muted">今天已完成 ${fmtUnitNum(todayDone)} ${u}` + (todayDone > keepPer*1.2 ? '、超额完成，今天状态很好' : '，目标达成，很踏实') + `</span>`;
       } else {
         body += `<span class="muted">今天目标 ${n1(keepPer)} ${u}，${todayDone>0 ? '已完成 '+fmtUnitNum(todayDone)+'，还差一点～' : '找个时间开始吧～'}</span>`;
       }
@@ -6025,19 +6037,19 @@ function renderDailyGoal(p, m) {
     const pct = totalDueToday > 0 ? Math.min(100, reviewedToday / totalDueToday * 100) : 0;
     if (reviewedToday === 0) {
       const tip = (act.streak >= 2)
-        ? Coach.pick(Coach.streak.warm, 'mks') + ` 先从最久没复习的那条开始~`
-        : Coach.pick(Coach.progress.early, 'mks0') + ` 从第一条开始~`;
+        ? Coach.pick(Coach.streak.warm, 'mks') + '，先从最久没复习的开始'
+        : Coach.pick(Coach.progress.early, 'mks0') + '，从第一条开始';
       _dgShow(box, fill, line, praise, 'idle', 0, `今天还有 ${due} 条错题待复习`, tip);
     } else {
       const left = due;
       const ratio = totalDueToday > 0 ? reviewedToday / totalDueToday : 0;
       let mood, tip;
       if (ratio < 0.34) {
-        mood = 'progress'; tip = Coach.pick(Coach.progress.early, 'mke') + ` 还剩 ${left} 条~`;
+        mood = 'progress'; tip = Coach.pick(Coach.progress.early, 'mke');
       } else if (ratio < 0.7) {
-        mood = 'progress'; tip = Coach.pick(Coach.progress.mid, 'mkm') + ` 还剩 ${left} 条~`;
+        mood = 'progress'; tip = Coach.pick(Coach.progress.mid, 'mkm');
       } else {
-        mood = 'almost'; tip = Coach.pick(Coach.progress.late, 'mkl') + ` 只剩 ${left} 条~`;
+        mood = 'almost'; tip = Coach.pick(Coach.progress.late, 'mkl');
       }
       _dgShow(box, fill, line, praise, mood, pct, `已清 ${reviewedToday} / ${totalDueToday} 条`, tip);
     }
@@ -6095,19 +6107,19 @@ function renderDailyGoal(p, m) {
       if (rvDoneToday === 0) {
         mood = 'idle';
         pr = (act.streak >= 2)
-          ? Coach.pick(Coach.streak.warm, 'rvs') + ' 先从最久没复习的那条开始~'
-          : Coach.pick(Coach.progress.early, 'rvs0') + ' 先复习再学新，从第一条开始~';
+          ? Coach.pick(Coach.streak.warm, 'rvs') + '，先从最久没复习的开始'
+          : Coach.pick(Coach.progress.early, 'rvs0') + '，先复习再学新';
       } else {
         const rr = rvDoneToday / Math.max(1, rvTotal);
-        if (rr < 0.5) { mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'rve') + ` 还剩 ${rvDueNow} 条~`; }
-        else if (rr < 0.7) { mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'rvm') + ` 还剩 ${rvDueNow} 条~`; }
-        else { mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'rvl') + ` 复习只剩 ${rvDueNow} 条~`; }
+        if (rr < 0.5) { mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'rve'); }
+        else if (rr < 0.7) { mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'rvm'); }
+        else { mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'rvl'); }
       }
       let tail;
       if (m.sprint) tail = '（复习优先，新学挑重点即可）';
       else if (newTargetR == null) tail = '';
-      else if (newTargetR > 0.3) tail = `（之后再学新约 ${fmtUnitNum(newTargetR)} 页）`;
-      else tail = '（今天复习是重点，新学量力而行）';
+      else if (newTargetR > 0.3) tail = '（之后再学新内容）';
+      else tail = '（今天复习是重点）';
       _dgShow(box, fill, line, praise, mood, pct, `复习 ${rvDoneToday}/${rvTotal} 条${tail}`, pr);
       return;
     }
@@ -6129,17 +6141,15 @@ function renderDailyGoal(p, m) {
       nmood = 'idle';
       nl = `${prefix}新学 0 / ${fmtUnitNum(newTargetR)} 页`;
       npr = (act.streak >= 3)
-        ? `${svgIcon('flame')} 连续 ${act.streak} 天，复习已清，今天的新学也别落下~`
-        : `${svgIcon('target')} 复习已清，今天再学 ${fmtUnitNum(newTargetR)} 页就圆满了~`;
+        ? `${svgIcon('flame')} 连续打卡，复习已清，今天的新学也别落下`
+        : `${svgIcon('target')} 复习已清，开始今天的新学吧`;
     } else if (nr < 1) {
       const nleft = Math.max(0, Math.round((newTarget - newDone) * 10 + 1e-9) / 10);
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
       if (nr < 0.5) {
-        // “就过半”的剩余量 = 到新学目标一半的量（newTarget/2 - newDone），而非到全部完成的量
-        const nToHalf = Math.max(0, Math.round((newTarget / 2 - newDone) * 10 + 1e-9) / 10);
-        nmood = 'progress'; npr = Coach.pick(Coach.progress.early,'rne') + ` 再学 ${fmtUnitNum(nToHalf)} 页就过半~`;
+        nmood = 'progress'; npr = Coach.pick(Coach.progress.early,'rne');
       }
-      else { nmood = 'almost'; npr = Coach.pick(Coach.progress.late,'rnl') + ` 就差 ${fmtUnitNum(nleft)} 页~`; }
+      else { nmood = 'almost'; npr = Coach.pick(Coach.progress.late,'rnl'); }
     } else if (Math.abs(nr - 1) < 1e-9) {
       nmood = 'done';
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
@@ -6149,9 +6159,9 @@ function renderDailyGoal(p, m) {
       nmood = 'over';
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页（超 ${fmtUnitNum(over)}）`;
       npr = Coach.pick(Coach.overSmall, 'rno') + Coach.pick([
-        ' 给后续复习留点空间~',
-        ' 新学和复习均衡些，记忆更牢~',
-        ' 别一次铺太多，后面复习更从容~',
+        '，给后续复习留点空间',
+        '，新学和复习均衡些，记忆更牢',
+        '，别一次铺太多，后面复习更从容',
       ], 'rno2');
     }
     _dgShow(box, fill, line, praise, nmood, npct, nl, npr);
@@ -6189,41 +6199,42 @@ function renderDailyGoal(p, m) {
     l = `今天目标 ${fmtUnitNum(targetR)} ${u} · 还没动`;
     const gap = m.prevStudyDate ? Math.max(0, diffDays(m.prevStudyDate, today) - 1) : 0;
     if (m.feasibility === 'impossible') {
-      pr = `${svgIcon('activity')} 今天 ${fmtUnitNum(targetR)} ${u}量不小，拆成几次完成，量力而行~`;
+      pr = `${svgIcon('activity')} 今天任务量不小，拆成几次完成，保持节奏`;
     } else if (dt0.heavy) {
-      pr = `${svgIcon('alert-triangle')} 今天约 ${fmtUnitNum(targetR)} ${u}（平时的 ${dt0.plan.onTime.mult.toFixed(1)} 倍）是冲刺量，量力而行；做不到可在设置里把目标日往后调~`;
+      pr = `${svgIcon('alert-triangle')} 今天是冲刺量，状态好就多做，按自己的节奏来`;
     } else if (gap >= 2) {
-      pr = Coach.pick(Coach.back, 'back') + (isFracPaper ? ` 今天做 ${startUnit} 套就好~` : ` 先从 ${startUnit} ${u}开始~`);
+      pr = Coach.pick(Coach.back, 'back');
     } else if (act.streak >= 3) {
-      pr = Coach.pick(Coach.streak.hot, 'streak') + (isFracPaper ? ` 今天做 ${startUnit} 套就好~` : ` 先从 ${startUnit} ${u}开始~`);
+      pr = Coach.pick(Coach.streak.hot, 'streak');
     } else if (!m.enoughData) {
-      pr = Coach.pick(Coach.cold, 'cold') + ` 今天先做约 ${fmtUnitNum(targetR)} ${u}~`;
+      pr = Coach.pick(Coach.cold, 'cold');
     } else if (m.feasibility === 'stretch') {
-      pr = Coach.pick(Coach.start[slot], 'stretch') + ` 目标 ${fmtUnitNum(targetR)} ${u}，状态好时多做一点~`;
+      pr = Coach.pick(Coach.start[slot], 'stretch') + '，状态好时多做一点';
     } else {
-      pr = Coach.pick(Coach.start[slot], 'start') + ` 目标 ${fmtUnitNum(targetR)} ${u}~`;
+      pr = Coach.pick(Coach.start[slot], 'start');
     }
   } else if (ratio < 1) {
     const left = Math.max(0, Math.round((target - done) * 10 + 1e-9) / 10);
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
     if (p.type === 'exercise') {
-      // BUG-4 [v2 M9] exercise 低压力鼓励：不拼"再做X就过半"这种推进式后缀
       mood = 'progress';
       const lowPool = [
-        '没填满也没关系，节奏是自己的，今天已经往前推了一步~',
-        '做了就是赚到，进度没丢，不用跟那个大数较劲~',
-        '少做一点也不亏，保持手感比硬凑数更重要~',
-        '已经动起来了，剩下的随你，别把自己逼太紧~',
+        '已经动起来了，继续保持这个节奏',
+        '开了个好头，往下推进会越来越顺',
+        '进度在往前走，别停',
+        '已经开始了，这就是最重要的一步',
+        '状态不错，接着做',
+        '今天已经有进展了，继续',
+        '动起来就不难，保持住',
+        '不错的开局，一鼓作气',
       ];
       pr = lowPool[Math.floor(Math.random() * lowPool.length)];
     } else if (ratio < 0.34) {
-      // “就过半”的剩余量 = 到目标一半的量（target/2 - done），而非到全部完成的量（target - done）
-      const toHalf = Math.max(0, Math.round((target / 2 - done) * 10 + 1e-9) / 10);
-      mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'pe') + ` 再做 ${fmtUnitNum(toHalf)} ${u}就过半~`;
+      mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'pe');
     } else if (ratio < 0.7) {
-      mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'pm') + ` 还剩 ${fmtUnitNum(left)} ${u}~`;
+      mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'pm');
     } else {
-      mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'pl') + ` 就差 ${fmtUnitNum(left)} ${u}~`;
+      mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'pl');
     }
   } else if (Math.abs(ratio - 1) < 1e-9) {
     mood = 'done';
@@ -8235,10 +8246,11 @@ function renderReciteSoftEncourage(p) {
   const due = getDueItems(p).length;
 
   const pool = [
-    `已经复习了 ${done} 条，在往前走～没填满也没关系。`,
-    `坚持打开就已经很棒了，剩下的明天再说也没关系。`,
-    `今天做了 ${done} 条复习，比昨天又扎实了一点。`,
-    `不累的时候多过两条，累了就收工，节奏是自己的。`
+    `已经复习了 ${done} 条，在往前走，继续保持`,
+    `坚持打开就很棒，今天的复习在推进中`,
+    `今天做了 ${done} 条复习，比昨天又扎实了一点`,
+    `状态不错，接着过下一条`,
+    `复习在稳步推进，别停`,
   ];
   const text = pool[Math.floor(Math.random() * pool.length)];
 
@@ -8485,9 +8497,9 @@ function renderReview(p) {
       if (excessSub) {
         // [v3 P2] deadline过期后不再催债，改为温和语气
         if (p.deadline && p.deadline < today) {
-          excessSub.textContent = '目标日已过，这些旧题做多少算多少。';
+          excessSub.textContent = '目标日已过，这些旧题做多少算多少，按自己的节奏来。';
         } else {
-          excessSub.textContent = '能坚持打开就已经很棒了，剩下的明天再说也没关系。也可以分散部分到未来。';
+          excessSub.textContent = '今天的复习量不小，拆成几次完成，保持节奏。也可以分散部分到未来。';
         }
       }
       if (obActions) obActions.style.display = '';
@@ -8509,7 +8521,7 @@ function renderReview(p) {
         excessBanner.dataset.mode = 'gentle';
         excessBanner.classList.remove('tier3');
         if (obMain) obMain.innerHTML = `今天已复习 <strong>${todayReviewedItems}</strong> 条，还剩 <strong>${due.length}</strong> 条`;
-        if (excessSub) excessSub.textContent = '能坚持打开就已经很棒了，剩下的明天再说也没关系。想歇一歇可以把剩余分散到未来。';
+        if (excessSub) excessSub.textContent = '已经复习了不少，继续保持节奏。想歇一歇可以把剩余分散到未来。';
         if (obActions) obActions.style.display = '';
         if (obHint) obHint.style.display = '';
       } else {
