@@ -1326,20 +1326,41 @@
     if (!ua) return '未知';
     ua = ua.toLowerCase();
     let device = '', browser = '';
-    // 设备类型（iPadOS 13+ UA与Mac相同，标注为Mac/iPad）
-    if (ua.includes('iphone') || ua.includes('ipod')) device = 'iPhone';
-    else if (ua.includes('ipad')) device = 'iPad';
-    else if (ua.includes('android')) device = 'Android';
-    else if (ua.includes('macintosh') || ua.includes('mac os')) device = 'Mac/iPad';
-    else if (ua.includes('windows')) device = 'Windows';
-    else if (ua.includes('linux')) device = 'Linux';
-    else device = '其他';
-    // 浏览器
-    if (ua.includes('edg')) browser = 'Edge';
+    // 先判断是否平板（UA中含tablet，或android无mobile，或ipad）
+    const isTablet = ua.includes('tablet') || ua.includes('ipad') || (ua.includes('android') && !ua.includes('mobile'));
+    // 设备类型（优先识别鸿蒙/iOS/Android，再识别桌面系统；平板优先于手机）
+    if (ua.includes('openharmony') || ua.includes('harmonyos') || ua.includes('harmony')) {
+      device = isTablet ? '鸿蒙平板' : '鸿蒙';
+    } else if (ua.includes('ipad')) {
+      device = 'iPad';
+    } else if (ua.includes('iphone') || ua.includes('ipod')) {
+      device = 'iPhone';
+    } else if (isTablet && ua.includes('android')) {
+      device = 'Android平板';
+    } else if (ua.includes('android')) {
+      device = 'Android';
+    } else if (ua.includes('macintosh') || ua.includes('mac os')) {
+      device = isTablet ? 'iPad' : 'Mac';
+    } else if (ua.includes('windows')) {
+      device = 'Windows';
+    } else if (ua.includes('cros')) {
+      device = 'ChromeOS';
+    } else if (ua.includes('linux')) {
+      device = 'Linux';
+    } else {
+      device = '其他';
+    }
+    // 浏览器（注意顺序：微信/QQ/华为等内置浏览器要在Chrome/Safari之前判断）
+    if (ua.includes('micromessenger')) browser = '微信';
+    else if (ua.includes('huaweibrowser') || ua.includes('arkweb')) browser = '华为浏览器';
+    else if (ua.includes('qqbrowser') || ua.includes('mqqbrowser')) browser = 'QQ浏览器';
+    else if (ua.includes('ucbrowser') || ua.includes('ubrowser')) browser = 'UC浏览器';
+    else if (ua.includes('metasr') || ua.includes('sogou')) browser = '搜狗';
+    else if (ua.includes('edg')) browser = 'Edge';
+    else if (ua.includes('opr') || ua.includes('opera')) browser = 'Opera';
     else if (ua.includes('chrome') && !ua.includes('edg')) browser = 'Chrome';
     else if (ua.includes('firefox')) browser = 'Firefox';
     else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari';
-    else if (ua.includes('micromessenger')) browser = '微信';
     else browser = '其他';
     return device + ' · ' + browser;
   }
