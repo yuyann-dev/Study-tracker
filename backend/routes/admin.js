@@ -360,6 +360,23 @@ router.get('/users/:id', (req, res) => {
     for (const c of allCodes) codeMap.set(c.code, c);
     for (const c of userUsedCodes) codeMap.set(c.code, c);
     const codes = Array.from(codeMap.values()).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    // 解析项目列表
+    let projects = [];
+    try {
+      if (d && d.store_json) {
+        const store = JSON.parse(d.store_json);
+        const projMap = store.projects || {};
+        projects = Object.values(projMap).filter(p => p && !p.archived).map(p => ({
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          total: p.total,
+          currentPage: p.currentPage,
+          deadline: p.deadline,
+          createdAt: p.createdAt,
+        }));
+      }
+    } catch (e) { /* 解析失败忽略 */ }
     return ok(res, {
       user: {
         id: u.id, username: u.username, email: u.email,
@@ -373,6 +390,7 @@ router.get('/users/:id', (req, res) => {
         projectCount: d ? d.project_count : 0,
         lastSyncAt: d ? d.updated_at : null,
       },
+      projects,
       recentLogins,
       inviteCodes: codes,
     });

@@ -1790,7 +1790,21 @@
   .drow b{font-weight:600;text-align:right;word-break:break-all}
   .login-row{font-size:12px;padding:7px 0;border-bottom:1px solid var(--line)}
   .login-row .lr-ip{font-family:monospace;color:var(--text)}
+  .login-row .lr-device{display:inline-block;margin-left:8px;font-size:10.5px;background:var(--card);border:1px solid var(--line);padding:1px 7px;border-radius:999px;color:var(--muted)}
   .login-row .lr-meta{color:var(--muted);font-size:11px;margin-top:2px;word-break:break-all}
+  .ud-status-badge{display:inline-block;margin-left:8px;font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+  .ud-status-badge.ud-status-ok{background:rgba(46,107,79,.1);color:#2e6b4f;border-color:rgba(46,107,79,.2)}
+  .ud-status-badge.ud-status-warn{background:rgba(176,122,75,.1);color:#b07a4b;border-color:rgba(176,122,75,.2)}
+  .ud-status-badge.ud-status-bad{background:rgba(192,57,43,.1);color:#c0392b;border-color:rgba(192,57,43,.2)}
+  html[data-theme="dark"] .ud-status-badge.ud-status-ok{background:rgba(131,188,169,.15);color:#83bca9;border-color:rgba(131,188,169,.25)}
+  html[data-theme="dark"] .ud-status-badge.ud-status-warn{background:rgba(205,174,112,.15);color:#cdae70;border-color:rgba(205,174,112,.25)}
+  html[data-theme="dark"] .ud-status-badge.ud-status-bad{background:rgba(224,122,110,.15);color:#e07a6e;border-color:rgba(224,122,110,.25)}
+  .ud-projects{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .ud-proj-item{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:4px 0;border-bottom:1px solid var(--line)}
+  .ud-proj-item:last-child{border-bottom:none}
+  .ud-proj-name{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ud-proj-type{font-size:10px;background:var(--bg);border:1px solid var(--line);padding:1px 6px;border-radius:4px;color:var(--muted);flex-shrink:0}
+  .ud-proj-progress{font-family:monospace;color:var(--muted);font-size:10.5px;flex-shrink:0}
   .badge-revoked{display:inline-block;background:#efe7dd;color:var(--muted);font-size:10px;padding:2px 8px;border-radius:999px}
   html[data-theme="dark"] .badge-revoked{background:#4a628e}
   .badge-deleted{display:inline-block;background:#f8e5de;color:var(--bad);font-size:10px;padding:2px 8px;border-radius:999px}

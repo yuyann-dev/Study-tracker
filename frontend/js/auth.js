@@ -1321,6 +1321,27 @@
       head.indeterminate = checkedN > 0 && checkedN < rows.length;
     }
   }
+  // 解析User-Agent获取设备类型
+  function parseDevice(ua) {
+    if (!ua) return '未知';
+    ua = ua.toLowerCase();
+    let device = '', os = '', browser = '';
+    // 设备类型
+    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) device = 'iOS';
+    else if (ua.includes('android')) device = 'Android';
+    else if (ua.includes('macintosh') || ua.includes('mac os')) device = 'Mac';
+    else if (ua.includes('windows')) device = 'Windows';
+    else if (ua.includes('linux')) device = 'Linux';
+    else device = '其他';
+    // 浏览器
+    if (ua.includes('edg')) browser = 'Edge';
+    else if (ua.includes('chrome') && !ua.includes('edg')) browser = 'Chrome';
+    else if (ua.includes('firefox')) browser = 'Firefox';
+    else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari';
+    else if (ua.includes('micromessenger')) browser = '微信';
+    else browser = '其他';
+    return device + ' · ' + browser;
+  }
   async function _userDetail(id){
     try {
       var d = await apiRequest('/api/admin/users/' + id, {method:'GET'});
@@ -1328,7 +1349,9 @@
       document.getElementById('udTitle').textContent = '用户详情 · ' + (u.username || ('#' + u.id));
       var logins = (d.recentLogins || []).map(function(l){
         var ok = l.result ? '成功' : '失败';
+        var device = parseDevice(l.ua);
         return '<div class="login-row"><span class="lr-ip">' + esc(l.ip || '—') + '</span> · ' + ok +
+          '<span class="lr-device">' + esc(device) + '</span>' +
           '<div class="lr-meta">' + (l.created_at ? fmtDateTime(l.created_at) : '') + ' · ' + esc(l.ua || '—') + '</div></div>';
       }).join('') || '<div style="color:var(--muted);font-size:12.5px">暂无登录记录</div>';
       var codes = (d.inviteCodes || []).map(function(c){
@@ -1336,13 +1359,37 @@
         return '<div class="login-row"><span class="lr-ip">' + esc(c.code || '') + '</span> · ' + st +
           '<div class="lr-meta">' + (c.note ? '备注：' + esc(c.note) : '') + (c.note && c.channel ? ' · ' : '') + (c.channel ? '渠道：' + esc(c.channel) : '') + (!c.note && !c.channel ? '—' : '') + (c.used_at ? ' · ' + fmtDateTime(c.used_at) : '') + '</div></div>';
       }).join('') || '<div style="color:var(--muted);font-size:12.5px">无关联邀请码</div>';
+      // 项目列表
+      var projects = d.projects || [];
+      var typeMap = {exercise:'刷题本', mistake:'错题本', recite:'背书本', set:'套卷'};
+      var projHtml = projects.length > 0
+        ? '<div class="ud-projects" id="udProjects" style="display:none;margin-top:8px">' +
+          projects.map(function(p){
+            var pct = p.total > 0 ? Math.round((p.currentPage || 0) / p.total * 100) : 0;
+            return '<div class="ud-proj-item">' +
+              '<span class="ud-proj-name">' + esc(p.name || '未命名') + '</span>' +
+              '<span class="ud-proj-type">' + (typeMap[p.type] || p.type || '未知') + '</span>' +
+              '<span class="ud-proj-progress">' + (p.currentPage || 0) + '/' + (p.total || 0) + ' (' + pct + '%)</span>' +
+              '</div>';
+          }).join('') + '</div>'
+        : '';
+      // 使用状态分析
+      var lastSync = dt.lastSyncAt ? new Date(dt.lastSyncAt) : null;
+      var now = new Date();
+      var daysSinceSync = lastSync ? Math.floor((now - lastSync) / 86400000) : null;
+      var statusNote = '';
+      if (u.status === 'disabled') statusNote = '<span class="ud-status-badge ud-status-bad">已封禁</span>';
+      else if (daysSinceSync != null && daysSinceSync > 7) statusNote = '<span class="ud-status-badge ud-status-warn">近' + daysSinceSync + '天未同步</span>';
+      else if (daysSinceSync != null && daysSinceSync <= 1) statusNote = '<span class="ud-status-badge ud-status-ok">活跃</span>';
+      else statusNote = '<span class="ud-status-badge">正常</span>';
       document.getElementById('udBody').innerHTML =
         '<div class="drow"><span>邮箱</span><b>' + esc(u.email || '—') + '</b></div>'
-        + '<div class="drow"><span>状态</span><b>' + (u.deletedAt ? (u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）') : esc(u.status || '—')) + '</b></div>'
+        + '<div class="drow"><span>状态</span><b>' + (u.deletedAt ? (u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）') : esc(u.status || '—')) + '</b> ' + statusNote + '</div>'
         + (u.banReason ? '<div class="drow"><span>封禁原因</span><b>' + esc(u.banReason) + '</b></div>' : '')
         + (u.banUntil ? '<div class="drow"><span>封禁至</span><b>' + fmtDateTime(u.banUntil) + '</b></div>' : '')
         + '<div class="drow"><span>数据量</span><b>' + (dt.sizeBytes != null ? Math.round(dt.sizeBytes/1024*100)/100 + ' KB' : '—') + '</b></div>'
-        + '<div class="drow"><span>项目数</span><b>' + (dt.projectCount || 0) + '</b></div>'
+        + '<div class="drow"><span>项目数</span><b style="cursor:pointer;color:var(--brand);text-decoration:underline" onclick="var el=document.getElementById(\'udProjects\');if(el){el.style.display=el.style.display===\'none\'?\'block\':\'none\';}">' + (dt.projectCount || 0) + '个（点击展开）</b></div>'
+        + projHtml
         + '<div class="drow"><span>最后同步</span><b>' + fmtDateTime(dt.lastSyncAt) + '</b></div>'
         + '<div class="drow"><span>注册时间</span><b>' + fmtDateTime(u.createdAt) + '</b></div>'
         + '<div class="dsec">最近登录</div>' + logins
