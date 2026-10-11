@@ -7019,11 +7019,11 @@ function render() {
   const u = unitName(p);
   let modeTag = '';
   if (isExercise) {
-    modeTag = setMode ? '<span class="mode-badge set">' + svgIcon('copy') + ' 套卷模式</span>' : '<span class="mode-badge">' + svgIcon('file-text') + ' 习题册模式</span>';
+    modeTag = setMode ? '<span class="mode-badge set">' + svgIcon('copy', 15) + ' 套卷模式</span>' : '<span class="mode-badge">' + svgIcon('file-text', 15) + ' 习题册模式</span>';
   } else if (p.type === 'mistake') {
     const mm = p.mistakeMode || 'free';
     if (mm === 'page') modeTag = '<span class="mode-badge">' + svgIcon('file-text') + ' 习题册模式</span>';
-    else if (mm === 'set') modeTag = '<span class="mode-badge set">' + svgIcon('copy') + ' 套卷模式</span>';
+    else if (mm === 'set') modeTag = '<span class="mode-badge set">' + svgIcon('copy', 15) + ' 套卷模式</span>';
     else modeTag = '<span class="mode-badge mistake-free" id="mistakeModeBadge" style="cursor:pointer" title="点击切换错题本模式">' + svgIcon('square-pen') + ' 自由出处模式</span>';
   }
   // 关联徽标
