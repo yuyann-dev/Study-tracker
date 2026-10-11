@@ -7204,7 +7204,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   const qBtns = document.querySelectorAll('#reciteQuality .rec-qbtn');
   const qText = p.type === 'mistake' ? ['做对了', '看答案', '错了'] : ['记得', '模糊', '忘记'];
   qBtns.forEach((b, i) => { b.textContent = qText[i]; b.dataset.q = ['good','fuzzy','forgot'][i]; });
-  if (isExercise && !setMode) applyPageModeUI();
+  if (isExercise && !setMode) { pageRangeMode = hasRangeHistory(p); applyPageModeUI(); }
   if (setMode) {
     if (!$('#inSetDate').value) $('#inSetDate').value = m.t;
     syncSetFormUI(p);
@@ -14365,7 +14365,7 @@ $('#projectList').addEventListener('click', e => {
 let pageRangeMode = false;
 function hasRangeHistory(p) {
   if (!p || !p.records) return false;
-  return p.records.some(r => r.startPage != null && r.startPage > 1);
+  return p.records.some(r => r.startPage != null);
 }
 function applyPageModeUI() {
   const lead = $('#piLead'), st = $('#inPageStart'), dash = $('#piDash'),
