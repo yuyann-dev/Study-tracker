@@ -687,29 +687,29 @@
     .card-footer,.card-footer-placeholder{margin-top:12px}
   }
   .daily-goal.dg-almost .dg-fill{background:var(--warn)}
-  .dg-praise.dg-almost{background:rgba(224,138,0,.1);color:var(--warn);border:1px solid rgba(224,138,0,.18)}
+  .dg-praise.dg-almost{background:rgba(176,122,75,.1);color:var(--warn);border:1px solid rgba(176,122,75,.18)}
   .daily-goal.dg-done .dg-fill{background:var(--ok)}
-  .dg-praise.dg-done{background:rgba(14,164,114,.1);color:var(--ok);border:1px solid rgba(14,164,114,.18)}
-  .daily-goal.dg-over .dg-fill{background:#8b5cf6}
-  .dg-praise.dg-over{background:rgba(139,92,246,.08);color:#7c3aed;border:1px solid rgba(139,92,246,.15)}
-  .daily-goal.dg-done-all .dg-fill{background:#ec4899}
-  .dg-praise.dg-done-all{background:rgba(236,72,153,.08);color:#db2777;border:1px solid rgba(236,72,153,.15)}
+  .dg-praise.dg-done{background:rgba(31,138,102,.1);color:var(--ok);border:1px solid rgba(31,138,102,.18)}
+  .daily-goal.dg-over .dg-fill{background:var(--warn)}
+  .dg-praise.dg-over{background:rgba(176,122,75,.1);color:var(--warn);border:1px solid rgba(176,122,75,.18)}
+  .daily-goal.dg-done-all .dg-fill{background:var(--ok)}
+  .dg-praise.dg-done-all{background:rgba(31,138,102,.1);color:var(--ok);border:1px solid rgba(31,138,102,.18)}
   .dg-praise.dg-idle{background:rgba(46,107,79,.06);color:var(--brand);border:1px solid rgba(46,107,79,.12)}
-  .dg-praise.dg-progress{background:rgba(59,130,246,.08);color:#2563eb;border:1px solid rgba(59,130,246,.15)}
-  .daily-goal.dg-progress .dg-fill{background:#3b82f6}
+  .dg-praise.dg-progress{background:rgba(46,107,79,.08);color:var(--brand);border:1px solid rgba(46,107,79,.15)}
+  .daily-goal.dg-progress .dg-fill{background:var(--brand)}
   /* 深色模式胶囊颜色适配 */
   html[data-theme="dark"] .dg-praise.dg-idle{background:rgba(131,188,169,.1);color:#83bca9;border-color:rgba(131,188,169,.2)}
-  html[data-theme="dark"] .dg-praise.dg-progress{background:rgba(96,165,250,.1);color:#93c5fd;border-color:rgba(96,165,250,.2)}
+  html[data-theme="dark"] .dg-praise.dg-progress{background:rgba(131,188,169,.12);color:#83bca9;border-color:rgba(131,188,169,.22)}
   html[data-theme="dark"] .dg-praise.dg-almost{background:rgba(205,174,112,.12);color:#e0c88f;border-color:rgba(205,174,112,.22)}
   html[data-theme="dark"] .dg-praise.dg-done{background:rgba(120,186,160,.12);color:#abdcc4;border-color:rgba(120,186,160,.22)}
-  html[data-theme="dark"] .dg-praise.dg-over{background:rgba(167,139,250,.12);color:#c4b5fd;border-color:rgba(167,139,250,.22)}
-  html[data-theme="dark"] .dg-praise.dg-done-all{background:rgba(244,114,182,.12);color:#f9a8d4;border-color:rgba(244,114,182,.22)}
+  html[data-theme="dark"] .dg-praise.dg-over{background:rgba(205,174,112,.12);color:#e0c88f;border-color:rgba(205,174,112,.22)}
+  html[data-theme="dark"] .dg-praise.dg-done-all{background:rgba(120,186,160,.12);color:#abdcc4;border-color:rgba(120,186,160,.22)}
 
   .status{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:12px;margin:10px 0}
-  .status.ok{background:rgba(16,185,129,.05);border-left:4px solid var(--ok);border:1px solid rgba(16,185,129,.12);border-left:4px solid var(--ok)}
+  .status.ok{background:rgba(31,138,102,.05);border-left:4px solid var(--ok);border:1px solid rgba(31,138,102,.12);border-left:4px solid var(--ok)}
   .status.info{background:rgba(46,107,79,.05);border-left:4px solid var(--brand);border:1px solid rgba(46,107,79,.12);border-left:4px solid var(--brand)}
-  .status.warn{background:rgba(224,138,0,.05);border-left:4px solid var(--warn);border:1px solid rgba(224,138,0,.12);border-left:4px solid var(--warn)}
-  .status.bad{background:rgba(239,68,68,.05);border-left:4px solid var(--bad);border:1px solid rgba(239,68,68,.12);border-left:4px solid var(--bad)}
+  .status.warn{background:rgba(176,122,75,.05);border-left:4px solid var(--warn);border:1px solid rgba(176,122,75,.12);border-left:4px solid var(--warn)}
+  .status.bad{background:rgba(192,57,43,.05);border-left:4px solid var(--bad);border:1px solid rgba(192,57,43,.12);border-left:4px solid var(--bad)}
   .status-icon{font-size:24px;line-height:1.2;flex-shrink:0;margin-top:1px}
   .status-title{font-weight:600;margin-bottom:6px;font-size:15px;color:var(--text)}
   .status-desc{font-size:13px;color:var(--muted);line-height:1.7}
