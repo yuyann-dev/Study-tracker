@@ -5334,7 +5334,7 @@ function getStatusMessage(p, m) {
       else if (early === 0) praise = '刚好在目标日完成，卡得很准！';
     }
     return { icon:'' + svgIcon('flag') + '', cls:'ok', title:'全部内容已完成',
-      desc:`共 ${tot} ${u}，你在 ${fmtCN(m.t)} 完成了整个目标。${praise ? praise + '<br><br>' : ''}可以在设置中调整截止日期，或开始下一个任务。` };
+      desc:`共 ${tot} ${u}，你在 ${fmtCN(m.t)} 完成了整个目标。${praise ? praise + '<br><br>' : ''}这份坚持很了不起，可以开始下一个目标，或把这本归档收进收纳箱。` };
   }
 
   // 2. 错题本：核心理念——攻克错题是最高效的提分，错题是"提前发现的薄弱点"而非负担。
@@ -5375,7 +5375,7 @@ function getStatusMessage(p, m) {
     if (p.deadline && m.remaining > 0) {
       const daysLeft = diffDays(today, p.deadline);
       if (daysLeft < 0) {
-        deadlineWarn = `<br><br>目标日已过 ${-daysLeft} 天，错题本仍会继续帮你滚动剩下的 ${rem} 道，不用焦虑；想设个新目标日，可以在设置里调整。`;
+        deadlineWarn = `<br><br>目标日已过 ${-daysLeft} 天，错题本仍会继续帮你滚动剩下的 ${rem} 道，系统会自动安排好复习节奏，你只管清今天的。想设个新目标日，可以在设置里调整。`;
       } else if (daysLeft <= 14) {
         deadlineWarn = `<br><br>距目标日 ${fmtCN(p.deadline)} ${fmtDaysLeft(daysLeft)}。这段时间建议优先清「今天到期」和「反复错」的题——把已经暴露过的薄弱点做熟，比漫无目的地刷新题更针对考前提分。想筛查哪些题从收录后一次都没复习过，可以到「${svgIcon('target')} 薄弱点 → 未复习」里看一眼。`;
       }
@@ -5403,7 +5403,7 @@ function getStatusMessage(p, m) {
     if (due <= 0 && reviewedToday > 0 && m.remaining > 0) {
       const got = masteredToday > 0 ? `今天还攻克了 ${masteredToday} 道，又拿下 ${masteredToday} 个薄弱点。` : '';
       return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'今天的错题都过完了',
-        desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，不用提前惦记。${progressPhrase ? '<br>' + progressPhrase : ''}` };
+        desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，系统帮你记着。${progressPhrase ? '<br>' + progressPhrase : ''}` };
     }
     if (m.remaining === 0 && m.currentPage > 0) {
       return { icon:'' + svgIcon('party-popper') + '', cls:'ok', title:'已收录的错题全部攻克',
@@ -5420,7 +5420,7 @@ function getStatusMessage(p, m) {
       : mpct >= 0.5
         ? `已攻克 ${masteredPct}%、过半了，暂无到期就是暂时清空了队列，保持节奏就好。`
         : masteredNum > 0
-          ? `已攻克 ${curN} / ${tot} 道，队列暂时清空，今天可以轻松些。`
+          ? `已攻克 ${curN} / ${tot} 道，队列暂时清空，状态不错，继续保持。`
           : '暂无到期错题，遇到新错题随时收录即可。';
     return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'暂无到期错题',
       desc:`${calmTail}${deadlineWarn}` };
@@ -5469,7 +5469,7 @@ function getStatusMessage(p, m) {
         ? `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前学完，之后还留约 ${m.cycleDays} 天滚动复习。`
         : `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前完成。`;
       return { icon:'' + svgIcon('sprout') + '', cls:'info', title:'刚开始，先把节奏跑起来',
-        desc:`${doneTxt}。先有个粗略抓手：${grasp}这是早期估算，做几天就会按你的真实节奏自动修正，现在不用有压力。${reciteCycleLine}` };
+        desc:`${doneTxt}。先有个粗略抓手：${grasp}这是早期估算，做几天就会按你的真实节奏自动修正，现在专注把今天的量做好。${reciteCycleLine}` };
     }
     if (m.activeDays >= 1) {
       return { icon:'' + svgIcon('sprout') + '', cls:'info', title:'第一步已经完成',
