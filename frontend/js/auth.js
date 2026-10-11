@@ -1407,11 +1407,25 @@
       var lastSync = dt.lastSyncAt ? new Date(dt.lastSyncAt) : null;
       var now = new Date();
       var daysSinceSync = lastSync ? Math.floor((now - lastSync) / 86400000) : null;
-      var statusText = u.deletedAt ? (u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）') : (u.status === 'active' ? '正常' : (u.status === 'disabled' ? '已禁用' : esc(u.status || '—')));
-      var statusNote = '';
-      if (u.status === 'disabled') statusNote = '<span class="ud-status-badge ud-status-bad">已封禁</span>';
-      else if (daysSinceSync != null && daysSinceSync > 7) statusNote = '<span class="ud-status-badge ud-status-warn">近' + daysSinceSync + '天未同步</span>';
-      else if (daysSinceSync != null && daysSinceSync <= 1) statusNote = '<span class="ud-status-badge ud-status-ok">活跃</span>';
+      var statusText = '', statusNote = '';
+      if (u.deletedAt) {
+        statusText = u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）';
+      } else if (u.status === 'disabled') {
+        statusText = '已禁用';
+        statusNote = '<span class="ud-status-badge ud-status-bad">已封禁</span>';
+      } else if (u.status === 'active') {
+        if (daysSinceSync != null && daysSinceSync <= 1) {
+          statusText = '';
+          statusNote = '<span class="ud-status-badge ud-status-ok">活跃</span>';
+        } else if (daysSinceSync != null && daysSinceSync > 7) {
+          statusText = '正常';
+          statusNote = '<span class="ud-status-badge ud-status-warn">近' + daysSinceSync + '天未同步</span>';
+        } else {
+          statusText = '正常';
+        }
+      } else {
+        statusText = esc(u.status || '—');
+      }
       document.getElementById('udBody').innerHTML =
         '<div class="drow"><span>邮箱</span><b>' + esc(u.email || '—') + '</b></div>'
         + '<div class="drow"><span>状态</span><b>' + statusText + '</b> ' + statusNote + '</div>'
