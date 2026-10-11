@@ -672,6 +672,10 @@ function getThemePref() {
 }
 function resolveTheme(pref) {
   if (pref === 'light' || pref === 'dark') return pref;
+  if (pref === 'time') {
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 function applyTheme() {
@@ -16012,6 +16016,8 @@ try {
   if (mq.addEventListener) mq.addEventListener('change', handler);
   else if (mq.addListener) mq.addListener(handler);
 } catch (e) {}
+/* 当用户选"跟随时间"时，每5分钟检查一次时间是否跨了白天/晚上边界 */
+setInterval(() => { if (getThemePref() === 'time') applyTheme(); }, 5 * 60 * 1000);
 
 /* resize 重绘图表加 debounce，避免拖动窗口时高频重绘卡顿 */
 let _resizeT = null;
