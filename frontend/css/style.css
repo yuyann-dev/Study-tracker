@@ -1258,11 +1258,11 @@
   }
   /* 中等屏幕：标题独占一行，按钮组移到下方整齐排列 */
   @media(max-width:560px){
-    .head{flex-direction:column;align-items:stretch;gap:12px}
+    .head{flex-direction:column;align-items:stretch;gap:12px;position:relative}
     .head-main,.head-actions{flex:1 1 100%;max-width:100%}
-    .head-actions{flex-wrap:wrap;justify-content:flex-start}
+    .head-actions{flex-wrap:wrap;justify-content:flex-start;padding-right:48px}
     .head-actions .ghost-btn{flex:1 1 auto;min-width:max-content;padding:9px 12px;justify-content:center}
-    .head-actions .user-avatar-shell{flex:0 0 auto}
+    .head-actions .user-avatar-shell{position:absolute;right:0;top:0;flex:none}
   }
 
   @media(max-width:520px){
