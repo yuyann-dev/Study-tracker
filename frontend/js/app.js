@@ -5155,15 +5155,15 @@ const Coach = {
       '今天还没结束，开始就不晚',
     ],
     night: [
-      '夜深了，能学一点是一点',
-      '深夜了，注意别熬太晚',
+      '夜深了，学完这部分就休息',
+      '深夜安静，适合整理错题',
     ],
   },
   streak: {
     hot: [
       '连续打卡很亮眼，今天继续保持',
       '这份坚持了不起，今天也坐下来',
-      '已经连续这么多天，惯性在你这边',
+      '已经连续这么多天，节奏已经成了习惯',
       '连续的力量，今天别断',
       '状态正热，接着学',
     ],
@@ -5212,7 +5212,7 @@ const Coach = {
     '达标了，这份踏实感是你应得的',
     '今日任务圆满完成，辛苦了',
     '目标完成，今天很充实',
-    '拿下了！可以安心休息了',
+    '拿下了！明天继续保持',
   ],
   dashPartial: [
     '已经开了好头，把剩下的也完成',
@@ -5277,8 +5277,8 @@ const Coach = {
   // 不可能完成（硬约束不建议延期）
   impossibleHard: [
     '今天任务量很大，拆成几次完成',
-    '量不小，能做多少做多少，每道都有价值',
-    '冲刺量，优先把高频考点拿下',
+    '量不小，优先拿下高频考点',
+    '冲刺量，能多做一道是一道',
   ],
   // 刷题本低进度（更丰富，带速度检测）
   exerciseLow: [
@@ -10409,7 +10409,7 @@ function getWeeklyReviewHTML() {
       `{streak} 天的连续记录背后，上周{whatYouDid}，都是一天天攒下来的硬功夫。`
     ];
     tips = [
-      '惯性已经建立，继续保持就好，周末也可以心安理得地放松半天。',
+      '节奏已经稳定，继续保持，周末也可以适当放松半天。',
       '趁状态稳定，定期回看一眼整体进度，确认方向没有跑偏。',
       '稳定是你的优势，接下来可以在每天的内容质量上再抠细一点。'
     ];
@@ -10441,7 +10441,7 @@ function getWeeklyReviewHTML() {
     emoji = '' + svgIcon('cloud-rain') + ''; title = '上周 · 刚起步';
     msgs = [
       `上周学了 {days} 天，{whatYouDid}，虽然不多，但至少没有完全空白。`,
-      `上周只记录了 {days} 天，{whatYouDid}，没关系，这周从一个小目标重新起步就好。`,
+      `上周只记录了 {days} 天，{whatYouDid}，这周从一个小目标重新起步，会越来越好。`,
       `有 {days} 天的开始就不算晚，{whatYouDid}，真正可惜的是一直不开始。`
     ];
     tips = [
@@ -10654,7 +10654,7 @@ function openDashboard() {
     }
   } else if (tasksTotal > 0 && tasksDone > 0) {
     msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 ${tasksTotal - tasksDone} 个`;
-    if (isBack) enc = Coach.pick(['回来就好，已经在推进了 💪', '断了几天又捡起来，这就够了 🌱', '重新进入状态了，继续保持 ✨'], 'dashpartialback');
+    if (isBack) enc = Coach.pick(['回来就好，已经在推进了 💪', '断了几天又捡起来，很棒 🌱', '重新进入状态了，继续保持 ✨'], 'dashpartialback');
     else if (isSpeeding) enc = Coach.pick(['今天速度比平时快，手感正好 🚀', '效率在线，趁势把剩下的也拿下 ⚡', '进入状态了，越做越顺 🔥'], 'dashpartialfast');
     else if (isHot) enc = Coach.pick(['连续这么多天，还在稳步推进 🌟', '节奏很稳，继续保持就好 ⭐', '坚持的人最厉害，加油 💪'], 'dashpartialhot');
     else enc = Coach.pick(Coach.dashPartial, 'dashpartial');
