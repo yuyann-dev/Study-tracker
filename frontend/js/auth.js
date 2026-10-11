@@ -1325,11 +1325,12 @@
   function parseDevice(ua) {
     if (!ua) return '未知';
     ua = ua.toLowerCase();
-    let device = '', os = '', browser = '';
-    // 设备类型
-    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) device = 'iOS';
+    let device = '', browser = '';
+    // 设备类型（iPadOS 13+ UA与Mac相同，标注为Mac/iPad）
+    if (ua.includes('iphone') || ua.includes('ipod')) device = 'iPhone';
+    else if (ua.includes('ipad')) device = 'iPad';
     else if (ua.includes('android')) device = 'Android';
-    else if (ua.includes('macintosh') || ua.includes('mac os')) device = 'Mac';
+    else if (ua.includes('macintosh') || ua.includes('mac os')) device = 'Mac/iPad';
     else if (ua.includes('windows')) device = 'Windows';
     else if (ua.includes('linux')) device = 'Linux';
     else device = '其他';
@@ -1377,14 +1378,14 @@
       var lastSync = dt.lastSyncAt ? new Date(dt.lastSyncAt) : null;
       var now = new Date();
       var daysSinceSync = lastSync ? Math.floor((now - lastSync) / 86400000) : null;
+      var statusText = u.deletedAt ? (u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）') : (u.status === 'active' ? '正常' : (u.status === 'disabled' ? '已禁用' : esc(u.status || '—')));
       var statusNote = '';
       if (u.status === 'disabled') statusNote = '<span class="ud-status-badge ud-status-bad">已封禁</span>';
       else if (daysSinceSync != null && daysSinceSync > 7) statusNote = '<span class="ud-status-badge ud-status-warn">近' + daysSinceSync + '天未同步</span>';
       else if (daysSinceSync != null && daysSinceSync <= 1) statusNote = '<span class="ud-status-badge ud-status-ok">活跃</span>';
-      else statusNote = '<span class="ud-status-badge">正常</span>';
       document.getElementById('udBody').innerHTML =
         '<div class="drow"><span>邮箱</span><b>' + esc(u.email || '—') + '</b></div>'
-        + '<div class="drow"><span>状态</span><b>' + (u.deletedAt ? (u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）') : esc(u.status || '—')) + '</b> ' + statusNote + '</div>'
+        + '<div class="drow"><span>状态</span><b>' + statusText + '</b> ' + statusNote + '</div>'
         + (u.banReason ? '<div class="drow"><span>封禁原因</span><b>' + esc(u.banReason) + '</b></div>' : '')
         + (u.banUntil ? '<div class="drow"><span>封禁至</span><b>' + fmtDateTime(u.banUntil) + '</b></div>' : '')
         + '<div class="drow"><span>数据量</span><b>' + (dt.sizeBytes != null ? Math.round(dt.sizeBytes/1024*100)/100 + ' KB' : '—') + '</b></div>'
