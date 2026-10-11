@@ -10656,7 +10656,9 @@ function openDashboard() {
     msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 ${tasksTotal - tasksDone} 个`;
     if (isBack) enc = Coach.pick(['回来就好，已经在推进了 💪', '断了几天又捡起来，很棒 🌱', '重新进入状态了，继续保持 ✨'], 'dashpartialback');
     else if (isSpeeding) enc = Coach.pick(['今天速度比平时快，手感正好 🚀', '效率在线，趁势把剩下的也拿下 ⚡', '进入状态了，越做越顺 🔥'], 'dashpartialfast');
+    else if (isSlowing) enc = Coach.pick(['今天慢一点没关系，稳扎稳打 🌱', '遇到难题了？搞懂一道是一道 📝', '节奏放缓说明这部分需要多花时间，吃透了后面会快 💡'], 'dashpartialslow');
     else if (isHot) enc = Coach.pick(['连续这么多天，还在稳步推进 🌟', '节奏很稳，继续保持就好 ⭐', '坚持的人最厉害，加油 💪'], 'dashpartialhot');
+    else if (isWarm) enc = Coach.pick(['连续几天了，节奏不错 🔥', '保持住，今天也跟上 ⭐', '连续记录在积累，继续 💪'], 'dashpartialwarm');
     else enc = Coach.pick(Coach.dashPartial, 'dashpartial');
   } else if (tasksInProgress > 0) {
     const _todoN = tasksTotal - tasksDone - tasksInProgress;
@@ -10670,6 +10672,7 @@ function openDashboard() {
       : `今天还有 <b>${tasksTotal}</b> 个任务待完成，从最顺手的开始`;
     if (isBack) enc = Coach.pick(['回来了就好，先从最简单的开始 💚', '断了几天没关系，今天重新出发 🌱', '能坐下来就是胜利，先动起来 ✨'], 'dashstartback');
     else if (isHot) enc = Coach.pick(['连续这么多天，今天也别断 🔥', '状态正热，开个好头 ⭐', '保持住，今天也稳稳的 💪'], 'dashstarthot');
+    else if (isWarm) enc = Coach.pick(['连续几天了，今天也跟上 🔥', '节奏不错，继续保持 ⭐', '别断，开个好头 💪'], 'dashstartwarm');
     else enc = Coach.pick(['迈出第一步最重要，开个好头 📖', '先做最简单的，进入状态就顺了', '坐下来翻开书，就成功了一半 ✨', '别想太多，先动起来 🚀', '今天的目标很明确，动手吧'], 'dashstart');
   } else if (retentionTotal > 0) {
     msg = `今天任务已清完，还有 <b>${retentionTotal}</b> 条已掌握内容可快速巩固`;
