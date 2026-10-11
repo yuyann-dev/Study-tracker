@@ -10614,14 +10614,26 @@ function openDashboard() {
 
   const streak = currentStreak(heat, today);
 
-  let msg, enc, urgent = false;
+  let msg, enc, sub, urgent = false;
   const g = timeGreeting();
+  const h = new Date().getHours();
+  // 副标题随时间段和状态变化，不固定
+  const subPool = {
+    morning: ['新的一天，先把节奏找回来', '清晨效率最高，先啃硬骨头', '早起的人已经在刷题了', '今天也要稳稳推进', '从第一题开始，进入状态'],
+    day: ['下午容易困，站起来动一动', '稳住节奏，别中断', '下午适合做套卷和错题', '保持专注，效率会更高', '已经过半了，继续加油'],
+    evening: ['晚上安静，适合深度刷题', '别拖到深夜，现在开始正好', '晚上复盘白天的内容', '今天的任务今天清', '安静的夜晚效率很高'],
+    night: ['夜深了，学完早点休息', '别熬太晚，明天还要继续', '深夜适合整理错题']
+  };
+  const subKey = h < 11 ? 'morning' : h < 14 ? 'day' : h < 18 ? 'day' : h < 23 ? 'evening' : 'night';
+  sub = Coach.pick(subPool[subKey], 'dashsub' + subKey);
+
   if (overdueTotal > 0) {
     msg = `有 <b>${overdueTotal}</b> 条已逾期，先把这些最该复习的清掉`; urgent = true;
-    enc = '越拖越忘，今天搞定就是胜利！';
+    enc = Coach.pick(['越拖越忘，今天搞定就是胜利', '逾期的题最容易丢分，优先清', '先把旧账清了，再学新的', '搞定逾期，心里就踏实了'], 'dashoverdue');
   } else if (tasksTotal > 0 && tasksDone >= tasksTotal) {
     if (tasksOver > 0) { msg = '今天的任务全部完成，还超额了'; enc = Coach.pick(Coach.overBig, 'dashover'); }
     else { msg = `今天 ${tasksTotal} 个任务全部完成`; enc = Coach.pick(Coach.done, 'dashdone'); }
+    sub = streak >= 3 ? `已经连续 ${streak} 天了，这份坚持很了不起` : '今天的目标达成，可以安心休息了';
   } else if (tasksTotal > 0 && tasksDone > 0) {
     msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 ${tasksTotal - tasksDone} 个`;
     enc = Coach.pick(Coach.dashPartial, 'dashpartial');
@@ -10633,13 +10645,13 @@ function openDashboard() {
     msg = dueTotal > 0
       ? `今天有 <b>${dueTotal}</b> 条待复习，从它开始（共 ${tasksTotal} 个任务）`
       : `今天还有 <b>${tasksTotal}</b> 个任务待完成，从最顺手的开始`;
-    enc = '迈出第一步最重要，开个好头～';
+    enc = Coach.pick(['迈出第一步最重要，开个好头', '先做最简单的，进入状态就顺了', '坐下来翻开书，就成功了一半', '别想太多，先动起来', '今天的目标很明确，动手吧', '开始了就不难，越做越顺'], 'dashstart');
   } else if (retentionTotal > 0) {
     msg = `今天任务已清完，还有 <b>${retentionTotal}</b> 条已掌握内容可快速巩固`;
-    enc = '花几分钟确认还记得，记忆更牢～';
+    enc = Coach.pick(['花几分钟确认还记得，记忆更牢', '快速过一遍，防止遗忘', '巩固比学新的更重要', '已掌握的也要定期复习'], 'dashretention');
   } else {
     msg = '今天没有待完成的任务，状态很好';
-    enc = '轻松一下，也可以趁机动点新内容！';
+    enc = Coach.pick(['轻松一下，也可以趁机动点新内容', '没有任务压力，可以自由安排', '今天可以复盘一下这周的内容', '休息也是学习的一部分'], 'dashfree');
   }
   const statusChip = st => {
     if (!st) return '';
@@ -10707,7 +10719,7 @@ function openDashboard() {
     ${getWeeklyReviewHTML()}
     <div class="dash-hero ${urgent ? 'urgent' : ''}">
       <div class="greet-big">${g}${(typeof STAuth!=="undefined"&&STAuth.isLoggedIn()&&STAuth.getUsername())?"，"+esc(STAuth.getUsername())+"！":""}</div>
-      <div class="greet-sub">这是你今天的学习看板</div>
+      <div class="greet-sub">${sub}</div>
       <div class="hero-status">${msg}</div>
       <div class="hero-enc">${enc}</div>
     </div>
@@ -11316,15 +11328,17 @@ function renderProgressInsights(p, m) {
         if (p.deadline && d > p.deadline) delayDate = d;
       }
       let body;
-      if (sf) body = sf + (delayDate ? `，想更从容也可以把截止日延后到约 ${fmtCN(delayDate)}` : '');
-      else body = delayDate
+      const canDelay = p.hardDeadline !== true;
+      if (sf) body = sf + (delayDate && canDelay ? `，想更从容也可以把截止日延后到约 ${fmtCN(delayDate)}` : '');
+      else body = (delayDate && canDelay)
         ? `按你最近的节奏基本能按时完成，想留更多余量的话，可把截止日延后到约 ${fmtCN(delayDate)}`
         : `按你最近的节奏基本能按时完成，偶尔状态起伏也正常，正常推进就好`;
       etaLines += `<br><span style="color:#96600c">${svgIcon('alert-triangle')} ${body}。</span>`;
     }
     else if (m.feasibility === 'impossible') {
       const dLong = m.feasibleDaysLong ? addDays(m.t, Math.ceil(m.feasibleDaysLong)) : null;
-      etaLines += `<br><span style="color:var(--bad)">${svgIcon('wrench')} 按现在节奏缺口较大，建议增加每周学习天数${dLong ? `，或把截止日延后到约 ${fmtCN(dLong)}` : ''}。</span>`;
+      const canDelay = p.hardDeadline !== true;
+      etaLines += `<br><span style="color:var(--bad)">${svgIcon('wrench')} 按现在节奏缺口较大，建议增加每周学习天数${dLong && canDelay ? `，或把截止日延后到约 ${fmtCN(dLong)}` : ''}。</span>`;
     }
     // 相对理想进度（与 getMetrics 同口径：填了 startDate 用它，否则用最早打卡日）
     if (m.effStart && p.deadline && m.total > 0) {
