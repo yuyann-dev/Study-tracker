@@ -9354,7 +9354,7 @@ function renderExerciseRecords(p) {
         `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
         `<span class="r-page">${textOf[i]}</span>` +
         `<span class="r-delta${dl > 0 ? '' : ' zero'}" style="margin-left:auto">${dlStr}</span>` +
-        `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条记录里的错题（格式：套号-题号，如 3-5）">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
+        `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记这条记录里的错题（格式：套号-题号，如 3-5）">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
         `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" data-set="${esc(r.set)}" title="删除">${svgIcon('x', 15)}</button>`;
       list.insertBefore(li, list.firstChild);
     });
@@ -9392,7 +9392,7 @@ function renderExerciseRecords(p) {
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
       `<span class="r-page">${rangeStr}</span>` +
       `<span class="r-delta${delta > 0 ? '' : ' zero'}" style="margin-left:auto">${deltaStr}</span>` +
-      `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条打卡里的错题">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
+      `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记这条打卡里的错题">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
       `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" title="删除">${svgIcon('x', 15)}</button>`;
     list.insertBefore(li, list.firstChild);
   });
@@ -11356,7 +11356,7 @@ function renderProgressInsights(p, m) {
   }
   const etaBox = `<div class="pp-insight-title">${svgIcon('orbit')} 完成预测</div><div class="pp-eta-box">${etaLines}</div>`;
 
-  const notePadHtml = `<div id="ppNotePadWrap" style="margin:16px 0">
+  const notePadHtml = `<div id="ppNotePadWrap" style="margin:14px 0 4px">
     <div class="wb-section-title">${svgIcon('pin')} 我的注意事项</div>
     <textarea id="ppNotePad" class="wb-notepad" placeholder="写点提醒自己的话，会一直显示在这里…&#10;例：线代第二问必用行列式展开；英语作文先列提纲"></textarea>
   </div>`;

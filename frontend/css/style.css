@@ -302,11 +302,11 @@
   .ri-note.prefilled{color:#aaa}
   .ri-note:focus{color:var(--text)}
   .ri-lastnote{display:inline-block;background:#f1ece0;border-radius:6px;padding:1px 7px;font-size:11.5px;color:#8a8175}
-  .dash-hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin:0 0 16px;color:var(--text);box-shadow:var(--shadow)}
-  .dash-hero .greet-big{font-size:24px;font-weight:800;letter-spacing:-.3px;line-height:1.2;color:var(--text)}
-  .dash-hero .greet-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
-  .dash-hero .hero-status{font-size:15px;font-weight:600;line-height:1.6;margin-top:14px;color:var(--brand)}
-  .dash-hero .hero-enc{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .dash-hero{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:0 0 16px;color:var(--text);box-shadow:var(--shadow)}
+  .dash-hero .greet-big{font-size:22px;font-weight:700;letter-spacing:-.2px;line-height:1.3;color:var(--text)}
+  .dash-hero .greet-sub{font-size:13px;color:var(--muted);margin-top:5px}
+  .dash-hero .hero-status{font-size:15px;font-weight:600;line-height:1.6;margin-top:12px;color:var(--brand)}
+  .dash-hero .hero-enc{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.5}
   .dash-hero.urgent{border-color:var(--bad)}
   .dash-hero.urgent .hero-status{color:var(--bad)}
   /* 考研倒计时 */
@@ -374,7 +374,9 @@
   .pp-empty{color:var(--muted);font-size:13px;text-align:center;padding:24px 0}
 
   /* 完成情况看板：洞察区 */
-  .pp-insight-title{font-size:13px;font-weight:700;margin:18px 0 9px;color:var(--text)}
+  .pp-insight{margin-bottom:16px}
+  .pp-insight .wb-section-title{margin:14px 0 8px}
+  .pp-insight-title{font-size:13px;font-weight:700;margin:14px 0 8px;color:var(--text)}
   .pp-stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px}
   .pp-stat{background:var(--inputBg);border-radius:10px;padding:9px 11px}
   .pp-stat .v{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
