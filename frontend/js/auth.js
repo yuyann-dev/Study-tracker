@@ -1350,12 +1350,22 @@
     } else {
       device = '其他';
     }
-    // 浏览器（注意顺序：微信/QQ/华为等内置浏览器要在Chrome/Safari之前判断）
-    if (ua.includes('micromessenger')) browser = '微信';
+    // 浏览器（注意顺序：国产/内置浏览器要在Chrome/Safari之前判断）
+    if (ua.includes('doubaoworkvm') || ua.includes('doubao')) browser = '豆包';
+    else if (ua.includes('micromessenger')) browser = '微信';
+    else if (ua.includes('miuibrowser') || ua.includes('xiaomi')) browser = '小米浏览器';
     else if (ua.includes('huaweibrowser') || ua.includes('arkweb')) browser = '华为浏览器';
+    else if (ua.includes('vivobrowser')) browser = 'vivo浏览器';
+    else if (ua.includes('oppobrowser') || ua.includes('heytapbrowser')) browser = 'OPPO浏览器';
+    else if (ua.includes('samsungbrowser')) browser = '三星浏览器';
     else if (ua.includes('qqbrowser') || ua.includes('mqqbrowser')) browser = 'QQ浏览器';
     else if (ua.includes('ucbrowser') || ua.includes('ubrowser')) browser = 'UC浏览器';
+    else if (ua.includes('quark')) browser = '夸克';
+    else if (ua.includes('baidubrowser') || ua.includes('bdbrowser') || ua.includes('baiduboxapp')) browser = '百度';
+    else if (ua.includes('360se') || ua.includes('360ee') || ua.includes('qihu')) browser = '360浏览器';
+    else if (ua.includes('maxthon')) browser = '遨游';
     else if (ua.includes('metasr') || ua.includes('sogou')) browser = '搜狗';
+    else if (ua.includes('toutiao') || ua.includes('aweme') || ua.includes('newsarticle')) browser = '头条系';
     else if (ua.includes('edg')) browser = 'Edge';
     else if (ua.includes('opr') || ua.includes('opera')) browser = 'Opera';
     else if (ua.includes('chrome') && !ua.includes('edg')) browser = 'Chrome';
