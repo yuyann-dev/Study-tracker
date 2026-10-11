@@ -32,9 +32,9 @@
   body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
     background-image:url("/paper-warm.jpg?v=b143");background-size:cover;background-position:right top;background-repeat:no-repeat;background-attachment:fixed}
   body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-    background:rgba(243,236,223,.35)}
-  html[data-theme="dark"] body::before{background-image:url("/paper-dark.jpg");background-repeat:repeat;background-size:760px 760px;background-position:left top}
-  html[data-theme="dark"] body::after{background:none}
+    background:rgba(243,236,223,.2)}
+  html[data-theme="dark"] body::before{background-image:url("/paper-dark.jpg?v=b144");background-size:cover;background-position:center top;background-repeat:no-repeat;background-attachment:fixed}
+  html[data-theme="dark"] body::after{background:rgba(39,56,89,.18)}
   @media(max-width:768px){
     body::before{background-position:center top}
   }
