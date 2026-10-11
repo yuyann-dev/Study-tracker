@@ -5127,7 +5127,7 @@ const Coach = {
   pick(arr, seedKey) {
     if (!arr || !arr.length) return '';
     let h = 0;
-    const s = todayStr() + '|' + new Date().getHours() + '|' + (seedKey || '');
+    const s = todayStr() + '|' + (seedKey || '');
     for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
     return arr[Math.abs(h) % arr.length];
   },
