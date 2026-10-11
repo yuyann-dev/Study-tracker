@@ -5568,8 +5568,6 @@ function getStatusMessage(p, m) {
     }
     if (plan.delay && p.hardDeadline !== true) {
       body += `<b>如果强度太大，更现实的是把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏更稳）。截止日是规划工具不是审判，可在设置里调整。`;
-    } else if (plan.delay && p.hardDeadline === true) {
-      body += `<b>这是硬约束/考试日，不建议后移。</b>能做多少做多少，每道题都有价值。`;
     }
     body += reciteCycleLine + sparseNote;
     return { icon: overdue ? '' + svgIcon('octagon-x') + '' : '' + svgIcon('wrench') + '', cls:'bad', title: overdue ? '已过目标日，一起重新规划' : '目标偏紧，需要调整安排', desc: body };
@@ -5604,7 +5602,6 @@ function getStatusMessage(p, m) {
         let body = `还剩 ${rem} ${u}。你最近明显提速了，方向对了，但按 ${fmtCN(p.deadline)} 算，缺口仍然偏大。<br><br>`;
         body += `<b>硬要赶上，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
         if (plan.delay && p.hardDeadline !== true) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
-        else if (plan.delay && p.hardDeadline === true) body += `<b>这是硬约束/考试日，不建议后移。</b>能做多少做多少，每道题都有价值。`;
         body += reciteCycleLine;
         return { icon:'' + svgIcon('wrench') + '', cls:'warn', title:'在提速，但还需要加量', desc: body };
       }
@@ -5614,7 +5611,6 @@ function getStatusMessage(p, m) {
         if (plan.alt) body += `（也可${planText(plan.alt)}。）`;
       }
       if (plan.delay && p.hardDeadline !== true) body += `<br><span class="muted">若实在加不动，可把目标日延到 ${fmtCN(plan.delay.date)} 左右。</span>`;
-      else if (plan.delay && p.hardDeadline === true) body += `<br><span class="muted">这是硬约束/考试日，不建议后移。能做多少做多少，每道题都有价值。</span>`;
       body += reciteCycleLine;
       return { icon:'' + svgIcon('trending-up') + '', cls:'ok', title:'状态在上升，继续保持', desc: body };
     }
@@ -5626,7 +5622,6 @@ function getStatusMessage(p, m) {
       // 缺口大到可持续方案都不可行：硬路径如实标注强度，延期不再弱化，而作为并列的现实选择
       body += `<b>想赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
       if (plan.delay && p.hardDeadline !== true) body += `<b>更现实的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏可持续），在设置里即可调整。`;
-      else if (plan.delay && p.hardDeadline === true) body += `<b>这是硬约束/考试日，不建议后移。</b>能做多少做多少，每道题都有价值。`;
     } else {
       if (plan.onTime) {
         body += `<b>想按时完成，最省力的方式：</b>${planText(plan.onTime)}。`;
@@ -5636,8 +5631,6 @@ function getStatusMessage(p, m) {
       }
       if (plan.delay && p.hardDeadline !== true) {
         body += `<span class="muted">若最近确实排不开，可把目标日延到 ${fmtCN(plan.delay.date)} 左右（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}），在设置里即可调整。</span>`;
-      } else if (plan.delay && p.hardDeadline === true) {
-        body += `<span class="muted">这是硬约束/考试日，不建议后移。能做多少做多少，每道题都有价值。</span>`;
       }
     }
     body += reciteCycleLine + sparseNote;
@@ -6059,8 +6052,24 @@ function _dgShow(box, fill, line, praise, mood, pct, l, pr) {
   box.className = 'daily-goal dg-' + mood;
   praise.className = 'dg-praise dg-' + mood;
   fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
-  line.textContent = l;            // l 是纯文本
-  praise.innerHTML = pr;           // pr 常含 svgIcon()，必须 innerHTML（无用户原始输入，安全）
+  line.textContent = l;
+  // 全局唯一允许emoji的地方：根据mood给不同emoji前缀
+  const emojiMap = {
+    'idle': ['🌱', '☀️', '📖', '✨', '🎯'],
+    'progress': ['💪', '🔥', '📈', '⚡', '🚀'],
+    'almost': ['🏃', '🎯', '⚡', '💫', '🌟'],
+    'done': ['🎉', '✨', '🌟', '💚', '🏆'],
+    'over': ['🚀', '💫', '🏆', '🌈', '⭐'],
+    'done-all': ['👑', '🎊', '🌈', '🌟', '💎'],
+  };
+  const emojis = emojiMap[mood] || ['✨'];
+  const emoji = emojis[Math.abs(hashCode(todayStr() + mood + new Date().getHours())) % emojis.length];
+  praise.innerHTML = emoji + ' ' + pr;
+}
+function hashCode(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
 /* 在第三张"目标"卡片内，显示今天已做多少 / 还差多少 / 超额多少，并按状态给不同鼓励 */
@@ -6273,7 +6282,12 @@ function renderDailyGoal(p, m) {
     const gap = m.prevStudyDate ? Math.max(0, diffDays(m.prevStudyDate, today) - 1) : 0;
     if (m.feasibility === 'impossible') {
       if (isHard) {
-        pr = Coach.pick(Coach.impossibleHard, 'imph');
+        pr = Coach.pick([
+          '今天任务量大，拆成几次完成，每道都算数',
+          '冲刺量，优先把高频考点拿下',
+          '能做多少做多少，保持节奏最重要',
+          '量大别慌，一道一道来，稳扎稳打',
+        ], 'imph');
       } else {
         pr = `${svgIcon('activity')} 今天任务量不小，拆成几次完成，保持节奏`;
       }
