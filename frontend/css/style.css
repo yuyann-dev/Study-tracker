@@ -1482,8 +1482,8 @@
   .app-switch{animation:appSwitch .35s ease-out}
   @keyframes appSwitch{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
-  /* 禁用移动端点击高亮 */
-  button,a,[role=button]{-webkit-tap-highlight-color:transparent}
+  /* 禁用移动端点击高亮，消除iOS 300ms点击延迟 */
+  button,a,[role=button]{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 
   /* 日期快捷按钮：简约胶囊 */
   .date-quick{display:inline-flex;gap:6px;padding-bottom:9px;align-items:center}
@@ -2651,7 +2651,7 @@ html[data-theme="dark"] .ai-tut-list code{background:rgba(255,255,255,.12)}
 .ai-input-row textarea{
   flex:1;resize:none;max-height:96px;min-height:38px;
   background:var(--ai-bubble-ai);border:1px solid var(--line);
-  border-radius:8px;padding:9px 12px;font-family:inherit;font-size:14px;
+  border-radius:8px;padding:9px 12px;font-family:inherit;font-size:16px;
   color:var(--text);box-sizing:border-box;line-height:1.4;
 }
 .ai-input-row textarea:focus{

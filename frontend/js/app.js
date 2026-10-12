@@ -10948,7 +10948,7 @@ window.addEventListener('popstate', () => {
    1) 更新 --vvh 让弹窗高度收缩；2) 让打开的遮罩只占可视区，不被键盘盖住；
    3) 把当前聚焦的输入框滚入视野。 */
 function stActiveMask(){
-  var masks = document.querySelectorAll('.mask');
+  var masks = document.querySelectorAll('.mask, .ai-mask');
   for (var i=0;i<masks.length;i++){ if(!masks[i].hidden) return masks[i]; }
   return null;
 }
