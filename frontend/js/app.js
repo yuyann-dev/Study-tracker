@@ -10344,24 +10344,18 @@ function getWeeklyReviewHTML() {
   if (s.mistakeMastered > 0) parts.push(`攻克错题 ${s.mistakeMastered} 道`);
   const whatYouDid = parts.length ? parts.join('、') : '完成了日常复习';
 
-  // 环比变化：选最有代表性的指标
+  // 环比变化：加权综合学习状态指数
+  // 指数 = 学习天数*10 + 刷题页数*1 + 刷题套数*15 + 攻克错题*3 + 新增错题*0.5 + 新背内容*1
+  const weekScore = w => w.activeDays * 10 + w.exercisePages * 1 + w.exerciseSets * 15
+    + w.mistakeMastered * 3 + w.mistakeNew * 0.5 + w.reciteNew * 1;
+  const curScore = weekScore(s);
+  const prevScore = weekScore(prev);
   let compareText = '', compareCls = 'wr-compare-flat';
-  const dayDiff = s.activeDays - prev.activeDays;
-  const pageDiff = s.exercisePages - prev.exercisePages;
-  const mistakeDiff = s.mistakeNew - prev.mistakeNew;
-  if (prev.ageDays > 0 && prev.activeDays + prev.exercisePages + prev.mistakeNew > 0) {
-    if (Math.abs(pageDiff) >= 5) {
-      compareText = pageDiff > 0 ? `刷题 +${pageDiff} 页` : `刷题 ${pageDiff} 页`;
-      compareCls = pageDiff > 0 ? 'wr-compare-up' : 'wr-compare-down';
-    } else if (dayDiff !== 0) {
-      compareText = dayDiff > 0 ? `学习天数 +${dayDiff} 天` : `学习天数 ${dayDiff} 天`;
-      compareCls = dayDiff > 0 ? 'wr-compare-up' : 'wr-compare-down';
-    } else if (Math.abs(mistakeDiff) >= 3) {
-      compareText = mistakeDiff > 0 ? `新增错题 +${mistakeDiff} 道` : `新增错题 ${mistakeDiff} 道`;
-      compareCls = mistakeDiff > 0 ? 'wr-compare-down' : 'wr-compare-up';
-    } else {
-      compareText = '与前一周持平';
-    }
+  if (prev.ageDays > 0 && prevScore >= 20) {
+    const pct = Math.round((curScore - prevScore) / prevScore * 100);
+    if (pct >= 5) { compareText = `↑ ${pct}%`; compareCls = 'wr-compare-up'; }
+    else if (pct <= -5) { compareText = `↓ ${Math.abs(pct)}%`; compareCls = 'wr-compare-down'; }
+    else { compareText = '持平'; }
   }
 
   const fill = t => t
@@ -10520,7 +10514,7 @@ function getWeeklyReviewHTML() {
   // 数据格
   const stat = (num, lab) => `<div class="wr-stat"><div class="wr-num">${num}</div><div class="wr-lab">${lab}</div></div>`;
   const compareStat = compareText
-    ? `<div class="wr-stat wr-compare ${compareCls}"><div class="wr-num">${compareText}</div><div class="wr-lab">较前一周</div></div>`
+    ? `<div class="wr-stat wr-compare ${compareCls}"><div class="wr-num">${compareText}</div><div class="wr-lab">学习状态</div></div>`
     : null;
   const statsHtml = [
     stat(s.activeDays + ' / 7', '学习天数'),
