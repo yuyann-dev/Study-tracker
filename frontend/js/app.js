@@ -10346,10 +10346,8 @@ function getWeeklyReviewHTML() {
   if (s.exercisePages > 0) parts.push(`刷了 ${s.exercisePages} 页题`);
   if (s.exerciseSets > 0) parts.push(`刷了 ${s.exerciseSets} 套卷`);
   if (s.reciteNew > 0) parts.push(`新背 ${s.reciteNew} 条`);
-  if (s.reciteReviews > 0) parts.push(`复习背书 ${s.reciteReviews} 天`);
   if (s.mistakeNew > 0) parts.push(`收录 ${s.mistakeNew} 道错题`);
   if (s.mistakeMastered > 0) parts.push(`攻克错题 ${s.mistakeMastered} 道`);
-  if (s.mistakeReviews > 0) parts.push(`复习错题 ${s.mistakeReviews} 天`);
   const whatYouDid = parts.length ? parts.join('、') : '完成了日常复习';
 
   const fill = t => t
@@ -10465,18 +10463,12 @@ function getWeeklyReviewHTML() {
 
   // 数据格：根据用户实际使用的模式动态显示，没有数据的指标不出现
   const stat = (num, lab) => `<div class="wr-stat"><div class="wr-num">${num}</div><div class="wr-lab">${lab}</div></div>`;
-  // 复习卡片：只有一种模式时显示具体名称，两种都有则显示汇总
-  let reviewCard = null;
-  if (s.reciteReviews > 0 && s.mistakeReviews > 0) reviewCard = stat(s.totalReviews, '复习总天数');
-  else if (s.reciteReviews > 0) reviewCard = stat(s.reciteReviews, '复习背书');
-  else if (s.mistakeReviews > 0) reviewCard = stat(s.mistakeReviews, '复习错题');
   const statsHtml = [
     stat(s.activeDays + ' / 7', '学习天数'),
     s.exercisePages > 0 ? stat(s.exercisePages, '刷题页数') : null,
     s.exerciseSets > 0 ? stat(s.exerciseSets, '刷题套数') : null,
     s.reciteNew > 0 ? stat(s.reciteNew, '新背内容') : null,
     s.mistakeNew > 0 ? stat(s.mistakeNew, '新增错题') : null,
-    reviewCard,
     s.mistakeMastered > 0 ? stat(s.mistakeMastered, '攻克错题') : null,
     stat(s.streak, '连续打卡')
   ].filter(Boolean).join('');
