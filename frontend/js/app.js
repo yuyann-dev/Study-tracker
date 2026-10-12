@@ -17458,7 +17458,7 @@ if (document.readyState === 'loading') {
     highlightOutlineItem();
   }
 
-  /* ---- 对话索引（DeepSeek风格：窄列标记 + hover浮层） ---- */
+  /* ---- 对话索引（DeepSeek ScrollNav风格：窄条刻度 + hover向左展开浮层） ---- */
   function updateOutline(){
     var outline = document.getElementById('aiOutline');
     var track = document.getElementById('aiOutlineTrack');
@@ -17469,18 +17469,21 @@ if (document.readyState === 'loading') {
     if (!userMsgs.length) { outline.hidden = true; return; }
     outline.hidden = false;
 
-    // 生成窄列短横线标记（按相对位置定位）
-    var totalHeight = els.msgs.scrollHeight || 1;
-    var trackHeight = track.clientHeight || 300;
+    // 计算轨道高度（优先用track自身，其次用父容器outline）
+    var trackHeight = track.offsetHeight || outline.offsetHeight || 300;
+    // 对话总高度（滚动内容的完整高度）
+    var totalHeight = els.msgs.scrollHeight || els.msgs.offsetHeight || 1;
+
+    // 生成窄列短横线标记（按消息在对话中的真实相对位置分布）
     var trackHtml = '';
     var popupHtml = '';
     for (var i = 0; i < userMsgs.length; i++) {
       var msg = userMsgs[i];
       var raw = msg.dataset.raw || msg.textContent.trim() || '';
       var title = raw.length > 22 ? raw.slice(0, 22) + '…' : raw;
-      // 标记位置：按消息在对话中的相对比例
-      var ratio = msg.offsetTop / totalHeight;
-      var top = Math.max(0, Math.min(trackHeight - 5, ratio * trackHeight));
+      // 标记位置：消息顶部在对话总高度中的比例 × 轨道高度
+      var ratio = totalHeight > 0 ? (msg.offsetTop / totalHeight) : 0;
+      var top = Math.max(0, Math.min(trackHeight - 3, ratio * trackHeight));
       trackHtml += '<div class="ai-outline-marker" data-target="' + msg.id + '" style="top:' + top + 'px" title="' + esc(raw) + '"></div>';
       popupHtml += '<div class="ai-outline-popup-item" data-target="' + msg.id + '">'
                  + '<span class="ai-outline-popup-dot"></span>'
