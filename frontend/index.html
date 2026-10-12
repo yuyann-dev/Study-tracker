@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=b153">
+<link rel="stylesheet" href="css/style.css?v=b154">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1957,9 +1957,9 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/icons.js?v=b153"></script>
-<script src="js/auth.js?v=b153"></script>
-<script src="js/app.js?v=b153"></script>
+<script src="js/icons.js?v=b154"></script>
+<script src="js/auth.js?v=b154"></script>
+<script src="js/app.js?v=b154"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2245,6 +2245,7 @@ if (document.readyState === 'loading') {
     </div>
 
     <!-- ③ 内容区 -->
+    <div class="ai-body-wrap">
     <div class="ai-body">
       <!-- 对话 Tab -->
       <div class="ai-pane" id="aiPane-chat">
@@ -2256,12 +2257,6 @@ if (document.readyState === 'loading') {
               <p class="ai-empty-title">配置 API Key，开始使用 AI学习助手</p>
               <p class="hint">Key 只存在你自己的账号里，AES 加密存储，不会上传他处。</p>
               <button class="primary" id="aiGoSettings" type="button">去设置 →</button>
-            </div>
-          </div>
-          <div class="ai-outline" id="aiOutline" hidden>
-            <div class="ai-outline-track" id="aiOutlineTrack"></div>
-            <div class="ai-outline-popup" id="aiOutlinePopup" hidden>
-              <div class="ai-outline-popup-list" id="aiOutlinePopupList"></div>
             </div>
           </div>
         </div>
@@ -2370,6 +2365,14 @@ if (document.readyState === 'loading') {
         </div>
         <div class="field-error" id="aiSaveResult" hidden></div>
       </div>
+    </div>
+    <!-- 右侧对话索引（固定在可视区域右侧，不随滚动） -->
+    <div class="ai-outline" id="aiOutline" hidden>
+      <div class="ai-outline-track" id="aiOutlineTrack"></div>
+      <div class="ai-outline-popup" id="aiOutlinePopup">
+        <div class="ai-outline-popup-list" id="aiOutlinePopupList"></div>
+      </div>
+    </div>
     </div>
 
     <!-- ④ 输入区（仅对话 Tab） -->
