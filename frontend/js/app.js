@@ -10442,8 +10442,8 @@ function getWeeklyReviewHTML() {
     emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 状态上升';
     msgs = [
       `上周{days}天的投入，${whatYouDid}，学习状态比前一周提高{comparePct}%，你正在加速靠近目标。`,
-      `一周{days}天在学习，${whatYouDid}，环比提升{comparePct}%，这个势头很好。`,
-      `{days}天的投入加上{comparePct}%的环比进步，${whatYouDid}，状态在往上走。`,
+      `一周{days}天在学习，${whatYouDid}，学习状态比前一周提高{comparePct}%，这个势头很好。`,
+      `{days}天的投入，学习状态提高{comparePct}%，${whatYouDid}，状态在往上走。`,
       `学习状态提高{comparePct}%，${whatYouDid}，保持住这个加速度。`
     ];
     tips = [
@@ -10454,7 +10454,7 @@ function getWeeklyReviewHTML() {
   } else if (s.activeDays >= 5 && isDown) {
     emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
     msgs = [
-      `上周{days}天的投入，${whatYouDid}，虽然环比略降{comparePct}%但底子还在。`,
+      `上周{days}天的投入，${whatYouDid}，虽然学习状态比前一周略降{comparePct}%但底子还在。`,
       `一周{days}天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
       `{days}天的投入——${whatYouDid}——偶尔的波动很正常，这周把状态拉回来。`
     ];
@@ -10480,7 +10480,7 @@ function getWeeklyReviewHTML() {
     msgs = [
       `上周{days}天的投入，${whatYouDid}，学习状态比前一周提高{comparePct}%，方向是对的。`,
       `{days}天学习、{rest}天休整，${whatYouDid}，正在从低谷往上走。`,
-      `上周有{days}天在推进，${whatYouDid}，环比提升{comparePct}%，继续加把劲。`
+      `上周有{days}天在推进，${whatYouDid}，学习状态比前一周提高{comparePct}%，继续加把劲。`
     ];
     tips = [
       '回升期最关键的是别断，先把连续天数拉起来，量自然会跟上。',
