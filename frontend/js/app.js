@@ -16965,8 +16965,7 @@ if (document.readyState === 'loading') {
     editingMsgEl: null,       // 当前正在编辑的用户消息 DOM
     abortController: null,    // 用于停止生成
     editAborted: false,       // 编辑时主动 abort，抑制"已停止生成"提示
-    userMsgSeq: 0,            // 用户消息序号，用于生成对话索引的锚点id
-    outlineCollapsed: false   // 对话索引是否收起
+    userMsgSeq: 0            // 用户消息序号，用于生成对话索引的锚点id
   };
 
   /* ---- 示例问题库 ---- */
@@ -17459,35 +17458,45 @@ if (document.readyState === 'loading') {
     highlightOutlineItem();
   }
 
-  /* ---- 对话索引（右侧目录） ---- */
+  /* ---- 对话索引（DeepSeek风格：窄列标记 + hover浮层） ---- */
   function updateOutline(){
     var outline = document.getElementById('aiOutline');
-    var list = document.getElementById('aiOutlineList');
-    if (!outline || !list) return;
+    var track = document.getElementById('aiOutlineTrack');
+    var popupList = document.getElementById('aiOutlinePopupList');
+    if (!outline || !track || !popupList) return;
     var userMsgs = els.msgs ? els.msgs.querySelectorAll('.ai-msg.user') : [];
     // 没有用户消息时隐藏索引栏
     if (!userMsgs.length) { outline.hidden = true; return; }
-    outline.hidden = state.outlineCollapsed;
-    if (state.outlineCollapsed) return;
-    // 生成索引项
-    var html = '';
+    outline.hidden = false;
+
+    // 生成窄列短横线标记（按相对位置定位）
+    var totalHeight = els.msgs.scrollHeight || 1;
+    var trackHeight = track.clientHeight || 300;
+    var trackHtml = '';
+    var popupHtml = '';
     for (var i = 0; i < userMsgs.length; i++) {
       var msg = userMsgs[i];
       var raw = msg.dataset.raw || msg.textContent.trim() || '';
-      var title = raw.length > 16 ? raw.slice(0, 16) + '…' : raw;
-      html += '<div class="ai-outline-item" data-target="' + msg.id + '" title="' + esc(raw) + '">'
-            + '<span class="ai-outline-dot"></span>'
-            + '<span class="ai-outline-text">' + esc(title) + '</span>'
-            + '</div>';
+      var title = raw.length > 22 ? raw.slice(0, 22) + '…' : raw;
+      // 标记位置：按消息在对话中的相对比例
+      var ratio = msg.offsetTop / totalHeight;
+      var top = Math.max(0, Math.min(trackHeight - 5, ratio * trackHeight));
+      trackHtml += '<div class="ai-outline-marker" data-target="' + msg.id + '" style="top:' + top + 'px" title="' + esc(raw) + '"></div>';
+      popupHtml += '<div class="ai-outline-popup-item" data-target="' + msg.id + '">'
+                 + '<span class="ai-outline-popup-dot"></span>'
+                 + '<span class="ai-outline-popup-text">' + esc(title) + '</span>'
+                 + '</div>';
     }
-    list.innerHTML = html;
-    // 绑定点击跳转
-    var items = list.querySelectorAll('.ai-outline-item');
-    for (var j = 0; j < items.length; j++) {
-      items[j].onclick = function(){
+    track.innerHTML = trackHtml;
+    popupList.innerHTML = popupHtml;
+
+    // 绑定点击跳转（标记和浮层项）
+    var clickables = track.querySelectorAll('.ai-outline-marker, .ai-outline-popup-item');
+    for (var j = 0; j < clickables.length; j++) {
+      clickables[j].onclick = function(e){
+        e.stopPropagation();
         var target = document.getElementById(this.dataset.target);
         if (target && els.body) {
-          // 计算相对于滚动容器的偏移
           var containerRect = els.body.getBoundingClientRect();
           var targetRect = target.getBoundingClientRect();
           var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
@@ -17499,36 +17508,25 @@ if (document.readyState === 'loading') {
   }
 
   function highlightOutlineItem(){
-    var list = document.getElementById('aiOutlineList');
-    if (!list || !els.body) return;
-    var items = list.querySelectorAll('.ai-outline-item');
-    if (!items.length) return;
-    var containerTop = els.body.getBoundingClientRect().top;
+    var track = document.getElementById('aiOutlineTrack');
+    var popupList = document.getElementById('aiOutlinePopupList');
+    if ((!track && !popupList) || !els.body) return;
+    var markers = track ? track.querySelectorAll('.ai-outline-marker') : [];
+    var popupItems = popupList ? popupList.querySelectorAll('.ai-outline-popup-item') : [];
+    if (!markers.length && !popupItems.length) return;
     var scrollCenter = els.body.scrollTop + els.body.clientHeight * 0.3;
     var activeIdx = 0;
-    for (var i = 0; i < items.length; i++) {
-      var target = document.getElementById(items[i].dataset.target);
+    for (var i = 0; i < markers.length; i++) {
+      var target = document.getElementById(markers[i].dataset.target);
       if (!target) continue;
-      var targetTop = target.offsetTop;
-      if (targetTop <= scrollCenter + 20) activeIdx = i;
+      if (target.offsetTop <= scrollCenter + 20) activeIdx = i;
     }
-    for (var k = 0; k < items.length; k++) {
-      items[k].classList.toggle('active', k === activeIdx);
+    for (var k = 0; k < markers.length; k++) {
+      markers[k].classList.toggle('active', k === activeIdx);
     }
-  }
-
-  function toggleOutline(){
-    state.outlineCollapsed = !state.outlineCollapsed;
-    var outline = document.getElementById('aiOutline');
-    var toggle = document.getElementById('aiOutlineToggle');
-    if (outline) outline.hidden = state.outlineCollapsed;
-    if (toggle) {
-      toggle.innerHTML = state.outlineCollapsed
-        ? '<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>'
-        : '<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
-      toggle.title = state.outlineCollapsed ? '展开索引' : '收起索引';
+    for (var m = 0; m < popupItems.length; m++) {
+      popupItems[m].classList.toggle('active', m === activeIdx);
     }
-    if (!state.outlineCollapsed) updateOutline();
   }
 
   /* ---- 错误气泡 ---- */
@@ -18733,10 +18731,6 @@ if (document.readyState === 'loading') {
 
     // 智能滚动：用户往上滚停跟随，滚回底部重新跟随
     if (els.body) els.body.addEventListener('scroll', onAiBodyScroll);
-
-    // 对话索引：收起/展开按钮
-    var outlineToggle = document.getElementById('aiOutlineToggle');
-    if (outlineToggle) outlineToggle.onclick = toggleOutline;
 
     fab.onclick = function(){ mask.hidden ? openPanel() : closePanel(); };
     document.getElementById('aiClose').onclick = closePanel;
