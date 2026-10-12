@@ -1318,6 +1318,8 @@
     .weekly-review{padding:16px 16px}
     .weekly-review .wr-stats{gap:6px}
     .weekly-review .wr-stat{padding:8px 2px}
+    .weekly-review .wr-stat.wr-compare{flex:1.2}
+    .weekly-review .wr-stat.wr-compare .wr-num{white-space:nowrap;font-size:15px}
     .weekly-review .wr-num{font-size:17px}
     .weekly-review .wr-lab{font-size:10px}
     .weekly-review .wr-msg{font-size:13px}
