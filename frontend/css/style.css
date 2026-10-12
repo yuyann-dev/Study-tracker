@@ -30,10 +30,10 @@
     padding-right:calc(16px + env(safe-area-inset-right));
   }
   body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
-    background-image:url("/paper-warm.jpg?v=b148");background-size:cover;background-position:right top;background-repeat:no-repeat;background-attachment:fixed}
+    background-image:url("/paper-warm.jpg?v=b158");background-size:cover;background-position:right top;background-repeat:no-repeat}
   body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
     background:rgba(243,236,223,.2)}
-  html[data-theme="dark"] body::before{background-image:url("/paper-dark.jpg?v=b148");background-repeat:repeat;background-size:760px 760px;background-position:left top;background-attachment:fixed}
+  html[data-theme="dark"] body::before{background-image:url("/paper-dark.jpg?v=b158");background-repeat:repeat;background-size:760px 760px;background-position:left top}
   html[data-theme="dark"] body::after{background:none}
   @media(max-width:768px){
     body::before{background-position:center top}
@@ -2296,6 +2296,10 @@ html[data-theme="dark"] #aiFab{color:#10302a;box-shadow:0 4px 16px rgba(0,0,0,.4
 /* 手机/窄屏隐藏索引栏 */
 @media (max-width:640px){
   .ai-outline{display:none !important}
+}
+/* touch设备（iPad/手机）禁用hover浮层，避免点击异常，只保留点击跳转 */
+@media (hover: none) and (pointer: coarse){
+  .ai-outline:hover .ai-outline-popup{display:none !important}
 }
 
 /* 消息气泡 */
