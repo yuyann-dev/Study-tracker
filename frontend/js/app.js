@@ -17493,30 +17493,39 @@ if (document.readyState === 'loading') {
     track.innerHTML = trackHtml;
     popupList.innerHTML = popupHtml;
 
-    // 绑定事件：刻度hover高亮对应浮层项，点击跳转；浮层项点击跳转
+    // 事件绑定：轨道级mousemove（灵敏，不需要精确点到刻度线）
     var markers = track.querySelectorAll('.ai-outline-marker');
     var popupItems = popupList.querySelectorAll('.ai-outline-popup-item');
+
+    // 根据鼠标Y坐标找到最近的刻度并高亮
+    track.addEventListener('mousemove', function(e){
+      var rect = track.getBoundingClientRect();
+      var mouseY = e.clientY - rect.top;
+      var nearestIdx = 0;
+      var nearestDist = Infinity;
+      for (var i = 0; i < markers.length; i++) {
+        var markerTop = parseFloat(markers[i].style.top) || 0;
+        var dist = Math.abs(markerTop - mouseY);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestIdx = i;
+        }
+      }
+      for (var k = 0; k < popupItems.length; k++) {
+        popupItems[k].classList.toggle('active', k === nearestIdx);
+      }
+      // 浮层滚动让当前项居中
+      var activeItem = popupItems[nearestIdx];
+      if (activeItem && popupList.scrollHeight > popupList.clientHeight) {
+        var itemTop = activeItem.offsetTop;
+        var itemHeight = activeItem.offsetHeight;
+        popupList.scrollTop = itemTop - popupList.clientHeight / 2 + itemHeight / 2;
+      }
+    });
+
+    // 点击刻度跳转
     for (var j = 0; j < markers.length; j++) {
-      (function(idx){
-        markers[idx].addEventListener('mouseenter', function(){
-          for (var k = 0; k < popupItems.length; k++) {
-            popupItems[k].classList.toggle('active', k === idx);
-          }
-        });
-        markers[idx].addEventListener('click', function(e){
-          e.stopPropagation();
-          var target = document.getElementById(this.dataset.target);
-          if (target && els.body) {
-            var containerRect = els.body.getBoundingClientRect();
-            var targetRect = target.getBoundingClientRect();
-            var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
-            els.body.scrollTo({ top: offset, behavior: 'smooth' });
-          }
-        });
-      })(j);
-    }
-    for (var m = 0; m < popupItems.length; m++) {
-      popupItems[m].onclick = function(e){
+      markers[j].addEventListener('click', function(e){
         e.stopPropagation();
         var target = document.getElementById(this.dataset.target);
         if (target && els.body) {
@@ -17525,7 +17534,20 @@ if (document.readyState === 'loading') {
           var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
           els.body.scrollTo({ top: offset, behavior: 'smooth' });
         }
-      };
+      });
+    }
+    // 点击浮层项跳转
+    for (var m = 0; m < popupItems.length; m++) {
+      popupItems[m].addEventListener('click', function(e){
+        e.stopPropagation();
+        var target = document.getElementById(this.dataset.target);
+        if (target && els.body) {
+          var containerRect = els.body.getBoundingClientRect();
+          var targetRect = target.getBoundingClientRect();
+          var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
+          els.body.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+      });
     }
     highlightOutlineItem();
   }
