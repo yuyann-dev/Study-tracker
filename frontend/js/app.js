@@ -17493,10 +17493,30 @@ if (document.readyState === 'loading') {
     track.innerHTML = trackHtml;
     popupList.innerHTML = popupHtml;
 
-    // 绑定点击跳转（标记和浮层项）
-    var clickables = track.querySelectorAll('.ai-outline-marker, .ai-outline-popup-item');
-    for (var j = 0; j < clickables.length; j++) {
-      clickables[j].onclick = function(e){
+    // 绑定事件：刻度hover高亮对应浮层项，点击跳转；浮层项点击跳转
+    var markers = track.querySelectorAll('.ai-outline-marker');
+    var popupItems = popupList.querySelectorAll('.ai-outline-popup-item');
+    for (var j = 0; j < markers.length; j++) {
+      (function(idx){
+        markers[idx].addEventListener('mouseenter', function(){
+          for (var k = 0; k < popupItems.length; k++) {
+            popupItems[k].classList.toggle('active', k === idx);
+          }
+        });
+        markers[idx].addEventListener('click', function(e){
+          e.stopPropagation();
+          var target = document.getElementById(this.dataset.target);
+          if (target && els.body) {
+            var containerRect = els.body.getBoundingClientRect();
+            var targetRect = target.getBoundingClientRect();
+            var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
+            els.body.scrollTo({ top: offset, behavior: 'smooth' });
+          }
+        });
+      })(j);
+    }
+    for (var m = 0; m < popupItems.length; m++) {
+      popupItems[m].onclick = function(e){
         e.stopPropagation();
         var target = document.getElementById(this.dataset.target);
         if (target && els.body) {

@@ -2230,7 +2230,7 @@ html[data-theme="dark"] #aiFab{color:#10302a;box-shadow:0 4px 16px rgba(0,0,0,.4
 .ai-chat-layout{display:block;min-height:0}
 .ai-msgs-wrap{min-width:0}
 
-/* 右侧对话索引（固定在可视区域右侧，不随滚动；DeepSeek ScrollNav风格） */
+/* 右侧对话索引（固定在可视区域右侧，DeepSeek ScrollNav风格） */
 .ai-outline{
   position:absolute;top:0;right:0;bottom:0;
   width:14px;
@@ -2246,34 +2246,34 @@ html[data-theme="dark"] #aiFab{color:#10302a;box-shadow:0 4px 16px rgba(0,0,0,.4
 .ai-outline-marker{
   position:absolute;left:0;
   width:8px;height:2px;border-radius:1px;
-  background:var(--muted);opacity:.3;
+  background:var(--muted);opacity:.25;
   transition:opacity .15s,background .15s,height .15s;
 }
-.ai-outline-marker:hover{opacity:.65}
+.ai-outline-marker:hover{opacity:.6}
 .ai-outline-marker.active{
   background:var(--brand);opacity:1;height:3px;
 }
 
-/* hover浮层：向左展开（轨道在最右侧，浮层在左侧） */
+/* hover浮层：紧贴刻度向左展开 */
 .ai-outline-popup{
-  position:absolute;top:0;right:18px;
-  width:200px;max-height:70vh;
+  position:absolute;top:0;right:14px;
+  width:160px;max-height:60vh;
   background:var(--card-bg);
   border:1px solid var(--line);
   border-radius:10px;
-  box-shadow:0 4px 20px rgba(0,0,0,.12);
-  padding:8px 6px;
+  box-shadow:0 2px 12px rgba(0,0,0,.08);
+  padding:6px 4px;
   z-index:100;
   overflow-y:auto;
   display:none;
 }
 .ai-outline:hover .ai-outline-popup{display:block}
-.ai-outline-popup::-webkit-scrollbar{width:4px}
+.ai-outline-popup::-webkit-scrollbar{width:3px}
 .ai-outline-popup::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
 
 .ai-outline-popup-item{
-  display:flex;align-items:center;gap:8px;
-  padding:7px 8px;border-radius:6px;
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;border-radius:6px;
   cursor:pointer;
   transition:background .12s;
 }
@@ -2282,14 +2282,14 @@ html[data-theme="dark"] #aiFab{color:#10302a;box-shadow:0 4px 16px rgba(0,0,0,.4
 .ai-outline-popup-item.active .ai-outline-popup-text{color:var(--brand);font-weight:500}
 .ai-outline-popup-item.active .ai-outline-popup-dot{background:var(--brand)}
 .ai-outline-popup-dot{
-  width:6px;height:2px;border-radius:1px;
-  background:var(--muted);opacity:.5;
+  width:5px;height:2px;border-radius:1px;
+  background:var(--muted);opacity:.4;
   flex-shrink:0;
   transition:background .15s;
 }
 .ai-outline-popup-text{
-  font-size:12px;color:var(--muted);
-  line-height:1.4;word-break:break-all;
+  font-size:11.5px;color:var(--muted);
+  line-height:1.35;word-break:break-all;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
   overflow:hidden;flex:1;
 }
