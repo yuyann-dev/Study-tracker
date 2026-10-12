@@ -17523,19 +17523,30 @@ if (document.readyState === 'loading') {
       }
     });
 
-    // 点击刻度跳转
-    for (var j = 0; j < markers.length; j++) {
-      markers[j].addEventListener('click', function(e){
-        e.stopPropagation();
-        var target = document.getElementById(this.dataset.target);
-        if (target && els.body) {
-          var containerRect = els.body.getBoundingClientRect();
-          var targetRect = target.getBoundingClientRect();
-          var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
-          els.body.scrollTo({ top: offset, behavior: 'smooth' });
+    // 轨道级click：点击轨道任意位置，跳转到最近的刻度
+    track.addEventListener('click', function(e){
+      e.stopPropagation();
+      var rect = track.getBoundingClientRect();
+      var mouseY = e.clientY - rect.top;
+      var nearestIdx = 0;
+      var nearestDist = Infinity;
+      for (var i = 0; i < markers.length; i++) {
+        var markerTop = parseFloat(markers[i].style.top) || 0;
+        var dist = Math.abs(markerTop - mouseY);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestIdx = i;
         }
-      });
-    }
+      }
+      var target = document.getElementById(markers[nearestIdx].dataset.target);
+      if (target && els.body) {
+        var containerRect = els.body.getBoundingClientRect();
+        var targetRect = target.getBoundingClientRect();
+        var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
+        els.body.scrollTo({ top: offset, behavior: 'smooth' });
+      }
+    });
+
     // 点击浮层项跳转
     for (var m = 0; m < popupItems.length; m++) {
       popupItems[m].addEventListener('click', function(e){
