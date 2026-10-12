@@ -1452,7 +1452,10 @@
       document.getElementById('resetPwBody').innerHTML =
         '<p class="msub">' + esc(d.message || '临时密码已生成，请转告用户并提醒其登录后立即修改') + '</p>'
         + '<div class="invite-code-display">' + esc(d.tempPassword) + '</div>';
-      document.getElementById('resetPwMask').hidden = false;
+      var mask = document.getElementById('resetPwMask');
+      mask.hidden = false;
+      if (typeof modalTop === 'function') modalTop(mask);
+      if (typeof lockBodyScroll === 'function') lockBodyScroll();
     } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '重置失败'); }
   }
   var _banUserId = null;
@@ -1870,8 +1873,8 @@
     bindClose('banClose', function(){ document.getElementById('banMask').hidden = true; });
     bindClose('banCancel', function(){ document.getElementById('banMask').hidden = true; });
     bindClose('banOk', _doBan);
-    bindClose('resetPwClose', function(){ document.getElementById('resetPwMask').hidden = true; });
-    bindClose('resetPwOk', function(){ document.getElementById('resetPwMask').hidden = true; });
+    bindClose('resetPwClose', function(){ document.getElementById('resetPwMask').hidden = true; if (typeof unlockBodyScroll === 'function') unlockBodyScroll(); });
+    bindClose('resetPwOk', function(){ document.getElementById('resetPwMask').hidden = true; if (typeof unlockBodyScroll === 'function') unlockBodyScroll(); });
     bindClose('resetPwCopy', function(){ var t = document.querySelector('#resetPwBody .invite-code-display'); if (t && navigator.clipboard) navigator.clipboard.writeText(t.textContent); });
     bindClose('udClose', function(){ document.getElementById('userDrawerMask').hidden = true; });
     var bDelAcct = document.getElementById('btnDeleteAccount');

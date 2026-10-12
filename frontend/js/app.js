@@ -14091,11 +14091,17 @@ $('#importFile').addEventListener('change', e => {
   e.target.value = '';
 });
 
-/* 彻底清除全部数据：localStorage + IndexedDB + Cache 三层全清，二次确认后 reload */
+/* 彻底清除全部数据：localStorage + IndexedDB + Cache 三层全清，保留登录态，二次确认后 reload */
 $('#btnWipeAll').addEventListener('click', async () => {
   if (!confirm('彻底清除全部数据？\n\n会删除所有项目、记录、设置，不可恢复。\n建议先「导出备份」。\n\n确定继续吗？')) return;
   if (!confirm('再次确认：真的要清空全部数据并重启页面吗？此操作不可逆。')) return;
+  // 保留登录态相关键，避免清除后自动退出登录
+  const keepKeys = ['st_auth_token', 'st_auth_user', 'st_auth_persist'];
+  const keepValues = {};
+  keepKeys.forEach(k => { try { keepValues[k] = localStorage.getItem(k); } catch(e) {} });
   try { Object.keys(localStorage).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  // 恢复登录态
+  keepKeys.forEach(k => { if (keepValues[k] !== null) { try { localStorage.setItem(k, keepValues[k]); } catch(e) {} } });
   try {
     const dbs = await indexedDB.databases();
     for (const d of dbs) {
