@@ -16964,7 +16964,9 @@ if (document.readyState === 'loading') {
     suggestions: [],   // 当前对话已渲染的建议卡，便于应用/撤销
     editingMsgEl: null,       // 当前正在编辑的用户消息 DOM
     abortController: null,    // 用于停止生成
-    editAborted: false        // 编辑时主动 abort，抑制"已停止生成"提示
+    editAborted: false,       // 编辑时主动 abort，抑制"已停止生成"提示
+    userMsgSeq: 0,            // 用户消息序号，用于生成对话索引的锚点id
+    outlineCollapsed: false   // 对话索引是否收起
   };
 
   /* ---- 示例问题库 ---- */
@@ -17246,6 +17248,12 @@ if (document.readyState === 'loading') {
     renderSamples();
     // 刷新今日已学/剩余时长显示
     if (typeof StudyTime !== 'undefined') StudyTime.updateDisplay();
+    // 更新对话索引
+    updateOutline();
+    // 打开面板后，如果有消息则滚动到底部（修复刷新后停在顶部的bug）
+    if (els.msgs && els.msgs.children.length > 0) {
+      requestAnimationFrame(function(){ scrollBottom(true); });
+    }
   }
   function closePanel(){
     mask.hidden = true;
@@ -17329,6 +17337,9 @@ if (document.readyState === 'loading') {
     var div = document.createElement('div');
     div.className = 'ai-msg user';
     div.dataset.raw = text;
+    // 给用户消息分配唯一id，用于对话索引跳转
+    var msgId = 'ai-msg-' + (++state.userMsgSeq);
+    div.id = msgId;
     div.innerHTML = md(text);
     // 操作栏：复制 + 编辑
     var bar = document.createElement('div');
@@ -17355,6 +17366,8 @@ if (document.readyState === 'loading') {
     div.appendChild(ts);
     els.msgs.appendChild(div);
     scrollBottom();
+    updateOutline();
+    return div;
   }
   function addTyping(){
     var div = document.createElement('div');
@@ -17430,8 +17443,12 @@ if (document.readyState === 'loading') {
     scrollBottom();
     return div;
   }
-  function scrollBottom(){
-    if (els.body && autoScrollEnabled) els.body.scrollTop = els.body.scrollHeight;
+  function scrollBottom(force){
+    if (!els.body) return;
+    if (force || autoScrollEnabled) {
+      els.body.scrollTop = els.body.scrollHeight;
+      if (force) autoScrollEnabled = true; // 强制滚动后重新开启跟随
+    }
   }
   // 智能跟随：用户往上滚就停，滚回底部附近就重新跟随
   var autoScrollEnabled = true;
@@ -17439,6 +17456,79 @@ if (document.readyState === 'loading') {
     if (!els.body) return;
     var dist = els.body.scrollHeight - els.body.scrollTop - els.body.clientHeight;
     autoScrollEnabled = dist <= 80;
+    highlightOutlineItem();
+  }
+
+  /* ---- 对话索引（右侧目录） ---- */
+  function updateOutline(){
+    var outline = document.getElementById('aiOutline');
+    var list = document.getElementById('aiOutlineList');
+    if (!outline || !list) return;
+    var userMsgs = els.msgs ? els.msgs.querySelectorAll('.ai-msg.user') : [];
+    // 没有用户消息时隐藏索引栏
+    if (!userMsgs.length) { outline.hidden = true; return; }
+    outline.hidden = state.outlineCollapsed;
+    if (state.outlineCollapsed) return;
+    // 生成索引项
+    var html = '';
+    for (var i = 0; i < userMsgs.length; i++) {
+      var msg = userMsgs[i];
+      var raw = msg.dataset.raw || msg.textContent.trim() || '';
+      var title = raw.length > 16 ? raw.slice(0, 16) + '…' : raw;
+      html += '<div class="ai-outline-item" data-target="' + msg.id + '" title="' + esc(raw) + '">'
+            + '<span class="ai-outline-dot"></span>'
+            + '<span class="ai-outline-text">' + esc(title) + '</span>'
+            + '</div>';
+    }
+    list.innerHTML = html;
+    // 绑定点击跳转
+    var items = list.querySelectorAll('.ai-outline-item');
+    for (var j = 0; j < items.length; j++) {
+      items[j].onclick = function(){
+        var target = document.getElementById(this.dataset.target);
+        if (target && els.body) {
+          // 计算相对于滚动容器的偏移
+          var containerRect = els.body.getBoundingClientRect();
+          var targetRect = target.getBoundingClientRect();
+          var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
+          els.body.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+      };
+    }
+    highlightOutlineItem();
+  }
+
+  function highlightOutlineItem(){
+    var list = document.getElementById('aiOutlineList');
+    if (!list || !els.body) return;
+    var items = list.querySelectorAll('.ai-outline-item');
+    if (!items.length) return;
+    var containerTop = els.body.getBoundingClientRect().top;
+    var scrollCenter = els.body.scrollTop + els.body.clientHeight * 0.3;
+    var activeIdx = 0;
+    for (var i = 0; i < items.length; i++) {
+      var target = document.getElementById(items[i].dataset.target);
+      if (!target) continue;
+      var targetTop = target.offsetTop;
+      if (targetTop <= scrollCenter + 20) activeIdx = i;
+    }
+    for (var k = 0; k < items.length; k++) {
+      items[k].classList.toggle('active', k === activeIdx);
+    }
+  }
+
+  function toggleOutline(){
+    state.outlineCollapsed = !state.outlineCollapsed;
+    var outline = document.getElementById('aiOutline');
+    var toggle = document.getElementById('aiOutlineToggle');
+    if (outline) outline.hidden = state.outlineCollapsed;
+    if (toggle) {
+      toggle.innerHTML = state.outlineCollapsed
+        ? '<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>'
+        : '<svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
+      toggle.title = state.outlineCollapsed ? '展开索引' : '收起索引';
+    }
+    if (!state.outlineCollapsed) updateOutline();
   }
 
   /* ---- 错误气泡 ---- */
@@ -18363,6 +18453,7 @@ if (document.readyState === 'loading') {
   }
   async function openConversation(id){
     state.convId = id;
+    state.userMsgSeq = 0; // 重置用户消息序号
     switchTab('chat');
     els.msgs.innerHTML = '';
     try {
@@ -18374,15 +18465,20 @@ if (document.readyState === 'loading') {
         else addAiMsg('<div class="md">' + md(m.content || m.message || '') + '</div>', false, ts);
       });
       if (!msgs.length) addAiMsg('<div class="md">' + md('这是一个新会话，问我点什么吧。') + '</div>');
+      // 历史消息加载完成后，强制滚动到底部（修复刷新/切历史后停在顶部的bug）
+      requestAnimationFrame(function(){ scrollBottom(true); });
+      updateOutline();
     } catch(e) {
       addErrorBubble(e.code, e.message);
     }
   }
   function newConversation(){
     state.convId = null;
+    state.userMsgSeq = 0;
     switchTab('chat');
     els.msgs.innerHTML = '';
     renderSamples();
+    updateOutline();
   }
   function formatTime(ts){
     if (!ts) return '';
@@ -18637,6 +18733,10 @@ if (document.readyState === 'loading') {
 
     // 智能滚动：用户往上滚停跟随，滚回底部重新跟随
     if (els.body) els.body.addEventListener('scroll', onAiBodyScroll);
+
+    // 对话索引：收起/展开按钮
+    var outlineToggle = document.getElementById('aiOutlineToggle');
+    if (outlineToggle) outlineToggle.onclick = toggleOutline;
 
     fab.onclick = function(){ mask.hidden ? openPanel() : closePanel(); };
     document.getElementById('aiClose').onclick = closePanel;

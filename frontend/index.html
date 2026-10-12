@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=b149">
+<link rel="stylesheet" href="css/style.css?v=b150">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1957,9 +1957,9 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/icons.js?v=b149"></script>
-<script src="js/auth.js?v=b149"></script>
-<script src="js/app.js?v=b149"></script>
+<script src="js/icons.js?v=b150"></script>
+<script src="js/auth.js?v=b150"></script>
+<script src="js/app.js?v=b150"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2248,12 +2248,23 @@ if (document.readyState === 'loading') {
     <div class="ai-body">
       <!-- 对话 Tab -->
       <div class="ai-pane" id="aiPane-chat">
-        <div class="ai-msgs" id="aiMsgs"></div>
-        <div class="ai-empty" id="aiEmpty" hidden>
-          <div class="ai-empty-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
-          <p class="ai-empty-title">配置 API Key，开始使用 AI学习助手</p>
-          <p class="hint">Key 只存在你自己的账号里，AES 加密存储，不会上传他处。</p>
-          <button class="primary" id="aiGoSettings" type="button">去设置 →</button>
+        <div class="ai-chat-layout">
+          <div class="ai-msgs-wrap">
+            <div class="ai-msgs" id="aiMsgs"></div>
+            <div class="ai-empty" id="aiEmpty" hidden>
+              <div class="ai-empty-icon"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
+              <p class="ai-empty-title">配置 API Key，开始使用 AI学习助手</p>
+              <p class="hint">Key 只存在你自己的账号里，AES 加密存储，不会上传他处。</p>
+              <button class="primary" id="aiGoSettings" type="button">去设置 →</button>
+            </div>
+          </div>
+          <div class="ai-outline" id="aiOutline" hidden>
+            <div class="ai-outline-head">
+              <span class="ai-outline-title">对话索引</span>
+              <button class="ai-outline-toggle" id="aiOutlineToggle" type="button" title="收起索引"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+            </div>
+            <div class="ai-outline-list" id="aiOutlineList"></div>
+          </div>
         </div>
       </div>
 

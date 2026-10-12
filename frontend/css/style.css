@@ -2225,6 +2225,72 @@ html[data-theme="dark"] #aiFab{color:#10302a;box-shadow:0 4px 16px rgba(0,0,0,.4
 .ai-pane{display:none}
 .ai-pane:not([hidden]){display:block}
 
+/* 对话区两栏布局：消息 + 右侧索引 */
+.ai-chat-layout{display:flex;gap:0;min-height:0}
+.ai-msgs-wrap{flex:1;min-width:0}
+
+/* 右侧对话索引 */
+.ai-outline{
+  width:130px;flex-shrink:0;
+  border-left:1px solid var(--line);
+  padding:8px 0 8px 10px;
+  margin-left:10px;
+  display:flex;flex-direction:column;
+  min-height:0;
+}
+.ai-outline[hidden]{display:none}
+.ai-outline-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 6px 6px 2px;
+  border-bottom:1px dashed var(--line);
+  margin-bottom:6px;
+}
+.ai-outline-title{
+  font-size:11.5px;font-weight:600;color:var(--muted);
+  letter-spacing:.3px;
+}
+.ai-outline-toggle{
+  background:none;border:none;cursor:pointer;
+  color:var(--muted);padding:2px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s;
+}
+.ai-outline-toggle:hover{background:var(--ai-tint);color:var(--brand)}
+.ai-outline-list{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding-right:2px;
+}
+.ai-outline-list::-webkit-scrollbar{width:3px}
+.ai-outline-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ai-outline-item{
+  display:flex;align-items:flex-start;gap:6px;
+  padding:5px 6px;border-radius:6px;
+  cursor:pointer;
+  transition:background .15s;
+  margin-bottom:2px;
+}
+.ai-outline-item:hover{background:var(--ai-tint)}
+.ai-outline-item.active{background:var(--ai-tint)}
+.ai-outline-item.active .ai-outline-text{color:var(--brand);font-weight:500}
+.ai-outline-item.active .ai-outline-dot{background:var(--brand);transform:scale(1.3)}
+.ai-outline-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--muted);opacity:.5;
+  flex-shrink:0;margin-top:5px;
+  transition:background .15s,transform .15s;
+}
+.ai-outline-text{
+  font-size:11.5px;color:var(--muted);
+  line-height:1.4;word-break:break-all;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+/* 手机/窄屏隐藏索引栏 */
+@media (max-width:640px){
+  .ai-outline{display:none !important}
+}
+
 /* 消息气泡 */
 .ai-msgs{padding:4px 0}
 .ai-msg{margin-bottom:12px;font-size:13.5px;line-height:1.6}
