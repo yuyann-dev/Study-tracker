@@ -10230,6 +10230,13 @@ function getMondayOf(s) {
   return fmtDate(d);
 }
 const _pick = arr => arr[Math.floor(Math.random() * arr.length)];
+// 基于当天日期的伪随机选择，保证当天文案固定
+function _dayPick(arr, seedKey) {
+  const seed = todayStr() + '|' + (seedKey || '');
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  return arr[Math.abs(h) % arr.length];
+}
 
 /* 每周小结统计：分项目类型统计指定周的数据，weekOffset=0上周，-1再之前一周 */
 function buildWeeklyStats(today, weekOffset = 0) {
@@ -10537,8 +10544,8 @@ function getWeeklyReviewHTML() {
         <span class="wr-date">${fmtCN(s.weekMon)} - ${fmtCN(s.weekSun)}</span>
       </div>
       <div class="wr-stats">${statsHtml}</div>
-      <div class="wr-msg">${fill(_pick(msgs))}</div>
-      <div class="wr-tip">${svgIcon('lightbulb')} ${fill(_pick(tips))}</div>
+      <div class="wr-msg">${fill(_dayPick(msgs, 'weekly-msg'))}</div>
+      <div class="wr-tip">${svgIcon('lightbulb')} ${fill(_dayPick(tips, 'weekly-tip'))}</div>
     </div>`;
 }
 
