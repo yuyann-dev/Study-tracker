@@ -14091,33 +14091,53 @@ $('#importFile').addEventListener('change', e => {
   e.target.value = '';
 });
 
-/* 彻底清除全部数据：localStorage + IndexedDB + Cache 三层全清，保留登录态，二次确认后 reload */
+/* 彻底清除全部数据：先清云端（若已登录），再清本地 localStorage + IndexedDB + Cache，保留登录态，二次确认后 reload */
 $('#btnWipeAll').addEventListener('click', async () => {
   if (!confirm('彻底清除全部数据？\n\n会删除所有项目、记录、设置，不可恢复。\n建议先「导出备份」。\n\n确定继续吗？')) return;
   if (!confirm('再次确认：真的要清空全部数据并重启页面吗？此操作不可逆。')) return;
-  // 保留登录态相关键，避免清除后自动退出登录
-  const keepKeys = ['st_auth_token', 'st_auth_user', 'st_auth_persist'];
-  const keepValues = {};
-  keepKeys.forEach(k => { try { keepValues[k] = localStorage.getItem(k); } catch(e) {} });
-  try { Object.keys(localStorage).forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  // 恢复登录态
-  keepKeys.forEach(k => { if (keepValues[k] !== null) { try { localStorage.setItem(k, keepValues[k]); } catch(e) {} } });
+  const btn = $('#btnWipeAll');
+  const oldText = btn.textContent;
+  btn.disabled = true; btn.textContent = '清除中…';
   try {
-    const dbs = await indexedDB.databases();
-    for (const d of dbs) {
-      await new Promise(res => {
-        const req = indexedDB.deleteDatabase(d.name);
-        req.onsuccess = req.onerror = req.onblocked = () => res();
-      });
+    // 1. 先清云端（若已登录）
+    var tok = null;
+    try { tok = (window.STAuth && STAuth.getToken) ? STAuth.getToken() : (localStorage.getItem('st_auth_token') || sessionStorage.getItem('st_auth_token')); } catch(e) {}
+    if (tok) {
+      try {
+        await fetch('/api/data/wipe', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' }
+        });
+      } catch(e) { console.warn('云端清除失败，继续清除本地:', e); }
     }
-  } catch (e) {}
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      for (const k of keys) await caches.delete(k);
-    }
-  } catch (e) {}
-  location.reload();
+    // 2. 保留登录态相关键，避免清除后自动退出登录
+    const keepKeys = ['st_auth_token', 'st_auth_user', 'st_auth_persist'];
+    const keepValues = {};
+    keepKeys.forEach(k => { try { keepValues[k] = localStorage.getItem(k); } catch(e) {} });
+    try { Object.keys(localStorage).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+    // 恢复登录态
+    keepKeys.forEach(k => { if (keepValues[k] !== null) { try { localStorage.setItem(k, keepValues[k]); } catch(e) {} } });
+    // 3. 清 IndexedDB
+    try {
+      const dbs = await indexedDB.databases();
+      for (const d of dbs) {
+        await new Promise(res => {
+          const req = indexedDB.deleteDatabase(d.name);
+          req.onsuccess = req.onerror = req.onblocked = () => res();
+        });
+      }
+    } catch (e) {}
+    // 4. 清 Cache
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const k of keys) await caches.delete(k);
+      }
+    } catch (e) {}
+    location.reload();
+  } finally {
+    btn.disabled = false; btn.textContent = oldText;
+  }
 });
 
 function submitSettings() {
