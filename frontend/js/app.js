@@ -10245,8 +10245,10 @@ function buildWeeklyStats(today) {
 
   // 分类型统计
   let exercisePages = 0, exerciseSets = 0;   // 刷题：页/套
-  let reciteNew = 0, reciteReviews = 0;       // 背书：新学条/复习次
-  let mistakeNew = 0, mistakeMastered = 0, mistakeReviews = 0; // 错题：新增/攻克/复习
+  let reciteNew = 0;       // 背书：新学条
+  let mistakeNew = 0, mistakeMastered = 0; // 错题：新增/攻克
+  const mistakeReviewDays = new Set(); // 错题复习：按天去重（有复习行为当天算1次）
+  const reciteReviewDays = new Set(); // 背书复习：按天去重
 
   Object.values(store.projects).forEach(p => {
     /* ===== 刷题本：用"上周结束进度 - 上周开始进度"的差值，天然去重、正确处理板块卷 ===== */
@@ -10274,24 +10276,24 @@ function buildWeeklyStats(today) {
           else if (p.type === 'mistake') mistakeNew++;
         }
       }
-      // reviews[0] 是首次学习，idx>0 才是真正的复习
+      // reviews[0] 是首次学习，idx>0 才是真正的复习；按天去重统计
       (it.reviews || []).forEach((rv, idx) => {
         if (!rv || !rv.date) return;
         heat[rv.date] = (heat[rv.date] || 0) + 1;
         if (!earliest || rv.date < earliest) earliest = rv.date;
         if (idx > 0 && inWeek(rv.date)) {
-          if (p.type === 'recite') reciteReviews++;
-          else if (p.type === 'mistake') mistakeReviews++;
+          if (p.type === 'recite') reciteReviewDays.add(rv.date);
+          else if (p.type === 'mistake') mistakeReviewDays.add(rv.date);
         }
       });
-      // 保持复习评价（已掌握条目的定期回顾）也计入复习次数
+      // 保持复习评价（已掌握条目的定期回顾）也计入复习天数
       (it.retentionReviews || []).forEach(rv => {
         if (!rv || !rv.date) return;
         heat[rv.date] = (heat[rv.date] || 0) + 1;
         if (!earliest || rv.date < earliest) earliest = rv.date;
         if (inWeek(rv.date)) {
-          if (p.type === 'recite') reciteReviews++;
-          else if (p.type === 'mistake') mistakeReviews++;
+          if (p.type === 'recite') reciteReviewDays.add(rv.date);
+          else if (p.type === 'mistake') mistakeReviewDays.add(rv.date);
         }
       });
       // 上周攻克的错题
@@ -10301,9 +10303,18 @@ function buildWeeklyStats(today) {
     });
   });
 
+  const mistakeReviews = mistakeReviewDays.size;
+  const reciteReviews = reciteReviewDays.size;
+
   let activeDays = 0;
   for (let i = 0; i < 7; i++) { if (heat[addDays(lastMon, i)]) activeDays++; }
-  const streak = currentStreak(heat, today);
+  // 上周内最长连续打卡天数（不是当前连续天数）
+  let weekStreak = 0, curStreak = 0;
+  for (let i = 0; i < 7; i++) {
+    if (heat[addDays(lastMon, i)]) { curStreak++; if (curStreak > weekStreak) weekStreak = curStreak; }
+    else curStreak = 0;
+  }
+  const streak = weekStreak;
   const ageDays = earliest ? diffDays(earliest, today) + 1 : 0;
   // 汇总（套数/页数统一在累加后取整，避免多个项目各自四舍五入导致虚高）
   exerciseSets = Math.max(0, Math.round(exerciseSets));
@@ -10335,10 +10346,10 @@ function getWeeklyReviewHTML() {
   if (s.exercisePages > 0) parts.push(`刷了 ${s.exercisePages} 页题`);
   if (s.exerciseSets > 0) parts.push(`刷了 ${s.exerciseSets} 套卷`);
   if (s.reciteNew > 0) parts.push(`新背 ${s.reciteNew} 条`);
-  if (s.reciteReviews > 0) parts.push(`复习背书 ${s.reciteReviews} 次`);
+  if (s.reciteReviews > 0) parts.push(`复习背书 ${s.reciteReviews} 天`);
   if (s.mistakeNew > 0) parts.push(`收录 ${s.mistakeNew} 道错题`);
   if (s.mistakeMastered > 0) parts.push(`攻克错题 ${s.mistakeMastered} 道`);
-  if (s.mistakeReviews > 0) parts.push(`复习错题 ${s.mistakeReviews} 次`);
+  if (s.mistakeReviews > 0) parts.push(`复习错题 ${s.mistakeReviews} 天`);
   const whatYouDid = parts.length ? parts.join('、') : '完成了日常复习';
 
   const fill = t => t
@@ -10456,7 +10467,7 @@ function getWeeklyReviewHTML() {
   const stat = (num, lab) => `<div class="wr-stat"><div class="wr-num">${num}</div><div class="wr-lab">${lab}</div></div>`;
   // 复习卡片：只有一种模式时显示具体名称，两种都有则显示汇总
   let reviewCard = null;
-  if (s.reciteReviews > 0 && s.mistakeReviews > 0) reviewCard = stat(s.totalReviews, '复习总次数');
+  if (s.reciteReviews > 0 && s.mistakeReviews > 0) reviewCard = stat(s.totalReviews, '复习总天数');
   else if (s.reciteReviews > 0) reviewCard = stat(s.reciteReviews, '复习背书');
   else if (s.mistakeReviews > 0) reviewCard = stat(s.mistakeReviews, '复习错题');
   const statsHtml = [
