@@ -10752,7 +10752,7 @@ function openDashboard() {
     if (!st) return '';
     if (st.state === 'done') return '<span class="ts-chip ts-done" title="今天的目标已全部完成">' + svgIcon('check') + ' 今日已完成</span>';
     if (st.state === 'partial') return `<span class="ts-chip ts-partial" title="今天已完成 ${fmtD(st.done)} / 共需 ${fmtD(st.need)}">◐ ${fmtD(st.done)}/${fmtD(st.need)}</span>`;
-    if (st.state === 'todo') return `<span class="ts-chip ts-todo" title="今天还有目标没完成">● 今日未完成${st.due ? ' · ' + st.due + '条' : ''}</span>`;
+    if (st.state === 'todo') return `<span class="ts-chip ts-todo" title="今天还有目标没完成">● 今日未完成</span>`;
     return '<span class="ts-chip ts-none" title="今天没有安排任务">今日无安排</span>';
   };
   const rowHtml = r => `

@@ -4,21 +4,21 @@
    注意：JS/CSS 的缓存失效靠 index.html 里的 ?v= 版本号，
    改了文件记得顺手升版本号，不然 SW 会一直吐旧缓存。
    API 请求不缓存，里面有用户数据。 */
-var CACHE = 'yystudy-v163';
+var CACHE = 'yystudy-v164';
 var CORE = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=b163',
-  './js/icons.js?v=b163',
-  './js/app.js?v=b163',
-  './js/auth.js?v=b163',
+  './css/style.css?v=b164',
+  './js/icons.js?v=b164',
+  './js/app.js?v=b164',
+  './js/auth.js?v=b164',
   './icon-192.png?v=4',
   './icon-512.png?v=4',
   './apple-touch-icon.png?v=4',
   './favicon-64.png?v=4',
-  './paper-warm.jpg?v=b163',
-  './paper-dark.jpg?v=b163'
+  './paper-warm.jpg?v=b164',
+  './paper-dark.jpg?v=b164'
 ];
 
 self.addEventListener('install', function (e) {
