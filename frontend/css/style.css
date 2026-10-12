@@ -333,12 +333,14 @@
   .weekly-review .wr-title{font-size:15px;font-weight:700;color:var(--brand)}
   .weekly-review .wr-date{font-size:12px;color:var(--muted)}
   .weekly-review .wr-stats{display:flex;gap:10px;margin-bottom:14px}
-  .weekly-review .wr-stat{flex:1;background:var(--bg);border-radius:12px;padding:10px 6px;text-align:center}
+  .weekly-review .wr-stat{flex:1;background:var(--bg);border-radius:12px;padding:10px 6px 8px;text-align:center}
+  .weekly-review .wr-stat.wr-compare-up .wr-num::before{content:'↑';font-size:.65em;margin-right:2px;vertical-align:middle}
+  .weekly-review .wr-stat.wr-compare-down .wr-num::before{content:'↓';font-size:.65em;margin-right:2px;vertical-align:middle}
   .weekly-review .wr-stat.wr-compare-up .wr-num{color:#2e7d32}
   .weekly-review .wr-stat.wr-compare-down .wr-num{color:#c62828}
   .weekly-review .wr-stat.wr-compare-flat .wr-num{color:var(--muted)}
   .weekly-review .wr-num{font-size:21px;font-weight:800;color:var(--brand);line-height:1.1;word-break:keep-all}
-  .weekly-review .wr-lab{font-size:11px;color:var(--muted);margin-top:4px}
+  .weekly-review .wr-lab{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.2}
   .weekly-review .wr-msg{font-size:14px;font-weight:600;color:var(--text);line-height:1.55;margin-bottom:9px}
   .weekly-review .wr-tip{font-size:12.5px;color:var(--muted);line-height:1.55;background:var(--bg);border-radius:10px;padding:9px 12px}
   .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 4px}
@@ -1317,11 +1319,9 @@
     .kaoyan .ky-quote{max-width:100%;font-size:14.5px}
     .weekly-review{padding:16px 16px}
     .weekly-review .wr-stats{gap:6px}
-    .weekly-review .wr-stat{padding:8px 2px}
-    .weekly-review .wr-stat.wr-compare{flex:1.2}
-    .weekly-review .wr-stat.wr-compare .wr-num{white-space:nowrap;font-size:15px}
+    .weekly-review .wr-stat{padding:8px 4px 6px}
     .weekly-review .wr-num{font-size:17px}
-    .weekly-review .wr-lab{font-size:10px}
+    .weekly-review .wr-lab{font-size:10px;margin-top:2px}
     .weekly-review .wr-msg{font-size:13px}
     .weekly-review .wr-tip{font-size:12px}
     .retention-count{font-size:10.5px;padding:2px 7px}

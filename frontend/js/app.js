@@ -10524,7 +10524,7 @@ function getWeeklyReviewHTML() {
   // 数据格
   const stat = (num, lab) => `<div class="wr-stat"><div class="wr-num">${num}</div><div class="wr-lab">${lab}</div></div>`;
   const compareStat = compareText
-    ? `<div class="wr-stat wr-compare ${compareCls}"><div class="wr-num">${compareText}</div><div class="wr-lab">学习状态</div></div>`
+    ? `<div class="wr-stat wr-compare ${compareCls}"><div class="wr-num">${comparePct ? Math.abs(comparePct) + '%' : '持平'}</div><div class="wr-lab">学习状态</div></div>`
     : null;
   const statsHtml = [
     stat(s.activeDays + ' / 7', '学习天数'),
