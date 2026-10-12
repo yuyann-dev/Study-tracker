@@ -805,6 +805,11 @@
           _lastSaveSig = '';
           saveStore();
           if (typeof render === 'function') render();
+          // 云端数据有变化时，若dashboard面板已打开，重新渲染以更新上周小结等统计
+          try {
+            var dashMask = document.getElementById('dashMask');
+            if (dashMask && !dashMask.hidden && typeof openDashboard === 'function') openDashboard();
+          } catch(e) {}
           if (addedFromCloud > 0 && typeof showToast === 'function') {
             showToast('' + svgIcon('cloud') + '','已从云端同步', addedFromCloud + ' 条新记录', 3000);
           }
