@@ -10345,16 +10345,19 @@ function getWeeklyReviewHTML() {
   const whatYouDid = parts.length ? parts.join('、') : '完成了日常复习';
 
   // 环比变化：加权综合学习状态指数
-  // 指数 = 学习天数*10 + 刷题页数*1 + 刷题套数*15 + 攻克错题*3 + 新增错题*0.5 + 新背内容*1
+  // 指数 = 学习天数*10 + 刷题页数*1 + 刷题套数*15 + 新背内容*1 + 复习背书天数*3
+  //       + 新增错题*0.5 + 攻克错题*3 + 复习错题天数*3 + 连续打卡*2(上限10)
   const weekScore = w => w.activeDays * 10 + w.exercisePages * 1 + w.exerciseSets * 15
-    + w.mistakeMastered * 3 + w.mistakeNew * 0.5 + w.reciteNew * 1;
+    + w.reciteNew * 1 + w.reciteReviews * 3
+    + w.mistakeNew * 0.5 + w.mistakeMastered * 3 + w.mistakeReviews * 3
+    + Math.min(w.streak * 2, 10);
   const curScore = weekScore(s);
   const prevScore = weekScore(prev);
-  let compareText = '', compareCls = 'wr-compare-flat';
+  let compareText = '', compareCls = 'wr-compare-flat', comparePct = 0;
   if (prev.ageDays > 0 && prevScore >= 20) {
-    const pct = Math.round((curScore - prevScore) / prevScore * 100);
-    if (pct >= 5) { compareText = `↑ ${pct}%`; compareCls = 'wr-compare-up'; }
-    else if (pct <= -5) { compareText = `↓ ${Math.abs(pct)}%`; compareCls = 'wr-compare-down'; }
+    comparePct = Math.round((curScore - prevScore) / prevScore * 100);
+    if (comparePct >= 5) { compareText = `↑ ${comparePct}%`; compareCls = 'wr-compare-up'; }
+    else if (comparePct <= -5) { compareText = `↓ ${Math.abs(comparePct)}%`; compareCls = 'wr-compare-down'; }
     else { compareText = '持平'; }
   }
 
@@ -10364,7 +10367,9 @@ function getWeeklyReviewHTML() {
     .replace(/\{rest\}/g, 7 - s.activeDays)
     .replace(/\{reviews\}/g, s.totalReviews)
     .replace(/\{new\}/g, s.totalNew)
-    .replace(/\{what(YouDid)?\}/g, whatYouDid);
+    .replace(/\{what(YouDid)?\}/g, whatYouDid)
+    .replace(/\{comparePct\}/g, Math.abs(comparePct))
+    .replace(/\{compareText\}/g, compareText);
 
   // 冲刺期建议池
   const sprintTips = [
@@ -10388,25 +10393,24 @@ function getWeeklyReviewHTML() {
     msgs = [
       '欢迎开始记录！第一步往往最难，你已经迈出来了。',
       '把学习提上日程的这一刻，你就已经和昨天的自己不一样了。',
-      '万事开头难，你已经在路上了。先别急着追求完美，把"每天记一点"养起来。'
+      '万事开头难，你已经在路上了。把"每天记一点"养起来，后面会越来越顺。'
     ];
     tips = [
-      '这周不用追求量，先熟悉"学习→复习→掌握"的流程，节奏会自己长出来。',
-      '可以先从一个科目跑通完整流程，再慢慢加量，比一上来就铺满更稳。',
-      '把每天的目标定得轻松一点，连续几天都能完成，比一次猛学有用得多。'
+      '先熟悉"学习→复习→掌握"的完整流程，跑通一个科目再加量。',
+      '从一个科目开始跑通流程，再慢慢扩展，比一上来就铺满更稳。',
+      '把每天的目标定得踮踮脚能够到，连续完成几天，节奏自然就来了。'
     ];
   } else if (s.activeDays === 0) {
     emoji = '' + svgIcon('leaf') + ''; title = '上周 · 暂停了一下';
     msgs = [
       '上周暂时没有学习记录，没关系，节奏断了随时能接上。',
-      '休息本来就是备考的一部分。重要的不是从没停下，而是停下后还愿意回来。',
       '上周留白了，不代表前面的努力白费——学过的还在，捡起来比从零开始快得多。',
-      '停了一周？完全来得及。今天打开这个看板，就已经是重新开始了。'
+      '停了一周完全来得及，今天打开这个看板，就已经是重新开始了。'
     ];
     tips = [
-      '别想着一天补回一周的量，今天先学十几分钟、做几条复习，把状态找回来。',
+      '今天先学十几分钟、做几条复习，把状态找回来。',
       '把门槛降到最低：哪怕只复习3条、只看1页，先让"今天学过"这件事发生。',
-      '如果确实太累，就允许自己再缓一天，但定一个具体的重启时间，别让暂停变放弃。'
+      '定一个具体的重启时间，今天就开始，别让暂停变放弃。'
     ];
   } else if (s.activeDays === 7) {
     emoji = '' + svgIcon('flame') + ''; title = '上周 · 全勤';
@@ -10414,13 +10418,12 @@ function getWeeklyReviewHTML() {
       `上周7天全勤！${whatYouDid}，这份自律已经超过绝大多数人了。`,
       `一周七天一天不落，${whatYouDid}，你的稳定本身就是最强的竞争力。`,
       `全勤达成！${whatYouDid}，能每天坐下来学，本身就是很了不起的事。`,
-      `连续一周都在线——${whatYouDid}，你正在用行动告诉自己"我是能坚持的人"。`,
-      isUp ? `全勤加上环比提升，${whatYouDid}，状态正在往上走。` : `全勤已经很稳，${whatYouDid}，保持住这个节奏。`
+      isUp ? `7天全勤，${whatYouDid}，学习状态还比前一周提高了{comparePct}%，这个势头很猛。` : `7天全勤，${whatYouDid}，保持住这个节奏，继续往前推。`
     ];
     tips = [
-      '状态正好，也留意疲劳信号，睡够比多刷几道题更影响长期效率。',
-      '全勤很燃，记得留一点喘息时间——能稳稳走到12月的节奏才是好节奏。',
-      '天数已经拉满，接下来可以把注意力放到薄弱环节的质量上。'
+      '天数已经拉满，接下来把注意力放到薄弱环节的质量上。',
+      '趁状态稳定，定期回看一眼整体进度，确认方向没有跑偏。',
+      '全勤的基础上，在每天的内容质量上再抠细一点。'
     ];
   } else if (s.streak >= 5 && s.activeDays >= 5) {
     emoji = '' + svgIcon('activity') + ''; title = '上周 · 稳定输出';
@@ -10428,56 +10431,56 @@ function getWeeklyReviewHTML() {
       `上周最长连续打卡 {streak} 天，${whatYouDid}，坚持正在变成你的习惯。`,
       `连续学了 {streak} 天，${whatYouDid}，这种细水长流的稳定最难得。`,
       `{streak} 天的连续记录背后，${whatYouDid}，都是一天天攒下来的硬功夫。`,
-      isUp ? `稳定输出还在环比提升，${whatYouDid}，这个势头很好。` : `稳定输出中，${whatYouDid}，继续保持就好。`
+      isUp ? `连续{streak}天，${whatYouDid}，学习状态比前一周提高{comparePct}%，稳定还在往上走。` : `连续{streak}天，${whatYouDid}，稳定输出中，继续保持就好。`
     ];
     tips = [
-      '节奏已经稳定，继续保持，周末也可以适当放松半天。',
       '趁状态稳定，定期回看一眼整体进度，确认方向没有跑偏。',
-      '稳定是你的优势，接下来可以在每天的内容质量上再抠细一点。'
+      '稳定是你的优势，接下来在每天的内容质量上再抠细一点。',
+      '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
     ];
   } else if (s.activeDays >= 5 && isUp) {
     emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 状态上升';
     msgs = [
-      `上周学了 {days} 天，${whatYouDid}，环比还在提升，这个势头很好。`,
-      `一周 {days} 天在学习，${whatYouDid}，比前一周更努力了。`,
-      `{days} 天的投入加上环比进步，${whatYouDid}，你正在加速靠近目标。`,
-      `状态在往上走，${whatYouDid}，保持住这个加速度。`
+      `上周{days}天的投入，${whatYouDid}，学习状态比前一周提高{comparePct}%，你正在加速靠近目标。`,
+      `一周{days}天在学习，${whatYouDid}，环比提升{comparePct}%，这个势头很好。`,
+      `{days}天的投入加上{comparePct}%的环比进步，${whatYouDid}，状态在往上走。`,
+      `学习状态提高{comparePct}%，${whatYouDid}，保持住这个加速度。`
     ];
     tips = [
-      '上升期别太猛，稳住比冲一下更重要，别让疲劳打断节奏。',
       '趁状态好，把之前拖延的硬骨头啃一啃，这时候效率最高。',
-      '继续保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
+      '继续保持这个频率，同时留意复习是否及时，别让欠账在后台累积。',
+      '上升期把目标再往上定一点，趁势推进更多内容。'
     ];
   } else if (s.activeDays >= 5 && isDown) {
     emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
     msgs = [
-      `上周学了 {days} 天，${whatYouDid}，虽然环比略降但底子还在。`,
-      `一周 {days} 天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
-      `{days} 天的投入——${whatYouDid}——偶尔的波动很正常，别因为一周下滑就否定自己。`
+      `上周{days}天的投入，${whatYouDid}，虽然环比略降{comparePct}%但底子还在。`,
+      `一周{days}天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
+      `{days}天的投入——${whatYouDid}——偶尔的波动很正常，这周把状态拉回来。`
     ];
     tips = [
       '回想上周哪几天被占住了，能提前安排就更好。',
-      '节奏很好，别让偶尔的一两天中断，悄悄连成更长的松懈。',
-      '保持这个频率，这周把下滑的指标补回来。'
+      '保持这个频率，这周把下滑的指标补回来。',
+      '底子在，只要把天数稳住，量自然会跟上。'
     ];
   } else if (s.activeDays >= 5) {
     emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
     msgs = [
-      `上周学了 {days} 天，${whatYouDid}，这个节奏相当扎实。`,
-      `一周 {days} 天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
-      `{days} 天的投入——${whatYouDid}——正在悄悄把你和目标的距离一点点缩短。`
+      `上周{days}天的投入，${whatYouDid}，这个节奏相当扎实。`,
+      `一周{days}天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
+      `{days}天的投入——${whatYouDid}——正在悄悄把你和目标的距离一点点缩短。`
     ];
     tips = [
       '离全勤只差一两天，回想那天被什么占住了，能提前安排就更好。',
-      '节奏很好，别让偶尔的一两天中断，悄悄连成更长的松懈。',
-      '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
+      '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。',
+      '在稳定的基础上，试着把每天的学习量再往上推一点。'
     ];
   } else if (s.activeDays >= 3 && isUp) {
     emoji = '' + svgIcon('sun-medium') + ''; title = '上周 · 正在回升';
     msgs = [
-      `上周学了 {days} 天，${whatYouDid}，比前一周有进步，方向是对的。`,
-      `{days} 天学习、{rest} 天休整，${whatYouDid}，正在从低谷往上走。`,
-      `上周有 {days} 天在推进——${whatYouDid}——环比在提升，继续加把劲。`
+      `上周{days}天的投入，${whatYouDid}，学习状态比前一周提高{comparePct}%，方向是对的。`,
+      `{days}天学习、{rest}天休整，${whatYouDid}，正在从低谷往上走。`,
+      `上周有{days}天在推进，${whatYouDid}，环比提升{comparePct}%，继续加把劲。`
     ];
     tips = [
       '回升期最关键的是别断，先把连续天数拉起来，量自然会跟上。',
@@ -10487,9 +10490,9 @@ function getWeeklyReviewHTML() {
   } else if (s.activeDays >= 3) {
     emoji = '' + svgIcon('sun-medium') + ''; title = '上周 · 张弛有度';
     msgs = [
-      `上周学了 {days} 天，${whatYouDid}，已经有了一个不错的基本盘。`,
-      `{days} 天学习、{rest} 天休整，${whatYouDid}，张弛之间再加一点点就很理想。`,
-      `上周有 {days} 天在推进——${whatYouDid}——节奏在线，还有往上走的空间。`
+      `上周{days}天的投入，${whatYouDid}，已经有了一个不错的基本盘。`,
+      `{days}天学习、{rest}天休整，${whatYouDid}，张弛之间再加一点点就很理想。`,
+      `上周有{days}天在推进——${whatYouDid}——节奏在线，还有往上走的空间。`
     ];
     tips = [
       '试着把学习固定在每天同一时段，变成像吃饭一样的动作，天数会自然上来。',
@@ -10499,12 +10502,12 @@ function getWeeklyReviewHTML() {
   } else {
     emoji = '' + svgIcon('cloud-rain') + ''; title = '上周 · 刚起步';
     msgs = [
-      `上周学了 {days} 天，${whatYouDid}，虽然不多，但至少没有完全空白。`,
-      `上周只记录了 {days} 天，${whatYouDid}，这周从一个小目标重新起步，会越来越好。`,
-      `有 {days} 天的开始就不算晚，${whatYouDid}，真正可惜的是一直不开始。`
+      `上周{days}天的投入，${whatYouDid}，虽然不多，但至少没有完全空白。`,
+      `上周只记录了{days}天，${whatYouDid}，这周从一个小目标重新起步，会越来越好。`,
+      `有{days}天的开始就不算晚，${whatYouDid}，真正可惜的是一直不开始。`
     ];
     tips = [
-      '先别定大计划，这周争取比上周多一天，这就是实打实的进步。',
+      '这周争取比上周多一天，这就是实打实的进步。',
       '把学习材料放到最顺手的地方，减少"开始"那一下的阻力。',
       '哪怕每天只学二十分钟，一周也能攒出两个多小时，关键是先让频率上来。'
     ];
