@@ -10231,15 +10231,15 @@ function getMondayOf(s) {
 }
 const _pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-/* 每周小结统计：分项目类型统计上周数据 */
-function buildWeeklyStats(today) {
+/* 每周小结统计：分项目类型统计指定周的数据，weekOffset=0上周，-1再之前一周 */
+function buildWeeklyStats(today, weekOffset = 0) {
   const todayD = parseDate(today);
   const isMonday = todayD.getDay() === 1; // 周一=1
   const thisMon = getMondayOf(today);
-  const lastMon = addDays(thisMon, -7);
-  const lastSun = addDays(thisMon, -1);
-  const beforeWeek = addDays(lastMon, -1);  // 上周开始前一天（用于算进度差）
-  const inWeek = d => d && d >= lastMon && d <= lastSun;
+  const weekMon = addDays(thisMon, -7 + weekOffset * 7);
+  const weekSun = addDays(thisMon, -1 + weekOffset * 7);
+  const beforeWeek = addDays(weekMon, -1);  // 该周开始前一天（用于算进度差）
+  const inWeek = d => d && d >= weekMon && d <= weekSun;
   const heat = {};
   let earliest = null;
 
@@ -10247,22 +10247,20 @@ function buildWeeklyStats(today) {
   let exercisePages = 0, exerciseSets = 0;   // 刷题：页/套
   let reciteNew = 0;       // 背书：新学条
   let mistakeNew = 0, mistakeMastered = 0; // 错题：新增/攻克
-  const mistakeReviewDays = new Set(); // 错题复习：按天去重（有复习行为当天算1次）
-  const reciteReviewDays = new Set(); // 背书复习：按天去重
+  const mistakeReviewDays = new Set();
+  const reciteReviewDays = new Set();
 
   Object.values(store.projects).forEach(p => {
-    /* ===== 刷题本：用"上周结束进度 - 上周开始进度"的差值，天然去重、正确处理板块卷 ===== */
+    /* ===== 刷题本：用"该周结束进度 - 该周开始进度"的差值 ===== */
     if (p.type === 'exercise' && Array.isArray(p.records)) {
       p.records.forEach(r => {
         heat[r.date] = (heat[r.date] || 0) + 1;
         if (!earliest || r.date < earliest) earliest = r.date;
       });
       if (isSetMode(p)) {
-        // 套卷模式：getCompletedSets 按完成比例返回（板块加权），差值即上周实际完成套数
-        exerciseSets += getCompletedSets(p, lastSun) - getCompletedSets(p, beforeWeek);
+        exerciseSets += getCompletedSets(p, weekSun) - getCompletedSets(p, beforeWeek);
       } else {
-        // 习题册模式：按合并后的页码区间算，差值即上周实际刷的页数
-        exercisePages += getCompletedPagesAtDate(p, lastSun) - getCompletedPagesAtDate(p, beforeWeek);
+        exercisePages += getCompletedPagesAtDate(p, weekSun) - getCompletedPagesAtDate(p, beforeWeek);
       }
     }
 
@@ -10276,7 +10274,6 @@ function buildWeeklyStats(today) {
           else if (p.type === 'mistake') mistakeNew++;
         }
       }
-      // reviews[0] 是首次学习，idx>0 才是真正的复习；按天去重统计
       (it.reviews || []).forEach((rv, idx) => {
         if (!rv || !rv.date) return;
         heat[rv.date] = (heat[rv.date] || 0) + 1;
@@ -10286,7 +10283,6 @@ function buildWeeklyStats(today) {
           else if (p.type === 'mistake') mistakeReviewDays.add(rv.date);
         }
       });
-      // 保持复习评价（已掌握条目的定期回顾）也计入复习天数
       (it.retentionReviews || []).forEach(rv => {
         if (!rv || !rv.date) return;
         heat[rv.date] = (heat[rv.date] || 0) + 1;
@@ -10296,7 +10292,6 @@ function buildWeeklyStats(today) {
           else if (p.type === 'mistake') mistakeReviewDays.add(rv.date);
         }
       });
-      // 上周攻克的错题
       if (p.type === 'mistake' && (it.mastered || it.manualMastered) && inWeek(it.masteredDate)) {
         mistakeMastered++;
       }
@@ -10307,22 +10302,20 @@ function buildWeeklyStats(today) {
   const reciteReviews = reciteReviewDays.size;
 
   let activeDays = 0;
-  for (let i = 0; i < 7; i++) { if (heat[addDays(lastMon, i)]) activeDays++; }
-  // 上周内最长连续打卡天数（不是当前连续天数）
+  for (let i = 0; i < 7; i++) { if (heat[addDays(weekMon, i)]) activeDays++; }
   let weekStreak = 0, curStreak = 0;
   for (let i = 0; i < 7; i++) {
-    if (heat[addDays(lastMon, i)]) { curStreak++; if (curStreak > weekStreak) weekStreak = curStreak; }
+    if (heat[addDays(weekMon, i)]) { curStreak++; if (curStreak > weekStreak) weekStreak = curStreak; }
     else curStreak = 0;
   }
   const streak = weekStreak;
   const ageDays = earliest ? diffDays(earliest, today) + 1 : 0;
-  // 汇总（套数/页数统一在累加后取整，避免多个项目各自四舍五入导致虚高）
   exerciseSets = Math.max(0, Math.round(exerciseSets));
   exercisePages = Math.max(0, Math.round(exercisePages));
   const totalReviews = reciteReviews + mistakeReviews;
   const totalNew = reciteNew + mistakeNew;
 
-  return { isMonday, lastMon, lastSun, activeDays, streak, ageDays,
+  return { isMonday, weekMon, weekSun, activeDays, streak, ageDays,
     exercisePages, exerciseSets,
     reciteNew, reciteReviews,
     mistakeNew, mistakeMastered, mistakeReviews,
@@ -10332,16 +10325,17 @@ function buildWeeklyStats(today) {
 function getWeeklyReviewHTML() {
   const today = todayStr();
   if (!Object.keys(store.projects || {}).length) return '';
-  const s = buildWeeklyStats(today);
+  const s = buildWeeklyStats(today, 0);  // 上周
+  const prev = buildWeeklyStats(today, -1);  // 再之前一周
   // 只在周一显示上周小结，周一全天展示
   if (!s.isMonday) return '';
   // 完全没有任何学习数据时不显示
   if (s.ageDays <= 0) return '';
-  // 上周完全没活动也不显示（没什么可总结的）
+  // 上周完全没活动也不显示
   if (s.activeDays === 0 && s.totalReviews === 0 && s.totalNew === 0
       && s.exercisePages === 0 && s.exerciseSets === 0 && s.mistakeMastered === 0) return '';
 
-  // 构建数据描述文本（用于文案填充）：只描述该用户实际做过的事
+  // 构建数据描述文本
   const parts = [];
   if (s.exercisePages > 0) parts.push(`刷了 ${s.exercisePages} 页题`);
   if (s.exerciseSets > 0) parts.push(`刷了 ${s.exerciseSets} 套卷`);
@@ -10349,6 +10343,26 @@ function getWeeklyReviewHTML() {
   if (s.mistakeNew > 0) parts.push(`收录 ${s.mistakeNew} 道错题`);
   if (s.mistakeMastered > 0) parts.push(`攻克错题 ${s.mistakeMastered} 道`);
   const whatYouDid = parts.length ? parts.join('、') : '完成了日常复习';
+
+  // 环比变化：选最有代表性的指标
+  let compareText = '', compareCls = 'wr-compare-flat';
+  const dayDiff = s.activeDays - prev.activeDays;
+  const pageDiff = s.exercisePages - prev.exercisePages;
+  const mistakeDiff = s.mistakeNew - prev.mistakeNew;
+  if (prev.ageDays > 0 && prev.activeDays + prev.exercisePages + prev.mistakeNew > 0) {
+    if (Math.abs(pageDiff) >= 5) {
+      compareText = pageDiff > 0 ? `刷题 +${pageDiff} 页` : `刷题 ${pageDiff} 页`;
+      compareCls = pageDiff > 0 ? 'wr-compare-up' : 'wr-compare-down';
+    } else if (dayDiff !== 0) {
+      compareText = dayDiff > 0 ? `学习天数 +${dayDiff} 天` : `学习天数 ${dayDiff} 天`;
+      compareCls = dayDiff > 0 ? 'wr-compare-up' : 'wr-compare-down';
+    } else if (Math.abs(mistakeDiff) >= 3) {
+      compareText = mistakeDiff > 0 ? `新增错题 +${mistakeDiff} 道` : `新增错题 ${mistakeDiff} 道`;
+      compareCls = mistakeDiff > 0 ? 'wr-compare-down' : 'wr-compare-up';
+    } else {
+      compareText = '与前一周持平';
+    }
+  }
 
   const fill = t => t
     .replace(/\{days\}/g, s.activeDays)
@@ -10368,9 +10382,12 @@ function getWeeklyReviewHTML() {
   ];
 
   let emoji, title, msgs, tips;
-  const isNew = s.ageDays < 7;
+  const isNew = s.ageDays < 14;
   const ky = getKaoyanInfo();
   const isSprint = ky.state === 'countdown' && ky.days >= 0 && ky.days <= 30;
+  // 环比状态
+  const isUp = compareCls === 'wr-compare-up';
+  const isDown = compareCls === 'wr-compare-down';
 
   if (isNew) {
     emoji = '' + svgIcon('sprout') + ''; title = '第一周 · 起步';
@@ -10403,43 +10420,82 @@ function getWeeklyReviewHTML() {
       `上周7天全勤！${whatYouDid}，这份自律已经超过绝大多数人了。`,
       `一周七天一天不落，${whatYouDid}，你的稳定本身就是最强的竞争力。`,
       `全勤达成！${whatYouDid}，能每天坐下来学，本身就是很了不起的事。`,
-      `连续一周都在线——${whatYouDid}，你正在用行动告诉自己"我是能坚持的人"。`
+      `连续一周都在线——${whatYouDid}，你正在用行动告诉自己"我是能坚持的人"。`,
+      isUp ? `全勤加上环比提升，${whatYouDid}，状态正在往上走。` : `全勤已经很稳，${whatYouDid}，保持住这个节奏。`
     ];
     tips = [
       '状态正好，也留意疲劳信号，睡够比多刷几道题更影响长期效率。',
       '全勤很燃，记得留一点喘息时间——能稳稳走到12月的节奏才是好节奏。',
       '天数已经拉满，接下来可以把注意力放到薄弱环节的质量上。'
     ];
-  } else if (s.streak >= 7 && s.activeDays >= 5) {
+  } else if (s.streak >= 5 && s.activeDays >= 5) {
     emoji = '' + svgIcon('activity') + ''; title = '上周 · 稳定输出';
     msgs = [
-      `已经连续打卡 {streak} 天，上周{whatYouDid}，坚持正在变成你的习惯。`,
-      `连续学了 {streak} 天，上周{whatYouDid}，这种细水长流的稳定最难得。`,
-      `{streak} 天的连续记录背后，上周{whatYouDid}，都是一天天攒下来的硬功夫。`
+      `上周最长连续打卡 {streak} 天，${whatYouDid}，坚持正在变成你的习惯。`,
+      `连续学了 {streak} 天，${whatYouDid}，这种细水长流的稳定最难得。`,
+      `{streak} 天的连续记录背后，${whatYouDid}，都是一天天攒下来的硬功夫。`,
+      isUp ? `稳定输出还在环比提升，${whatYouDid}，这个势头很好。` : `稳定输出中，${whatYouDid}，继续保持就好。`
     ];
     tips = [
       '节奏已经稳定，继续保持，周末也可以适当放松半天。',
       '趁状态稳定，定期回看一眼整体进度，确认方向没有跑偏。',
       '稳定是你的优势，接下来可以在每天的内容质量上再抠细一点。'
     ];
+  } else if (s.activeDays >= 5 && isUp) {
+    emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 状态上升';
+    msgs = [
+      `上周学了 {days} 天，${whatYouDid}，环比还在提升，这个势头很好。`,
+      `一周 {days} 天在学习，${whatYouDid}，比前一周更努力了。`,
+      `{days} 天的投入加上环比进步，${whatYouDid}，你正在加速靠近目标。`,
+      `状态在往上走，${whatYouDid}，保持住这个加速度。`
+    ];
+    tips = [
+      '上升期别太猛，稳住比冲一下更重要，别让疲劳打断节奏。',
+      '趁状态好，把之前拖延的硬骨头啃一啃，这时候效率最高。',
+      '继续保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
+    ];
+  } else if (s.activeDays >= 5 && isDown) {
+    emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
+    msgs = [
+      `上周学了 {days} 天，${whatYouDid}，虽然环比略降但底子还在。`,
+      `一周 {days} 天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
+      `{days} 天的投入——${whatYouDid}——偶尔的波动很正常，别因为一周下滑就否定自己。`
+    ];
+    tips = [
+      '回想上周哪几天被占住了，能提前安排就更好。',
+      '节奏很好，别让偶尔的一两天中断，悄悄连成更长的松懈。',
+      '保持这个频率，这周把下滑的指标补回来。'
+    ];
   } else if (s.activeDays >= 5) {
     emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
     msgs = [
-      `上周学了 {days} 天，{whatYouDid}，这个节奏相当扎实。`,
-      `一周 {days} 天在学习，{whatYouDid}，已经跑赢了大多数人的状态。`,
-      `{days} 天的投入——{whatYouDid}——正在悄悄把你和目标的距离一点点缩短。`
+      `上周学了 {days} 天，${whatYouDid}，这个节奏相当扎实。`,
+      `一周 {days} 天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
+      `{days} 天的投入——${whatYouDid}——正在悄悄把你和目标的距离一点点缩短。`
     ];
     tips = [
       '离全勤只差一两天，回想那天被什么占住了，能提前安排就更好。',
       '节奏很好，别让偶尔的一两天中断，悄悄连成更长的松懈。',
       '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
     ];
+  } else if (s.activeDays >= 3 && isUp) {
+    emoji = '' + svgIcon('sun-medium') + ''; title = '上周 · 正在回升';
+    msgs = [
+      `上周学了 {days} 天，${whatYouDid}，比前一周有进步，方向是对的。`,
+      `{days} 天学习、{rest} 天休整，${whatYouDid}，正在从低谷往上走。`,
+      `上周有 {days} 天在推进——${whatYouDid}——环比在提升，继续加把劲。`
+    ];
+    tips = [
+      '回升期最关键的是别断，先把连续天数拉起来，量自然会跟上。',
+      '从最容易上手的科目开始，先坐下、先学十分钟，往往就停不下来了。',
+      '把目标定在五天，踮踮脚就能够到，达到了再往上加。'
+    ];
   } else if (s.activeDays >= 3) {
     emoji = '' + svgIcon('sun-medium') + ''; title = '上周 · 张弛有度';
     msgs = [
-      `上周学了 {days} 天，{whatYouDid}，已经有了一个不错的基本盘。`,
-      `{days} 天学习、{rest} 天休整，{whatYouDid}，张弛之间再加一点点就很理想。`,
-      `上周有 {days} 天在推进——{whatYouDid}——节奏在线，还有往上走的空间。`
+      `上周学了 {days} 天，${whatYouDid}，已经有了一个不错的基本盘。`,
+      `{days} 天学习、{rest} 天休整，${whatYouDid}，张弛之间再加一点点就很理想。`,
+      `上周有 {days} 天在推进——${whatYouDid}——节奏在线，还有往上走的空间。`
     ];
     tips = [
       '试着把学习固定在每天同一时段，变成像吃饭一样的动作，天数会自然上来。',
@@ -10449,9 +10505,9 @@ function getWeeklyReviewHTML() {
   } else {
     emoji = '' + svgIcon('cloud-rain') + ''; title = '上周 · 刚起步';
     msgs = [
-      `上周学了 {days} 天，{whatYouDid}，虽然不多，但至少没有完全空白。`,
-      `上周只记录了 {days} 天，{whatYouDid}，这周从一个小目标重新起步，会越来越好。`,
-      `有 {days} 天的开始就不算晚，{whatYouDid}，真正可惜的是一直不开始。`
+      `上周学了 {days} 天，${whatYouDid}，虽然不多，但至少没有完全空白。`,
+      `上周只记录了 {days} 天，${whatYouDid}，这周从一个小目标重新起步，会越来越好。`,
+      `有 {days} 天的开始就不算晚，${whatYouDid}，真正可惜的是一直不开始。`
     ];
     tips = [
       '先别定大计划，这周争取比上周多一天，这就是实打实的进步。',
@@ -10461,8 +10517,11 @@ function getWeeklyReviewHTML() {
   }
   if (isSprint) tips = sprintTips;
 
-  // 数据格：根据用户实际使用的模式动态显示，没有数据的指标不出现
+  // 数据格
   const stat = (num, lab) => `<div class="wr-stat"><div class="wr-num">${num}</div><div class="wr-lab">${lab}</div></div>`;
+  const compareStat = compareText
+    ? `<div class="wr-stat wr-compare ${compareCls}"><div class="wr-num">${compareText}</div><div class="wr-lab">较前一周</div></div>`
+    : null;
   const statsHtml = [
     stat(s.activeDays + ' / 7', '学习天数'),
     s.exercisePages > 0 ? stat(s.exercisePages, '刷题页数') : null,
@@ -10470,14 +10529,15 @@ function getWeeklyReviewHTML() {
     s.reciteNew > 0 ? stat(s.reciteNew, '新背内容') : null,
     s.mistakeNew > 0 ? stat(s.mistakeNew, '新增错题') : null,
     s.mistakeMastered > 0 ? stat(s.mistakeMastered, '攻克错题') : null,
-    stat(s.streak, '连续打卡')
+    stat(s.streak, '连续打卡'),
+    compareStat
   ].filter(Boolean).join('');
 
   return `
     <div class="weekly-review">
       <div class="wr-head">
         <span class="wr-title">${emoji} ${title} · 学习小结</span>
-        <span class="wr-date">${fmtCN(s.lastMon)} - ${fmtCN(s.lastSun)}</span>
+        <span class="wr-date">${fmtCN(s.weekMon)} - ${fmtCN(s.weekSun)}</span>
       </div>
       <div class="wr-stats">${statsHtml}</div>
       <div class="wr-msg">${fill(_pick(msgs))}</div>
