@@ -2235,6 +2235,8 @@ html[data-theme="dark"] #aiFab{color:#10302a;box-shadow:0 4px 16px rgba(0,0,0,.4
   position:relative;
   margin-left:6px;
   cursor:pointer;
+  align-self:stretch;
+  min-height:60px;
 }
 .ai-outline[hidden]{display:none}
 .ai-outline-track{
