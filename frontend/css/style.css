@@ -334,8 +334,8 @@
   .weekly-review .wr-date{font-size:12px;color:var(--muted)}
   .weekly-review .wr-stats{display:flex;gap:10px;margin-bottom:14px}
   .weekly-review .wr-stat{flex:1;background:var(--bg);border-radius:12px;padding:10px 6px 8px;text-align:center}
-  .weekly-review .wr-stat.wr-compare-up .wr-num::before{content:'↑';font-size:.65em;margin-right:2px;vertical-align:middle}
-  .weekly-review .wr-stat.wr-compare-down .wr-num::before{content:'↓';font-size:.65em;margin-right:2px;vertical-align:middle}
+  .weekly-review .wr-stat.wr-compare-up .wr-num::before{content:'↑';font-size:.8em;margin-right:2px;vertical-align:middle}
+  .weekly-review .wr-stat.wr-compare-down .wr-num::before{content:'↓';font-size:.8em;margin-right:2px;vertical-align:middle}
   .weekly-review .wr-stat.wr-compare-up .wr-num{color:#2e7d32}
   .weekly-review .wr-stat.wr-compare-down .wr-num{color:#c62828}
   .weekly-review .wr-stat.wr-compare-flat .wr-num{color:var(--muted)}
