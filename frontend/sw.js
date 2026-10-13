@@ -4,15 +4,15 @@
    注意：JS/CSS 的缓存失效靠 index.html 里的 ?v= 版本号，
    改了文件记得顺手升版本号，不然 SW 会一直吐旧缓存。
    API 请求不缓存，里面有用户数据。 */
-var CACHE = 'yystudy-v188';
+var CACHE = 'yystudy-v189';
 var CORE = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=b188',
-  './js/icons.js?v=b188',
-  './js/app.js?v=b188',
-  './js/auth.js?v=b188',
+  './css/style.css?v=b189',
+  './js/icons.js?v=b189',
+  './js/app.js?v=b189',
+  './js/auth.js?v=b189',
   './lib/katex.min.css?v=b185',
   './lib/katex.min.js?v=b185',
   './icon-192.png?v=4',
@@ -25,7 +25,12 @@ var CORE = [
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
-    caches.open(CACHE).then(function (c) {
+    // 先清理所有旧缓存，确保用户拿到最新版本
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+    }).then(function () {
+      return caches.open(CACHE);
+    }).then(function (c) {
       return Promise.all(CORE.map(function (url) {
         // cache: 'reload' 强制绕过浏览器 HTTP 缓存，从服务器拉取最新内容
         return fetch(url, { cache: 'reload' }).then(function (res) {
