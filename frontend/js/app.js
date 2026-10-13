@@ -7070,7 +7070,7 @@ function render() {
                 <button type="button" class="ghost-btn" id="refUnlinkBtn" style="flex:1">${svgIcon('link')} 解除关联</button>
               </div>
             </div>`;
-          showGenericConfirm('关联结构已变更', bodyHtml, '取消', null);
+          showGenericConfirm('关联结构已变更', bodyHtml, '知道了', null);
           setTimeout(() => {
             const rb = $('#refRealignBtn');
             const ub = $('#refUnlinkBtn');

@@ -2911,6 +2911,13 @@ h1,h2,h3{font-family:var(--font-serif);font-weight:600;letter-spacing:0.01em}
   .modal select{padding:9px 10px;font-size:13.5px}
   /* 两列布局保持 */
   .modal .two-col{grid-template-columns:1fr 1fr;gap:12px}
+  /* 背书/错题打卡面板：3列改2列，避免订正效果按钮溢出重叠 */
+  .recite-grid-2{grid-template-columns:1fr 1fr}
+  .recite-grid-2 .page-range{grid-column:span 2}
+  .recite-grid-2 .field{min-width:0}
+  .recite-grid-2 input{width:100%;min-width:0}
+  /* 订正效果按钮缩小，确保不溢出 */
+  .rec-qbtn{padding:6px 10px;font-size:12px}
   /* 背书网格：4列改3列 */
   .recite-grid{grid-template-columns:1fr 1fr 1fr}
   /* AI抽屉：稍微宽一点 */
