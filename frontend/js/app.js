@@ -1781,6 +1781,7 @@ async function loadStore() {
     if (p.reviewMode == null) p.reviewMode = 'classic';
     if (p.dailyCapacity == null) p.dailyCapacity = null;
     if (p.spreadThreshold == null) p.spreadThreshold = defaultComfortCap(p);
+    if (p.masterMode == null) p.masterMode = 'ask'; // ask=每次询问 auto=自动熟知 manual=手动熟知
     if (p.totalLocked == null) p.totalLocked = false;
     if (p.bookStartPage == null) p.bookStartPage = null;
     if (p.bookEndPage == null) p.bookEndPage = null;
@@ -4619,14 +4620,15 @@ function applyReview(item, quality, p, note) {
   const isLastRound = newStage >= intervals.length - 1;
 
   if (quality === 'good' && isLastRound) {
-    if (allGood && !tooFew) {
-      // 最后一轮 + 满3次 + 最近3次全对 → 直接毕业，进入保持期
+    const masterMode = p.masterMode || 'ask';
+    if (allGood && !tooFew && masterMode === 'auto') {
+      // 自动熟知模式：最后一轮 + 满3次 + 最近3次全对 → 直接毕业，进入保持期
       item.mastered = true;
       item.masteredDate = today;
       item.nextReviewDate = null;
       scheduleRetention(item, today, 0, p);
-    } else {
-      // 最后一轮但不满足直接毕业条件 → 弹窗确认
+    } else if (masterMode !== 'manual') {
+      // 每次询问模式（或不满足直接毕业条件）→ 弹窗确认
       // 弹窗前先落一个默认的下次复习日期（最长间隔），避免用户杀进程/刷新后 stage 已推进但 nextReviewDate 还是旧值的不一致状态
       const lastGap = intervals[intervals.length - 1] || 30;
       item.mastered = false;
@@ -4637,9 +4639,17 @@ function applyReview(item, quality, p, note) {
       pendingConfirmItem = item;
       pendingConfirmProject = p;
       pendingConfirmFromSkip = false;
-      const reason = tooFew ? 'few' : 'notAllGood';
+      const reason = tooFew ? 'few' : (allGood ? 'allGood' : 'notAllGood');
       showConfirmMaster(item, p, recent, reason);
       return;
+    } else {
+      // 手动熟知模式：不弹窗，按正常间隔继续排期
+      item.mastered = false;
+      item.masteredDate = null;
+      clearRetention(item);
+      if (wasEarlyReviewed && quality !== 'good') item.earlyReviewed = true;
+      item.nextReviewDate = scheduleNextReview(p, item, today, newStage, tr.gap);
+      item.earlyReviewed = false;
     }
   } else {
     // 未到最后一轮，或 fuzzy/forgot → 不掌握，按三档模型安排下次复习
@@ -4779,6 +4789,30 @@ function showConfirmMaster(item, p, recentReviews, reason) {
       });
     }
   }, 0);
+
+  // 不再提醒快捷设置
+  const oldHint = mask.querySelector('.cm-master-hint');
+  if (oldHint) oldHint.remove();
+  const masterHint = document.createElement('div');
+  masterHint.className = 'cm-master-hint';
+  masterHint.innerHTML = `
+    <span class="cm-master-label">以后不再提醒：</span>
+    <button type="button" class="cm-master-link" data-mode="auto">自动熟知</button>
+    <span class="cm-master-sep">·</span>
+    <button type="button" class="cm-master-link" data-mode="manual">手动熟知</button>
+  `;
+  opts.parentNode.insertBefore(masterHint, opts.nextSibling);
+  masterHint.querySelectorAll('.cm-master-link').forEach(link => {
+    link.addEventListener('click', () => {
+      const mode = link.dataset.mode;
+      p.masterMode = mode;
+      saveStore();
+      mask.hidden = true;
+      unlockBodyScroll();
+      const modeText = mode === 'auto' ? '自动熟知' : '手动熟知';
+      showToast(svgIcon('check-circle'), '已设置', `以后满足毕业条件时${mode === 'auto' ? '自动标注已熟知，不再弹窗' : '不再弹窗，需手动点「已熟知」'}`, 2800);
+    });
+  });
 
   mask.hidden = false;
   modalTop(mask);
@@ -11865,6 +11899,13 @@ function openSettings() {
   $('#intervalSectionTitle').hidden = !isRecite;
   $('#intervalSection').hidden = !isRecite;
   if (isRecite) $('#sIntervals').value = getIntervals(p).join(', ');
+  // 毕业提醒方式
+  if (isRecite) {
+    const mm = p.masterMode || 'ask';
+    document.querySelectorAll('#sMasterModeSeg .seg-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mm);
+    });
+  }
 
   // 复习模式（错题本 / 背书本都有复习模式；刷题本没有）
   const canReviewMode = isMistake || p.type === 'recite';
@@ -14262,6 +14303,11 @@ function submitSettings() {
   p.scopeMode = (canScope && scopeMode && !p.unitMode) ? scopeMode : false;
   p.targetRanges = p.scopeMode ? targetRanges : [];
   p.intervals = intervals;
+  // 毕业提醒方式
+  if (p.type !== 'exercise') {
+    const activeBtn = document.querySelector('#sMasterModeSeg .seg-btn.active');
+    p.masterMode = activeBtn ? activeBtn.dataset.mode : 'ask';
+  }
 
   // 复习模式（仅错题本）
   let needRebalance = false;
@@ -14346,6 +14392,14 @@ function submitSettings() {
   }
 }
 $('#settingsSave').addEventListener('click', submitSettings);
+
+// 毕业提醒方式seg按钮
+document.querySelectorAll('#sMasterModeSeg .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#sMasterModeSeg .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
 
 // 设置页：回车自动跳到下一个输入框，最后一个回车保存（统一导航，见 setupEnterNav）
 
