@@ -2767,7 +2767,7 @@ html[data-theme="dark"] .ai-send{color:#10302a}
 .ai-time-studied.editing{border-style:solid;border-color:var(--brand);cursor:text;outline:none}
 .ai-time-remaining{color:var(--muted);font-variant-numeric:tabular-nums}
 .ai-reestimate-btn{
-  margin-left:auto;background:transparent;border:1px solid var(--line);
+  margin-left:4px;background:transparent;border:1px solid var(--line);
   color:var(--muted);cursor:pointer;padding:3px;border-radius:6px;
   display:flex;align-items:center;justify-content:center;
   transition:background .15s ease,color .15s ease,border-color .15s ease;
