@@ -12038,6 +12038,20 @@ function openSettings() {
     updatePressurePanel();
     updateSpreadPressureHint();
   }, 50);
+
+  // 归档按钮状态：已归档显示"取消归档"，未归档显示"归档这本"
+  const archiveBtn = $('#btnArchiveProject');
+  if (archiveBtn) {
+    if (p.archived) {
+      archiveBtn.textContent = '取消归档';
+      archiveBtn.style.color = 'var(--brand2)';
+      archiveBtn.style.borderColor = 'rgba(176,122,75,.3)';
+    } else {
+      archiveBtn.textContent = '归档这本';
+      archiveBtn.style.color = 'var(--brand)';
+      archiveBtn.style.borderColor = 'rgba(46,107,79,.3)';
+    }
+  }
   } catch (e) {
     console.error('openSettings error:', e);
     showToast('' + svgIcon('alert-triangle') + '', '设置加载有异常', e.message + '（窗口仍可使用）', 4000);
@@ -14425,6 +14439,29 @@ $('#btnReset').addEventListener('click', () => {
     saveStore();
     render();
   });
+});
+
+// 设置面板：归档/取消归档
+$('#btnArchiveProject').addEventListener('click', () => {
+  const p = store.projects[editingProjectId];
+  if (!p) return;
+  const typeWord = p.type === 'exercise' ? '刷题本' : (p.type === 'recite' ? '背书本' : '错题本');
+  if (p.archived) {
+    p.archived = false;
+    p.updatedAt = Date.now();
+    saveStore();
+    closeSettings();
+    render();
+    showToast('' + svgIcon('package') + '', '已取消归档', `「${p.name}」已恢复到首页。`, 2500);
+  } else {
+    if (!confirm(`确定要归档「${p.name}」吗？\n归档后${typeWord}会移到收纳箱，不再出现在首页，数据保留可随时恢复。`)) return;
+    p.archived = true;
+    p.updatedAt = Date.now();
+    saveStore();
+    closeSettings();
+    render();
+    showToast('' + svgIcon('package') + '', '已归档', `这本${typeWord}已移到「已归档」收纳箱，数据保留可随时取消归档。`, 3000);
+  }
 });
 
 // 修复：在弹窗内拖拽选择文字时鼠标移出弹窗松开，会误触发遮罩层click导致弹窗关闭

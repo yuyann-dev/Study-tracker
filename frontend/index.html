@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=b166">
+<link rel="stylesheet" href="css/style.css?v=b167">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1044,6 +1044,7 @@ if ('serviceWorker' in navigator) {
 
     <div class="modal-actions">
       <button class="danger-btn" id="btnReset" type="button">删除当前任务</button>
+      <button class="ghost-btn" id="btnArchiveProject" type="button" style="color:var(--brand);border-color:rgba(46,107,79,.3)">归档这本</button>
       <div class="spacer"></div>
       <button class="ghost-btn" id="settingsCancel" type="button">取消</button>
       <button class="primary" id="settingsSave" type="button">保存</button>
@@ -1957,9 +1958,9 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/icons.js?v=b166"></script>
-<script src="js/auth.js?v=b166"></script>
-<script src="js/app.js?v=b166"></script>
+<script src="js/icons.js?v=b167"></script>
+<script src="js/auth.js?v=b167"></script>
+<script src="js/app.js?v=b167"></script>
 <script>
 
 if (document.readyState === 'loading') {
