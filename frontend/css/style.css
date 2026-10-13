@@ -2881,3 +2881,32 @@ button>.ic,.ghost-btn>.ic,.soft-btn>.ic,.primary>.ic,.danger-btn>.ic{margin-righ
 h1,h2,h3{font-family:var(--font-serif);font-weight:600;letter-spacing:0.01em}
 .modal-head h2,.sec-title,.wb-section-title,.welcome h2,.welcome-badge,.card h2{font-family:var(--font-serif);font-weight:600}
 
+/* ===== iPad / 平板适配（768px ~ 1024px） ===== */
+@media (min-width:768px) and (max-width:1024px){
+  .wrap{padding:0 16px}
+  .head{padding:14px 0 0}
+  /* 每周小结统计格子：允许换行，避免拥挤重叠 */
+  .weekly-review .wr-stats{flex-wrap:wrap}
+  .weekly-review .wr-stat{flex:1 1 calc(33.333% - 7px);min-width:0}
+  /* 今日总览项目行：确保不重叠 */
+  .dash-proj{gap:8px}
+  .dash-proj .dp-name{flex:0 0 110px;font-size:12.5px}
+  .dash-proj .dp-pct{flex:0 0 44px;font-size:11.5px}
+  .dash-proj .ts-chip{flex:0 0 84px;width:84px;font-size:10.5px;padding:3px 6px}
+  /* 弹窗适配 */
+  .modal{max-width:560px}
+  /* 背书网格：4列改3列 */
+  .recite-grid{grid-template-columns:1fr 1fr 1fr}
+  /* AI抽屉：稍微宽一点 */
+  .ai-drawer{max-width:420px}
+  /* 设置面板两列：保持 */
+  .modal .two-col{grid-template-columns:1fr 1fr}
+}
+
+/* ===== iPad 竖屏（768px）专项 ===== */
+@media (width:768px){
+  .dash-grid{grid-template-columns:repeat(2,1fr)}
+  .recite-grid{grid-template-columns:1fr 1fr}
+  .recite-grid-2{grid-template-columns:1fr 1fr}
+}
+
