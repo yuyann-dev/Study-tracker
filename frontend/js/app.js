@@ -17713,12 +17713,17 @@ if (document.readyState === 'loading') {
       if (force) autoScrollEnabled = true; // 强制滚动后重新开启跟随
     }
   }
-  // 智能跟随：用户往上滚就停，滚回底部附近就重新跟随（阈值150px，更接近豆包/DeepSeek体验）
+  // 智能跟随：用户往上划一点点就停止跟随，滚回底部附近才恢复（灵敏模式）
   var autoScrollEnabled = true;
+  var _lastScrollTop = 0;
   function onAiBodyScroll(){
     if (!els.body) return;
+    var curTop = els.body.scrollTop;
     var dist = els.body.scrollHeight - els.body.scrollTop - els.body.clientHeight;
-    autoScrollEnabled = dist <= 150;
+    // 向上滚动（curTop < lastTop）立即停止跟随；在底部附近恢复跟随
+    if (curTop < _lastScrollTop - 1) autoScrollEnabled = false;
+    else if (dist <= 30) autoScrollEnabled = true;
+    _lastScrollTop = curTop;
     highlightOutlineItem();
   }
 
