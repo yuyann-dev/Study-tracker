@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-<link rel="stylesheet" href="css/style.css?v=b174">
+<link rel="stylesheet" href="css/style.css?v=b175">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -984,14 +984,14 @@ if ('serviceWorker' in navigator) {
         <input id="sIntervals" type="text" placeholder="1, 2, 4, 7, 15, 30">
       </label>
       <p class="hint" id="intervalHint" style="margin-top:0">每学习一个新内容后，按这些间隔依次提醒复习。每次复习后顺序推进到下一轮，走到最后一轮且最近3次全对时会弹出确认掌握提示。</p>
-      <label style="margin-top:12px">毕业提醒方式
+      <label style="margin-top:12px">掌握后提醒方式
         <div class="seg" id="sMasterModeSeg" style="margin-top:6px">
           <button type="button" data-mode="ask" class="seg-btn active">每次询问</button>
           <button type="button" data-mode="auto">自动熟知</button>
           <button type="button" data-mode="manual">手动熟知</button>
         </div>
       </label>
-      <p class="hint" style="margin-top:6px;margin-bottom:0">每次询问：满足毕业条件时弹窗确认；自动熟知：满足条件直接标注不再提醒；手动熟知：不弹窗，需手动点「已熟知」。</p>
+      <p class="hint" style="margin-top:6px;margin-bottom:0">每次询问：内容掌握时弹窗确认；自动熟知：掌握后直接标注不再提醒；手动熟知：不弹窗，需手动点「已熟知」。</p>
     </div>
 
     <!-- 通用：分散阈值（背书+错题都有） -->
@@ -1966,9 +1966,9 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/icons.js?v=b174"></script>
-<script src="js/auth.js?v=b174"></script>
-<script src="js/app.js?v=b174"></script>
+<script src="js/icons.js?v=b175"></script>
+<script src="js/auth.js?v=b175"></script>
+<script src="js/app.js?v=b175"></script>
 <script>
 
 if (document.readyState === 'loading') {

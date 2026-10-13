@@ -4718,7 +4718,15 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   const opt1 = document.createElement('button');
   opt1.className = 'cm-opt cm-opt-primary';
   opt1.innerHTML = `<span class="cm-opt-icon">${svgIcon('check-circle')}</span><span class="cm-opt-main"><span class="cm-opt-title">确认已${masteredWord}</span><span class="cm-opt-desc">不再复习这条内容</span></span>`;
-  opt1.addEventListener('click', () => { mask.hidden = true; confirmMasterItem(true); });
+  opt1.addEventListener('click', () => {
+    const autoCheck = $('#cmAutoMasterCheck');
+    if (autoCheck && autoCheck.checked) {
+      p.masterMode = 'auto';
+      saveStore();
+    }
+    mask.hidden = true;
+    confirmMasterItem(true);
+  });
   opts.appendChild(opt1);
 
   // 选项2：重新开始
@@ -4790,29 +4798,16 @@ function showConfirmMaster(item, p, recentReviews, reason) {
     }
   }, 0);
 
-  // 不再提醒快捷设置
+  // 不再提醒复选框
   const oldHint = mask.querySelector('.cm-master-hint');
   if (oldHint) oldHint.remove();
-  const masterHint = document.createElement('div');
+  const masterHint = document.createElement('label');
   masterHint.className = 'cm-master-hint';
   masterHint.innerHTML = `
-    <span class="cm-master-label">以后不再提醒：</span>
-    <button type="button" class="cm-master-link" data-mode="auto">自动熟知</button>
-    <span class="cm-master-sep">·</span>
-    <button type="button" class="cm-master-link" data-mode="manual">手动熟知</button>
+    <input type="checkbox" id="cmAutoMasterCheck" style="margin-right:6px;accent-color:var(--brand)">
+    <span>以后掌握后自动熟知，不再询问</span>
   `;
   opts.parentNode.insertBefore(masterHint, opts.nextSibling);
-  masterHint.querySelectorAll('.cm-master-link').forEach(link => {
-    link.addEventListener('click', () => {
-      const mode = link.dataset.mode;
-      p.masterMode = mode;
-      saveStore();
-      mask.hidden = true;
-      unlockBodyScroll();
-      const modeText = mode === 'auto' ? '自动熟知' : '手动熟知';
-      showToast(svgIcon('check-circle'), '已设置', `以后满足毕业条件时${mode === 'auto' ? '自动标注已熟知，不再弹窗' : '不再弹窗，需手动点「已熟知」'}`, 2800);
-    });
-  });
 
   mask.hidden = false;
   modalTop(mask);
