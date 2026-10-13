@@ -833,9 +833,14 @@ function getTodayPlan(userId, budgetMin) {
       // 所有未完成的刷题本都纳入今日计划
       const remain = Math.max((s.total || 0) - (s.done || 0), 0);
       if (remain <= 0) continue;
-      // 今日任务量：优先 dailyCapacity，其次近7天平均速率，最后默认4页
+      // 今日任务量：优先 dailyCapacity，其次取「近7天实际速率」和「截止日前所需速率」的较大值，最后默认4页
+      // [修复] 不能只用 recent7Rate——用户近7天做得少就排得少，会形成恶性循环
       let todayUnits = Number(s.dailyCapacity) || 0;
-      if (todayUnits <= 0) todayUnits = Number(s.recent7Rate) || 0;
+      if (todayUnits <= 0) {
+        const recentRate = Number(s.recent7Rate) || 0;
+        const requiredRate = Number(s.requiredRate) || 0;
+        todayUnits = Math.max(recentRate, requiredRate);
+      }
       if (todayUnits <= 0) todayUnits = 4;
       if (todayUnits < 2) todayUnits = 2;
       todayUnits = Math.min(Math.round(todayUnits), remain);
