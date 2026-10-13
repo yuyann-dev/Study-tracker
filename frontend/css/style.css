@@ -399,10 +399,11 @@
 
   .recite-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px}
   .recite-grid-2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+  .recite-grid-2 .field{min-width:0}
   .page-range{display:flex;align-items:flex-end;gap:6px;grid-column:span 2}
   .page-range .field{flex:1}
   .page-range-sep{padding-bottom:11px;color:var(--muted);font-size:14px;flex:0 0 auto}
-  .recite-grid-2 input[type="date"]{min-width:0;width:100%;box-sizing:border-box}
+  .recite-grid-2 input[type="date"]{min-width:0!important;width:100%!important;box-sizing:border-box;-webkit-appearance:none;appearance:none;max-width:100%}
 
   /* 连续录入：提交后沿用上次的页码/套卷号，用警告色标记，提醒用户确认后再提交下一条（防止忘记改页码）*/
   .page-retained{

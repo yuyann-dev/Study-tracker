@@ -11897,9 +11897,8 @@ function openSettings() {
   // 毕业提醒方式
   if (isRecite) {
     const mm = p.masterMode || 'ask';
-    document.querySelectorAll('#sMasterModeSeg .seg-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.mode === mm);
-    });
+    const radio = document.querySelector('input[name="masterMode"][value="' + mm + '"]');
+    if (radio) radio.checked = true;
   }
 
   // 复习模式（错题本 / 背书本都有复习模式；刷题本没有）
@@ -14300,8 +14299,8 @@ function submitSettings() {
   p.intervals = intervals;
   // 毕业提醒方式
   if (p.type !== 'exercise') {
-    const activeBtn = document.querySelector('#sMasterModeSeg .seg-btn.active');
-    p.masterMode = activeBtn ? activeBtn.dataset.mode : 'ask';
+    const checked = document.querySelector('input[name="masterMode"]:checked');
+    p.masterMode = checked ? checked.value : 'ask';
   }
 
   // 复习模式（仅错题本）
@@ -14387,14 +14386,6 @@ function submitSettings() {
   }
 }
 $('#settingsSave').addEventListener('click', submitSettings);
-
-// 毕业提醒方式seg按钮
-document.querySelectorAll('#sMasterModeSeg .seg-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#sMasterModeSeg .seg-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
 
 // 设置页：回车自动跳到下一个输入框，最后一个回车保存（统一导航，见 setupEnterNav）
 
@@ -15282,8 +15273,8 @@ $('#reviewList').addEventListener('click', e => {
     const allGood = recent.length >= 1 && recent.every(r => r.quality === 'good');
     const tooFew = reviewCount < 3;
 
-    // 直接标记（不弹窗）条件：已勾选"以后不再提示" + 满3次 + 最近3次全对
-    if (p.skipConfirmDismissed && !tooFew && allGood) {
+    // 直接标记（不弹窗）条件：自动熟知模式 或 已勾选"以后不再提示" + 满3次 + 最近3次全对
+    if ((p.skipConfirmDismissed || p.masterMode === 'auto') && !tooFew && allGood) {
       item.manualMastered = true;
       item.masteredDate = todayStr();
       item.nextReviewDate = null;
