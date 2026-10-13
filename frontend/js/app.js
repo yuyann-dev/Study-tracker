@@ -2914,6 +2914,13 @@ function getMetrics(p) {
     cycleDays, newLearnEnd, sprint, cycleTight, planDaysAvailable,
     effStart
   };
+  // [AI数据对齐] 把计算好的 perStudyDay 保存到项目数据，供后端 AI 直接读取，
+  // 保证 AI 说的"今天排X页"与界面右下角面板"每个学习日需做"完全一致
+  if (perStudyDay != null && isFinite(perStudyDay)) {
+    p.perStudyDay = Math.round(perStudyDay * 10) / 10;
+  } else {
+    delete p.perStudyDay;
+  }
   _metricsCache[cacheKey] = { sig: dataSig, result };
   return result;
 }

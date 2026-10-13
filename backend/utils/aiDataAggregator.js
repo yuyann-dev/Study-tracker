@@ -141,6 +141,59 @@ function recentOutput(p, days) {
   return out;
 }
 
+/**
+ * 计算项目的学习日比例（与前端 getProjectStats 口径一致）。
+ * - 窗口：从最早记录到今天，最多 60 天
+ * - EWMA 半衰期 10 天（近期更重）
+ * - 先验：每周 5 天（5/7），先验强度随学习日数自适应衰减（7 个学习日后完全相信历史）
+ * - 全新项目（无任何记录）返回先验 5/7，不虚构"过去 60 天都没学"
+ */
+function getActivityPerDay(p) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // 收集所有有学习动作的日期
+  const activeDates = new Set();
+  const recs = Array.isArray(p.records) ? p.records : [];
+  for (const r of recs) {
+    if (r.date) activeDates.add(String(r.date).slice(0, 10));
+  }
+  if (p.type === 'mistake' || p.type === 'recite') {
+    const items = Array.isArray(p.items) ? p.items : [];
+    for (const it of items) {
+      const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+      for (const r of rvs) {
+        if (r.date) activeDates.add(String(r.date).slice(0, 10));
+      }
+    }
+  }
+
+  if (activeDates.size === 0) return 5 / 7; // 全新项目返回先验
+
+  // 窗口：从最早记录到今天，最多 60 天
+  let earliest = today;
+  for (const d of activeDates) {
+    const dt = new Date(d + 'T00:00:00');
+    if (dt < earliest) earliest = dt;
+  }
+  const windowDays = Math.min(60, Math.max(1, Math.round((today - earliest) / 86400000) + 1));
+  const activeDays = activeDates.size;
+
+  // EWMA 计算活跃率
+  const ACT_HALF = 10;
+  const PRIOR_RATE = 5 / 7;
+  const PRIOR_K = Math.max(0, 7 - Math.min(activeDays, 7));
+  let wAll = 0, wActive = 0;
+  for (let age = 0; age < windowDays; age++) {
+    const d = new Date(today - age * 86400000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const w = Math.pow(0.5, age / ACT_HALF);
+    wAll += w;
+    if (activeDates.has(dateStr)) wActive += w;
+  }
+  return (wActive + PRIOR_RATE * PRIOR_K) / (wAll + PRIOR_K);
+}
+
 /** 背书 item 的下次复习日期（近似：learnedDate 后累加已用间隔档） */
 function nextReviewDay(item, intervals) {
   const iv = Array.isArray(intervals) && intervals.length ? intervals : [1, 2, 4, 7, 15, 30];
@@ -203,7 +256,20 @@ function projectStats(p, summary) {
     s.completionRate = total > 0 ? r1((done / total) * 100) : 0;
     s.recent7Rate = r1(recentOutput(p, 7) / 7);
     const remain = Math.max(total - done, 0);
-    s.requiredRate = (daysLeft && daysLeft > 0) ? r1(remain / daysLeft) : 0;
+    // [AI数据对齐] 优先读取前端计算并保存的 perStudyDay（与界面右下角面板"每个学习日需做"完全一致），
+    // 不存在时用后端简化计算兜底（学习日 = 自然日 × 学习日比例）
+    let perStudyDay = Number(p.perStudyDay) || 0;
+    if (perStudyDay <= 0) {
+      const activityPerDay = getActivityPerDay(p);
+      const studyDaysRemaining = daysLeft > 0 ? Math.max(0.5, daysLeft * activityPerDay) : 0;
+      perStudyDay = studyDaysRemaining > 0 ? remain / studyDaysRemaining : 0;
+      s.activityPerDay = r1(activityPerDay);
+      s.studyDaysRemaining = r1(studyDaysRemaining);
+    } else {
+      s.perStudyDaySource = 'frontend';
+    }
+    s.requiredRate = r1(perStudyDay);
+    s.perStudyDay = r1(perStudyDay);
     s.gap = s.requiredRate > 0 ? r1((s.recent7Rate - s.requiredRate) / s.requiredRate * 100) : 0;
     s.totalSets = isSetMode ? total : null;
     s.doneSets = isSetMode ? done : null;
@@ -833,9 +899,9 @@ function getTodayPlan(userId, budgetMin) {
       // 所有未完成的刷题本都纳入今日计划
       const remain = Math.max((s.total || 0) - (s.done || 0), 0);
       if (remain <= 0) continue;
-      // 今日任务量：优先 dailyCapacity，其次取「近7天实际速率」和「截止日前所需速率」的较大值，最后默认4页
-      // [修复] 不能只用 recent7Rate——用户近7天做得少就排得少，会形成恶性循环
-      let todayUnits = Number(s.dailyCapacity) || 0;
+      // [AI数据对齐] 今日任务量优先用前端保存的 perStudyDay（与界面右下角面板一致），
+      // 其次取「近7天实际速率」和「截止日前所需速率」的较大值，最后默认4页
+      let todayUnits = Number(s.perStudyDay) || Number(s.dailyCapacity) || 0;
       if (todayUnits <= 0) {
         const recentRate = Number(s.recent7Rate) || 0;
         const requiredRate = Number(s.requiredRate) || 0;
