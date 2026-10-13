@@ -2311,14 +2311,14 @@ html[data-theme="dark"] #aiFab{color:#10302a;box-shadow:0 4px 16px rgba(0,0,0,.4
 
 /* 消息气泡 */
 .ai-msgs{padding:4px 0}
-.ai-msg{margin-bottom:12px;font-size:13.5px;line-height:1.6}
+.ai-msg{margin-bottom:10px;font-size:12.5px;line-height:1.55;color:var(--text)}
 .ai-msg.ai{
   background:var(--ai-bubble-ai);border-radius:12px 4px 12px 12px;
-  padding:10px 12px;max-width:100%;
+  padding:9px 11px;max-width:100%;
 }
 .ai-msg.user{
   margin-left:auto;background:var(--ai-bubble-user);
-  border-radius:4px 12px 12px 12px;padding:9px 12px;max-width:82%;
+  border-radius:4px 12px 12px 12px;padding:8px 11px;max-width:82%;
 }
 .ai-msg.ai.proactive{border-left:3px solid var(--brand2)}
 .ai-msg .md strong, .ai-msg .md b{font-weight:700}
@@ -2658,8 +2658,8 @@ html[data-theme="dark"] .ai-tut-list code{background:rgba(255,255,255,.12)}
 .ai-input-row textarea{
   flex:1;resize:none;max-height:96px;min-height:38px;
   background:var(--ai-bubble-ai);border:1px solid var(--line);
-  border-radius:8px;padding:9px 12px;font-family:inherit;font-size:16px;
-  color:var(--text);box-sizing:border-box;line-height:1.4;
+  border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13.5px;
+  color:var(--text);box-sizing:border-box;line-height:1.5;
 }
 .ai-input-row textarea:focus{
   outline:none;box-shadow:0 0 0 3px var(--ai-ring);border-color:var(--brand);
