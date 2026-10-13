@@ -237,6 +237,8 @@ function runMigrations(db) {
       keywords    TEXT,                           -- 关键词（逗号分隔）
       difficulty  TEXT DEFAULT 'normal',          -- easy/normal/hard
       source      TEXT,                           -- 来源（如"2027考研数学大纲"）
+      embedding   TEXT,                           -- 深度学习向量（JSON数组，可选）
+      embed_model TEXT,                           -- 向量化所用模型
       created_at  TEXT DEFAULT (datetime('now'))
     );
   `);
@@ -288,6 +290,9 @@ function runMigrations(db) {
   // v7: 多用户邀请码——max_uses 最大使用次数（默认1=一次性），used_count 已使用次数
   ensureColumn(db, 'invite_codes', 'max_uses', 'INTEGER NOT NULL DEFAULT 1');
   ensureColumn(db, 'invite_codes', 'used_count', 'INTEGER NOT NULL DEFAULT 0');
+  // 知识库：深度学习 embedding 向量
+  ensureColumn(db, 'knowledge_chunks', 'embedding', 'TEXT');
+  ensureColumn(db, 'knowledge_chunks', 'embed_model', 'TEXT');
 
   // 索引在补列之后创建，确保老库所需列已存在；IF NOT EXISTS 保证幂等
   db.exec(`

@@ -658,7 +658,7 @@ router.post('/chat', async (req, res) => {
                   result = aiTools.implSetTaskEstimates(req.user.id, tc.args);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
                 } else {
-                  result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
+                  result = await aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
                 }
               } catch (e2) {
@@ -930,7 +930,7 @@ router.post('/chat/stream', async (req, res) => {
                   result = aiTools.implSetTaskEstimates(req.user.id, tc.args);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
                 } else {
-                  result = aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
+                  result = await aiTools.executeReadonlyTool(tc.name, tc.args, req.user.id);
                   trace.push({ seq: toolCallCount, name: tc.name, label, status: 'ok', durationMs: Date.now() - start });
                 }
               } catch (e2) {

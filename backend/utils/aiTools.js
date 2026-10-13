@@ -489,13 +489,14 @@ function implSetTaskEstimates(userId, args) {
   return { ok: true, updated };
 }
 
-/** §3.13 大纲知识库检索（向量检索） */
-function implSearchSyllabus(args) {
+/** §3.13 大纲知识库检索（向量检索，支持 embedding 混合检索） */
+async function implSearchSyllabus(args) {
   const query = String(args.query || '').trim();
   if (!query) return { results: [], note: '查询为空' };
   let subject = String(args.subject || '').trim();
   if (!subject) subject = knowledgeSearch.detectSubject(query);
-  const results = knowledgeSearch.search(query, { subject, limit: 5 });
+  // 使用异步检索，自动检测 embedding 服务并降级
+  const results = await knowledgeSearch.searchAsync(query, { subject, limit: 5 });
   return {
     query,
     subject: subject || 'auto',
@@ -508,12 +509,13 @@ function implSearchSyllabus(args) {
 
 /**
  * 执行一个只读工具。所有异常吞掉，统一返回 {error:'该数据暂时读不到'}。
+ * 支持异步工具（如 search_syllabus 使用 embedding 检索）。
  * @param {string} name 工具名
  * @param {object} args 模型给出的参数对象（已 JSON.parse）
  * @param {number} userId 由路由注入，不接受参数里的用户标识
- * @returns {object} 工具结果
+ * @returns {Promise<object>} 工具结果
  */
-function executeReadonlyTool(name, args, userId) {
+async function executeReadonlyTool(name, args, userId) {
   args = args && typeof args === 'object' ? args : {};
   try {
     switch (name) {

@@ -18702,8 +18702,14 @@ if (document.readyState === 'loading') {
         else addAiMsg('<div class="md">' + md(m.content || m.message || '') + '</div>', false, ts);
       });
       if (!msgs.length) addAiMsg('<div class="md">' + md('这是一个新会话，问我点什么吧。') + '</div>');
-      // 历史消息加载完成后，强制滚动到底部（修复刷新/切历史后停在顶部的bug）
-      requestAnimationFrame(function(){ scrollBottom(true); });
+      // 历史消息加载完成后，多次延迟滚动到底部（markdown/公式渲染需要时间，一次rAF不够）
+      var scrollAttempts = 0;
+      function tryScrollBottom(){
+        scrollBottom(true);
+        scrollAttempts++;
+        if (scrollAttempts < 5) setTimeout(tryScrollBottom, scrollAttempts * 60);
+      }
+      requestAnimationFrame(tryScrollBottom);
       updateOutline();
     } catch(e) {
       addErrorBubble(e.code, e.message);

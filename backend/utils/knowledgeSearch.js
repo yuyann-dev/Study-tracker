@@ -1,22 +1,22 @@
 /**
- * utils/knowledgeSearch.js — 考研大纲知识库向量检索引擎
+ * utils/knowledgeSearch.js — 考研大纲知识库混合检索引擎
  *
- * 采用 TF-IDF 向量化 + 余弦相似度检索，纯 JS 实现，无外部依赖。
- * 后续可平滑升级为深度学习 embedding（只需替换 embed() 函数）。
+ * 采用 TF-IDF 关键词匹配 + 深度学习 Embedding 语义相似度的混合检索：
+ *   - TF-IDF：精确匹配关键词、术语、标题
+ *   - Embedding：语义理解，同义词/近义词/相关概念能匹配上
+ *   - 混合排序：final = embedding_sim * 0.6 + tfidf_score * 0.4
+ *
+ * 降级策略：如果 embedding 服务不可用（用户用 deepseek 且未配置单独的 embedding 服务），
+ * 自动降级为纯 TF-IDF 检索，功能不受影响。
  *
  * 数据结构：
  *   knowledge_chunks 表：每条 = 一个大纲章节/知识点分块
- *   - id, subject(科目), chapter(章节), title(标题), content(内容),
- *     keywords(关键词), difficulty(难度), source(来源), created_at
- *
- * 检索流程：
- *   1. 用户查询 → 分词（中文按字/词混合）→ TF-IDF 向量化
- *   2. 与知识库中所有 chunk 计算余弦相似度
- *   3. 按科目过滤 + 相似度排序 → 返回 Top K
- *   4. 同义词扩展提升召回率
+ *   - id, subject, chapter, title, content, keywords, difficulty, source,
+ *     embedding(JSON数组), embed_model, created_at
  */
 
 const db = require('../database');
+const embeddingService = require('./embeddingService');
 
 // ── 同义词表（考研常见术语，提升召回）──────────────────────────────────
 const SYNONYMS = {
@@ -75,18 +75,15 @@ const STOP_WORDS = new Set([
 function tokenize(text) {
   if (!text) return [];
   let s = String(text).toLowerCase();
-  // 保留中英文、数字
   s = s.replace(/[^\u4e00-\u9fa5a-z0-9]+/g, ' ');
   const tokens = [];
   const words = s.split(/\s+/).filter(Boolean);
 
   for (const w of words) {
-    // 英文/数字直接作为 token
     if (/^[a-z0-9]+$/.test(w)) {
       if (!STOP_WORDS.has(w) && w.length > 1) tokens.push(w);
       continue;
     }
-    // 中文：先尝试匹配同义词表
     let matched = false;
     for (const key of Object.keys(SYNONYMS)) {
       if (w.includes(key)) {
@@ -97,14 +94,12 @@ function tokenize(text) {
         matched = true;
       }
     }
-    // 2-gram 切分
     if (w.length >= 2) {
       for (let i = 0; i < w.length - 1; i++) {
         const bi = w.slice(i, i + 2);
         if (!STOP_WORDS.has(bi)) tokens.push(bi);
       }
     }
-    // 单字（只保留有意义的）
     for (const ch of w) {
       if (!STOP_WORDS.has(ch) && /[\u4e00-\u9fa5]/.test(ch)) {
         tokens.push(ch);
@@ -116,7 +111,6 @@ function tokenize(text) {
 
 // ── TF-IDF 向量化 ──────────────────────────────────────────────────────
 
-/** 计算文档频率（DF）：每个 token 出现在多少个 chunk 中 */
 function computeDF(chunks) {
   const df = {};
   for (const chunk of chunks) {
@@ -128,13 +122,11 @@ function computeDF(chunks) {
   return df;
 }
 
-/** 计算词频（TF） */
 function computeTF(tokens) {
   const tf = {};
   for (const t of tokens) {
     tf[t] = (tf[t] || 0) + 1;
   }
-  // 归一化
   const total = tokens.length || 1;
   for (const k of Object.keys(tf)) {
     tf[k] = tf[k] / total;
@@ -142,22 +134,19 @@ function computeTF(tokens) {
   return tf;
 }
 
-/** 计算 TF-IDF 向量（稀疏表示：{token: weight}） */
 function vectorize(text, df, totalDocs) {
   const tokens = tokenize(text);
   const tf = computeTF(tokens);
   const vec = {};
   for (const [term, freq] of Object.entries(tf)) {
     const docFreq = df[term] || 0;
-    // IDF = log((N+1)/(DF+1)) + 1，避免除零
     const idf = Math.log((totalDocs + 1) / (docFreq + 1)) + 1;
     vec[term] = freq * idf;
   }
   return vec;
 }
 
-/** 余弦相似度 */
-function cosineSimilarity(v1, v2) {
+function cosineSimilaritySparse(v1, v2) {
   let dot = 0, norm1 = 0, norm2 = 0;
   for (const [k, w] of Object.entries(v1)) {
     norm1 += w * w;
@@ -170,14 +159,115 @@ function cosineSimilarity(v1, v2) {
   return dot / (Math.sqrt(norm1) * Math.sqrt(norm2));
 }
 
-// ── 知识库检索 ─────────────────────────────────────────────────────────
+// ── Embedding 相关 ─────────────────────────────────────────────────────
+
+/**
+ * 检查是否有可用的 embedding 服务
+ * 需要从 ai_configs 表读取用户配置（这里用全局配置，因为知识库是全局的）
+ */
+let _embeddingConfigCache = null;
+let _embeddingConfigTime = 0;
+
+function getEmbeddingConfig() {
+  // 缓存 60 秒，避免每次检索都查数据库
+  if (_embeddingConfigCache && Date.now() - _embeddingConfigTime < 60000) {
+    return _embeddingConfigCache;
+  }
+  try {
+    // 读取第一个配置好的用户的 AI 配置（知识库是全局的，用任意一个可用的 key 即可）
+    const row = db.prepare(`
+      SELECT provider, encrypted_api_key, key_salt
+      FROM ai_configs
+      WHERE encrypted_api_key IS NOT NULL AND encrypted_api_key != ''
+      LIMIT 1
+    `).get();
+    if (!row) {
+      _embeddingConfigCache = null;
+      return null;
+    }
+    // 解密 API key
+    const aiCrypto = require('./aiCrypto');
+    const apiKey = aiCrypto.decrypt(row.encrypted_api_key, row.key_salt);
+    const config = embeddingService.getEmbeddingConfig({
+      provider: row.provider,
+      apiKey: apiKey,
+    });
+    _embeddingConfigCache = config;
+    _embeddingConfigTime = Date.now();
+    return config;
+  } catch (e) {
+    _embeddingConfigCache = null;
+    return null;
+  }
+}
+
+/**
+ * 解析数据库中存储的 embedding 向量（JSON 字符串）
+ */
+function parseEmbedding(embeddingStr) {
+  if (!embeddingStr) return null;
+  try {
+    return JSON.parse(embeddingStr);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * 异步向量化知识库中所有未向量化的 chunk
+ * 由 seedKnowledge.js 或管理接口调用
+ */
+async function vectorizeAllChunks() {
+  const config = getEmbeddingConfig();
+  if (!config) {
+    console.log('[embedding] 无可用 embedding 服务，跳过向量化（使用 TF-IDF 模式）');
+    return { vectorized: 0, skipped: true };
+  }
+
+  const rows = db.prepare('SELECT id, title, chapter, content, keywords FROM knowledge_chunks WHERE embedding IS NULL OR embedding = ""').all();
+  if (rows.length === 0) {
+    console.log('[embedding] 所有 chunk 已向量化');
+    return { vectorized: 0, total: 0 };
+  }
+
+  console.log(`[embedding] 开始向量化 ${rows.length} 条，使用模型: ${config.model}`);
+  const updateStmt = db.prepare('UPDATE knowledge_chunks SET embedding = ?, embed_model = ? WHERE id = ?');
+
+  let vectorized = 0;
+  const batchSize = 32;
+
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
+    const texts = batch.map(r => `${r.title} ${r.chapter} ${r.content} ${r.keywords || ''}`.slice(0, 2000));
+    try {
+      const vectors = await embeddingService.embedBatch(texts, config);
+      const tx = db.transaction(() => {
+        for (let j = 0; j < batch.length; j++) {
+          updateStmt.run(JSON.stringify(vectors[j]), config.model, batch[j].id);
+        }
+      });
+      tx();
+      vectorized += batch.length;
+      console.log(`[embedding] 已向量化 ${vectorized}/${rows.length}`);
+    } catch (e) {
+      console.error(`[embedding] 批次向量化失败: ${e.message}`);
+      // 失败不中断，继续下一批
+    }
+  }
+
+  console.log(`[embedding] 向量化完成，共 ${vectorized} 条`);
+  return { vectorized, total: rows.length };
+}
+
+// ── 知识库检索（混合模式）──────────────────────────────────────────────
 
 /**
  * 检索相关大纲知识点
  * @param {string} query 用户查询
  * @param {object} [options]
- * @param {string} [options.subject] 科目过滤（math1/math2/english1/english2/politics/408/ustc843）
+ * @param {string} [options.subject] 科目过滤
  * @param {number} [options.limit] 返回数量，默认 5
+ * @param {boolean} [options.useEmbedding] 是否使用 embedding（默认自动检测）
  * @returns {Array} 相关知识点列表
  */
 function search(query, options = {}) {
@@ -194,7 +284,7 @@ function search(query, options = {}) {
   const rows = db.prepare(sql).all(...params);
   if (rows.length === 0) return [];
 
-  // 构建检索文本（标题+章节+内容+关键词）
+  // 构建检索文本
   const chunks = rows.map((r) => ({
     id: r.id,
     subject: r.subject,
@@ -204,20 +294,25 @@ function search(query, options = {}) {
     keywords: r.keywords,
     difficulty: r.difficulty,
     source: r.source,
+    embedding: parseEmbedding(r.embedding),
     text: `${r.title} ${r.chapter} ${r.content} ${r.keywords || ''}`,
   }));
 
-  // 计算 DF
+  // 计算 TF-IDF
   const df = computeDF(chunks);
   const totalDocs = chunks.length;
-
-  // 查询向量化
   const queryVec = vectorize(query, df, totalDocs);
+
+  // 检查是否有可用的 embedding（且知识库中已有向量化数据）
+  const hasEmbedding = chunks.some(c => c.embedding !== null);
+  const embedConfig = hasEmbedding ? getEmbeddingConfig() : null;
 
   // 计算相似度
   const scored = chunks.map((c) => {
+    // TF-IDF 分数
     const chunkVec = vectorize(c.text, df, totalDocs);
-    let sim = cosineSimilarity(queryVec, chunkVec);
+    let tfidfScore = cosineSimilaritySparse(queryVec, chunkVec);
+
     // 标题匹配加分
     const titleTokens = new Set(tokenize(c.title));
     const queryTokens = new Set(tokenize(query));
@@ -225,7 +320,8 @@ function search(query, options = {}) {
     for (const t of queryTokens) {
       if (titleTokens.has(t)) titleOverlap++;
     }
-    if (titleOverlap > 0) sim += titleOverlap * 0.05;
+    if (titleOverlap > 0) tfidfScore += titleOverlap * 0.05;
+
     // 关键词匹配加分
     if (c.keywords) {
       const kwTokens = new Set(tokenize(c.keywords));
@@ -233,9 +329,23 @@ function search(query, options = {}) {
       for (const t of queryTokens) {
         if (kwTokens.has(t)) kwOverlap++;
       }
-      if (kwOverlap > 0) sim += kwOverlap * 0.03;
+      if (kwOverlap > 0) tfidfScore += kwOverlap * 0.03;
     }
-    return { ...c, score: sim };
+
+    // Embedding 语义相似度（同步计算，因为查询向量需要异步获取，这里用缓存或降级）
+    let finalScore = tfidfScore;
+    let embedScore = null;
+
+    // 注意：embedding 查询向量是异步的，这里采用同步降级策略
+    // 如果知识库有 embedding 但查询时无法同步获取，用 TF-IDF 代替
+    // 实际生产中可以在 API 层异步获取查询向量后传入
+    if (c.embedding && options.queryEmbedding) {
+      embedScore = embeddingService.cosineSimilarity(options.queryEmbedding, c.embedding);
+      // 混合排序：embedding 0.6 + TF-IDF 0.4
+      finalScore = embedScore * 0.6 + tfidfScore * 0.4;
+    }
+
+    return { ...c, score: finalScore, tfidfScore, embedScore };
   });
 
   // 排序并返回 Top K
@@ -251,6 +361,23 @@ function search(query, options = {}) {
     source: c.source,
     relevance: Math.round(c.score * 100) / 100,
   }));
+}
+
+/**
+ * 异步检索（支持 embedding 查询向量化）
+ * 用于 AI 工具调用，能充分利用深度学习 embedding
+ */
+async function searchAsync(query, options = {}) {
+  const config = getEmbeddingConfig();
+  if (config) {
+    try {
+      const queryEmbedding = await embeddingService.embedText(query, config);
+      return search(query, { ...options, queryEmbedding });
+    } catch (e) {
+      console.error('[embedding] 查询向量化失败，降级为 TF-IDF:', e.message);
+    }
+  }
+  return search(query, options);
 }
 
 /**
@@ -285,13 +412,24 @@ function listSubjects() {
 function getStats() {
   const total = db.prepare('SELECT COUNT(*) as c FROM knowledge_chunks').get().c;
   const bySubject = db.prepare('SELECT subject, COUNT(*) as c FROM knowledge_chunks GROUP BY subject').all();
-  return { total, bySubject };
+  const vectorized = db.prepare("SELECT COUNT(*) as c FROM knowledge_chunks WHERE embedding IS NOT NULL AND embedding != ''").get().c;
+  const embedModel = db.prepare("SELECT embed_model FROM knowledge_chunks WHERE embed_model IS NOT NULL AND embed_model != '' LIMIT 1").get();
+  return {
+    total,
+    bySubject,
+    vectorized,
+    embeddingModel: embedModel ? embedModel.embed_model : null,
+    mode: vectorized > 0 ? 'hybrid (TF-IDF + Embedding)' : 'tfidf-only',
+  };
 }
 
 module.exports = {
   search,
+  searchAsync,
   detectSubject,
   listSubjects,
   getStats,
-  tokenize, // 导出供测试
+  tokenize,
+  vectorizeAllChunks,
+  getEmbeddingConfig,
 };
