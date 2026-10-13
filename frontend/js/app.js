@@ -17257,6 +17257,17 @@ if (document.readyState === 'loading') {
       return '\u0000ICODE' + (codeStore.length - 1) + '\u0000';
     });
 
+    // 抽离数学公式（块级 $$...$$ 和行内 $...$），避免其他规则破坏公式
+    var mathStore = [];
+    s = s.replace(/\$\$([\s\S]*?)\$\$/g, function(m, formula){
+      mathStore.push({type:'block', formula: formula.replace(/^\n+/,'').replace(/\n+$/,'')});
+      return '\u0000MATHB' + (mathStore.length - 1) + '\u0000';
+    });
+    s = s.replace(/\$([^$\n]+?)\$/g, function(m, formula){
+      mathStore.push({type:'inline', formula: formula});
+      return '\u0000MATHI' + (mathStore.length - 1) + '\u0000';
+    });
+
     // 2) 行内元素（在纯文本行上处理）
     function inline(line){
       // 加粗 **x**
@@ -17346,6 +17357,28 @@ if (document.readyState === 'loading') {
     html = html.replace(/\u0000ICODE(\d+)\u0000/g, function(m, idx){
       return '<code>' + codeStore[+idx] + '</code>';
     });
+
+    // 5) 还原公式占位符，调用KaTeX渲染（KaTeX未加载时显示原始公式）
+    function renderMath(formula, displayMode){
+      try {
+        if (window.katex) {
+          return katex.renderToString(formula, {
+            displayMode: displayMode,
+            throwOnError: false,
+            output: 'html',
+            strict: false
+          });
+        }
+      } catch(e) {}
+      return displayMode ? '$$' + esc(formula) + '$$' : '$' + esc(formula) + '$';
+    }
+    html = html.replace(/\u0000MATHB(\d+)\u0000/g, function(m, idx){
+      return '<div class="ai-math-block">' + renderMath(mathStore[+idx].formula, true) + '</div>';
+    });
+    html = html.replace(/\u0000MATHI(\d+)\u0000/g, function(m, idx){
+      return '<span class="ai-math-inline">' + renderMath(mathStore[+idx].formula, false) + '</span>';
+    });
+
     return html;
   }
 
