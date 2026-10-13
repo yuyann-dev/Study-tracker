@@ -226,6 +226,19 @@ function runMigrations(db) {
       calls      INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, date)
     );
+
+    -- 考研大纲知识库：每条 = 一个章节/知识点分块，供 AI 向量检索引用
+    CREATE TABLE IF NOT EXISTS knowledge_chunks (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject     TEXT NOT NULL,                  -- math1/math2/english1/english2/politics/408/ustc843
+      chapter     TEXT NOT NULL,                  -- 章节名称
+      title       TEXT NOT NULL,                  -- 知识点标题
+      content     TEXT NOT NULL,                  -- 详细内容（考试要求、范围、重难点）
+      keywords    TEXT,                           -- 关键词（逗号分隔）
+      difficulty  TEXT DEFAULT 'normal',          -- easy/normal/hard
+      source      TEXT,                           -- 来源（如"2027考研数学大纲"）
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // ---- 幂等补列：老库缺哪列补哪列（重复执行安全）----

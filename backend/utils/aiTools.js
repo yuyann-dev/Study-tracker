@@ -14,6 +14,7 @@
  */
 const db = require('../database');
 const aggregator = require('./aiDataAggregator');
+const knowledgeSearch = require('./knowledgeSearch');
 
 // ── 工具 Schema（OpenAI function calling 格式，规格 §3）─────────────────────
 
@@ -199,6 +200,21 @@ const TOOL_SCHEMAS = [
         type: 'object',
         properties: {
           query: { type: 'string', description: 'Search query in Chinese or English, concise and specific.' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_syllabus',
+      description: 'Search the official exam syllabus knowledge base for 考研 subjects (数学一/二, 英语一/二, 政治, 408计算机, 中科大843信号与系统). Use this when the user asks about exam scope, what to study, key points, difficult points, whether a topic is tested, or subject-specific concepts. Returns relevant syllabus sections with source attribution. Always cite the source when answering.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search query, e.g. "二重积分考试要求", "408数据结构考什么", "英语二题型分值".' },
+          subject: { type: 'string', enum: ['math1', 'math2', 'english1', 'english2', 'politics', '408', 'ustc843', ''], description: 'Optional subject filter. Leave empty to auto-detect.' },
         },
         required: ['query'],
       },
@@ -473,6 +489,21 @@ function implSetTaskEstimates(userId, args) {
   return { ok: true, updated };
 }
 
+/** §3.13 大纲知识库检索（向量检索） */
+function implSearchSyllabus(args) {
+  const query = String(args.query || '').trim();
+  if (!query) return { results: [], note: '查询为空' };
+  let subject = String(args.subject || '').trim();
+  if (!subject) subject = knowledgeSearch.detectSubject(query);
+  const results = knowledgeSearch.search(query, { subject, limit: 5 });
+  return {
+    query,
+    subject: subject || 'auto',
+    count: results.length,
+    results,
+  };
+}
+
 // ── 对外分发 ────────────────────────────────────────────────────────────────
 
 /**
@@ -498,6 +529,7 @@ function executeReadonlyTool(name, args, userId) {
       case 'get_study_records': return implGetStudyRecords(userId, args);
       case 'generate_schedule': return implGenerateSchedule(userId, args);
       case 'get_review_forecast': return implGetReviewForecast(userId, args);
+      case 'search_syllabus': return implSearchSyllabus(args);
       default: return { error: '未知工具' };
     }
   } catch (e) {
@@ -533,6 +565,7 @@ function getToolLabel(name, args, store) {
     case 'get_review_forecast': return `预测未来 ${args.days || 7} 天复习压力`;
     case 'save_memory': return '记下你的偏好';
     case 'web_search': return args.query ? `联网搜索：${args.query.slice(0, 30)}` : '联网搜索';
+    case 'search_syllabus': return args.query ? `查阅考纲：${args.query.slice(0, 30)}` : '查阅考试大纲';
     case 'set_task_estimates': return '预估今日任务时长';
     default: return '查询学习数据';
   }

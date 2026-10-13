@@ -30,6 +30,7 @@ const userRoutes = require('./routes/user');
 const adminRoutes = require('./routes/admin');
 const studyRoomRoutes = require('./routes/studyRoom');
 const aiRoutes = require('./routes/ai');
+const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
 
@@ -128,6 +129,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/study-room', studyRoomRoutes);
 // AI 助手：独立路由，内部已按用户 ID 限流（见 routes/ai.js 的 aiUserLimiter）
 app.use('/api/ai', aiRoutes);
+// 考研大纲知识库：检索+超管管理
+app.use('/api/knowledge', knowledgeRoutes);
 
 // 上传的头像静态访问
 app.use('/uploads', express.static(config.uploadDir));
