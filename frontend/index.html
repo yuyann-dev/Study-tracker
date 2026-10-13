@@ -88,8 +88,8 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
-<link rel="stylesheet" href="lib/katex.min.css?v=b187">
-<link rel="stylesheet" href="css/style.css?v=b187">
+<link rel="stylesheet" href="lib/katex.min.css?v=b188">
+<link rel="stylesheet" href="css/style.css?v=b188">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -491,7 +491,10 @@ if ('serviceWorker' in navigator) {
   <div class="modal">
     <div class="modal-head">
       <h2>我的任务</h2>
-      <button class="x-btn" id="switchClose"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="text-btn" id="sortProjectsBtn" style="font-size:13px;color:var(--primary);padding:4px 8px;border-radius:6px">排序</button>
+        <button class="x-btn" id="switchClose"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
     </div>
     <ul class="project-list" id="projectList"></ul>
     <button class="primary" id="btnNewProject" style="width:100%">+ 新建任务</button>
@@ -1967,10 +1970,10 @@ if ('serviceWorker' in navigator) {
 </div>
 
 
-<script src="js/icons.js?v=b187"></script>
-<script src="js/auth.js?v=b187"></script>
-<script src="lib/katex.min.js?v=b187"></script>
-<script src="js/app.js?v=b187"></script>
+<script src="js/icons.js?v=b188"></script>
+<script src="js/auth.js?v=b188"></script>
+<script src="lib/katex.min.js?v=b188"></script>
+<script src="js/app.js?v=b188"></script>
 <script>
 
 if (document.readyState === 'loading') {

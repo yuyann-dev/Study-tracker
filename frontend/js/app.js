@@ -9923,8 +9923,60 @@ function drawChart(m, p) {
 }
 
 /* ============ 项目切换 ============ */
-function openSwitch() { renderProjectList(); $('#switchMask').hidden = false; modalTop($('#switchMask')); }
-function closeSwitch() { const m=$('#switchMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
+let _projectSortMode = false;
+function openSwitch() { _projectSortMode = false; renderProjectList(); $('#switchMask').hidden = false; modalTop($('#switchMask')); }
+function closeSwitch() { const m=$('#switchMask'); if(m.hidden) return; m.hidden=true; _projectSortMode=false; unlockBodyScroll(); }
+
+// 获取项目排序后的列表（按类型分组，组内按用户自定义顺序）
+function getSortedProjects(projects) {
+  const order = store.projectOrder || {};
+  const groups = { exercise: [], recite: [], mistake: [] };
+  Object.values(projects).forEach(p => {
+    if (!p.archived && groups[p.type]) groups[p.type].push(p);
+  });
+  // 组内排序：优先按用户自定义顺序，其次按updatedAt
+  Object.keys(groups).forEach(type => {
+    groups[type].sort((a, b) => {
+      const orderA = order[a.id];
+      const orderB = order[b.id];
+      if (orderA != null && orderB != null) return orderA - orderB;
+      if (orderA != null) return -1;
+      if (orderB != null) return 1;
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+  });
+  return groups;
+}
+
+// 组内移动项目（direction: -1上移, 1下移）
+function moveProject(projectId, direction) {
+  const p = store.projects[projectId];
+  if (!p) return;
+  const groups = getSortedProjects(store.projects);
+  const items = groups[p.type] || [];
+  const idx = items.findIndex(x => x.id === projectId);
+  if (idx < 0) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= items.length) return; // 已到边界
+  // 交换顺序：重新写入所有同组项目的order
+  if (!store.projectOrder) store.projectOrder = {};
+  const swapped = items[newIdx].id;
+  // 先把所有同组项目的order重置为当前位置
+  items.forEach((item, i) => { store.projectOrder[item.id] = i; });
+  // 交换
+  store.projectOrder[projectId] = newIdx;
+  store.projectOrder[swapped] = idx;
+  saveStore();
+  renderProjectList();
+}
+
+// 排序模式切换
+function toggleProjectSort() {
+  _projectSortMode = !_projectSortMode;
+  const btn = $('#sortProjectsBtn');
+  if (btn) btn.textContent = _projectSortMode ? '完成' : '排序';
+  renderProjectList();
+}
 
 function renderProjectList() {
   const list = $('#projectList');
@@ -9934,23 +9986,16 @@ function renderProjectList() {
     return;
   }
   const all = ids.map(id => store.projects[id]);
-  // 归档项目从首页隐藏，单独放收纳箱
-  const activeProjects = all.filter(p => !p.archived);
   const archivedProjects = all.filter(p => p.archived);
-  // 按类型分组：刷题、背书、错题
-  const groups = [
-    { key: 'exercise', label: '' + svgIcon('book-open') + ' 刷题', items: [] },
-    { key: 'recite', label: '' + svgIcon('brain') + ' 背书', items: [] },
-    { key: 'mistake', label: '' + svgIcon('clipboard-list') + ' 错题', items: [] },
+  // 按类型分组，组内按用户自定义顺序
+  const groups = getSortedProjects(store.projects);
+  const groupLabels = [
+    { key: 'exercise', label: '' + svgIcon('book-open') + ' 刷题' },
+    { key: 'recite', label: '' + svgIcon('brain') + ' 背书' },
+    { key: 'mistake', label: '' + svgIcon('clipboard-list') + ' 错题' },
   ];
-  activeProjects.forEach(p => {
-    const g = groups.find(g => g.key === p.type);
-    if (g) g.items.push(p);
-  });
-  // 组内按更新时间排序
-  groups.forEach(g => g.items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)));
 
-  const renderItem = (p) => {
+  const renderItem = (p, idx, groupLen) => {
     const m = getMetrics(p);
     const pct = m.total > 0 ? Math.min(100, m.currentPage / m.total * 100) : 0;
     const active = p.id === store.currentId;
@@ -9989,7 +10034,20 @@ function renderProjectList() {
       if (linkedCount > 0) linkInfo = ` · ${svgIcon('link')} ${linkedCount}个关联错题本`;
     }
 
-    return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}" data-id="${esc(p.id)}">
+    // 排序模式下的上下箭头
+    let sortBtns = '';
+    if (_projectSortMode) {
+      const upDisabled = idx === 0 ? 'disabled' : '';
+      const downDisabled = idx === groupLen - 1 ? 'disabled' : '';
+      sortBtns = `<span class="pi-sort-btns">
+        <button class="pi-sort-btn" data-sort-up="${esc(p.id)}" title="上移" ${upDisabled}>${svgIcon('chevron-up', 14)}</button>
+        <button class="pi-sort-btn" data-sort-down="${esc(p.id)}" title="下移" ${downDisabled}>${svgIcon('chevron-down', 14)}</button>
+      </span>`;
+    }
+
+    const delBtn = _projectSortMode ? '' : `<button class="pi-del" data-del="${p.id}" title="删除">${svgIcon('x', 15)}</button>`;
+
+    return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}${_projectSortMode ? ' sort-mode' : ''}" data-id="${esc(p.id)}" data-type="${p.type}">
       <span class="pi-icon">${type.icon}</span>
       <div class="pi-main">
         <div class="pi-name">
@@ -9999,15 +10057,17 @@ function renderProjectList() {
         </div>
         <div class="pi-meta">${fmtUnitNum(m.currentPage)} / ${fmtUnitNum(m.total)} ${unitName(p)} · ${pct.toFixed(0)}% · 目标 ${p.deadline}${extra}${linkInfo}</div>
       </div>
-      <button class="pi-del" data-del="${p.id}" title="删除">${svgIcon('x', 15)}</button>
+      ${sortBtns}
+      ${delBtn}
     </li>`;
   };
 
   let html = '';
-  groups.forEach(g => {
-    if (g.items.length === 0) return;
-    html += `<li class="project-group-label" style="padding:8px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px">${g.label}（${g.items.length}）</li>`;
-    html += g.items.map(renderItem).join('');
+  groupLabels.forEach(g => {
+    const items = groups[g.key] || [];
+    if (items.length === 0) return;
+    html += `<li class="project-group-label" style="padding:8px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px">${g.label}（${items.length}）</li>`;
+    html += items.map((p, i) => renderItem(p, i, items.length)).join('');
   });
   // 已归档收纳箱
   if (archivedProjects.length > 0) {
@@ -13387,6 +13447,7 @@ function doImport(imported, mode) {
 /* ============ 事件绑定 ============ */
 $('#btnSwitch').addEventListener('click', openSwitch);
 $('#switchClose').addEventListener('click', closeSwitch);
+$('#sortProjectsBtn').addEventListener('click', toggleProjectSort);
 $('#btnNewProject').addEventListener('click', () => { closeSwitch(); openFormCreate(); });
 $('#btnCreateFirst').addEventListener('click', openFormCreate);
 $('#btnSettings').addEventListener('click', openSettings);
@@ -13704,6 +13765,14 @@ function submitFormCreate() {
   }
   store.projects[id] = newProject;
   store.currentId = id;
+  // 新建项目自动加到同组末尾
+  if (!store.projectOrder) store.projectOrder = {};
+  const existingInGroup = Object.values(store.projects).filter(p => p.type === type && p.id !== id && !p.archived);
+  const maxOrder = existingInGroup.reduce((max, p) => {
+    const o = store.projectOrder[p.id];
+    return o != null ? Math.max(max, o) : max;
+  }, -1);
+  store.projectOrder[id] = maxOrder + 1;
   saveStore();
   // 恢复类型选择器
   document.querySelectorAll('input[name="ptype"]').forEach(r => { r.disabled = false; });
@@ -14530,6 +14599,20 @@ $('#formMask').addEventListener('click', e => { if (e.target === $('#formMask') 
 $('#settingsMask').addEventListener('click', e => { if (e.target === $('#settingsMask') && !_mouseDownInModal) closeSettings(); });
 
 $('#projectList').addEventListener('click', e => {
+  // 排序：上移
+  const upBtn = e.target.closest('[data-sort-up]');
+  if (upBtn) {
+    e.stopPropagation();
+    moveProject(upBtn.dataset.sortUp, -1);
+    return;
+  }
+  // 排序：下移
+  const downBtn = e.target.closest('[data-sort-down]');
+  if (downBtn) {
+    e.stopPropagation();
+    moveProject(downBtn.dataset.sortDown, 1);
+    return;
+  }
   // 取消归档
   const unarchBtn = e.target.closest('[data-unarchive]');
   if (unarchBtn) {
@@ -14562,6 +14645,7 @@ $('#projectList').addEventListener('click', e => {
       store.tombstones[id] = Date.now();
       clearRefsTo(id);
       delete ppExpandedSet[id]; // 清理进度看板的展开状态缓存
+      if (store.projectOrder) delete store.projectOrder[id]; // 清理排序
       if (wasCurrent) {
         const rest = Object.keys(store.projects);
         store.currentId = rest.length ? rest[0] : null;
