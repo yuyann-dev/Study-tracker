@@ -8623,21 +8623,27 @@ function renderReview(p) {
     const excessSub = $('#excessSub');
     const obActions = excessBanner.querySelector('.ob-actions');
     const obHint = excessBanner.querySelector('.ob-hint');
-    // 档2：comfort < due <= smartCap → 中性信息条（灰色，无警示色，无分散按钮）
+    // 档2：comfort < due <= smartCap → 中性信息条（灰色，无警示色，保留分散按钮）
     // 档3：due > smartCap → 积压横幅（拆两行：正常到期Y + 逾期M）
     let tier = 0;
-    if (due.length > smartCap && !suppressNegatives) tier = 3;
+    if (due.length > smartCap) tier = 3;
     else if (due.length > comfort) tier = 2;
 
     if (tier === 3) {
       excessBanner.hidden = false;
       excessBanner.dataset.mode = 'main';
-      excessBanner.classList.add('tier3');
+      if (suppressNegatives) {
+        excessBanner.classList.remove('tier3');
+      } else {
+        excessBanner.classList.add('tier3');
+      }
       if (obMain) obMain.innerHTML = `今日正常到期 <strong>${normalDueN}</strong> 条 · 另有 <strong class="overdue-count">${overdueN}</strong> 条逾期待还`;
       if (excessSub) {
         // [v3 P2] deadline过期后不再催债，改为温和语气
         if (p.deadline && p.deadline < today) {
           excessSub.textContent = '目标日已过，这些旧题做多少算多少，按自己的节奏来。';
+        } else if (suppressNegatives) {
+          excessSub.textContent = '今天已经复习不少了，剩余的按自己步调完成就好。';
         } else {
           excessSub.textContent = '今天的复习量不小，拆成几次完成，保持节奏。也可以分散部分到未来。';
         }
@@ -8650,18 +8656,19 @@ function renderReview(p) {
       excessBanner.classList.remove('tier3');
       if (obMain) obMain.innerHTML = `今日安排 <strong>${due.length}</strong> 条`;
       if (excessSub) excessSub.textContent = '';
-      if (obActions) obActions.style.display = 'none';
-      if (obHint) obHint.style.display = 'none';
+      // 保留分散按钮：超过舒适量时用户可能需要分散
+      if (obActions) obActions.style.display = '';
+      if (obHint) obHint.style.display = '';
     } else {
       // 温和模式：已做了不少但还有剩
       const todayTotal = due.length + todayReviewedItems;
-      const isGentle = !suppressNegatives && todayReviewedItems > 0 && todayTotal > comfort && due.length >= 3;
+      const isGentle = todayReviewedItems > 0 && todayTotal > comfort && due.length >= 3;
       if (isGentle) {
         excessBanner.hidden = false;
         excessBanner.dataset.mode = 'gentle';
         excessBanner.classList.remove('tier3');
         if (obMain) obMain.innerHTML = `今天已复习 <strong>${todayReviewedItems}</strong> 条，还剩 <strong>${due.length}</strong> 条`;
-        if (excessSub) excessSub.textContent = '已经复习了不少，继续保持节奏。想歇一歇可以把剩余分散到未来。';
+        if (excessSub) excessSub.textContent = '已经复习了不少，继续保持节奏，按自己的步调来就好。';
         if (obActions) obActions.style.display = '';
         if (obHint) obHint.style.display = '';
       } else {
@@ -15487,7 +15494,7 @@ function checkReviewMilestone(p) {
     if (p.reviewMode === 'balanced' && remaining <= threshold) {
       tip = `今天还剩 ${remaining} 条，在舒适量内，量力而行就好。`;
     } else {
-      tip = `还有 ${remaining} 条，可以分散到未来减轻压力。`;
+      tip = `还有 ${remaining} 条，按自己的节奏来就好。`;
     }
     showToast('' + svgIcon('party-popper') + '', `今天已经复习 ${reviewedToday} 条，辛苦了！`, tip, 5000);
   }
