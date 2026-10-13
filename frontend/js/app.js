@@ -10683,7 +10683,8 @@ function getTodayStatus(p) {
 }
 
 function openDashboard() {
-  const ps = Object.values(store.projects);
+  const _sortedGroups = getSortedProjects(store.projects);
+  const ps = [..._sortedGroups.exercise, ..._sortedGroups.recite, ..._sortedGroups.mistake];
   const today = todayStr();
   let dueTotal = 0, overdueTotal = 0, retentionTotal = 0;
   const heat = {};
@@ -17712,12 +17713,12 @@ if (document.readyState === 'loading') {
       if (force) autoScrollEnabled = true; // 强制滚动后重新开启跟随
     }
   }
-  // 智能跟随：用户往上滚就停，滚回底部附近就重新跟随
+  // 智能跟随：用户往上滚就停，滚回底部附近就重新跟随（阈值150px，更接近豆包/DeepSeek体验）
   var autoScrollEnabled = true;
   function onAiBodyScroll(){
     if (!els.body) return;
     var dist = els.body.scrollHeight - els.body.scrollTop - els.body.clientHeight;
-    autoScrollEnabled = dist <= 80;
+    autoScrollEnabled = dist <= 150;
     highlightOutlineItem();
   }
 
@@ -18452,20 +18453,7 @@ if (document.readyState === 'loading') {
       refBox.innerHTML = refHtml;
       div.appendChild(refBox);
     }
-    // 长回复折叠：超过 500 字默认收起前 ~300px，提供展开/收起
-    var plainLen = (text || '').length;
-    if (plainLen > 500) {
-      div.classList.add('ai-clamp');
-      var toggle = document.createElement('button');
-      toggle.className = 'ai-fold-toggle';
-      toggle.type = 'button';
-      toggle.textContent = '展开全文 ▾';
-      toggle.onclick = function(){
-        var clamped = div.classList.toggle('ai-clamp');
-        toggle.textContent = clamped ? '展开全文 ▾' : '收起 ▴';
-      };
-      div.appendChild(toggle);
-    }
+    // 所有回复直接全部展示，不折叠
     return div;
   }
 
