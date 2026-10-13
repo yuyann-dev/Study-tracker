@@ -11025,6 +11025,8 @@ function buildReminderBody() {
   
   let totalOverdue = 0;
   let hasAnyTask = false;
+  let totalDueToday = 0;      // 今日复习总量（剩余+已完成）
+  let totalDueDone = 0;       // 今日已完成复习数
   
   projects.forEach(p => {
     const m = getMetrics(p);
@@ -11073,6 +11075,14 @@ function buildReminderBody() {
         dueItems.push({ name: p.name, type: isMistake ? 'mistake' : 'recite', text: `${du}${unitLabel}今日${isMistake ? '待解决' : '待复习'}` });
         hasAnyTask = true;
       }
+      // 统计今日已完成复习数（reviews[0]是首次学习，至少2条且最后一次在今天）
+      let rvDoneToday = 0;
+      (p.items || []).forEach(it => {
+        const revs = it.reviews || [];
+        if (revs.length >= 2 && revs[revs.length - 1].date === today) rvDoneToday++;
+      });
+      totalDueToday += du + rvDoneToday;
+      totalDueDone += rvDoneToday;
       
       // 错题本：无到期时显示进度
       if (isMistake && du === 0 && ov === 0 && m && m.remaining > 0) {
@@ -11140,7 +11150,14 @@ function buildReminderBody() {
 // 结尾鼓励统一走 Coach：按天哈希，同一天稳定、每天换新，不再 Math.random 跳老套句子
   let cheer = '';
   if (overdueItems.length) cheer = Coach.pick(Coach.back, 'rmback');
-  else if (dueItems.length) cheer = Coach.pick(Coach.progress.mid, 'rmdue');
+  else if (dueItems.length) {
+    // 根据今日复习进度选择文案，避免"啥都没做就说进度过半"
+    const rr = totalDueToday > 0 ? totalDueDone / totalDueToday : 0;
+    if (totalDueDone === 0) cheer = Coach.pick(Coach.progress.early, 'rmdue0') + '，先从最久没复习的开始';
+    else if (rr < 0.34) cheer = Coach.pick(Coach.progress.early, 'rmduee');
+    else if (rr < 0.7) cheer = Coach.pick(Coach.progress.mid, 'rmduem');
+    else cheer = Coach.pick(Coach.progress.late, 'rmduel');
+  }
   else if (planItems.length && doneItems.length) cheer = Coach.pick(Coach.dashPartial, 'rmpartial');
   else if (planItems.length) cheer = Coach.pick(Coach.start[coachSlot()], 'rmstart');
   else if (doneItems.length) cheer = Coach.pick(Coach.done, 'rmdone');
