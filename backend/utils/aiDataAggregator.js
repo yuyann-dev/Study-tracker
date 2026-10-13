@@ -121,8 +121,21 @@ function recentOutput(p, days) {
       const e = Number(r.endPage) || s;
       // 与 getWeeklyStats 口径一致：异常记录(end<start)按 0 计，避免负产出把 recent7Rate 拉成负数、误判"落后"
       out += Math.max(e - s, 0);
-    } else {
-      out += 1; // recite/mistake 按打卡条数计
+    } else if (p.type === 'recite') {
+      out += 1; // 背书新学打卡
+    }
+    // [修复] 错题本的复习记录存在 item.reviews 中，下面单独统计
+  }
+  // [修复] 错题本/背书本的复习记录存在 item.reviews 中，需要额外统计
+  if (p.type === 'mistake' || p.type === 'recite') {
+    const items = Array.isArray(p.items) ? p.items : [];
+    for (const it of items) {
+      const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+      for (const r of rvs) {
+        const t = parseDay(r.date);
+        if (Number.isNaN(t) || t < cutoff) continue;
+        out += 1; // 复习打卡按条数计
+      }
     }
   }
   return out;
@@ -903,9 +916,27 @@ function getWeeklyStats(userId, days) {
         const e = Number(r.endPage) || s;
         byDate[d].exercisePages += Math.max(e - s, 0);
       } else if (p.type === 'recite') {
+        // 背书本 records = 新学打卡
         byDate[d].reciteCheckins += 1;
-      } else if (p.type === 'mistake') {
-        byDate[d].mistakeCheckins += 1;
+      }
+      // [修复] 错题本的复习记录存在 item.reviews 中，不在 records 中，下面单独统计
+    }
+    // [修复] 错题本/背书本的复习记录存在 item.reviews 中，需要额外统计
+    if (p.type === 'mistake' || p.type === 'recite') {
+      const items = Array.isArray(p.items) ? p.items : [];
+      for (const it of items) {
+        const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+        for (const r of rvs) {
+          const d = String(r.date || '').slice(0, 10);
+          if (!d) continue;
+          if (!byDate[d]) byDate[d] = { exercisePages: 0, reciteCheckins: 0, mistakeCheckins: 0 };
+          if (p.type === 'mistake') {
+            byDate[d].mistakeCheckins += 1;
+          } else if (p.type === 'recite') {
+            // 背书本 reviews = 复习打卡，与新学打卡合并统计
+            byDate[d].reciteCheckins += 1;
+          }
+        }
       }
     }
   }
@@ -977,6 +1008,26 @@ function getRecentRecords(userId, projectId, limit) {
         projectType: p.type,
         detail,
       });
+    }
+    // [修复] 错题本/背书本的复习记录存在 item.reviews 中，需要额外统计
+    if (p.type === 'mistake' || p.type === 'recite') {
+      const items = Array.isArray(p.items) ? p.items : [];
+      for (const it of items) {
+        const rvs = Array.isArray(it.reviews) ? it.reviews : [];
+        for (const r of rvs) {
+          if (!r.date) continue;
+          const quality = r.quality || 'review';
+          const qualityLabel = quality === 'good' ? '记得' : (quality === 'fuzzy' ? '模糊' : (quality === 'forgot' ? '忘记' : '复习'));
+          const content = it.content || it.question || '';
+          const shortContent = content ? String(content).slice(0, 20) : '';
+          records.push({
+            date: String(r.date).slice(0, 10),
+            projectName: p.name || '(未命名)',
+            projectType: p.type,
+            detail: shortContent ? `${qualityLabel}: ${shortContent}` : qualityLabel,
+          });
+        }
+      }
     }
   }
   // 按日期倒序（同日保持原顺序，稳定排序）
