@@ -17594,15 +17594,16 @@ if (document.readyState === 'loading') {
     // 对话总高度（滚动内容的完整高度）
     var totalHeight = els.msgs.scrollHeight || els.msgs.offsetHeight || 1;
 
-    // 生成短横线标记（按消息在整个对话中的相对比例，分布在固定可视高度上）
+    // 生成短横线标记（按消息中心在整个对话中的相对比例，分布在固定可视高度上）
     var trackHtml = '';
     var popupHtml = '';
     for (var i = 0; i < userMsgs.length; i++) {
       var msg = userMsgs[i];
       var raw = msg.dataset.raw || msg.textContent.trim() || '';
       var title = raw.length > 22 ? raw.slice(0, 22) + '…' : raw;
-      // 标记位置：消息顶部在对话总高度中的比例 × 可视轨道高度
-      var ratio = totalHeight > 0 ? (msg.offsetTop / totalHeight) : 0;
+      // 标记位置：消息中心在对话总高度中的比例 × 可视轨道高度（用中心比用顶部更均匀）
+      var msgCenter = msg.offsetTop + msg.offsetHeight / 2;
+      var ratio = totalHeight > 0 ? (msgCenter / totalHeight) : 0;
       var top = Math.max(0, Math.min(trackHeight - 3, ratio * trackHeight));
       trackHtml += '<div class="ai-outline-marker" data-target="' + msg.id + '" style="top:' + top + 'px" title="' + esc(raw) + '"></div>';
       popupHtml += '<div class="ai-outline-popup-item" data-target="' + msg.id + '">'
@@ -17613,65 +17614,69 @@ if (document.readyState === 'loading') {
     track.innerHTML = trackHtml;
     popupList.innerHTML = popupHtml;
 
-    // 事件绑定：轨道级mousemove（灵敏，不需要精确点到刻度线）
-    var markers = track.querySelectorAll('.ai-outline-marker');
-    var popupItems = popupList.querySelectorAll('.ai-outline-popup-item');
+    // 事件只绑定一次（防止updateOutline多次调用导致重复绑定、旧闭包引用已替换DOM）
+    if (!outline._eventsBound) {
+      outline._eventsBound = true;
 
-    // 根据鼠标Y坐标找到最近的刻度并高亮
-    track.addEventListener('mousemove', function(e){
-      var rect = track.getBoundingClientRect();
-      var mouseY = e.clientY - rect.top;
-      var nearestIdx = 0;
-      var nearestDist = Infinity;
-      for (var i = 0; i < markers.length; i++) {
-        var markerTop = parseFloat(markers[i].style.top) || 0;
-        var dist = Math.abs(markerTop - mouseY);
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          nearestIdx = i;
+      // 轨道级mousemove：根据鼠标Y坐标找到最近的刻度并高亮
+      track.addEventListener('mousemove', function(e){
+        var rect = track.getBoundingClientRect();
+        var mouseY = e.clientY - rect.top;
+        var curMarkers = track.querySelectorAll('.ai-outline-marker');
+        var curPopupItems = popupList.querySelectorAll('.ai-outline-popup-item');
+        var nearestIdx = 0;
+        var nearestDist = Infinity;
+        for (var i = 0; i < curMarkers.length; i++) {
+          var markerTop = parseFloat(curMarkers[i].style.top) || 0;
+          var dist = Math.abs(markerTop - mouseY);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIdx = i;
+          }
         }
-      }
-      for (var k = 0; k < popupItems.length; k++) {
-        popupItems[k].classList.toggle('active', k === nearestIdx);
-      }
-      // 浮层滚动让当前项居中
-      var activeItem = popupItems[nearestIdx];
-      if (activeItem && popupList.scrollHeight > popupList.clientHeight) {
-        var itemTop = activeItem.offsetTop;
-        var itemHeight = activeItem.offsetHeight;
-        popupList.scrollTop = itemTop - popupList.clientHeight / 2 + itemHeight / 2;
-      }
-    });
-
-    // 轨道级click：点击轨道任意位置，跳转到最近的刻度
-    track.addEventListener('click', function(e){
-      e.stopPropagation();
-      var rect = track.getBoundingClientRect();
-      var mouseY = e.clientY - rect.top;
-      var nearestIdx = 0;
-      var nearestDist = Infinity;
-      for (var i = 0; i < markers.length; i++) {
-        var markerTop = parseFloat(markers[i].style.top) || 0;
-        var dist = Math.abs(markerTop - mouseY);
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          nearestIdx = i;
+        for (var k = 0; k < curPopupItems.length; k++) {
+          curPopupItems[k].classList.toggle('active', k === nearestIdx);
         }
-      }
-      var target = document.getElementById(markers[nearestIdx].dataset.target);
-      if (target && els.body) {
-        var containerRect = els.body.getBoundingClientRect();
-        var targetRect = target.getBoundingClientRect();
-        var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
-        els.body.scrollTo({ top: offset, behavior: 'smooth' });
-      }
-    });
+        // 浮层滚动让当前项居中
+        var activeItem = curPopupItems[nearestIdx];
+        if (activeItem && popupList.scrollHeight > popupList.clientHeight) {
+          var itemTop = activeItem.offsetTop;
+          var itemHeight = activeItem.offsetHeight;
+          popupList.scrollTop = itemTop - popupList.clientHeight / 2 + itemHeight / 2;
+        }
+      });
 
-    // 点击浮层项跳转
-    for (var m = 0; m < popupItems.length; m++) {
-      popupItems[m].addEventListener('click', function(e){
+      // 轨道级click：点击轨道任意位置，跳转到最近的刻度
+      track.addEventListener('click', function(e){
         e.stopPropagation();
-        var target = document.getElementById(this.dataset.target);
+        var rect = track.getBoundingClientRect();
+        var mouseY = e.clientY - rect.top;
+        var curMarkers = track.querySelectorAll('.ai-outline-marker');
+        var nearestIdx = 0;
+        var nearestDist = Infinity;
+        for (var i = 0; i < curMarkers.length; i++) {
+          var markerTop = parseFloat(curMarkers[i].style.top) || 0;
+          var dist = Math.abs(markerTop - mouseY);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIdx = i;
+          }
+        }
+        var target = document.getElementById(curMarkers[nearestIdx].dataset.target);
+        if (target && els.body) {
+          var containerRect = els.body.getBoundingClientRect();
+          var targetRect = target.getBoundingClientRect();
+          var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
+          els.body.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+      });
+
+      // 点击浮层项跳转（事件委托）
+      popupList.addEventListener('click', function(e){
+        var item = e.target.closest('.ai-outline-popup-item');
+        if (!item) return;
+        e.stopPropagation();
+        var target = document.getElementById(item.dataset.target);
         if (target && els.body) {
           var containerRect = els.body.getBoundingClientRect();
           var targetRect = target.getBoundingClientRect();
