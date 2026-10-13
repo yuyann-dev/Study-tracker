@@ -360,12 +360,13 @@ router.get('/users/:id', (req, res) => {
     for (const c of allCodes) codeMap.set(c.code, c);
     for (const c of userUsedCodes) codeMap.set(c.code, c);
     const codes = Array.from(codeMap.values()).sort((a, b) => b.created_at.localeCompare(a.created_at));
-    // 解析项目列表
+    // 解析项目列表，按用户自定义排序（projectOrder），无order则按createdAt
     let projects = [];
     try {
       if (d && d.store_json) {
         const store = JSON.parse(d.store_json);
         const projMap = store.projects || {};
+        const order = store.projectOrder || {};
         projects = Object.values(projMap).filter(p => p && !p.archived).map(p => ({
           id: p.id,
           name: p.name,
@@ -374,7 +375,18 @@ router.get('/users/:id', (req, res) => {
           currentPage: p.currentPage,
           deadline: p.deadline,
           createdAt: p.createdAt,
+          _order: order[p.id] != null ? order[p.id] : Infinity,
         }));
+        // 组内排序：优先按projectOrder，其次按createdAt；大组顺序 exercise→recite→mistake→set
+        const typeOrder = { exercise: 0, recite: 1, mistake: 2, set: 3 };
+        projects.sort((a, b) => {
+          const ta = typeOrder[a.type] != null ? typeOrder[a.type] : 99;
+          const tb = typeOrder[b.type] != null ? typeOrder[b.type] : 99;
+          if (ta !== tb) return ta - tb;
+          if (a._order !== b._order) return a._order - b._order;
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
+        });
+        projects.forEach(p => delete p._order);
       }
     } catch (e) { /* 解析失败忽略 */ }
     return ok(res, {

@@ -1408,23 +1408,21 @@
               '</div>';
           }).join('') + '</div>'
         : '';
-      // 使用状态分析
+      // 使用状态分析：用最后登录时间判断活跃，最后同步时间只做展示
+      var lastLogin = u.lastLoginAt ? new Date(u.lastLoginAt) : null;
       var lastSync = dt.lastSyncAt ? new Date(dt.lastSyncAt) : null;
       var now = new Date();
-      var daysSinceSync = lastSync ? Math.floor((now - lastSync) / 86400000) : null;
+      var daysSinceLogin = lastLogin ? Math.floor((now - lastLogin) / 86400000) : null;
       var statusText = '', statusNote = '';
       if (u.deletedAt) {
         statusText = u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）';
       } else if (u.status === 'disabled') {
-        statusText = '已禁用';
         statusNote = '<span class="ud-status-badge ud-status-bad">已封禁</span>';
       } else if (u.status === 'active') {
-        if (daysSinceSync != null && daysSinceSync <= 1) {
-          statusText = '';
+        if (daysSinceLogin != null && daysSinceLogin <= 1) {
           statusNote = '<span class="ud-status-badge ud-status-ok">活跃</span>';
-        } else if (daysSinceSync != null && daysSinceSync > 7) {
-          statusText = '正常';
-          statusNote = '<span class="ud-status-badge ud-status-warn">近' + daysSinceSync + '天未同步</span>';
+        } else if (daysSinceLogin != null && daysSinceLogin > 7) {
+          statusNote = '<span class="ud-status-badge ud-status-warn">近' + daysSinceLogin + '天未登录</span>';
         } else {
           statusText = '正常';
         }
