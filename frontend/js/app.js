@@ -17172,12 +17172,8 @@ if (document.readyState === 'loading') {
     userMsgSeq: 0            // 用户消息序号，用于生成对话索引的锚点id
   };
 
-  /* ---- 示例问题库 ---- */
-  var SAMPLE_QUESTIONS = [
-    '帮我分析最薄弱的知识点',
-    '离考试还有多久，现在的节奏来得及吗？',
-    '帮我看看这周的学习情况'
-  ];
+  /* ---- 示例问题库（已移除，保持界面简洁） ---- */
+  var SAMPLE_QUESTIONS = [];
   function pickSamples(){
     return SAMPLE_QUESTIONS.slice();
   }
