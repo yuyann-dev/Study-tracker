@@ -17386,7 +17386,12 @@ if (document.readyState === 'loading') {
     function renderMath(formula, displayMode){
       try {
         if (window.katex) {
-          return katex.renderToString(preprocessMath(formula), {
+          let processed = preprocessMath(formula);
+          // 行内公式中的分式用 \dfrac 显示样式，避免过小看不清
+          if (!displayMode && /\\frac\s*\{/.test(processed)) {
+            processed = processed.replace(/\\frac\s*\{/g, '\\dfrac{');
+          }
+          return katex.renderToString(processed, {
             displayMode: displayMode,
             throwOnError: false,
             output: 'html',

@@ -2338,9 +2338,9 @@ html[data-theme="dark"] .ai-msg .md pre{background:rgba(255,255,255,.12)}
 .ai-msg .md a{color:var(--brand)}
 /* 数学公式 */
 .ai-math-block{margin:10px 0;text-align:center;overflow-x:auto;padding:4px 0}
-.ai-math-inline{display:inline-flex;align-items:center;vertical-align:middle;margin:0 1px}
+.ai-math-inline{display:inline-flex;align-items:center;vertical-align:middle;margin:0 1px;line-height:1.4}
 .ai-math-block .katex, .ai-math-inline .katex{color:inherit}
-.ai-math-inline .katex{font-size:1.05em}
+.ai-math-inline .katex{font-size:1.12em}
 .ai-msg-error{
   background:var(--ai-bubble-ai);border:1px solid var(--line);
   border-left:3px solid var(--bad);border-radius:12px;padding:10px 12px;

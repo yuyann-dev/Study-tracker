@@ -20,38 +20,84 @@ const embeddingService = require('./embeddingService');
 
 // ── 同义词表（考研常见术语，提升召回）──────────────────────────────────
 const SYNONYMS = {
+  // 数学
   '高数': ['高等数学', '微积分', '数学分析'],
   '线代': ['线性代数', '矩阵'],
   '概率': ['概率论', '数理统计', '概率统计'],
+  '极限': ['lim', '极限论', '求极限'],
+  '导数': ['微分', '求导', '导函数'],
+  '积分': ['不定积分', '定积分', '微积分', '积分学'],
+  '二重积分': ['重积分', '多元积分'],
+  '微分方程': ['ODE', '常微分方程', '微分方程式'],
+  '矩阵': ['方阵', '矩阵论', '矩阵运算'],
+  '特征值': ['特征向量', 'eigenvalue', '特征多项式'],
+  '二次型': ['quadratic form', '标准形'],
+  '行列式': ['determinant', 'det'],
+  '向量': ['vector', '向量组', '线性相关'],
+  '秩': ['rank', '矩阵的秩'],
+  '级数': ['无穷级数', '级数收敛'],
+  '多元函数': ['多元微积分', '偏导数', '全微分'],
+  // 408 - 数据结构
   '数据结构': ['DS', '算法与数据结构'],
+  '二叉树': ['binary tree', '树结构'],
+  '图': ['graph', '图论', '图结构'],
+  '排序': ['sort', '排序算法', '快速排序', '归并排序', '堆排序'],
+  '查找': ['search', '搜索', '二分查找', '哈希查找'],
+  '链表': ['linked list', '单链表', '双链表'],
+  '栈': ['stack', '队列', 'queue'],
+  '哈希': ['hash', '散列', '哈希表'],
+  '算法': ['algorithm', '时间复杂度', '空间复杂度'],
+  // 408 - 计组
   '计组': ['计算机组成原理', '组成原理', '计算机组织'],
+  'CPU': ['处理器', '中央处理器', '运算器', '控制器'],
+  '存储器': ['内存', '主存', 'cache', '高速缓存', '存储系统'],
+  '指令系统': ['指令集', '指令格式', '寻址方式'],
+  '总线': ['bus', '系统总线', 'IO总线'],
+  '流水线': ['pipeline', '指令流水线'],
+  '中断': ['interrupt', '中断系统', '异常'],
+  // 408 - 操作系统
   '操作系统': ['OS', 'os'],
+  '进程': ['process', '任务', '进程管理'],
+  '线程': ['thread', '线程管理'],
+  '死锁': ['deadlock', '死锁预防', '死锁避免'],
+  '内存管理': ['存储管理', '虚拟内存', '分页', '分段', '页表'],
+  '调度': ['scheduling', '进程调度', '作业调度', '调度算法'],
+  '文件系统': ['文件管理', 'inode', '目录'],
+  'IO': ['输入输出', '设备管理', 'IO管理', '磁盘调度'],
+  '同步': ['synchronization', '互斥', '信号量', 'PV操作'],
+  // 408 - 计网
   '计网': ['计算机网络', '网络', '计算机通信网'],
-  '408': ['计算机学科专业基础', '计算机统考'],
+  'TCP': ['传输控制协议', 'tcp', '拥塞控制', '流量控制'],
+  'IP': ['网际协议', 'internet protocol', 'ip地址', '子网'],
+  'HTTP': ['超文本传输协议', 'http', 'https'],
+  'DNS': ['域名系统', '域名解析'],
+  '路由': ['router', '路由协议', '路由选择'],
+  'UDP': ['用户数据报协议', 'udp'],
+  '物理层': ['physical layer', '编码', '调制'],
+  '数据链路层': ['link layer', '以太网', 'MAC', 'CRC'],
+  // 英语
   '英一': ['英语一', '英语1'],
   '英二': ['英语二', '英语2'],
+  '完形': ['完形填空', 'cloze'],
+  '阅读': ['阅读理解', 'reading', '阅读part a'],
+  '新题型': ['阅读part b', '七选五', '排序题'],
+  '翻译': ['translation', '英译汉'],
+  '作文': ['写作', 'writing', '小作文', '大作文'],
+  // 政治
+  '政治': ['思想政治理论', '考研政治'],
+  '马原': ['马克思主义基本原理', '马克思主义哲学', '政治经济学'],
+  '毛中特': ['毛泽东思想', '中国特色社会主义', '习概'],
+  '史纲': ['中国近现代史纲要', '近现代史'],
+  '思修': ['思想道德与法治', '思想道德修养'],
+  '时政': ['形势与政策', '当代世界经济'],
+  // 其他
   '数一': ['数学一', '数学1'],
   '数二': ['数学二', '数学2'],
-  '政治': ['思想政治理论', '考研政治'],
+  '408': ['计算机学科专业基础', '计算机统考'],
   '信号与系统': ['信号系统', '843', '中科大843'],
-  '极限': ['lim', '极限论'],
-  '导数': ['微分', '求导'],
-  '积分': ['不定积分', '定积分', '微积分'],
-  '微分方程': ['ODE', '常微分方程'],
-  '矩阵': ['方阵', '矩阵论'],
-  '特征值': ['特征向量', 'eigenvalue'],
-  '二次型': ['quadratic form'],
-  '进程': ['process', '任务'],
-  '线程': ['thread'],
-  '死锁': ['deadlock'],
-  '内存管理': ['存储管理', '虚拟内存'],
-  'TCP': ['传输控制协议', 'tcp'],
-  'IP': ['网际协议', 'internet protocol'],
-  'HTTP': ['超文本传输协议', 'http'],
-  '二叉树': ['binary tree'],
-  '图': ['graph', '图论'],
-  '排序': ['sort', '排序算法'],
-  '查找': ['search', '搜索'],
+  '傅里叶': ['fourier', '傅里叶变换', '傅里叶级数'],
+  '拉普拉斯': ['laplace', '拉普拉斯变换'],
+  'z变换': ['z-transform', '离散傅里叶'],
 };
 
 // ── 中文分词（简易版：按常见词+单字混合）──────────────────────────────
@@ -174,7 +220,22 @@ function getEmbeddingConfig() {
     return _embeddingConfigCache;
   }
   try {
-    // 读取第一个配置好的用户的 AI 配置（知识库是全局的，用任意一个可用的 key 即可）
+    // 优先使用环境变量中的独立 embedding 配置（deepseek 用户可单独配置智谱/通义的 embedding）
+    const envProvider = process.env.EMBEDDING_PROVIDER;
+    const envApiKey = process.env.EMBEDDING_API_KEY;
+    if (envProvider && envApiKey) {
+      const config = embeddingService.getEmbeddingConfig({
+        provider: envProvider,
+        apiKey: envApiKey,
+      });
+      if (config) {
+        _embeddingConfigCache = config;
+        _embeddingConfigTime = Date.now();
+        return config;
+      }
+    }
+
+    // 否则读取用户的 AI 配置（如果主模型支持 embedding 则直接用）
     const row = db.prepare(`
       SELECT provider, encrypted_api_key, key_salt
       FROM ai_configs
@@ -185,7 +246,6 @@ function getEmbeddingConfig() {
       _embeddingConfigCache = null;
       return null;
     }
-    // 解密 API key
     const aiCrypto = require('./aiCrypto');
     const apiKey = aiCrypto.decrypt(row.encrypted_api_key, row.key_salt);
     const config = embeddingService.getEmbeddingConfig({
@@ -274,6 +334,9 @@ function search(query, options = {}) {
   const subject = options.subject || '';
   const limit = Math.min(Math.max(options.limit || 5, 1), 20);
 
+  // 空查询直接返回空
+  if (!query || !String(query).trim()) return [];
+
   // 加载知识库
   let sql = 'SELECT * FROM knowledge_chunks';
   const params = [];
@@ -313,14 +376,23 @@ function search(query, options = {}) {
     const chunkVec = vectorize(c.text, df, totalDocs);
     let tfidfScore = cosineSimilaritySparse(queryVec, chunkVec);
 
-    // 标题匹配加分
-    const titleTokens = new Set(tokenize(c.title));
     const queryTokens = new Set(tokenize(query));
+
+    // 标题匹配加分（权重高，因为标题最能代表内容）
+    const titleTokens = new Set(tokenize(c.title));
     let titleOverlap = 0;
     for (const t of queryTokens) {
       if (titleTokens.has(t)) titleOverlap++;
     }
-    if (titleOverlap > 0) tfidfScore += titleOverlap * 0.05;
+    if (titleOverlap > 0) tfidfScore += titleOverlap * 0.08;
+
+    // 章节匹配加分
+    const chapterTokens = new Set(tokenize(c.chapter));
+    let chapterOverlap = 0;
+    for (const t of queryTokens) {
+      if (chapterTokens.has(t)) chapterOverlap++;
+    }
+    if (chapterOverlap > 0) tfidfScore += chapterOverlap * 0.04;
 
     // 关键词匹配加分
     if (c.keywords) {
@@ -329,19 +401,15 @@ function search(query, options = {}) {
       for (const t of queryTokens) {
         if (kwTokens.has(t)) kwOverlap++;
       }
-      if (kwOverlap > 0) tfidfScore += kwOverlap * 0.03;
+      if (kwOverlap > 0) tfidfScore += kwOverlap * 0.05;
     }
 
-    // Embedding 语义相似度（同步计算，因为查询向量需要异步获取，这里用缓存或降级）
+    // Embedding 语义相似度
     let finalScore = tfidfScore;
     let embedScore = null;
 
-    // 注意：embedding 查询向量是异步的，这里采用同步降级策略
-    // 如果知识库有 embedding 但查询时无法同步获取，用 TF-IDF 代替
-    // 实际生产中可以在 API 层异步获取查询向量后传入
     if (c.embedding && options.queryEmbedding) {
       embedScore = embeddingService.cosineSimilarity(options.queryEmbedding, c.embedding);
-      // 混合排序：embedding 0.6 + TF-IDF 0.4
       finalScore = embedScore * 0.6 + tfidfScore * 0.4;
     }
 
@@ -386,13 +454,13 @@ async function searchAsync(query, options = {}) {
 function detectSubject(query) {
   const q = String(query).toLowerCase();
   const rules = [
-    { subj: 'math1', patterns: ['数一', '数学一', '数学1', '三重积分', '曲线积分', '曲面积分', '傅里叶', '概率论', '数理统计'] },
+    { subj: 'ustc843', patterns: ['843', '信号与系统', '信号系统', '中科大843', '傅里叶变换', '拉普拉斯', 'z变换', '数字信号处理', 'dft', 'fft'] },
+    { subj: 'math1', patterns: ['数一', '数学一', '数学1', '三重积分', '曲线积分', '曲面积分', '概率论', '数理统计', '无穷级数'] },
     { subj: 'math2', patterns: ['数二', '数学二', '数学2', '二重积分', '高数', '高等数学', '线性代数', '线代', '微分方程'] },
     { subj: 'english1', patterns: ['英一', '英语一', '英语1'] },
     { subj: 'english2', patterns: ['英二', '英语二', '英语2', '英语阅读', '英语作文', '英语翻译'] },
     { subj: 'politics', patterns: ['政治', '马原', '毛中特', '史纲', '思修', '时政'] },
     { subj: '408', patterns: ['408', '数据结构', '计组', '组成原理', '操作系统', '计网', '计算机网络', '算法', '二叉树', '进程', '线程', '死锁', 'tcp', 'ip'] },
-    { subj: 'ustc843', patterns: ['843', '信号与系统', '信号系统', '中科大843', '傅里叶变换', '拉普拉斯', 'z变换'] },
   ];
   for (const rule of rules) {
     for (const p of rule.patterns) {
