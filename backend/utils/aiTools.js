@@ -489,20 +489,69 @@ function implSetTaskEstimates(userId, args) {
   return { ok: true, updated };
 }
 
-/** §3.13 大纲知识库检索（向量检索，支持 embedding 混合检索） */
-async function implSearchSyllabus(args) {
+/** §3.13 大纲知识库检索（向量检索，支持 embedding 混合检索）
+ *  优先根据用户画像（项目名称）推断考试科目，避免数一/数二、英一/英二混淆
+ */
+async function implSearchSyllabus(args, userId) {
   const query = String(args.query || '').trim();
   if (!query) return { results: [], note: '查询为空' };
   let subject = String(args.subject || '').trim();
-  if (!subject) subject = knowledgeSearch.detectSubject(query);
-  // 使用异步检索，自动检测 embedding 服务并降级
+  let subjectSource = 'user_specified';
+
+  if (!subject) {
+    // 从用户项目名称推断考试科目
+    const inferred = inferUserExamSubjects(userId);
+    const q = query.toLowerCase();
+    const isMathQuery = /数|高数|线代|概率|积分|微分|矩阵|极限|导数/.test(q);
+    const isEnglishQuery = /英|英语|阅读|作文|翻译|完形|单词/.test(q);
+
+    if (isMathQuery && inferred.math) {
+      subject = inferred.math;
+      subjectSource = 'user_profile';
+    } else if (isEnglishQuery && inferred.english) {
+      subject = inferred.english;
+      subjectSource = 'user_profile';
+    } else {
+      subject = knowledgeSearch.detectSubject(query);
+      subjectSource = 'auto_detect';
+    }
+  }
+
   const results = await knowledgeSearch.searchAsync(query, { subject, limit: 5 });
   return {
     query,
     subject: subject || 'auto',
+    subjectSource,
     count: results.length,
     results,
   };
+}
+
+/**
+ * 从用户项目名称推断考试科目（数一/数二、英一/英二）
+ */
+function inferUserExamSubjects(userId) {
+  try {
+    const store = aggregator.loadStore(userId);
+    const projects = aggregator.projectList(store) || [];
+    let math = null;
+    let english = null;
+
+    for (const p of projects) {
+      const name = String(p.name || '').toLowerCase();
+      if (!math) {
+        if (/数二|数学二/.test(name)) math = 'math2';
+        else if (/数一|数学一/.test(name)) math = 'math1';
+      }
+      if (!english) {
+        if (/英二|英语二/.test(name)) english = 'english2';
+        else if (/英一|英语一/.test(name)) english = 'english1';
+      }
+    }
+    return { math, english };
+  } catch (e) {
+    return { math: null, english: null };
+  }
 }
 
 // ── 对外分发 ────────────────────────────────────────────────────────────────
@@ -531,7 +580,7 @@ async function executeReadonlyTool(name, args, userId) {
       case 'get_study_records': return implGetStudyRecords(userId, args);
       case 'generate_schedule': return implGenerateSchedule(userId, args);
       case 'get_review_forecast': return implGetReviewForecast(userId, args);
-      case 'search_syllabus': return implSearchSyllabus(args);
+      case 'search_syllabus': return implSearchSyllabus(args, userId);
       default: return { error: '未知工具' };
     }
   } catch (e) {
