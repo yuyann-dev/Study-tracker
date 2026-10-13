@@ -3292,7 +3292,7 @@ function getDeadlineLevelCap(p, date) {
     if (remain < 1) remain = 1;
     reviewNeed += remain;
   });
-  const reviewCap = reviewNeed / studyDaysLeft;
+  const reviewCap = reviewNeed / studyDaysLeft * 0.9; // [v4 优化] 加0.9缓冲，避免每天任务刚好卡在极限
   // ② 新学需求：仅在新学窗口内（目标日 - 一个完整复习周期之前），把未学内容均摊到剩余新学学习日
   let newCap = 0;
   const cycleDays = getReviewCycleDays(p);
@@ -4149,15 +4149,18 @@ function getMistakeDayPlan(p, date) {
       const rate = getMistakeCollectRate(p);
       const predictedNew = Math.max(0, rate * Math.max(0, daysLeft - 1)); // 今天之后预计新增
       const studyDays = Math.max(1, daysLeft * getStudyDayRatio(p));
-      addon = predictedNew / studyDays;       // 为未来新题保底复习，提前均摊（前期多、后期衰减）
+      // [v4 优化] addon权重从100%降到70%：新题收录后会有自己的间隔，不需要现在就100%预留
+      addon = predictedNew / studyDays * 0.7;
     }
   }
   const comfort = getComfortCap(p);
-  // [v3 算法-04] hardMax跟随EWMA：能学多的人不被comfort×1.5卡死
+  // [v4 优化] hardMax从comfort×1.5降到×1.3，上限25→20，下限12→10，避免过度施压
   const ewma = getEwmRate(p, d);
-  const hardMax = Math.min(25, Math.max(12, Math.max(Math.round(comfort * 1.5), ewma)));
+  const hardMax = Math.min(20, Math.max(10, Math.max(Math.round(comfort * 1.3), ewma)));
   let raw = base + addon;
-  const target = Math.max(1, Math.min(hardMax, Math.ceil(raw)));
+  // [v4 优化] target不超过hardMax×0.9，留一点缓冲
+  const targetCap = Math.ceil(hardMax * 0.9);
+  const target = Math.max(1, Math.min(targetCap, Math.ceil(raw)));
   return { target, raw, base, addon, hardMax, risk: raw > hardMax };
 }
 
@@ -4188,7 +4191,7 @@ function getMistakeFeasibility(p) {
   } else {
     // 智能模式：effectiveComfort = max(comfort, EWMA)
     effectiveComfort = Math.max(comfort, ewma);
-    hardMax = Math.min(25, Math.max(12, Math.max(Math.round(comfort * 1.5), ewma)));
+    hardMax = Math.min(20, Math.max(10, Math.max(Math.round(comfort * 1.3), ewma))); // [v4 优化] 与getMistakeDayPlan保持一致
   }
   let level = 'ok';
   if (work > studyDays * hardMax) level = 'risk';
@@ -4214,9 +4217,9 @@ function pullForwardIfNeeded(p) {
   let want = plan.target - getDueItems(p).length;
   if (want <= 0) { p.lastPullForwardCount = 0; return 0; } // 今天够目标，不加
 
-  // [v3 算法-11] pullForward刹车：今天due已超过EWMA×1.2时不再拉题（避免超载硬拉）
+  // [v4 优化] pullForward刹车从EWMA×1.2降到×1.1，更灵敏避免超载硬拉
   const ewma = getEwmRate(p, today);
-  if (getDueItems(p).length > ewma * 1.2) { p.lastPullForwardCount = 0; return 0; }
+  if (getDueItems(p).length > ewma * 1.1) { p.lastPullForwardCount = 0; return 0; }
 
   const horizon = addDays(today, 14);
   let cands = (p.items || []).filter(it =>
