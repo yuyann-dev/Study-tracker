@@ -4260,7 +4260,8 @@ function settleToday(p) {
     const did = (it.reviews || []).filter(r => r.date === today).length > (it.learnedDate === today ? 1 : 0);
     if (it.earlyReviewed && !did) { it.nextReviewDate = addDays(today, 1); changed++; }
   });
-  if (getDueItems(p).length === 0 && p.todayMetDate !== today) { p.todayMetDate = today; changed++; }
+  // 设置 todayMetDate 标记不改变今日任务总量，单独处理，不触发重新估算
+  if (getDueItems(p).length === 0 && p.todayMetDate !== today) { p.todayMetDate = today; }
   if (changed > 0) p.updatedAt = Date.now();
   return changed;
 }
@@ -8752,7 +8753,20 @@ function renderReview(p) {
 
   if (!due.length && !retentionDue.length) {
     list.innerHTML = '';
-    $('#noReviewHint').hidden = false;
+    // 区分"完成全部"和"本来就没有"两种情况
+    const _today = todayStr();
+    let _reviewedToday = 0;
+    (p.items || []).forEach(it => {
+      const revs = it.reviews || [];
+      if (revs.length >= 2 && revs[revs.length - 1].date === _today) _reviewedToday++;
+    });
+    const hintEl = $('#noReviewHint');
+    if (_reviewedToday > 0) {
+      hintEl.textContent = '今日复习已全部完成，做得很好！';
+    } else {
+      hintEl.textContent = '今天没有需要复习的内容，轻松一下～';
+    }
+    hintEl.hidden = false;
     // [v2 背书 M5] 全部掌握完成态：remaining=0 且无未学 → 显示归档提示
     if (p.type === 'recite' && !p.archived) {
       const live = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate);
