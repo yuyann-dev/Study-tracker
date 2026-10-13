@@ -363,7 +363,8 @@
   html[data-theme="dark"] .ts-partial{background:rgba(205,174,112,.16);color:#e0c88f;border-color:rgba(205,174,112,.32)}
   html[data-theme="dark"] .ts-todo{background:rgba(221,148,139,.16);color:#e3a0a4;border-color:rgba(221,148,139,.32)}
   html[data-theme="dark"] .ts-none{background:rgba(150,150,170,.12);color:#9aa4bc;border-color:rgba(150,150,170,.25)}
-  .rec-qbtn{outline:2px solid transparent;outline-offset:1px;opacity:.55}
+  .rec-qbtn{outline:2px solid transparent;outline-offset:1px;opacity:.55;flex:1;min-width:0;text-align:center}
+  #reciteQuality{display:flex;gap:8px;width:100%}
   .rec-qbtn.active{opacity:1;outline-color:currentColor}
   .rec-qbtn.q-good{outline-color:transparent}
   .rec-qbtn.q-good.active{opacity:1;background:#096f4e;color:#fff}
