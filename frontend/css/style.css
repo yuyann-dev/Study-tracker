@@ -2895,6 +2895,14 @@ h1,h2,h3{font-family:var(--font-serif);font-weight:600;letter-spacing:0.01em}
   .dash-proj .ts-chip{flex:0 0 84px;width:84px;font-size:10.5px;padding:3px 6px}
   /* 弹窗适配 */
   .modal{max-width:560px}
+  /* 新建项目表单：任务类型3列改2列，避免太窄重叠 */
+  .type-picker{grid-template-columns:repeat(2,1fr);gap:8px}
+  .type-opt-inner{padding:12px 6px}
+  .type-opt .type-icon{font-size:20px}
+  .type-opt .type-name{font-size:12.5px}
+  .type-opt .type-desc{font-size:10px}
+  /* 计量方式2列保持，但缩小padding */
+  .seg-opt span{padding:9px 6px;font-size:12.5px}
   /* 背书网格：4列改3列 */
   .recite-grid{grid-template-columns:1fr 1fr 1fr}
   /* AI抽屉：稍微宽一点 */
