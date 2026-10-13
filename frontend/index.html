@@ -13,6 +13,23 @@ window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); 
 if ('serviceWorker' in navigator) {
   window._swHadControllerAtLoad = !!navigator.serviceWorker.controller;
   var _swAutoRefreshed = false;
+  // 强制版本检测：如果当前SW不是最新版本，立即注销并刷新
+  var _expectedSwVersion = 'v188';
+  if (navigator.serviceWorker.controller) {
+    var _ctrlScript = navigator.serviceWorker.controller.scriptURL || '';
+    // 检查SW缓存中是否有最新版本的index.html（通过fetch验证）
+    fetch('./index.html', {cache: 'no-store'}).then(function(r){ return r.text(); }).then(function(html){
+      if (html.indexOf('sortProjectsBtn') === -1 && !_swAutoRefreshed) {
+        // 拿到的还是旧版index.html，说明SW缓存有问题，强制注销SW
+        _swAutoRefreshed = true;
+        navigator.serviceWorker.getRegistrations().then(function(regs){
+          return Promise.all(regs.map(function(r){ return r.unregister(); }));
+        }).then(function(){
+          window.location.reload();
+        });
+      }
+    }).catch(function(){});
+  }
   // 监听 SW 激活后发来的更新通知
   navigator.serviceWorker.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'SW_UPDATED' && !_swAutoRefreshed && window._swHadControllerAtLoad) {
