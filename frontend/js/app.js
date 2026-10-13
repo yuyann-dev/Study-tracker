@@ -10809,7 +10809,7 @@ function openDashboard() {
         : Coach.pick(Coach.done, 'dashdone');
     }
   } else if (tasksTotal > 0 && tasksDone > 0) {
-    msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 ${tasksTotal - tasksDone} 个`;
+    msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 <b>${tasksTotal - tasksDone}</b> 个`;
     if (isBack) enc = Coach.pick(['回来就好，已经在推进了 💪', '断了几天又捡起来，很棒 🌱', '重新进入状态了，继续保持 ✨'], 'dashpartialback');
     else if (isSpeeding) enc = Coach.pick(['今天速度比平时快，手感正好 🚀', '效率在线，趁势把剩下的也拿下 ⚡', '进入状态了，越做越顺 🔥'], 'dashpartialfast');
     else if (isSlowing) enc = Coach.pick(['今天慢一点没关系，稳扎稳打 🌱', '遇到难题了？搞懂一道是一道 📝', '节奏放缓说明这部分需要多花时间，吃透了后面会快 💡'], 'dashpartialslow');
