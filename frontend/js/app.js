@@ -17257,17 +17257,31 @@ if (document.readyState === 'loading') {
       return '\u0000ICODE' + (codeStore.length - 1) + '\u0000';
     });
 
-    // 抽离数学公式（块级 $$...$$ 和行内 $...$），避免其他规则破坏公式
-    // 注意：公式在 esc() 之后抽离，内容已被HTML转义，需要反转义后再给KaTeX
+    // 抽离数学公式，支持四种格式：
+    //   块级：$$...$$ 和 \[...\]
+    //   行内：$...$ 和 \(...\)
+    // 注意：公式在 esc() 之后抽离，内容已被HTML转义（\变成&#92;），需要反转义后再给KaTeX
     function unescapeHtml(s){
       return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&#92;/g,'\\');
     }
     var mathStore = [];
+    // 块级公式：$$...$$
     s = s.replace(/\$\$([\s\S]*?)\$\$/g, function(m, formula){
       mathStore.push({type:'block', formula: unescapeHtml(formula.replace(/^\n+/,'').replace(/\n+$/,''))});
       return '\u0000MATHB' + (mathStore.length - 1) + '\u0000';
     });
+    // 块级公式：\[...\] （转义后为 &#92;[...&#92;]）
+    s = s.replace(/&#92;\[([\s\S]*?)&#92;\]/g, function(m, formula){
+      mathStore.push({type:'block', formula: unescapeHtml(formula.replace(/^\n+/,'').replace(/\n+$/,''))});
+      return '\u0000MATHB' + (mathStore.length - 1) + '\u0000';
+    });
+    // 行内公式：$...$
     s = s.replace(/\$([^$\n]+?)\$/g, function(m, formula){
+      mathStore.push({type:'inline', formula: unescapeHtml(formula)});
+      return '\u0000MATHI' + (mathStore.length - 1) + '\u0000';
+    });
+    // 行内公式：\(...\) （转义后为 &#92;(...&#92;)）
+    s = s.replace(/&#92;\(([^)\n]*?)&#92;\)/g, function(m, formula){
       mathStore.push({type:'inline', formula: unescapeHtml(formula)});
       return '\u0000MATHI' + (mathStore.length - 1) + '\u0000';
     });
