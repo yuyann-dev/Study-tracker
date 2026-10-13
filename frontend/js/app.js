@@ -17377,14 +17377,21 @@ if (document.readyState === 'loading') {
     });
 
     // 5) 还原公式占位符，调用KaTeX渲染（KaTeX未加载时显示原始公式）
+    function preprocessMath(formula){
+      // 兼容AI常用的非标准LaTeX命令：\dx \dy \dt \du \dv → \mathrm{d}x 等
+      return formula
+        .replace(/\\d(?=[xyuvt])/g, '\\mathrm{d}')
+        .replace(/\\text\{([^}]*)\}/g, function(m, t){ return '\\text{' + t + '}'; });
+    }
     function renderMath(formula, displayMode){
       try {
         if (window.katex) {
-          return katex.renderToString(formula, {
+          return katex.renderToString(preprocessMath(formula), {
             displayMode: displayMode,
             throwOnError: false,
             output: 'html',
-            strict: false
+            strict: false,
+            trust: true
           });
         }
       } catch(e) {}
