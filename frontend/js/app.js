@@ -12759,8 +12759,10 @@ function renderWeaknessBoard(p) {
   // 收集每日实际复习 / 计划复习
   var dailyActual = {}, dailyPlanned = {};
   items.forEach(function(it){
-    (it.reviews || []).forEach(function(rv){
+    (it.reviews || []).forEach(function(rv, idx){
       if (!rv || !rv.date) return;
+      // 排除首次学习（新录入），只统计后续复习
+      if (idx === 0) return;
       if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
       dailyActual[rv.date].push({ item: it, quality: rv.quality || rv.result || 'review' });
     });
@@ -12870,13 +12872,10 @@ function renderWeaknessBoard(p) {
       rateHtml = planned.length > 0
         ? '待复习 <b>' + planned.length + '</b> 题（计划日期）'
         : '当天无计划任务';
-    } else if (planned.length > 0) {
-      // 完成率分子在 actualGroups（按题目去重）计算后填充，见下方
     } else if (actual.length > 0) {
-      // 历史日期计划数据已随复习动态变化（nextReviewDate被推到未来），无法还原当时计划，只显示实际复习
       rateHtml = '实际复习 <b>' + actual.length + '</b> 题';
     } else {
-      rateHtml = '当天无计划任务';
+      rateHtml = '当天没有复习记录';
     }
     function itemHtml(it, tag){
       var loc = fmtItemLocator(pRef, it);
@@ -12909,10 +12908,6 @@ function renderWeaknessBoard(p) {
       var g = aMap.get(r.item); g.qualities.push(r.quality); g.count++;
     });
     var actualGroups = Array.from(aMap.values());
-    if (!isFutureDay && planned.length > 0) {
-      var pct = Math.round(actualGroups.length / planned.length * 100);
-      rateHtml = '完成率 <b>' + pct + '%</b>' + (pct > 100 ? '（超额完成）' : '') + '（实际' + actualGroups.length + '/计划' + planned.length + '）';
-    }
     var actualHtml = actualGroups.length
       ? '<div class="wb-heat-detail-list">' + actualGroups.map(function(g){
           var uq = Array.from(new Set(g.qualities.map(function(q){ return qMap[q]||q; })));
@@ -12934,8 +12929,8 @@ function renderWeaknessBoard(p) {
           return '<div class="hd-future-day"><span class="hd-future-date">' + fd.date + '</span><span class="hd-future-count">' + fd.count + '题</span><span class="hd-future-preview">' + fd.preview + '</span></div>';
         }).join('') + '</div></div>'
       : '';
-    // 历史日期计划数据可能已随复习动态变化（无法还原当时计划），此时不显示"当天计划复习"部分
-    var plannedSection = (isFutureDay || planned.length > 0)
+    // 完全去掉计划复习区块，只显示实际复习（未来日期仍显示计划）
+    var plannedSection = isFutureDay
       ? '<div class="wb-heat-detail-section"><h4>' + svgIcon('clipboard-list') + ' 当天计划复习</h4>' + plannedHtml + '</div>'
       : '';
     bodyEl.innerHTML =
