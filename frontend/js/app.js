@@ -12776,6 +12776,14 @@ function renderWeaknessBoard(p) {
       dailyPlanned[it.nextReviewDate].push(it);
     }
   });
+  // 按日期和题目去重：同一天同一道题只算一次（取最后一次复习的quality）
+  Object.keys(dailyActual).forEach(function(d){
+    var seen = {};
+    dailyActual[d].forEach(function(r){
+      seen[r.item.id] = r;
+    });
+    dailyActual[d] = Object.values(seen);
+  });
   var todayVal = todayStr();
   var allDates = Object.keys(dailyActual).filter(function(d){ return d <= todayVal; }).sort();
   var totalReviews = allDates.reduce(function(s,d){ return s + dailyActual[d].length; }, 0);
