@@ -796,6 +796,7 @@ router.post('/chat/stream', async (req, res) => {
     } catch (_) { clientGone = true; return false; }
   };
   const sendError = (code, message) => {
+    console.error(`[ai/stream] error code=${code} msg=${message}`);
     sendSSE('error', { code, message });
     try { if (!res.writableEnded && !res.destroyed) res.end(); } catch (_) {}
     stopBeat();
@@ -829,6 +830,7 @@ router.post('/chat/stream', async (req, res) => {
     const projectId = projectIds.length === 1 ? projectIds[0] : null;
 
     const dataSummary = gatherDataByIntent(req.user.id, intent, projectId, budgetMin, projectIds);
+    console.log(`[ai/stream] user=${req.user.id} admin=${isAdmin} provider=${cfg.provider} model=${cfg.model} intent=${intent} overBudget=${overBudget} budgetMin=${budgetMin} projectIds=${projectIds.join(',') || '全局'}`);
 
     // 超预算不阻止生成（api 是用户自己的），只在最终回复中加提醒
 
@@ -1033,6 +1035,7 @@ router.post('/chat/stream', async (req, res) => {
       searchReferences: searchReferences.length > 0 ? searchReferences : null,
       ...(degradedReason ? { degraded: degradedReason } : {}),
     });
+    console.log(`[ai/stream] done mode=${useTools ? 'fc' : 'direct'} tokensIn=${totalTokensIn} tokensOut=${totalTokensOut} toolCalls=${trace.length} replyLen=${(finalReply || '').length}${degradedReason ? ' degraded=' + degradedReason : ''}`);
     stopBeat();
     res.end();
   } catch (e) {
