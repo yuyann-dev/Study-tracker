@@ -12794,7 +12794,7 @@ function renderWeaknessBoard(p) {
   });
   var todayVal = todayStr();
   var allDates = Object.keys(dailyActual).filter(function(d){ return d <= todayVal; }).sort();
-  var totalReviews = allDates.reduce(function(s,d){ return s + dailyReview[d].length; }, 0);
+  var totalReviews = allDates.reduce(function(s,d){ return s + (dailyReview[d]||[]).length; }, 0);
 
   // 统计卡片
   function _hmSetStats(total, reviews, streak){
