@@ -12850,6 +12850,12 @@ function renderWeaknessBoard(p) {
     dateEl.textContent = ds + ' 周' + wd[dt.getDay()];
 
     var isFutureDay = ds > _hmCache.todayVal;
+    // 历史日期：间隔重复算法下题目复习后nextReviewDate会被推到未来，导致dailyPlanned中历史日期为空。
+    // 此时用当天实际复习的题（去重）作为当天计划，正确展示完成率和计划列表。
+    if (!isFutureDay && planned.length === 0 && actual.length > 0) {
+      var seen = {};
+      actual.forEach(function(r){ if (r.item && !seen[r.item.id]) { seen[r.item.id] = true; planned.push(r.item); } });
+    }
     var rateHtml;
     if (isFutureDay) {
       rateHtml = planned.length > 0
@@ -12858,7 +12864,7 @@ function renderWeaknessBoard(p) {
     } else if (planned.length > 0) {
       // 完成率分子在 actualGroups（按题目去重）计算后填充，见下方
     } else {
-      rateHtml = '当天无计划任务，实际复习' + actual.length + '题';
+      rateHtml = '当天无计划任务';
     }
     function itemHtml(it, tag){
       var loc = fmtItemLocator(pRef, it);

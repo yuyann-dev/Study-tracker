@@ -1182,7 +1182,7 @@
   html[data-theme="dark"] .wb-cal-num{color:rgba(231,237,246,.6)}
   html[data-theme="dark"] .wb-cal-cell.hm-3 .wb-cal-num{color:rgba(231,237,246,.85)}
   html[data-theme="dark"] .wb-cal-cell.hm-4 .wb-cal-num{color:#1a2540}
-  .wb-heat-detail{margin-top:12px;padding:16px;background:var(--card);border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow);max-width:880px;min-height:200px}
+  .wb-heat-detail{margin-top:12px;margin-bottom:16px;padding:16px;background:var(--card);border-radius:14px;border:1px solid var(--border);box-shadow:var(--shadow);max-width:880px;min-height:200px}
   /* 计划圆点标记（未来/过去有计划复习的日期） */
   .wb-cal-plan-dot{position:absolute;bottom:4px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--brand);opacity:.7}
   .wb-cal-cell.wb-cal-future .wb-cal-plan-dot{opacity:.9}
