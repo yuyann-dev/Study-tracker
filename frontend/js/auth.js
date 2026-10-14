@@ -832,7 +832,7 @@
       // 失败也要把 shimmer 还原成真实列表（否则骨架条一直占着）
       if (typeof render === 'function') { try { render(); } catch (er) {} }
       // ux-14：顶部可点击重试的 toast
-      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','同步失败','网络异常，点此重试', 4000, function(){ syncFromCloud({ skeleton: true }); });
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','同步失败','网络异常，刷新重试', 4000, function(){ syncFromCloud({ skeleton: true }); });
       // 指数退避自动重试：10s → 30s → 60s，共 3 次；之后停止，等 60s 周期同步或用户手动重试
       if (_syncRetryCount < 3) {
         var retryDelays = [10000, 30000, 60000];
