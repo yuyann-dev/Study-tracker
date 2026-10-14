@@ -12756,20 +12756,25 @@ function renderWeaknessBoard(p) {
   var _hmNow = new Date();
   if (!_hmCurMonth) _hmCurMonth = { y: _hmNow.getFullYear(), m: _hmNow.getMonth() };
 
-  // 收集每日实际复习 / 计划复习
-  var dailyActual = {}, dailyPlanned = {};
+  // 收集每日学习记录（含首次学习，用于热力图颜色和天数统计）
+  // 和每日复习记录（排除首次学习，用于"实际复习X题"和详情列表）
+  var dailyActual = {}, dailyReview = {}, dailyPlanned = {};
   items.forEach(function(it){
     (it.reviews || []).forEach(function(rv, idx){
       if (!rv || !rv.date) return;
-      // 排除首次学习（新录入），只统计后续复习
-      if (idx === 0) return;
       if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
       dailyActual[rv.date].push({ item: it, quality: rv.quality || rv.result || 'review' });
+      // 排除首次学习（新录入），只统计后续复习
+      if (idx === 0) return;
+      if (!dailyReview[rv.date]) dailyReview[rv.date] = [];
+      dailyReview[rv.date].push({ item: it, quality: rv.quality || rv.result || 'review' });
     });
     (it.retentionReviews || []).forEach(function(rv){
       if (!rv || !rv.date) return;
       if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
       dailyActual[rv.date].push({ item: it, quality: rv.result || 'review', retention: true });
+      if (!dailyReview[rv.date]) dailyReview[rv.date] = [];
+      dailyReview[rv.date].push({ item: it, quality: rv.result || 'review', retention: true });
     });
     if (it.nextReviewDate && !isMastered(it)) {
       if (!dailyPlanned[it.nextReviewDate]) dailyPlanned[it.nextReviewDate] = [];
@@ -12777,23 +12782,26 @@ function renderWeaknessBoard(p) {
     }
   });
   // 按日期和题目去重：同一天同一道题只算一次（取最后一次复习的quality）
-  Object.keys(dailyActual).forEach(function(d){
-    var seen = {};
-    dailyActual[d].forEach(function(r){
-      seen[r.item.id] = r;
+  ['dailyActual', 'dailyReview'].forEach(function(key){
+    var obj = key === 'dailyActual' ? dailyActual : dailyReview;
+    Object.keys(obj).forEach(function(d){
+      var seen = {};
+      obj[d].forEach(function(r){
+        seen[r.item.id] = r;
+      });
+      obj[d] = Object.values(seen);
     });
-    dailyActual[d] = Object.values(seen);
   });
   var todayVal = todayStr();
   var allDates = Object.keys(dailyActual).filter(function(d){ return d <= todayVal; }).sort();
-  var totalReviews = allDates.reduce(function(s,d){ return s + dailyActual[d].length; }, 0);
+  var totalReviews = allDates.reduce(function(s,d){ return s + dailyReview[d].length; }, 0);
 
   // 统计卡片
   function _hmSetStats(total, reviews, streak){
     var t=$('#wbHeatStatTotal'), r=$('#wbHeatStatReviews'), s=$('#wbHeatStatStreak');
     if (t) t.textContent=total; if (r) r.textContent=reviews; if (s) s.textContent=streak;
   }
-  // 连续打卡：今天没学从昨天起算、不清零
+  // 连续打卡：今天没学从昨天起算、不清零（用dailyActual含新录入，只要有学习就算）
   var streak = 0;
   var _cur = new Date(); _cur.setHours(0,0,0,0);
   if ((dailyActual[fmtDate(_cur)]||[]).length === 0) _cur.setDate(_cur.getDate()-1);
@@ -12806,7 +12814,7 @@ function renderWeaknessBoard(p) {
   _hmSetStats(allDates.length, totalReviews, streak);
 
   // 缓存供月份切换重渲染
-  _hmCache = { dailyActual: dailyActual, dailyPlanned: dailyPlanned, p: p, todayVal: todayVal };
+  _hmCache = { dailyActual: dailyActual, dailyReview: dailyReview, dailyPlanned: dailyPlanned, p: p, todayVal: todayVal };
 
   function _hmLevel(n){ if(n<=0)return 0; if(n===1)return 1; if(n<=3)return 2; if(n<=6)return 3; return 4; }
 
@@ -12845,13 +12853,14 @@ function renderWeaknessBoard(p) {
       var dt = new Date(y, m, d);
       var ds = fmtDate(dt);
       var n = (_hmCache.dailyActual[ds]||[]).length;
+      var reviewN = (_hmCache.dailyReview[ds]||[]).length;
       var isFuture = ds > _hmCache.todayVal;
       var isToday = ds === _hmCache.todayVal;
       var lv = isFuture ? 0 : _hmLevel(n);
       var plannedN = (_hmCache.dailyPlanned[ds]||[]).length;
       var hasPlan = plannedN > 0;
       var cls = 'wb-cal-cell hm-' + lv + (isToday?' wb-cal-today':'') + (isFuture?' wb-cal-future':'') + (hasPlan?' wb-cal-has-plan':'');
-      var title = (isFuture ? '未来日期' : (ds + ' 复习' + n + '次')) + (hasPlan ? ' / 计划' + plannedN + '题' : '');
+      var title = (isFuture ? '未来日期' : (ds + ' 学习' + n + '题/复习' + reviewN + '题')) + (hasPlan ? ' / 计划' + plannedN + '题' : '');
       cells.push('<div class="' + cls + '" data-date="' + ds + '" title="' + title + '"><span class="wb-cal-num">' + d + '</span>' + (hasPlan ? '<span class="wb-cal-plan-dot" title="当天有计划复习"></span>' : '') + '</div>');
     }
     while (cells.length < 42) cells.push('<div class="wb-cal-cell wb-cal-empty"></div>');
@@ -12861,7 +12870,7 @@ function renderWeaknessBoard(p) {
     hmEl.querySelectorAll('.wb-cal-cell:not(.wb-cal-empty)').forEach(function(cell){
       cell.addEventListener('click', function(){
         var ds = cell.getAttribute('data-date');
-        _hmShowDetail(ds, _hmCache.dailyActual[ds]||[], _hmCache.dailyPlanned[ds]||[], _hmCache.p);
+        _hmShowDetail(ds, _hmCache.dailyReview[ds]||[], _hmCache.dailyPlanned[ds]||[], _hmCache.p);
       });
     });
   }
@@ -12875,6 +12884,7 @@ function renderWeaknessBoard(p) {
     dateEl.textContent = ds + ' 周' + wd[dt.getDay()];
 
     var isFutureDay = ds > _hmCache.todayVal;
+    var hasStudy = (_hmCache.dailyActual[ds]||[]).length > 0;
     var rateHtml;
     if (isFutureDay) {
       rateHtml = planned.length > 0
@@ -12882,8 +12892,10 @@ function renderWeaknessBoard(p) {
         : '当天无计划任务';
     } else if (actual.length > 0) {
       rateHtml = '实际复习 <b>' + actual.length + '</b> 题';
+    } else if (hasStudy) {
+      rateHtml = '当天有新录入，无复习记录';
     } else {
-      rateHtml = '当天没有复习记录';
+      rateHtml = '当天没有学习记录';
     }
     function itemHtml(it, tag){
       var loc = fmtItemLocator(pRef, it);
@@ -12922,7 +12934,7 @@ function renderWeaknessBoard(p) {
           var tag = g.count>1 ? (uq.join('/')+' ×'+g.count) : (qMap[g.qualities[0]]||g.qualities[0]);
           return itemHtml(g.item, tag);
         }).join('') + '</div>'
-      : '<div class="wb-heat-detail-empty">当天没有复习记录</div>';
+      : '<div class="wb-heat-detail-empty">' + (hasStudy ? '当天只有新录入，没有复习记录' : '当天没有学习记录') + '</div>';
     // 未来复习计划（全部：从明天起所有有计划的日期，按日期升序；今天已在"当天计划复习"展示；间隔重复算法下计划会随复习动态变化）
     var futureDays = [];
     Object.keys(_hmCache.dailyPlanned).forEach(function(d){
