@@ -436,13 +436,15 @@ const StudyTime = {
     // 任务数变化检测：今日未完成任务数变了就重新预估
     var curCount = this._getTodayTaskCount();
     var lastCount = Number(localStorage.getItem(this._key('task_count')));
-    // 额外检查：store里没有任何预估数据时，强制重新预估（防止标记存在但数据丢失）
+    // 额外检查：store里没有任何今日预估数据时，强制重新预估（防止标记存在但数据丢失）
     var hasEstData = false;
     try {
+      var today = todayStr();
       var projs = (store && store.projects) || {};
       Object.keys(projs).forEach(function(pid) {
         var p = projs[pid];
-        if (p && p.todayEstimatedTotalMinutes && Number(p.todayEstimatedTotalMinutes) > 0) hasEstData = true;
+        var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+        if (p && estDate === today && Number(p.todayEstimatedTotalMinutes) > 0) hasEstData = true;
       });
     } catch(e) {}
     if (!force && this._estimatedToday() && lastCount === curCount && hasEstData) return;
@@ -450,15 +452,19 @@ const StudyTime = {
     var wasEstimated = this._estimatedToday();
 
     this._estimating = true;
+    this._estimateStartTime = Date.now();
     this.updateDisplay();
 
     var self = this;
     var estimateOk = false;
     var estCtrl = null;   // 静默预估也挂 AbortController：后端挂死时 120s 主动断开，避免 reader 永久悬挂
     var estTimer = null;
+    var MIN_DISPLAY_MS = 300;  // "估算中"至少显示300ms，避免一闪而过用户看不到
     var finish = function(success) {
       try { if (estTimer) { clearTimeout(estTimer); estTimer = null; } } catch(_){}
-      self._estimating = false;
+      var elapsed = Date.now() - (self._estimateStartTime || 0);
+      var doFinish = function() {
+        self._estimating = false;
       if (success) {
         self._markEstimated();
         localStorage.setItem(self._key('task_count'), String(self._getTodayTaskCount()));
@@ -499,6 +505,12 @@ const StudyTime = {
           self.updateDisplay();
         }
       }, 500);
+      };
+      if (elapsed < MIN_DISPLAY_MS) {
+        setTimeout(doFinish, MIN_DISPLAY_MS - elapsed);
+      } else {
+        doFinish();
+      }
     };
 
     try {
