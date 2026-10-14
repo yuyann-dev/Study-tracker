@@ -640,17 +640,18 @@
       var base = (cu > lu) ? cpx : lp;
       var other = (cu > lu) ? lp : cpx;
       var mergedP = JSON.parse(JSON.stringify(base));
-      if(Array.isArray(base.records) && Array.isArray(other.records)){
-        var have = new Set(base.records.map(function(r){return r.rid;}).filter(Boolean));
-        var extra = other.records.filter(function(r){ return r.rid && !have.has(r.rid) && !(out.tombstones[r.rid]); });
-        if(extra.length){
-          mergedP.records = base.records.concat(extra);
-          mergedP.records.sort(function(a,b){
-            var da = String(a.date||''), db = String(b.date||'');
-            return da < db ? -1 : (da > db ? 1 : 0);
-          });
-          mergedP.updatedAt = Math.max(lu, cu);
-        }
+      // records：按 rid 集合 union（用 || 而非 &&，防止基底无 records 时丢弃另一端的打卡记录）
+      if(Array.isArray(base.records) || Array.isArray(other.records)){
+        var baseRecs = Array.isArray(base.records) ? base.records : [];
+        var otherRecs = Array.isArray(other.records) ? other.records : [];
+        var have = new Set(baseRecs.map(function(r){return r.rid;}).filter(Boolean));
+        var extra = otherRecs.filter(function(r){ return r.rid && !have.has(r.rid) && !(out.tombstones[r.rid]); });
+        mergedP.records = baseRecs.concat(extra);
+        mergedP.records.sort(function(a,b){
+          var da = String(a.date||''), db = String(b.date||'');
+          return da < db ? -1 : (da > db ? 1 : 0);
+        });
+        mergedP.updatedAt = Math.max(lu, cu);
       }
       // items：按 id union + 字段级 LWW（防两端改不同 item 互相覆盖；与后端 mergeProjects 同构）
       if(Array.isArray(base.items) || Array.isArray(other.items)){

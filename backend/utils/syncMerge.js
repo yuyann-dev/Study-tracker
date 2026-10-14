@@ -154,20 +154,22 @@ function mergeProjects(existingProjects, incomingProjects, tombstones) {
     var mergedP = base;
 
     // records：按 rid 集合 union，按日期排序
-    if (Array.isArray(base.records) && Array.isArray(other.records)) {
-      var have = new Set(base.records.map(function (r) { return r.rid; }).filter(Boolean));
+    // 注意：用 || 而非 &&——基底一端可能没有 records 字段（如只改了设置没打卡），
+    // 此时另一端的打卡记录仍需合并进来，否则会丢数据。
+    if (Array.isArray(base.records) || Array.isArray(other.records)) {
+      var baseRecs = Array.isArray(base.records) ? base.records : [];
+      var otherRecs = Array.isArray(other.records) ? other.records : [];
+      var have = new Set(baseRecs.map(function (r) { return r.rid; }).filter(Boolean));
       // 记录无 updatedAt，墓碑即永久抑制（记录不可编辑，删除即终态）
-      var extra = other.records.filter(function (r) {
+      var extra = otherRecs.filter(function (r) {
         return r.rid && !have.has(r.rid) && !(tombstones && tombstones[r.rid]);
       });
-      if (extra.length) {
-        mergedP.records = base.records.concat(extra);
-        mergedP.records.sort(function (x, y) {
-          var dx = String(x.date || ''), dy = String(y.date || '');
-          return dx < dy ? -1 : dx > dy ? 1 : 0;
-        });
-        bumped = true;
-      }
+      mergedP.records = baseRecs.concat(extra);
+      mergedP.records.sort(function (x, y) {
+        var dx = String(x.date || ''), dy = String(y.date || '');
+        return dx < dy ? -1 : dx > dy ? 1 : 0;
+      });
+      bumped = true;
     }
 
     // items：按 id 集合 union + 整对象 LWW（thesis-57，防两端改不同 item 互相覆盖）+ 墓碑过滤
