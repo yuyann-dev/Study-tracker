@@ -400,6 +400,15 @@ const StudyTime = {
 
   /* 计算单条打卡记录的页数 */
   _calcRecordPages: function(r, allRecords, today) {
+    // 只有 endPage 的顺序打卡：pages 字段历史上被硬编码为 1（bug），不可信。
+    // 用 endPage - 之前最近 endPage 计算实际新增页数，保证今日页数/时长统计准确。
+    if (r.endPage != null && r.startPage == null) {
+      var prevEnd = this._findPrevEndPage(allRecords, r, today);
+      if (prevEnd != null && prevEnd < Number(r.endPage)) {
+        return Number(r.endPage) - prevEnd;
+      }
+      return 1;
+    }
     var pages = Number(r.pages);
     if (isFinite(pages) && pages > 0) return pages;
     if (r.startPage != null && r.endPage != null) {

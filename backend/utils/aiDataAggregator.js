@@ -523,7 +523,9 @@ function getPaceSnapshot(p) {
     addCand(7, '每天都学');
     addCand(5, '每周 5 天');
     let onTime = null, alt = null;
-    if (keep.mult <= 1.5) {
+    // 与前端一致：频率偏低（每周<5天）时收紧到 1.25，避免一次打卡拉高 perStudyDayRaw 后方案跳变
+    const keepThreshold = curWk >= 5 ? 1.5 : 1.25;
+    if (keep.mult <= keepThreshold) {
       onTime = keep;
     } else {
       const pool = add.filter(c => c.mult <= MAX_MULT);
