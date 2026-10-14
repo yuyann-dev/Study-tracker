@@ -57,6 +57,20 @@ function dayDiff(a, b) {
   return Math.round((db2 - da) / 86400000);
 }
 
+/** Date → 本地 'YYYY-MM-DD'（不能用 toISOString，UTC+8 下会错位一天） */
+function fmtLocal(d) {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** 'YYYY-MM-DD' 加 n 天（本地时区），返回 'YYYY-MM-DD' */
+function addDaysStr(s, n) {
+  const d = new Date(String(s).slice(0, 10) + 'T00:00:00');
+  d.setDate(d.getDate() + Number(n));
+  return fmtLocal(d);
+}
+
 /** 读取并解析某用户的 store（失败返回 {}） */
 function loadStore(userId) {
   try {
@@ -84,28 +98,157 @@ function findProject(store, projectId) {
 
 // ── 各类型进度计算 ──────────────────────────────────────────────────────────
 
-/**
- * 刷题(exercise)已完成页数：把每条 record 的 [startPage,endPage] 裁剪进
- * [bookStartPage,bookEndPage] 区间后累加（对齐前端 mergeRanges/clipped 口径的简化版）。
- */
-function exerciseDonePages(p) {
-  const recs = Array.isArray(p.records) ? p.records : [];
-  const bStart = Number(p.bookStartPage) || 0;
-  const bEnd = Number(p.bookEndPage) || Number(p.total) || 0;
-  if (bEnd <= bStart) return 0;
-  // 按日期排序，只有 endPage 没有 startPage 时从上一条 endPage+1 开始
-  const sorted = recs.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  let prevEnd = bStart - 1;
-  let done = 0;
-  for (const r of sorted) {
-    let s = Number(r.startPage);
-    if (!isFinite(s) || s <= 0) s = prevEnd + 1;
-    s = Math.max(s, bStart);
-    const e = Math.min(Number(r.endPage) || s, bEnd);
-    if (e > s) done += (e - s);
-    if (e > prevEnd) prevEnd = e;
+// ── 页码区间口径（完整复刻前端 app.js，保证进度数字与界面 100% 一致）────────
+// 任何"已完成页数 / 总页数"都必须走下面这些函数，禁止再用 endPage-startPage 手算，
+// 否则旧记录（无 pages 字段）、重叠/连续打卡、单元范围裁剪都会对不上。
+
+function isSetModeFE(p) { return !!p && p.type === 'exercise' && p.unit === 'set'; }
+
+/** 合并重叠/相邻区间（相邻页 start <= last.end+1 也合并） */
+function mergeRanges(ranges) {
+  const valid = (ranges || []).filter(r => r && Number.isFinite(r.start) && Number.isFinite(r.end) && r.end >= r.start);
+  if (!valid.length) return [];
+  const sorted = valid.slice().sort((a, b) => a.start - b.start);
+  const merged = [{ start: sorted[0].start, end: sorted[0].end }];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    if (sorted[i].start <= last.end + 1) last.end = Math.max(last.end, sorted[i].end);
+    else merged.push({ start: sorted[i].start, end: sorted[i].end });
+  }
+  return merged;
+}
+
+/** 合并后区间的总页数（每段 end-start+1） */
+function countMergedPages(merged) {
+  return (merged || []).reduce((sum, r) => sum + (r.end - r.start + 1), 0);
+}
+function countRanges(rs) { return countMergedPages(rs); }
+
+/** record → 页码区间（与前端 getRecordRange 一致） */
+function getRecordRange(r) {
+  if (r.startPage != null) {
+    const s = Number(r.startPage);
+    const e = r.endPage != null ? Number(r.endPage) : s;
+    return { start: s, end: e };
+  }
+  const end = r.endPage != null ? Number(r.endPage) : (r.page != null ? Number(r.page) : 0);
+  return { start: 1, end };
+}
+
+function getItemPageStart(it) {
+  if (it.pageStart != null) return Number(it.pageStart);
+  if (it.page != null) return Number(it.page);
+  return 0;
+}
+function getItemPageEnd(it) {
+  if (it.pageEnd != null) return Number(it.pageEnd);
+  if (it.pageStart != null) return Number(it.pageStart);
+  if (it.page != null) return Number(it.page);
+  return 0;
+}
+
+/** 目标（要做的）页码范围：单元模式 / 部分页模式 / 整本书（与前端 getTargetPageRanges 一致） */
+function getTargetPageRanges(p) {
+  if (p.unitMode && Array.isArray(p.units) && p.units.length) {
+    const mode = p.unitScopeMode || (p.unitScopeOnly === false ? 'book' : 'all');
+    if (mode === 'leaf' || mode === 'all') {
+      const all = [];
+      const collect = (u) => {
+        const hasChildren = Array.isArray(u.children) && u.children.length;
+        if (mode === 'all' || !hasChildren) {
+          if (u.startPage != null && u.endPage != null && Number(u.endPage) >= Number(u.startPage)) {
+            all.push({ start: Number(u.startPage), end: Number(u.endPage) });
+          }
+        }
+        (u.children || []).forEach(collect);
+      };
+      p.units.forEach(collect);
+      if (all.length) return mergeRanges(all);
+    }
+  }
+  if (p.scopeMode && Array.isArray(p.targetRanges) && p.targetRanges.length) {
+    return mergeRanges(p.targetRanges.map(r => ({ start: Number(r.start), end: Number(r.end) })));
+  }
+  const lo = p.bookStartPage != null ? Number(p.bookStartPage) : 1;
+  const hi = p.bookEndPage != null ? Number(p.bookEndPage) : Number(p.total || 0);
+  if (hi >= lo) return [{ start: lo, end: hi }];
+  return [];
+}
+
+/** 已完成区间：原始区间合并后裁剪到目标范围（与前端 getBookDoneRanges 一致） */
+function getBookDoneRanges(p) {
+  let raw;
+  if (p.type === 'exercise') raw = (p.records || []).map(r => getRecordRange(r));
+  else raw = (p.items || []).map(it => ({ start: getItemPageStart(it), end: getItemPageEnd(it) }));
+  const targets = getTargetPageRanges(p);
+  if (!targets.length) return [];
+  const clipped = [];
+  mergeRanges(raw).forEach(r => {
+    targets.forEach(t => {
+      const s = Math.max(t.start, r.start), e = Math.min(t.end, r.end);
+      if (e >= s) clipped.push({ start: s, end: e });
+    });
+  });
+  return mergeRanges(clipped);
+}
+
+/** 任意区间集合裁剪到目标范围后的页数（与前端 countClippedRanges 一致） */
+function countClippedRanges(ranges, p) {
+  const targets = getTargetPageRanges(p);
+  if (!targets.length) return 0;
+  const clipped = [];
+  mergeRanges(ranges).forEach(r => {
+    targets.forEach(t => {
+      const s = Math.max(t.start, r.start), e = Math.min(t.end, r.end);
+      if (e >= s) clipped.push({ start: s, end: e });
+    });
+  });
+  return countMergedPages(mergeRanges(clipped));
+}
+
+/** 权威"已完成量"：套卷→完成套数；错题→已攻克条数；刷题/背书→区间合并页数（与前端 getCompletedPages 一致） */
+function getCompletedPages(p) {
+  if (isSetModeFE(p)) {
+    return Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
+  }
+  if (p.type === 'mistake') {
+    return (p.items || []).filter(it => it.mastered || it.manualMastered).length;
+  }
+  let done = countRanges(getBookDoneRanges(p));
+  // 背书战略放弃页段计入已完成
+  if (p.type === 'recite' && Array.isArray(p.abandonedRanges)) {
+    p.abandonedRanges.forEach(r => {
+      if (r && Number(r.end) >= Number(r.start)) done += (Number(r.end) - Number(r.start) + 1);
+    });
   }
   return done;
+}
+
+/** 权威"总量"：复刻前端 getMetrics 的 total（单元范围总页数，扣除战略放弃） */
+function getTotalPages(p) {
+  let total;
+  if (p.type === 'mistake') {
+    total = (p.items || []).length;
+  } else if (p.unitMode && Array.isArray(p.units) && p.units.length) {
+    total = countRanges(getTargetPageRanges(p));
+  } else if (p.bookStartPage != null && p.bookEndPage != null) {
+    total = Math.max(0, Number(p.bookEndPage) - Number(p.bookStartPage) + 1);
+  } else {
+    total = Number(p.total) || 0;
+  }
+  if (p.type === 'exercise' && !isSetModeFE(p) && Array.isArray(p.abandonedRanges) && p.abandonedRanges.length) {
+    const ab = mergeRanges(p.abandonedRanges.filter(r => r && Number.isFinite(Number(r.start)) && Number.isFinite(Number(r.end)) && Number(r.end) >= Number(r.start)));
+    total -= countMergedPages(ab);
+  }
+  return Math.max(0, total);
+}
+
+/** 刷题本已完成页数（页码模式），口径 = 前端 getCompletedPages */
+function exerciseDonePages(p) {
+  if (isSetModeFE(p)) {
+    return Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
+  }
+  return getCompletedPages(p);
 }
 
 /** 近 N 天某项目产出量（页数 / 条数） */
@@ -185,8 +328,8 @@ function getActivityPerDay(p) {
   const PRIOR_K = Math.max(0, 7 - Math.min(activeDays, 7));
   let wAll = 0, wActive = 0;
   for (let age = 0; age < windowDays; age++) {
-    const d = new Date(today - age * 86400000);
-    const dateStr = d.toISOString().slice(0, 10);
+    const d = new Date(today.getTime() - age * 86400000);
+    const dateStr = fmtLocal(d);
     const w = Math.pow(0.5, age / ACT_HALF);
     wAll += w;
     if (activeDates.has(dateStr)) wActive += w;
@@ -202,13 +345,223 @@ function nextReviewDay(item, intervals) {
   const n = Array.isArray(item.reviews) ? item.reviews.length : 0;
   let add = 0;
   for (let i = 0; i < n; i++) add += Number(iv[i % iv.length]) || 0;
-  return new Date(learned + add * 86400000).toISOString().slice(0, 10);
+  return fmtLocal(new Date(learned + add * 86400000));
 }
 
 /** 取 item 的下次复习日：优先用前端写入的 nextReviewDate（含自动均衡/分散后的值），没有才按间隔推算 */
 function getItemNextReview(it, intervals) {
   if (it && it.nextReviewDate) return String(it.nextReviewDate).slice(0, 10);
   return nextReviewDay(it, intervals);
+}
+
+/**
+ * 节奏快照（复刻前端 getMetrics 口径）：给 AI 同时提供"目标量 + 历史产能 + 可行性"，
+ * 避免只丢一个失真的 perStudyDay。
+ * 返回：total/done/remaining/daysLeft/confidence/activityPerDay/perStudyDayRaw/
+ *       perStudyDay/ratio/feasibility/activeDays
+ *  - confidence: low(<3学习日) / medium(≥3) / high(≥7且跨2周)
+ *  - low 时 activity 用固定先验 5/7（不被"近期没学"的小样本拉低）
+ *  - feasibility: easy / stretch / impossible（目标相对历史产能）
+ */
+function getPaceSnapshot(p) {
+  const today = todayStr();
+  const isSet = isSetModeFE(p);
+  const total = getTotalPages(p);
+  const done = isSet
+    ? (Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0)
+    : Math.min(getCompletedPages(p), total);
+  const remaining = Math.max(0, total - done);
+  const daysLeft = p.deadline ? dayDiff(today, p.deadline) : null;
+  const daysAvailable = daysLeft != null ? daysLeft + 1 : null;
+  const hasDeadline = daysAvailable != null && daysAvailable > 0;
+
+  // 收集学习日期（exercise→records.date；其余→learnedDate/masteredDate）
+  const dateSet = new Set();
+  if (p.type === 'exercise') {
+    (p.records || []).forEach(r => { if (r.date) dateSet.add(String(r.date).slice(0, 10)); });
+  } else {
+    (p.items || []).forEach(it => {
+      if (it.learnedDate) dateSet.add(String(it.learnedDate).slice(0, 10));
+      if (it.masteredDate) dateSet.add(String(it.masteredDate).slice(0, 10));
+    });
+  }
+  const allDates = Array.from(dateSet).sort();
+
+  // 某日期为止的累计完成量（与前端 getCompletedPagesAtDate 同口径）
+  const cumAt = (d) => {
+    if (isSet) return (p.records || []).filter(r => r.setCompleted && String(r.date).slice(0, 10) <= d).length;
+    if (p.type === 'mistake') {
+      return (p.items || []).filter(it => (it.mastered || it.manualMastered)
+        && String(it.masteredDate || it.learnedDate).slice(0, 10) <= d).length;
+    }
+    let ranges;
+    if (p.type === 'exercise') {
+      ranges = (p.records || []).filter(r => String(r.date).slice(0, 10) <= d).map(getRecordRange);
+    } else {
+      ranges = (p.items || []).filter(it => String(it.learnedDate).slice(0, 10) <= d)
+        .map(it => ({ start: getItemPageStart(it), end: getItemPageEnd(it) }));
+    }
+    return countClippedRanges(ranges, p);
+  };
+
+  // 观察窗口：最近 60 个自然日，且不早于第一条记录
+  const WINDOW_DAYS = 60;
+  const cutoff = addDaysStr(today, -(WINDOW_DAYS - 1));
+  let windowStart = allDates.length ? (allDates[0] > cutoff ? allDates[0] : cutoff) : cutoff;
+  if (windowStart > today) windowStart = today;
+  const inWindow = allDates.filter(d => d >= windowStart && d <= today);
+  const idxOf = {}; allDates.forEach((d, i) => { idxOf[d] = i; });
+  const dailyDelta = inWindow.map(d => {
+    const i = idxOf[d];
+    const prevCum = i > 0 ? cumAt(allDates[i - 1]) : 0;
+    return { date: d, delta: Math.max(0, cumAt(d) - prevCum) };
+  });
+  const activeDays = dailyDelta.filter(x => x.delta > 0).length;
+  const windowDays = Math.max(1, dayDiff(windowStart, today) + 1);
+  const activeSet = new Set(dailyDelta.filter(x => x.delta > 0).map(x => x.date));
+
+  // 活跃率 EWMA（半衰期10天）+ 先验收缩
+  const ACT_HALF = 10;
+  const PRIOR_RATE = 5 / 7;
+  const PRIOR_K = Math.max(0, 7 - Math.min(activeDays, 7));
+  let wAll = 0, wActive = 0;
+  const ewmaDays = allDates.length ? windowDays : 0;
+  for (let age = 0; age < ewmaDays; age++) {
+    const d = addDaysStr(today, -age);
+    const w = Math.pow(0.5, age / ACT_HALF);
+    wAll += w;
+    if (activeSet.has(d)) wActive += w;
+  }
+  const activityPerDay = (wActive + PRIOR_RATE * PRIOR_K) / (wAll + PRIOR_K);
+
+  // 学习日产能 EWMA（半衰期14天）
+  const HALF_LIFE = 14;
+  let wSum = 0, dwSum = 0;
+  dailyDelta.forEach(x => {
+    if (x.delta <= 0) return;
+    const age = Math.max(0, dayDiff(x.date, today));
+    const w = Math.pow(0.5, age / HALF_LIFE);
+    wSum += w; dwSum += w * x.delta;
+  });
+  const perStudyDayRaw = wSum > 0 ? dwSum / wSum : 0;
+
+  // 置信度
+  let confidence = 'low';
+  if (activeDays >= 7 && windowDays >= 14) confidence = 'high';
+  else if (activeDays >= 3) confidence = 'medium';
+  const enoughData = confidence !== 'low';
+
+  // 每个学习日目标（理论值，与前端 getMetrics.perStudyDay 一致）：样本够→真实 activity；样本不足→固定先验 5/7
+  const planDaysAvailable = daysAvailable; // recite 的"新学窗口"在前端另算，这里用考试日总天数（偏保守）
+  let perStudyDay = null;
+  if (remaining > 0 && hasDeadline) {
+    const act = enoughData ? activityPerDay : (5 / 7);
+    perStudyDay = remaining / Math.max(0.5, planDaysAvailable * act);
+  }
+
+  // 产能波动区间（复刻前端分位数）
+  const activeVals = dailyDelta.filter(x => x.delta > 0).map(x => x.delta).sort((a, b) => a - b);
+  const quantile = (arr, q) => {
+    if (!arr.length) return null;
+    const pos = (arr.length - 1) * q, b = Math.floor(pos), r = pos - b;
+    return arr[b + 1] != null ? arr[b] + r * (arr[b + 1] - arr[b]) : arr[b];
+  };
+  let rateHigh = null, rateLow = null;
+  if (confidence === 'high' && activeVals.length >= 7) {
+    rateHigh = Math.max(quantile(activeVals, 0.75), perStudyDayRaw * 1.08);
+    rateLow = Math.min(quantile(activeVals, 0.25), perStudyDayRaw * 0.92);
+  } else if (enoughData && activeVals.length >= 3) {
+    rateHigh = perStudyDayRaw * 1.3;
+    rateLow = perStudyDayRaw * 0.7;
+  }
+  const natRateHigh = activityPerDay * (rateHigh || 0);
+  const natRateLow = activityPerDay * (rateLow || 0);
+
+  // 近 7 天势头（只上抬）
+  let momentumNatRate = null, momentumDays = 0;
+  if (remaining > 0) {
+    const deltaByDate = {};
+    dailyDelta.forEach(x => { deltaByDate[x.date] = x.delta; });
+    let mActive = 0, mTotal = 0;
+    for (let o = 0; o < 7; o++) {
+      const dl = deltaByDate[addDaysStr(today, -o)] || 0;
+      if (dl > 0) { mActive++; mTotal += dl; }
+    }
+    momentumDays = mActive;
+    if (mActive >= 3) momentumNatRate = (mActive / 7) * (mTotal / mActive);
+  }
+
+  // 可行性（复刻前端：用乐观/保守产能所需自然日与可用天数比较）
+  let feasibility = null, ratio = null;
+  if (enoughData && remaining > 0 && hasDeadline && perStudyDayRaw > 0) {
+    ratio = perStudyDay / perStudyDayRaw;
+    const effectiveHigh = momentumNatRate != null ? Math.max(natRateHigh || 0, momentumNatRate) : natRateHigh;
+    const daysNeededEarly = effectiveHigh > 0 ? remaining / effectiveHigh : Infinity;
+    const daysNeededLate = natRateLow > 0 ? remaining / natRateLow : Infinity;
+    if (daysNeededLate <= planDaysAvailable) feasibility = 'easy';
+    else if (daysNeededEarly > planDaysAvailable) feasibility = confidence === 'high' ? 'impossible' : 'stretch';
+    else feasibility = 'stretch';
+  }
+
+  // 面板"每个学习日需做"（复刻 getDailyTarget + getCatchUpPlan）：stretch/impossible 用最省力按期方案
+  let panelPerDay = null, panelWeeklyDays = null, panelTag = null, panelHeavy = false, delayDate = null;
+  if (remaining <= 0) {
+    panelPerDay = 0;
+  } else if ((feasibility === 'stretch' || feasibility === 'impossible') && perStudyDayRaw > 0) {
+    const curWk = Math.max(1, Math.round(activityPerDay * 7));
+    const curRate = perStudyDayRaw;
+    const MAX_MULT = 2.5;
+    const perFor = (wk) => remaining / (planDaysAvailable * wk / 7);
+    const keep = { wk: curWk, tag: `保持每周 ${curWk} 天`, per: perFor(curWk), mult: perFor(curWk) / curRate };
+    const add = [];
+    const addCand = (wk, tag) => {
+      if (wk <= curWk || wk > 7) return;
+      const per = perFor(wk);
+      if (per <= curRate * MAX_MULT) add.push({ wk, tag, per, mult: per / curRate });
+    };
+    addCand(6, '每周 6 天');
+    addCand(7, '每天都学');
+    addCand(5, '每周 5 天');
+    let onTime = null, alt = null;
+    if (keep.mult <= 1.5) {
+      onTime = keep;
+    } else {
+      const pool = add.filter(c => c.mult <= MAX_MULT);
+      if (pool.length) {
+        pool.sort((a, b) => (a.mult + (a.wk === 6 ? -0.12 : 0)) - (b.mult + (b.wk === 6 ? -0.12 : 0)));
+        onTime = pool[0]; alt = pool[1] || null;
+      }
+      if (!onTime && keep.mult <= 3) onTime = keep;
+      if (onTime && !alt && keep.mult <= MAX_MULT && onTime.wk !== curWk) alt = keep;
+    }
+    if (!onTime) {
+      const per = perFor(7);
+      onTime = { wk: 7, tag: '每天都学（冲刺）', per, mult: per / curRate, heavy: true };
+    }
+    const dwk = Math.max(curWk, 6);
+    delayDate = addDaysStr(today, Math.ceil(remaining / (curRate * dwk / 7)));
+    panelPerDay = onTime.per; panelWeeklyDays = onTime.wk; panelTag = onTime.tag; panelHeavy = !!onTime.heavy;
+  } else {
+    panelPerDay = perStudyDay;
+    panelWeeklyDays = enoughData ? Math.round(activityPerDay * 7) : 5;
+  }
+
+  return {
+    total, done, remaining,
+    daysLeft: daysLeft == null ? null : daysLeft,
+    confidence,
+    activeDays,
+    activityPerDay: r1(activityPerDay),
+    perStudyDayRaw: r1(perStudyDayRaw),
+    perStudyDay: perStudyDay == null ? null : r1(perStudyDay),
+    ratio: ratio == null ? null : r1(ratio),
+    feasibility,
+    panelPerDay: panelPerDay == null ? null : r1(panelPerDay),
+    panelWeeklyDays,
+    panelTag,
+    panelHeavy,
+    delayDate,
+  };
 }
 
 /** 汇总单项目进度（通用）。summary=true 时只返回一级单元摘要，用于控制 token */
@@ -245,31 +598,31 @@ function projectStats(p, summary) {
       total = (Array.isArray(p.units) && p.units.length) ? p.units.length : (Number(p.total) || 0);
       done = Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
     } else {
-      // 页码模式
-      const bStart = Number(p.bookStartPage) || 0;
-      const bEnd = Number(p.bookEndPage) || Number(p.total) || 0;
-      total = Math.max(bEnd - bStart, 0);
-      done = Math.min(exerciseDonePages(p), total);
+      // 页码模式：total/done 与前端 getMetrics 完全同口径（单元范围合并、战略放弃、区间去重）
+      total = getTotalPages(p);
+      done = Math.min(getCompletedPages(p), total);
     }
     s.total = r1(total);
     s.done = r1(done);
     s.completionRate = total > 0 ? r1((done / total) * 100) : 0;
     s.recent7Rate = r1(recentOutput(p, 7) / 7);
     const remain = Math.max(total - done, 0);
-    // [AI数据对齐] 优先读取前端计算并保存的 perStudyDay（与界面右下角面板"每个学习日需做"完全一致），
-    // 不存在时用后端简化计算兜底（学习日 = 自然日 × 学习日比例）
-    let perStudyDay = Number(p.perStudyDay) || 0;
-    if (perStudyDay <= 0) {
-      const activityPerDay = getActivityPerDay(p);
-      const studyDaysRemaining = daysLeft > 0 ? Math.max(0.5, daysLeft * activityPerDay) : 0;
-      perStudyDay = studyDaysRemaining > 0 ? remain / studyDaysRemaining : 0;
-      s.activityPerDay = r1(activityPerDay);
-      s.studyDaysRemaining = r1(studyDaysRemaining);
-    } else {
-      s.perStudyDaySource = 'frontend';
-    }
-    s.requiredRate = r1(perStudyDay);
+    // 节奏：权威取右下角面板显示值（getDailyTarget 口径），保证 AI 说的"今天排X页"与面板完全一致
+    const pace = getPaceSnapshot(p);
+    let perStudyDay = pace.panelPerDay != null ? pace.panelPerDay : (Number(p.perStudyDay) || 0);
     s.perStudyDay = r1(perStudyDay);
+    s.requiredRate = r1(perStudyDay);
+    // 追赶方案上下文：建议每周学习天数 / 方案说明 / 是否硬撑 / 延期兜底完成日
+    s.weeklyDays = pace.panelWeeklyDays;
+    s.planTag = pace.panelTag;
+    s.planHeavy = pace.panelHeavy;
+    s.delayDate = pace.delayDate;
+    // 历史产能/置信度/可行性，AI 才能判断目标是否现实，而不是硬塞一个失真数字
+    s.confidence = pace.confidence;
+    s.feasibility = pace.feasibility;
+    s.activityPerDay = pace.activityPerDay;
+    s.perStudyDayRaw = pace.perStudyDayRaw;
+    s.ratio = pace.ratio;
     s.gap = s.requiredRate > 0 ? r1((s.recent7Rate - s.requiredRate) / s.requiredRate * 100) : 0;
     s.totalSets = isSetMode ? total : null;
     s.doneSets = isSetMode ? done : null;
@@ -278,7 +631,7 @@ function projectStats(p, summary) {
     s.todayReviewed = getTodayReviewedCount(p);
     if (!isSetMode && Array.isArray(p.units) && p.units.length) {
       const uc = getUnitCompletion(p);
-      s.unitCompletion = summary ? uc.slice(0, 10).map(u => ({ unit: u.unit, completion: u.completion, total: u.total, done: u.done })) : uc;
+      s.unitCompletion = summary ? uc.slice(0, 10) : uc;
     }
     if (isSetMode) {
       // 套卷模式：返回套卷名和各sections完成情况
@@ -378,36 +731,38 @@ function projectStats(p, summary) {
 // ── 章节级分析（刷题本完成率 + 错题分布 + 薄弱判断）──────────────────────────
 
 /** 计算刷题本各单元的完成率（按页码范围统计已完成页数） */
+/** 已合并区间与 [s,e] 的交集页数 */
+function _countOverlap(mergedRanges, s, e) {
+  let n = 0;
+  mergedRanges.forEach(r => {
+    const cs = Math.max(r.start, s), ce = Math.min(r.end, e);
+    if (ce >= cs) n += ce - cs + 1;
+  });
+  return n;
+}
+
 function getUnitCompletion(p) {
   if (!p || !Array.isArray(p.units) || !p.units.length) return [];
-  const recs = Array.isArray(p.records) ? p.records : [];
-  // 把所有 record 的页码范围合并成已完成页集合
-  const donePages = new Set();
-  for (const r of recs) {
-    const s = Number(r.startPage) || 1;
-    const e = Number(r.endPage) || s;
-    for (let pg = s; pg <= e; pg++) donePages.add(pg);
-  }
+  // 用裁剪到目标范围后的已完成区间（与前端 renderBookBreakdown 一致），避免把 target 外的页算进父章节
+  const doneMerged = isSetModeFE(p) ? [] : getBookDoneRanges(p);
+  const one = (node) => {
+    const s = Number(node.startPage), e = Number(node.endPage);
+    const total = e >= s ? e - s + 1 : 0;
+    const done = total ? _countOverlap(doneMerged, s, e) : 0;
+    return { total, done };
+  };
   return p.units.map(u => {
-    const s = Number(u.startPage) || 0;
-    const e = Number(u.endPage) || 0;
-    const total = Math.max(e - s + 1, 0);
-    let done = 0;
-    for (let pg = s; pg <= e; pg++) if (donePages.has(pg)) done++;
+    const r = one(u);
     return {
-      name: u.name,
-      startPage: s,
-      endPage: e,
-      totalPages: total,
-      donePages: done,
-      completionRate: total > 0 ? r1(done / total * 100) : 0,
+      unit: u.name,
+      startPage: Number(u.startPage) || 0,
+      endPage: Number(u.endPage) || 0,
+      total: r.total,
+      done: r.done,
+      completion: r.total > 0 ? r1(r.done / r.total * 100) : 0,
       children: Array.isArray(u.children) ? u.children.map(c => {
-        const cs = Number(c.startPage) || 0;
-        const ce = Number(c.endPage) || 0;
-        const ctotal = Math.max(ce - cs + 1, 0);
-        let cdone = 0;
-        for (let pg = cs; pg <= ce; pg++) if (donePages.has(pg)) cdone++;
-        return { name: c.name, startPage: cs, endPage: ce, totalPages: ctotal, donePages: cdone, completionRate: ctotal > 0 ? r1(cdone / ctotal * 100) : 0 };
+        const cr = one(c);
+        return { unit: c.name, startPage: Number(c.startPage) || 0, endPage: Number(c.endPage) || 0, total: cr.total, done: cr.done, completion: cr.total > 0 ? r1(cr.done / cr.total * 100) : 0 };
       }) : [],
     };
   });
@@ -695,6 +1050,40 @@ function getMistakeReport(userId, projectIdOrIds) {
 
   const totalItems = mistakeProjects.reduce((sum, mp) => sum + (Array.isArray(mp.items) ? mp.items.length : 0), 0);
 
+  // ===== 今日切片：区分"今天新录入 / 今天复习"与历史累计，避免 AI 把历史错因当成今天 =====
+  const today = todayStr();
+  const todayAdded = [];
+  const todayReviewed = [];
+  for (const mp of mistakeProjects) {
+    const items = Array.isArray(mp.items) ? mp.items : [];
+    for (const it of items) {
+      const isAddedToday = it.learnedDate && String(it.learnedDate).slice(0, 10) === today;
+      if (isAddedToday) {
+        todayAdded.push({
+          book: mp.name, content: cut40(it.content),
+          errTags: Array.isArray(it.errTags) ? it.errTags : [],
+          quality: it.quality || null,
+        });
+      }
+      const todayRvs = (Array.isArray(it.reviews) ? it.reviews : [])
+        .filter(r => r.date && String(r.date).slice(0, 10) === today);
+      if (todayRvs.length) {
+        todayReviewed.push({
+          book: mp.name, content: cut40(it.content),
+          results: todayRvs.map(r => r.result || r.quality || null),
+          errTags: Array.isArray(it.errTags) ? it.errTags : [],
+          isAddedToday,
+        });
+      }
+    }
+  }
+  const todayAddedErrTagDist = {};
+  todayAdded.forEach(x => x.errTags.forEach(t => { todayAddedErrTagDist[t] = (todayAddedErrTagDist[t] || 0) + 1; }));
+  const todayReviewResultDist = {};
+  todayReviewed.forEach(x => x.results.forEach(r => {
+    if (r) todayReviewResultDist[String(r)] = (todayReviewResultDist[String(r)] || 0) + 1;
+  }));
+
   // 章节聚类汇总
   const unitSummary = Object.keys(unitClusters).map((name) => {
     const arr = unitClusters[name];
@@ -725,6 +1114,15 @@ function getMistakeReport(userId, projectIdOrIds) {
     bookCount: mistakeProjects.length,
     bookNames: mistakeProjects.map((x) => x.name),
     errTagDist,
+    errTagDistScope: '累计（全部错题的历史分布，不代表今天；问"今天"请用 today 字段）',
+    today: {
+      addedCount: todayAdded.length,
+      addedErrTagDist: todayAddedErrTagDist,
+      reviewedCount: todayReviewed.length,
+      reviewResultDist: todayReviewResultDist,
+      added: todayAdded.slice(0, 20),
+      reviewed: todayReviewed.slice(0, 20),
+    },
     byUnit: unitSummary,
     byQuestionType: typeClusters,
     semanticTop: Object.entries(semanticClusters).sort((a, b) => b[1] - a[1]).slice(0, 10),
@@ -913,6 +1311,7 @@ function getTodayPlan(userId, budgetMin) {
       blocks.push({
         projectId: s.id, name: s.name, kind: 'exercise',
         units: todayUnits, minutesPerUnit: mpu,
+        unit: s.isSetMode ? '套' : '页',
         gap: s.gap, priority: s.gap < -40 ? 'P0' : s.gap < -20 ? 'P1' : 'P2',
       });
     } else if (s.type === 'recite' && s.dueToday > 0) {
