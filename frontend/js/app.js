@@ -5145,7 +5145,11 @@ function getCatchUpPlan(p, m) {
   addCand(7, '每天都学');
   addCand(5, '每周 5 天');
 
-  if (keep.mult <= 1.5) {
+  // 保持当前频率的阈值：频率正常（每周≥5天）时 1.5 倍以内算"稍微多做一点"；
+  // 频率偏低（每周<5天）时收紧到 1.25——低频下硬加量比提频率更难坚持，
+  // 避免一次打卡拉高 perStudyDayRaw 后刚好跨过 1.5 导致方案从"每周6天"跳变到"每周2天"。
+  const keepThreshold = curWk >= 5 ? 1.5 : 1.25;
+  if (keep.mult <= keepThreshold) {
     // 缺口小：保持现有频率、每次稍微多做一点即可，不必改频率
     out.onTime = keep;
     out.alt = null;
