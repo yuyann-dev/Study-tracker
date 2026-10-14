@@ -8940,7 +8940,7 @@ function renderReview(p) {
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
     // 反复错（连续 2 次及以上"又错了"）：标为"关键薄弱点"，把挫败感转成"考前最该拿下的重点"
     const weakKeyHtml = (p.type === 'mistake' && !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2)
-      ? `<span class="weak-key-tag">${svgIcon('key')} 关键薄弱点</span>` : '';
+      ? `<span class="weak-key-tag">${svgIcon('key', 12)} 关键薄弱点</span>` : '';
     // 本轮没做对被打回：用极简计数体现"已重做几次"，做对即进下一轮（错题/背书通用）
     const ws = it.wrongStreak || 0;
     const retryHtml = ws >= 1 ? ` <span class="retry-cnt" title="本轮已重做 ${ws} 次 · 做对后进入下一轮">${svgIcon('refresh-cw', 11)} ${ws}</span>` : '';
