@@ -5893,6 +5893,17 @@ let _toastClickHandler = null;
 document.addEventListener('DOMContentLoaded', () => {
   const t = document.getElementById('toast');
   if (t) t.addEventListener('click', () => { if (_toastClickHandler) { const fn = _toastClickHandler; _toastClickHandler = null; fn(); } });
+  // 全局遮罩点击关闭：点击 .mask 空白区域关闭弹窗（确认类弹窗除外，避免误操作丢数据）
+  const NON_DISMISSIBLE = ['confirmMask', 'confirmMasterMask', 'genericConfirmMask',
+    'modeSwitchConfirmMask', 'randomReviewConfirmMask', 'delAcctMask', 'banMask', 'resetPwMask'];
+  document.querySelectorAll('.mask').forEach(mask => {
+    if (NON_DISMISSIBLE.includes(mask.id)) return;
+    mask.addEventListener('click', e => {
+      if (e.target !== mask) return; // 只响应点击遮罩本身，不响应子元素
+      mask.hidden = true;
+      try { unlockBodyScroll(); } catch (err) {}
+    });
+  });
 });
 /* ux-16：内联校验 helper——字段红边框 + 字段下红字，替代原生 alert()。
    错误节点挂在输入框的直接父容器下；输入时即清除（ux-26：只动轻量样式，不全量 render）。 */
