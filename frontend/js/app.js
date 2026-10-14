@@ -5177,7 +5177,11 @@ function getCatchUpPlan(p, m) {
       out.alt = pool[1] || null;
     }
     // 保持频率就能在 3 倍内追上（强度大但数学上可行）时，作为首选/备选
-    if (!out.onTime && keep.mult <= 3) out.onTime = keep;
+    // 超过 MAX_MULT(2.5倍) 时标注 heavy，避免面板显示"可按期完成"但实际强度很大误导用户
+    if (!out.onTime && keep.mult <= 3) {
+      out.onTime = keep;
+      if (keep.mult > MAX_MULT) out.onTime.heavy = true;
+    }
     if (out.onTime && !out.alt && keep.mult <= MAX_MULT && out.onTime.wk !== curWk) out.alt = keep;
   }
   // 无任何可行按期方案：给"每天都学"的硬路径，并如实标注强度，让卡片去引导延期

@@ -533,7 +533,10 @@ function getPaceSnapshot(p) {
         pool.sort((a, b) => (a.mult + (a.wk === 6 ? -0.12 : 0)) - (b.mult + (b.wk === 6 ? -0.12 : 0)));
         onTime = pool[0]; alt = pool[1] || null;
       }
-      if (!onTime && keep.mult <= 3) onTime = keep;
+      if (!onTime && keep.mult <= 3) {
+        onTime = keep;
+        if (keep.mult > MAX_MULT) onTime.heavy = true; // 超过2.5倍标注硬路径，避免AI说可按期完成但实际强度很大
+      }
       if (onTime && !alt && keep.mult <= MAX_MULT && onTime.wk !== curWk) alt = keep;
     }
     if (!onTime) {
