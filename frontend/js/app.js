@@ -4281,17 +4281,6 @@ function ensureAtLeastOneReview(p) {
     if (!it.nextReviewDate) { it.nextReviewDate = today < p.deadline ? addDays(today, 1) : p.deadline; changed++; }
     else if (it.nextReviewDate > p.deadline) { it.nextReviewDate = p.deadline; changed++; }
   });
-  // 修复：做错后尚未做对（wrongStreak>0）但被 autoBalance 错误分散到未来的题，拉回今天重做。
-  // 间隔重复核心是"做错后尽快重做"，推迟3-4天会严重影响记忆效果。
-  (p.items || []).forEach(it => {
-    if (it.mastered || it.manualMastered) return;
-    if ((it.wrongStreak || 0) > 0 && it.nextReviewDate && it.nextReviewDate > today) {
-      it.nextReviewDate = today;
-      it.earlyReviewed = false;
-      it.originalNextReviewDate = null;
-      changed++;
-    }
-  });
   if (changed > 0) p.updatedAt = Date.now();
   return changed;
 }
@@ -4353,9 +4342,6 @@ function autoBalanceIfNeeded(p) {
 function canBeSpread(it, p) {
   if (it.spreadCount >= 3) return false; // 被分散过3次，不能再推
   if (!it.nextReviewDate) return false;
-  // 做错后尚未做对（wrongStreak>0）且已到期的题：间隔重复核心是"做错后尽快重做"，
-  // 不能被 autoBalance 分散到未来，否则记忆效果大打折扣。强制留今天。
-  if ((it.wrongStreak || 0) > 0 && it.nextReviewDate <= todayStr()) return false;
   const intervals = p ? getItemIntervals(it, p) : (it.customIntervals || DEFAULT_INTERVALS);
   const stage = it.stage || 0;
   const maxGap = (intervals[Math.min(stage, intervals.length - 1)] || 1) * 2;
