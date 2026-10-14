@@ -8953,7 +8953,8 @@ function renderReview(p) {
     const errTagHtml = (it.errTags || []).map(reasonPill).join(' ');
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
     // 关键薄弱点：一旦连续错2次及以上就永久标记（错题/背书通用），把挫败感转成"考前最该拿下的重点"
-    const weakKeyHtml = (it.everWeakKey && !it.mastered && !it.manualMastered)
+    // 兼容旧数据：everWeakKey 为空但 wrongStreak >= 2 时也显示，并在下次复习时永久标记
+    const weakKeyHtml = ((it.everWeakKey || (it.wrongStreak || 0) >= 2) && !it.mastered && !it.manualMastered)
       ? `<span class="weak-key-tag">${svgIcon('key', 12)} 关键薄弱点</span>` : '';
     // 本轮没做对被打回：用极简计数体现"已重做几次"，做对即进下一轮（错题/背书通用）
     const ws = it.wrongStreak || 0;
@@ -12933,9 +12934,13 @@ function renderWeaknessBoard(p) {
           return '<div class="hd-future-day"><span class="hd-future-date">' + fd.date + '</span><span class="hd-future-count">' + fd.count + '题</span><span class="hd-future-preview">' + fd.preview + '</span></div>';
         }).join('') + '</div></div>'
       : '';
+    // 历史日期计划数据可能已随复习动态变化（无法还原当时计划），此时不显示"当天计划复习"部分
+    var plannedSection = (isFutureDay || planned.length > 0)
+      ? '<div class="wb-heat-detail-section"><h4>' + svgIcon('clipboard-list') + ' 当天计划复习</h4>' + plannedHtml + '</div>'
+      : '';
     bodyEl.innerHTML =
       '<div class="wb-heat-detail-rate">' + rateHtml + '</div>' +
-      '<div class="wb-heat-detail-section"><h4>' + svgIcon('clipboard-list') + ' 当天计划复习</h4>' + plannedHtml + '</div>' +
+      plannedSection +
       '<div class="wb-heat-detail-section"><h4>' + svgIcon('check-circle') + ' 当天实际复习</h4>' + actualHtml + '</div>' +
       futureHtml;
     detailEl.hidden = false;
@@ -13001,7 +13006,7 @@ function renderWeaknessBoard(p) {
   if (filter === 'weak') {
     filtered = filtered.filter(({ it, score }) => !isMastered(it) && score !== null && score < weakThreshold);
   } else if (filter === 'weakkey') {
-    filtered = filtered.filter(({ it }) => it.everWeakKey && !isMastered(it));
+    filtered = filtered.filter(({ it }) => (it.everWeakKey || (it.wrongStreak || 0) >= 2) && !isMastered(it));
   } else if (filter === 'due') {
     filtered = filtered.filter(({ it }) => !isMastered(it) && it.nextReviewDate && it.nextReviewDate <= today);
   } else if (filter === 'unreviewed') {
@@ -15999,7 +16004,7 @@ $('#btnRandomWeakKey').addEventListener('click', () => {
   if (!p) return;
   _randomReviewSource = 'weakkey';
   const isMistake = p.type === 'mistake';
-  const weakKeys = (p.items || []).filter(it => it.everWeakKey && !it.mastered && !it.manualMastered);
+  const weakKeys = (p.items || []).filter(it => (it.everWeakKey || (it.wrongStreak || 0) >= 2) && !it.mastered && !it.manualMastered);
   if (weakKeys.length < 1) {
     showToast('' + svgIcon('key') + '', '还没有关键薄弱点', '连续做错2次及以上的题目会标记为关键薄弱点', 3000);
     return;
@@ -16075,7 +16080,7 @@ $('#randomReviewConfirmOk').addEventListener('click', () => {
   let sourceLabel = '';
   if (_randomReviewSource === 'weakkey') {
     // 关键薄弱点：只把nextReviewDate设为今天，不重置stage（保留复习进度）
-    const weakKeys = (p.items || []).filter(it => it.everWeakKey && !it.mastered && !it.manualMastered);
+    const weakKeys = (p.items || []).filter(it => (it.everWeakKey || (it.wrongStreak || 0) >= 2) && !it.mastered && !it.manualMastered);
     const n = Math.min(5, weakKeys.length);
     const shuffled = [...weakKeys].sort(() => Math.random() - 0.5);
     picked = shuffled.slice(0, n);
