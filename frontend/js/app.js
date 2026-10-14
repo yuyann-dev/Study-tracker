@@ -8917,13 +8917,18 @@ function renderReview(p) {
     if (aOver !== bOver) return bOver - aOver;
     const dateCmp = a.nextReviewDate.localeCompare(b.nextReviewDate);
     if (dateCmp !== 0) return dateCmp;
-    // 同一天到期：背书按书页顺序聚簇（同章节相邻、顺着书背，避免"3-5页、1-2页"的页码跳跃混乱）；
-    // 错题无页码顺序，按薄弱程度（分数低=更弱）先做。
-    if (p.type === 'recite') {
-      const ps = (a.pageStart ?? 0) - (b.pageStart ?? 0);
-      if (ps !== 0) return ps;
-      return (a.pageEnd ?? 0) - (b.pageEnd ?? 0);
+    // 同一天到期：错题和背书统一按书页顺序聚簇（同章节相邻、顺着书翻，避免页码跳跃来回翻）；
+    // 同一页码按录入时间（learnedDate）排序，录入早的先做；无页码时兜底按薄弱程度。
+    const aPs = a.pageStart ?? 0, bPs = b.pageStart ?? 0;
+    if (aPs !== bPs) return aPs - bPs;
+    const aPe = a.pageEnd ?? 0, bPe = b.pageEnd ?? 0;
+    if (aPe !== bPe) return aPe - bPe;
+    // 同一页码：按录入时间排序（learnedDate 早的先做）
+    if (a.learnedDate && b.learnedDate) {
+      const ldCmp = a.learnedDate.localeCompare(b.learnedDate);
+      if (ldCmp !== 0) return ldCmp;
     }
+    // 兜底：无页码或同页码同录入时间时，按薄弱程度（分数低=更弱）先做
     const sa = getItemScore(a) ?? 0.5, sb = getItemScore(b) ?? 0.5;
     if (sa !== sb) return sa - sb;
     return (a.stage || 0) - (b.stage || 0);
