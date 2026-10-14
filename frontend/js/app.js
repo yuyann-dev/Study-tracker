@@ -2563,7 +2563,13 @@ function getMetrics(p) {
     + '|' + (p.unitMode ? 1 : 0) + '|' + (p.reviewMode || '')
     // [v2 exercise] 舒适量/模式/战略放弃范围参与缓存签名，改设置后立刻重算
     + '|' + (p.exerciseMode || '') + '|' + (p.dailyComfort || '') + '|' + (p.sprintPauseNewPages ? 1 : 0)
-    + '|' + JSON.stringify(p.abandonedRanges || []) + '|' + JSON.stringify(p.abandonedSets || []);
+    + '|' + JSON.stringify(p.abandonedRanges || []) + '|' + JSON.stringify(p.abandonedSets || [])
+    // [排期审查补全] 以下字段影响容量/可行性/排期，修改后必须重算
+    + '|' + (p.dailyCapacity != null ? p.dailyCapacity : '') + '|' + (p.spreadThreshold || '')
+    + '|' + (p.reciteMode || '') + '|' + (p.comfortAsHardCap ? 1 : 0)
+    + '|' + (p.pauseNewLearning ? 1 : 0) + '|' + (p.newLearnCap != null ? p.newLearnCap : '')
+    + '|' + (p.lowFreqExtended ? 1 : 0) + '|' + (p.sprintCap || '') + '|' + (p.sprintEndDate || '')
+    + '|' + (p.startDate || '') + '|' + JSON.stringify(p.units || []);
   if (_metricsCache[cacheKey] && _metricsCache[cacheKey].sig === dataSig) {
     return _metricsCache[cacheKey].result;
   }
@@ -3137,11 +3143,11 @@ function spreadItems(p, items, days) {
         best = { col, ratio, dist };
       }
     }
-    // 第二轮：窗口全满 → 选绝对负载最低的，并列选最远（保护近期，把溢出推到远端）
+    // 第二轮：窗口全满 → 选绝对负载最低的，并列选最近（避免把溢出推到远端造成前松后紧）
     if (!best) {
       let col = days_[0];
       for (const c of days_) {
-        if (c.load < col.load || (c.load === col.load && c.date > col.date)) col = c;
+        if (c.load < col.load || (c.load === col.load && c.date < col.date)) col = c;
       }
       best = { col };
     }
@@ -3331,7 +3337,7 @@ function getDeadlineLevelCap(p, date) {
       const unlearnedItems = unlearnedPages / avgPages;
       const newWindowDays = Math.max(1, diffDays(today, newLearnEnd) + 1);
       const newStudyDays = Math.max(1, newWindowDays * ratio);
-      newCap = unlearnedItems / newStudyDays;
+      newCap = unlearnedItems / newStudyDays * 0.9; // 与 reviewCap 同口径，留缓冲避免卡极限
     }
   }
   const need = reviewNeed;
@@ -3938,7 +3944,7 @@ function findAvailableDate(p, baseDate, opts) {
     }
     if (!best.fallback
       || ratio < best.fallback.ratio - 1e-9
-      || (Math.abs(ratio - best.fallback.ratio) < 1e-9 && offset > best.fallback.offset)) {
+      || (Math.abs(ratio - best.fallback.ratio) < 1e-9 && offset < best.fallback.offset)) {
       best.fallback = { d, ratio, offset };
     }
     return best;
