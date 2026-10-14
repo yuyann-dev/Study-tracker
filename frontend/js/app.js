@@ -3537,7 +3537,7 @@ function renderComfortAdvice(p) {
       parts.push(`<div style="margin-bottom:6px">${svgIcon('bar-chart-3')} 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort}) = <b>${daily}</b> 条。</div>`);
     }
   }
-  parts.push(`<div style="color:var(--muted);font-size:12px">${svgIcon('lightbulb')} 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议，这里不用手动猜。</div>`);
+  parts.push(`<div style="color:var(--muted);font-size:12px">${svgIcon('lightbulb')} 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议。</div>`);
   // [v3 P0-A6] 固定模式早期容量校准：连续14天轻松完成
   // recite 跳过此逻辑，节奏建议统一走 renderReciteComfortAdvice
   if (p.type !== 'recite' && p.dailyCapacity != null && (!p.capAdviceMutedUntil || p.capAdviceMutedUntil < today)) {
