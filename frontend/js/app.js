@@ -4554,6 +4554,18 @@ function recomputeItemMastery(item, p) {
   item.wrongStreak = wrongStreak;
   item.spreadCount = 0; // 重算后清零分散次数
   item.earlyReviewed = false;
+  // 关键薄弱点永久标记：重算时如果历史上曾经连续错2次及以上，保留标记
+  if (!item.everWeakKey) {
+    let _ws = 0;
+    for (let _i = 0; _i < reviews.length; _i++) {
+      if (reviews[_i].quality === 'forgot' || reviews[_i].quality === 'fail') {
+        _ws++;
+        if (_ws >= 2) { item.everWeakKey = true; break; }
+      } else {
+        _ws = 0;
+      }
+    }
+  }
   // 判断是否掌握：最后一轮 + 满3次 + 最近3次全对（最后一次必须是 good）才直接标记（后台重算不弹窗）
   const isLastRound = stage >= intervals.length - 1;
   const recent = reviews.slice(-3);
@@ -4589,6 +4601,8 @@ function applyReview(item, quality, p, note) {
   const tr = transitionReview(intervals, item.stage || 0, item.wrongStreak || 0, quality, isFirstLearn, p.lapseRollback);
   const newStage = tr.stage;
   item.wrongStreak = tr.wrongStreak;
+  // 关键薄弱点永久标记：一旦连续错2次及以上，永久打上标记（即使后来连续做对也保留）
+  if (item.wrongStreak >= 2) item.everWeakKey = true;
 
   const review = { date: today, quality, stage: isFirstLearn ? 0 : newStage };
   if (note && note.trim()) review.note = note.trim().slice(0, 60);
@@ -8938,8 +8952,8 @@ function renderReview(p) {
       ? `<span class="pull-fwd-tag" title="原定于 ${it.originalNextReviewDate}，为赶进度提前到今天">${svgIcon('zap')}提前</span>` : '';
     const errTagHtml = (it.errTags || []).map(reasonPill).join(' ');
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
-    // 反复错（连续 2 次及以上"又错了"）：标为"关键薄弱点"，把挫败感转成"考前最该拿下的重点"
-    const weakKeyHtml = (p.type === 'mistake' && !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2)
+    // 关键薄弱点：一旦连续错2次及以上就永久标记（错题/背书通用），把挫败感转成"考前最该拿下的重点"
+    const weakKeyHtml = (it.everWeakKey && !it.mastered && !it.manualMastered)
       ? `<span class="weak-key-tag">${svgIcon('key', 12)} 关键薄弱点</span>` : '';
     // 本轮没做对被打回：用极简计数体现"已重做几次"，做对即进下一轮（错题/背书通用）
     const ws = it.wrongStreak || 0;
@@ -12850,12 +12864,6 @@ function renderWeaknessBoard(p) {
     dateEl.textContent = ds + ' 周' + wd[dt.getDay()];
 
     var isFutureDay = ds > _hmCache.todayVal;
-    // 历史日期：间隔重复算法下题目复习后nextReviewDate会被推到未来，导致dailyPlanned中历史日期为空。
-    // 此时用当天实际复习的题（去重）作为当天计划，正确展示完成率和计划列表。
-    if (!isFutureDay && planned.length === 0 && actual.length > 0) {
-      var seen = {};
-      actual.forEach(function(r){ if (r.item && !seen[r.item.id]) { seen[r.item.id] = true; planned.push(r.item); } });
-    }
     var rateHtml;
     if (isFutureDay) {
       rateHtml = planned.length > 0
@@ -12863,6 +12871,9 @@ function renderWeaknessBoard(p) {
         : '当天无计划任务';
     } else if (planned.length > 0) {
       // 完成率分子在 actualGroups（按题目去重）计算后填充，见下方
+    } else if (actual.length > 0) {
+      // 历史日期计划数据已随复习动态变化（nextReviewDate被推到未来），无法还原当时计划，只显示实际复习
+      rateHtml = '实际复习 <b>' + actual.length + '</b> 题';
     } else {
       rateHtml = '当天无计划任务';
     }
@@ -12989,6 +13000,8 @@ function renderWeaknessBoard(p) {
   let filtered = items.map(it => ({ it, score: getItemScore(it) }));
   if (filter === 'weak') {
     filtered = filtered.filter(({ it, score }) => !isMastered(it) && score !== null && score < weakThreshold);
+  } else if (filter === 'weakkey') {
+    filtered = filtered.filter(({ it }) => it.everWeakKey && !isMastered(it));
   } else if (filter === 'due') {
     filtered = filtered.filter(({ it }) => !isMastered(it) && it.nextReviewDate && it.nextReviewDate <= today);
   } else if (filter === 'unreviewed') {
@@ -13029,7 +13042,12 @@ function renderWeaknessBoard(p) {
   // 已掌握过滤器下显示随机抽题按钮
   const masteredActions = $('#wbMasteredActions');
   if (masteredActions) {
-    masteredActions.hidden = filter !== 'mastered' || !isMistake;
+    masteredActions.hidden = filter !== 'mastered';
+  }
+  // 关键薄弱点过滤器下显示随机抽题按钮
+  const weakKeyActions = $('#wbWeakKeyActions');
+  if (weakKeyActions) {
+    weakKeyActions.hidden = filter !== 'weakkey';
   }
 
   const list = $('#wbList');
@@ -15949,22 +15967,50 @@ document.querySelectorAll('.wb-filter-btn').forEach(btn => {
   });
 });
 
-/* 随机抽题复习：从已掌握中随机选5道，重新加入复习队列 */
+/* 随机抽题复习：从已掌握/关键薄弱点中随机选5道，重新加入复习队列 */
+let _randomReviewSource = 'mastered'; // 'mastered' 或 'weakkey'
 $('#btnRandomReview').addEventListener('click', () => {
   const p = cur();
-  if (!p || p.type !== 'mistake') return;
+  if (!p) return;
+  _randomReviewSource = 'mastered';
+  const isMistake = p.type === 'mistake';
   const mastered = (p.items || []).filter(it => it.mastered || it.manualMastered);
   if (mastered.length < 1) {
-    showToast('' + svgIcon('inbox') + '', '还没有已攻克的错题', '先攻克一些错题，再来抽查吧～', 3000);
+    showToast('' + svgIcon('inbox') + '', isMistake ? '还没有已攻克的错题' : '还没有已掌握的条目', '先攻克一些再来抽查吧～', 3000);
     return;
   }
   const n = Math.min(5, mastered.length);
+  const doneWord = isMistake ? '攻克' : '掌握';
   $('#randomReviewConfirmDesc').innerHTML =
-    `从已攻克的 <b>${mastered.length}</b> 道错题中随机抽出 <b>${n}</b> 道复习。<br>做错了会自动重新加入复习队列，做对了可重新标记为已攻克。`;
+    `从已${doneWord}的 <b>${mastered.length}</b> 道${isMistake ? '错题' : '条目'}中随机抽出 <b>${n}</b> 道复习。<br>做错了会自动重新加入复习队列，做对了可重新标记为已${doneWord}。`;
   const warn = $('#randomReviewConfirmWarn');
   if (mastered.length < 5) {
     warn.hidden = false;
-    warn.textContent = `已攻克的错题不足5道（仅${mastered.length}道），将全部抽出。`;
+    warn.textContent = `已${doneWord}的不足5道（仅${mastered.length}道），将全部抽出。`;
+  } else {
+    warn.hidden = true;
+  }
+  $('#randomReviewConfirmMask').hidden = false;
+  modalTop($('#randomReviewConfirmMask'));
+});
+/* 关键薄弱点随机抽题重做 */
+$('#btnRandomWeakKey').addEventListener('click', () => {
+  const p = cur();
+  if (!p) return;
+  _randomReviewSource = 'weakkey';
+  const isMistake = p.type === 'mistake';
+  const weakKeys = (p.items || []).filter(it => it.everWeakKey && !it.mastered && !it.manualMastered);
+  if (weakKeys.length < 1) {
+    showToast('' + svgIcon('key') + '', '还没有关键薄弱点', '连续做错2次及以上的题目会标记为关键薄弱点', 3000);
+    return;
+  }
+  const n = Math.min(5, weakKeys.length);
+  $('#randomReviewConfirmDesc').innerHTML =
+    `从关键薄弱点的 <b>${weakKeys.length}</b> 道${isMistake ? '错题' : '条目'}中随机抽出 <b>${n}</b> 道重做。<br>这些是考前最该拿下的重点，做对了可继续推进间隔重复。`;
+  const warn = $('#randomReviewConfirmWarn');
+  if (weakKeys.length < 5) {
+    warn.hidden = false;
+    warn.textContent = `关键薄弱点不足5道（仅${weakKeys.length}道），将全部抽出。`;
   } else {
     warn.hidden = true;
   }
@@ -16023,29 +16069,48 @@ $('#importConfirmCancel').addEventListener('click', () => {
 $('#randomReviewConfirmOk').addEventListener('click', () => {
   const p = cur();
   if (!p) return;
-  const mastered = (p.items || []).filter(it => it.mastered || it.manualMastered);
-  const n = Math.min(5, mastered.length);
-  // 随机洗牌取前n个
-  const shuffled = [...mastered].sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, n);
+  const isMistake = p.type === 'mistake';
   const today = todayStr();
-  picked.forEach(it => {
-    it.mastered = false;
-    it.manualMastered = false;
-    it.masteredDate = null;
-    it.nextReviewDate = today;
-    it.spreadCount = 0;
-    it.stage = 0; // 抽查当作没攻克过重新过一遍，避免做错后排到30天
-    clearRetention(it);
-    // 不往 reviews 里塞假记录，避免污染掌握判定、掌握度分数和历史面板
-  });
+  let picked = [];
+  let sourceLabel = '';
+  if (_randomReviewSource === 'weakkey') {
+    // 关键薄弱点：只把nextReviewDate设为今天，不重置stage（保留复习进度）
+    const weakKeys = (p.items || []).filter(it => it.everWeakKey && !it.mastered && !it.manualMastered);
+    const n = Math.min(5, weakKeys.length);
+    const shuffled = [...weakKeys].sort(() => Math.random() - 0.5);
+    picked = shuffled.slice(0, n);
+    picked.forEach(it => {
+      it.nextReviewDate = today;
+      it.spreadCount = 0;
+      it.earlyReviewed = false;
+      delete it.originalNextReviewDate;
+    });
+    sourceLabel = '关键薄弱点';
+  } else {
+    // 已攻克：重置为未攻克，重新过一遍
+    const mastered = (p.items || []).filter(it => it.mastered || it.manualMastered);
+    const n = Math.min(5, mastered.length);
+    const shuffled = [...mastered].sort(() => Math.random() - 0.5);
+    picked = shuffled.slice(0, n);
+    picked.forEach(it => {
+      it.mastered = false;
+      it.manualMastered = false;
+      it.masteredDate = null;
+      it.nextReviewDate = today;
+      it.spreadCount = 0;
+      it.stage = 0; // 抽查当作没攻克过重新过一遍，避免做错后排到30天
+      clearRetention(it);
+      // 不往 reviews 里塞假记录，避免污染掌握判定、掌握度分数和历史面板
+    });
+    sourceLabel = isMistake ? '已攻克' : '已掌握';
+  }
   p.updatedAt = Date.now();
   saveStore();
   $('#randomReviewConfirmMask').hidden = true;
   unlockBodyScroll(); // 补上 randomReviewConfirmMask 的解锁
   closeWeaknessBoard();
   render();
-  showToast('' + svgIcon('dice-5') + '', `已从已攻克中随机抽出 ${n} 道`, '做错了会自动继续复习，做对了可重新标记为已攻克。', 4000);
+  showToast('' + svgIcon('dice-5') + '', `已从${sourceLabel}中随机抽出 ${picked.length} 道`, _randomReviewSource === 'weakkey' ? '考前最该拿下的重点，做对了继续推进间隔重复。' : '做错了会自动继续复习，做对了可重新标记。', 4000);
 });
 
 /* 完成情况面板 */

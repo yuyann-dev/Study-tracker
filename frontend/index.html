@@ -1665,6 +1665,7 @@ if ('serviceWorker' in navigator) {
 
     <div class="wb-filter">
       <button class="wb-filter-btn active" data-filter="all">全部</button>
+      <button class="wb-filter-btn" data-filter="weakkey">关键薄弱点</button>
       <button class="wb-filter-btn" data-filter="weak">仅薄弱</button>
       <button class="wb-filter-btn" data-filter="due">待复习</button>
       <button class="wb-filter-btn" data-filter="unreviewed">未复习</button>
@@ -1675,6 +1676,11 @@ if ('serviceWorker' in navigator) {
     <div id="wbMasteredActions" hidden style="margin:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="ghost-btn" id="btnRandomReview" style="font-size:13px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 12h.01"/></svg> 随机抽5道复习</button>
       <span class="hint" style="font-size:12px">从已攻克中随机抽查，做错了会自动重新加入复习队列</span>
+    </div>
+
+    <div id="wbWeakKeyActions" hidden style="margin:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="ghost-btn" id="btnRandomWeakKey" style="font-size:13px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg> 随机抽5道重做</button>
+      <span class="hint" style="font-size:12px">从关键薄弱点中随机抽题重做，考前最该拿下的重点</span>
     </div>
 
     <div class="wb-section-title" id="wbListTitle"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 条目明细（越靠前越该先处理）</div>
