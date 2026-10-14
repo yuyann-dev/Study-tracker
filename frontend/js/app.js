@@ -13102,6 +13102,8 @@ function renderWeaknessBoard(p) {
       if (!inUnit.length && !hasChildren) return '';
       // 父单元的总条目数（含子单元），与 getUnitMastery 的计算范围一致
       const totalInUnit = filtered.filter(({ it }) => itemInUnit(it, u)).length;
+      // 筛选模式下：如果整个单元（含子单元）都没有匹配条目，不显示该单元
+      if (totalInUnit === 0) return '';
       const info = getUnitMastery(p, u);
       // 四态渲染（仅错题本；背书走旧逻辑）
       let umi, upct, uBarColor;
