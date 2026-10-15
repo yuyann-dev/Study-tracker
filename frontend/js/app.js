@@ -18744,8 +18744,8 @@ if (document.readyState === 'loading') {
             removeTyping();
             if (parsed.toolCalls && parsed.toolCalls.length && !toolCallsShown) {
               // 先创建消息元素，插入工具调用 trace
-              streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
-              currentMdEl = streamMsgEl.querySelector('.md p');
+              streamMsgEl = addAiMsg('<div class="md"></div>');
+              currentMdEl = streamMsgEl.querySelector('.md');
               var traceEl = renderToolTrace(parsed.toolCalls);
               if (traceEl) streamMsgEl.insertBefore(traceEl, streamMsgEl.firstChild);
               toolCallsShown = true;
@@ -18754,8 +18754,8 @@ if (document.readyState === 'loading') {
             // 逐字追加
             removeTyping();
             if (!streamMsgEl) {
-              streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
-              currentMdEl = streamMsgEl.querySelector('.md p');
+              streamMsgEl = addAiMsg('<div class="md"></div>');
+              currentMdEl = streamMsgEl.querySelector('.md');
             }
             fullText += parsed.text || '';
             if (currentMdEl) {

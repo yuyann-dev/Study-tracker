@@ -214,13 +214,11 @@ ${budgetLine}${dataBlock}
 function parseReply(raw) {
   let text = String(raw || '');
   let actions = [];
-  // 匹配 ```actions ... ``` 代码块
-  const re = /```(?:actions|json)?\s*\n?([\s\S]*?)```/g;
+  // 只匹配 ```actions ... ``` 代码块（明确标记为 actions 的），不要匹配普通代码块
+  const re = /```actions\s*\n?([\s\S]*?)```/g;
   let match;
   while ((match = re.exec(text)) !== null) {
     const candidate = match[1].trim();
-    // 只尝试解析像 JSON（以 { 开头）的块
-    if (!candidate.startsWith('{')) continue;
     try {
       const parsed = JSON.parse(candidate);
       if (parsed && Array.isArray(parsed.actions)) {
@@ -228,7 +226,7 @@ function parseReply(raw) {
       }
     } catch (_) { /* 非法 JSON 块忽略 */ }
   }
-  // 从正文里删掉所有 ```...``` 代码块，避免把 JSON 当 markdown 展示
+  // 从正文里删掉 ```actions ... ``` 代码块，普通代码块保留
   const body = text.replace(re, '').trim();
   return { body, actions };
 }
