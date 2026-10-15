@@ -17504,6 +17504,8 @@ if (document.readyState === 'loading') {
     var codeStore = [];
     var s = esc(raw).replace(/```([\s\S]*?)```/g, function(m, code){
       code = code.replace(/^\n+/, '').replace(/\n+$/, '');
+      // 去掉语言标记行（如 python、javascript 等），只保留代码内容
+      code = code.replace(/^[a-zA-Z0-9_+-]+#?\n/, '');
       codeStore.push(code);
       return '\u0000CODE' + (codeStore.length - 1) + '\u0000';
     });
@@ -17546,6 +17548,8 @@ if (document.readyState === 'loading') {
     function inline(line){
       // 加粗 **x**
       line = line.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      // 删除线 ~~x~~
+      line = line.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
       // 斜体 *x* 或 _x_（避免和加粗冲突，加粗已先处理）
       line = line.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
       line = line.replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
@@ -17588,11 +17592,15 @@ if (document.readyState === 'loading') {
       // 表格：当前行是 |...| 且下一行为 |---|
       if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i+1])) {
         flushList(openList); openList = null;
-        var header = ln.trim().replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); });
+        // 处理表格中的 \| 转义：先替换成占位符，分割后还原
+        function splitTableRow(row) {
+          return row.trim().replace(/^\||\|$/g, '').replace(/\\\|/g, '\u0000PIPE\u0000').split('|').map(function(c){ return c.trim().replace(/\u0000PIPE\u0000/g, '|'); });
+        }
+        var header = splitTableRow(ln);
         i += 2; // 跳过分隔行
         var rows = [];
         while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
-          rows.push(lines[i].trim().replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); }));
+          rows.push(splitTableRow(lines[i]));
           i++;
         }
         var t = '<table><thead><tr>' + header.map(function(h){ return '<th>' + inline(h) + '</th>'; }).join('') + '</tr></thead><tbody>';
@@ -17602,6 +17610,14 @@ if (document.readyState === 'loading') {
         t += '</tbody></table>';
         out.push(t);
         continue;
+      }
+      // 任务列表 - [ ] / - [x]
+      if (/^\s*[-•·]\s+\[[ xX]\]\s+/.test(ln)) {
+        if (openList !== 'ul') { flushList(openList); out.push('<ul class="task-list">'); openList = 'ul'; }
+        var checked = /^\s*[-•·]\s+\[[xX]\]/.test(ln);
+        var taskText = ln.replace(/^\s*[-•·]\s+\[[ xX]\]\s+/, '');
+        out.push('<li class="task-item' + (checked ? ' done' : '') + '">' + (checked ? '☑ ' : '☐ ') + inline(taskText) + '</li>');
+        i++; continue;
       }
       // 无序列表 - / · / *
       if (/^\s*[-•·]\s+/.test(ln)) {
