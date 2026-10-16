@@ -837,7 +837,7 @@ function renderReasonDropdown(p) {
     return;
   }
   const opts = reasonOptionList(p);
-  const cur = (hidden.value || '').split(',').filter(Boolean);
+  const cur = (hidden.value || '').split(/[,，]+/).filter(Boolean);
   btn.innerHTML = cur.length
     ? cur.map(r => reasonPill(r)).join('')
     : '<span class="muted">不设置（可多选）</span>';
@@ -15221,7 +15221,7 @@ $('#btnReciteAdd').addEventListener('click', () => {
   }
 
   const content = ($('#reciteContent').value || '').trim();
-  const errTags = ($('#reciteErrTagSel').value || '').split(',').filter(Boolean);
+  const errTags = ($('#reciteErrTagSel').value || '').split(/[,，]+/).filter(Boolean);
   const note = ($('#reciteNote').value || '').trim().slice(0, 60);
   const source = ($('#reciteSource') ? $('#reciteSource').value : '').trim().slice(0, 40);
   const isMistake = p.type === 'mistake';
@@ -15354,7 +15354,7 @@ function finishNewReason(permanent) {
   // 从录入表单来的：自动在新错因下拉里勾选
   if (v && !forItemId) {
     setTimeout(() => {
-      const sel = ($('#reciteErrTagSel').value || '').split(',').filter(Boolean);
+      const sel = ($('#reciteErrTagSel').value || '').split(/[,，]+/).filter(Boolean);
       if (!sel.includes(v)) sel.push(v);
       $('#reciteErrTagSel').value = sel.join(',');
       renderReasonDropdown(p);
