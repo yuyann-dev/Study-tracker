@@ -558,10 +558,10 @@ function getPaceSnapshot(p) {
     activeDays,
     activityPerDay: r1(activityPerDay),
     perStudyDayRaw: r1(perStudyDayRaw),
-    perStudyDay: perStudyDay == null ? null : r1(perStudyDay),
+    perStudyDay: perStudyDay == null ? null : (isSet ? r1(perStudyDay) : Math.ceil(perStudyDay)),
     ratio: ratio == null ? null : r1(ratio),
     feasibility,
-    panelPerDay: panelPerDay == null ? null : r1(panelPerDay),
+    panelPerDay: panelPerDay == null ? null : (isSet ? r1(panelPerDay) : Math.ceil(panelPerDay)),
     panelWeeklyDays,
     panelTag,
     panelHeavy,
@@ -615,8 +615,10 @@ function projectStats(p, summary) {
     // 节奏：权威取右下角面板显示值（getDailyTarget 口径），保证 AI 说的"今天排X页"与面板完全一致
     const pace = getPaceSnapshot(p);
     let perStudyDay = pace.panelPerDay != null ? pace.panelPerDay : (Number(p.perStudyDay) || 0);
-    s.perStudyDay = r1(perStudyDay);
-    s.requiredRate = r1(perStudyDay);
+    // 刷题/背书向上取整为整数（与前端面板一致）；套卷支持分模块录入，保留1位小数
+    const displayPer = isSetMode ? r1(perStudyDay) : (perStudyDay > 0 ? Math.ceil(perStudyDay) : 0);
+    s.perStudyDay = displayPer;
+    s.requiredRate = displayPer;
     // 追赶方案上下文：建议每周学习天数 / 方案说明 / 是否硬撑 / 延期兜底完成日
     s.weeklyDays = pace.panelWeeklyDays;
     s.planTag = pace.panelTag;

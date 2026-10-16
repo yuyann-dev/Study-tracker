@@ -2943,8 +2943,9 @@ function getMetrics(p) {
   };
   // [AI数据对齐] 把计算好的 perStudyDay 保存到项目数据，供后端 AI 直接读取，
   // 保证 AI 说的"今天排X页"与界面右下角面板"每个学习日需做"完全一致
+  // 刷题/背书向上取整为整数（录入不支持小数、整数更直观、悄悄多做一点）；套卷支持分模块录入，保留1位小数
   if (perStudyDay != null && isFinite(perStudyDay)) {
-    p.perStudyDay = Math.round(perStudyDay * 10) / 10;
+    p.perStudyDay = isSetMode(p) ? (Math.round(perStudyDay * 10) / 10) : Math.ceil(perStudyDay);
   } else {
     delete p.perStudyDay;
   }
@@ -6270,7 +6271,7 @@ function renderDailyGoal(p, m) {
         newTarget = Math.max(0, Math.min(newTarget, roomItems * avgPages));
       }
     }
-    const newTargetR = newTarget != null ? Math.round(newTarget * 10) / 10 : null;
+    const newTargetR = newTarget != null ? Math.ceil(newTarget) : null;
     const newDone = m.todayDone || 0;
     const newDoneR = Math.round(newDone * 10) / 10;
 
@@ -6313,7 +6314,7 @@ function renderDailyGoal(p, m) {
       }
       return;
     }
-    const nr = newDone / newTarget;
+    const nr = newTarget > 0 ? newDone / Math.ceil(newTarget) : 0;
     const npct = Math.min(100, nr * 100);
     let nmood, nl, npr;
     if (newDone <= 0) {
@@ -6323,7 +6324,7 @@ function renderDailyGoal(p, m) {
         ? `${svgIcon('flame')} 连续打卡，复习已清，今天的新学也别落下`
         : `${svgIcon('target')} 复习已清，开始今天的新学吧`;
     } else if (nr < 1) {
-      const nleft = Math.max(0, Math.round((newTarget - newDone) * 10 + 1e-9) / 10);
+      const nleft = Math.max(0, Math.ceil(newTarget) - newDone);
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
       if (nr < 0.5) {
         nmood = 'progress'; npr = Coach.pick(Coach.progress.early,'rne');
@@ -6362,9 +6363,11 @@ function renderDailyGoal(p, m) {
   }
 
   const done = m.todayDone || 0;
-  const targetR = Math.round(target * 10) / 10;
+  // 刷题/背书目标向上取整为整数（录入不支持小数）；套卷支持分模块录入，保留1位小数
+  const targetR = u === '套' ? (Math.round(target * 10) / 10) : Math.ceil(target);
   const doneR = Math.round(done * 10) / 10;
-  const ratio = target > 0 ? done / target : 0;
+  const effTarget = u === '套' ? target : Math.ceil(target);
+  const ratio = effTarget > 0 ? done / effTarget : 0;
   const pct = Math.min(100, ratio * 100);
   const isHard = p.hardDeadline === true;
 
@@ -6452,7 +6455,7 @@ function renderDailyGoal(p, m) {
       pr = Coach.pick(Coach.done, 'done');
     }
   } else {
-    const over = Math.max(0, Math.round((done - target) * 10 + 1e-9) / 10);
+    const over = Math.max(0, Math.round((done - effTarget) * 10 + 1e-9) / 10);
     const overPct = Math.round((ratio - 1) * 100);
     mood = 'over';
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}（超 ${fmtUnitNum(over)}）`;
@@ -6692,8 +6695,9 @@ function openAbandonPanel(p) {
       const basePer = newRemaining / studyDays;
       newPer = Math.min(basePer, newRemaining);
     } else newPer = 0;
+    const roundPer = v => setMode ? (Math.round(v * 10) / 10) : Math.ceil(v);
     summaryEl.innerHTML = abPages > 0
-      ? `放弃 <b>${fmtUnitNum(abPages)}</b> ${setMode ? '套' : '页'} 后，每天目标从 <b>${fmtUnitNum(oldPer)}</b> 降到 <b>${fmtUnitNum(Math.round(newPer * 10) / 10)}</b> ${u}。`
+      ? `放弃 <b>${fmtUnitNum(abPages)}</b> ${setMode ? '套' : '页'} 后，每天目标从 <b>${fmtUnitNum(roundPer(oldPer))}</b> 降到 <b>${fmtUnitNum(roundPer(newPer))}</b> ${u}。`
       : `勾选要放弃的${setMode ? '套' : '页'}后，这里会显示每日目标的变化。`;
   };
   refreshSummary();
@@ -7360,7 +7364,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       const showPer = dt.per != null ? dt.per : (m.perStudyDay != null ? m.perStudyDay : (isFinite(m.needPerDay) ? m.needPerDay : 0));
       const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日需做';
-      _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), u === '套' ? (Math.round(showPer * 10) / 10).toFixed(1) : String(Math.ceil(showPer)), u);
       const bits = [];
       if (dt.plan && dt.plan.onTime) {
         // 加量追赶期：大字与状态卡"最省力按期方案"同源，避免看板与卡片数字打架
@@ -7389,7 +7393,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天做';
-      _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), u === '套' ? (Math.round(m.needPerDay * 10) / 10).toFixed(1) : String(Math.ceil(m.needPerDay)), u);
       $('#mNeedFoot').textContent = m.daysToMedium > 0 ? `粗估（剩余÷剩余自然日）· 再攒 ${m.daysToMedium} 个学习日就开始按你的节奏调整` : '再积累几个学习日，将按你的真实节奏给出学习日目标';
     }
   } else {
@@ -7444,7 +7448,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       const showPer = dt.per;
       const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日新学';
-      _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), ru);
+      _setBigNum($('#mNeed'), String(Math.ceil(showPer)), ru);
       const bits = [];
       if (dt.plan && dt.plan.onTime) {
         if (dt.plan.onTime.heavy) {
@@ -7464,7 +7468,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天学';
-      _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), String(Math.ceil(m.needPerDay)), u);
       $('#mNeedFoot').textContent = m.daysToMedium > 0 ? `粗估（剩余÷剩余自然日）· 再攒 ${m.daysToMedium} 个学习日就开始按你的节奏调整` : `${ru} / 天`;
     }
   }
@@ -11210,7 +11214,7 @@ function buildReminderBody() {
       if (need > 0 && m) {
         hasAnyTask = true;
         const done = m.todayDone || 0;
-        const needRounded = Math.round(need * 10) / 10;
+        const needRounded = isSetMode(p) ? (Math.round(need * 10) / 10) : Math.ceil(need);
         if (done >= need) {
           doneItems.push({ name: p.name, type: 'exercise', text: `今日目标${needRounded}${unit}，已完成${done}${unit} ${svgIcon('check-circle')}` });
         } else {
@@ -11253,7 +11257,7 @@ function buildReminderBody() {
         if (need > 0) {
           hasAnyTask = true;
           const done = m.todayDone || 0;
-          const needRounded = Math.round(need * 10) / 10;
+          const needRounded = Math.ceil(need);
           if (done >= need) {
             doneItems.push({ name: p.name, type: 'recite', text: `今日新学目标${needRounded}页，已完成${done}页 ${svgIcon('check-circle')}` });
           } else {
@@ -11599,7 +11603,7 @@ function renderProgressInsights(p, m) {
       if (m.perStudyDay != null) {
         planNum = num(m.perStudyDay);
       } else if (isFinite(m.needPerDay) && m.needPerDay > 0) {
-        planNum = num(m.needPerDay);
+        planNum = isSetMode(p) ? num(m.needPerDay) : String(Math.ceil(m.needPerDay));
         planNote = '（粗估：把剩余量均摊到剩余自然日；再攒几个学习日就开始按你的真实节奏修正）';
       }
     }
