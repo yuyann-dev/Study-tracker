@@ -6319,25 +6319,25 @@ function renderDailyGoal(p, m) {
     let nmood, nl, npr;
     if (newDone <= 0) {
       nmood = 'idle';
-      nl = `${prefix}新学 0 / ${fmtUnitNum(newTargetR)} 页`;
+      nl = `${prefix}新学 0/${fmtUnitNum(newTargetR)} 页`;
       npr = (act.streak >= 3)
         ? `${svgIcon('flame')} 连续打卡，复习已清，今天的新学也别落下`
         : `${svgIcon('target')} 复习已清，开始今天的新学吧`;
     } else if (nr < 1) {
       const nleft = Math.max(0, Math.ceil(newTarget) - newDone);
-      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
+      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)}/${fmtUnitNum(newTargetR)} 页`;
       if (nr < 0.5) {
         nmood = 'progress'; npr = Coach.pick(Coach.progress.early,'rne');
       }
       else { nmood = 'almost'; npr = Coach.pick(Coach.progress.late,'rnl'); }
     } else if (Math.abs(nr - 1) < 1e-9) {
       nmood = 'done';
-      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
+      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)}/${fmtUnitNum(newTargetR)} 页`;
       npr = Coach.pick(Coach.done, 'rnd');
     } else {
       const over = Math.max(0, Math.round((newDone - newTarget) * 10 + 1e-9) / 10);
       nmood = 'over';
-      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页（超 ${fmtUnitNum(over)}）`;
+      nl = `${prefix}新学 ${fmtUnitNum(newDoneR)}/${fmtUnitNum(newTargetR)} 页（超 ${fmtUnitNum(over)}）`;
       npr = Coach.pick(Coach.overSmall, 'rno') + Coach.pick([
         '，给后续复习留点空间',
         '，新学和复习均衡些，记忆更牢',
@@ -6416,7 +6416,7 @@ function renderDailyGoal(p, m) {
       pr = Coach.pick(Coach.start[slot], 'start');
     }
   } else if (ratio < 1) {
-    l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
+    l = `已做 ${fmtUnitNum(doneR)}/${fmtUnitNum(targetR)} ${u}`;
     if (p.type === 'exercise') {
       mood = 'progress';
       // 刷题本低进度：根据速度状态选择不同文案
@@ -6448,7 +6448,7 @@ function renderDailyGoal(p, m) {
     }
   } else if (Math.abs(ratio - 1) < 1e-9) {
     mood = 'done';
-    l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
+    l = `已做 ${fmtUnitNum(doneR)}/${fmtUnitNum(targetR)} ${u}`;
     if (speedState === 'fast') {
       pr = Coach.pick(Coach.done, 'donefast') + '，今天效率很高';
     } else {
@@ -6458,7 +6458,7 @@ function renderDailyGoal(p, m) {
     const over = Math.max(0, Math.round((done - effTarget) * 10 + 1e-9) / 10);
     const overPct = Math.round((ratio - 1) * 100);
     mood = 'over';
-    l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}（超 ${fmtUnitNum(over)}）`;
+    l = `已做 ${fmtUnitNum(doneR)}/${fmtUnitNum(targetR)} ${u}（超 ${fmtUnitNum(over)}）`;
     if (overPct < 20) pr = Coach.pick(Coach.overSmall, 'os');
     else if (overPct < 60) pr = Coach.pick(Coach.overMid, 'os2');
     else pr = Coach.pick(Coach.overBig, 'ob');
