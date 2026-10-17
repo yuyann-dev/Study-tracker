@@ -707,7 +707,7 @@ router.post('/leave', (req, res) => {
            WHERE srm.room_id = ? AND srm.user_id != ?
            ORDER BY srm.joined_at ASC`
         )
-        .all(room.roomId);
+        .all(room.roomId, me);
 
       if (me === room.ownerId) {
         if (others.length > 0) {
