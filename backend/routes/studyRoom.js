@@ -1022,8 +1022,7 @@ router.get('/plaza', (req, res) => {
       )
       .all();
 
-    // 每房近 7 天成员打卡总数（含今天共 7 天：today-6 … today）
-    // 优化：只遍历近 7 天的日期 key，不遍历全部历史 byDate
+    // 每房近 7 天活跃人数（近7天有至少1天学习活动的成员数，去重）
     const last7Days = [];
     for (let i = 6; i >= 0; i--) last7Days.push(shiftDate(today, -i));
     for (const room of rooms) {
@@ -1033,10 +1032,11 @@ router.get('/plaza', (req, res) => {
       let active7 = 0;
       for (const mem of members) {
         const stats = getUserStats(mem.userId);
-        // 近7天有学习活动的天数（刷题/复习/首次学习都算），比复习条数更能反映活跃度
+        let hasActivity = false;
         for (const d of last7Days) {
-          if (stats.allDates.has(d)) active7++;
+          if (stats.allDates.has(d)) { hasActivity = true; break; }
         }
+        if (hasActivity) active7++;
       }
       room.active7 = active7;
     }

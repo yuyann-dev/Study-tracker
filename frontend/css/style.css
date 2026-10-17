@@ -2072,8 +2072,9 @@
 .sr-privacy-row{background:var(--inputBg);border-radius:12px;padding:12px 14px;margin-bottom:16px;border:1px solid var(--border)}
 html[data-theme="dark"] .sr-privacy-row{background:var(--input);border-color:var(--input-border)}
 .sr-member-list-title{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin:6px 0 10px;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:6px}
-.sr-badge-help-btn{width:18px;height:18px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s}
-.sr-badge-help-btn:hover{color:var(--brand);border-color:var(--brand);background:rgba(46,107,79,.06)}
+.sr-badge-help-btn{width:16px;height:16px;border-radius:50%;background:rgba(46,107,79,.08);color:var(--brand);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;flex:0 0 auto}
+.sr-badge-help-btn:hover{background:rgba(46,107,79,.16)}
+.sr-badge-help-btn svg{width:10px;height:10px}
 /* 徽章说明弹窗 */
 .sr-badge-help-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
 .sr-badge-help-mask{position:absolute;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(2px)}
@@ -2111,6 +2112,19 @@ html[data-theme="dark"] .sr-privacy-row{background:var(--input);border-color:var
 .sr-member-name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .sr-member-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sr-owner-badge{font-size:10.5px;font-weight:600;color:var(--brand);background:rgba(46,107,79,.10);padding:2px 9px;border-radius:999px;flex:0 0 auto}
+.sr-badge-tag{font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;flex:0 0 auto;letter-spacing:.3px}
+.sr-badge-tag-beginner{color:#5a8a6a;background:rgba(106,154,122,.12)}
+.sr-badge-tag-pro{color:#4a8a6a;background:rgba(74,138,106,.12)}
+.sr-badge-tag-half{color:#a88030;background:rgba(184,144,64,.12)}
+.sr-badge-tag-master{color:#b06828;background:rgba(192,120,48,.12)}
+.sr-badge-tag-legend{color:#984830;background:rgba(168,80,56,.12)}
+.sr-badge-tag-year{color:#6a4a90;background:rgba(122,90,160,.12)}
+html[data-theme="dark"] .sr-badge-tag-beginner{color:#7aaa8a;background:rgba(106,154,122,.18)}
+html[data-theme="dark"] .sr-badge-tag-pro{color:#5a9a7a;background:rgba(74,138,106,.18)}
+html[data-theme="dark"] .sr-badge-tag-half{color:#d0a850;background:rgba(184,144,64,.18)}
+html[data-theme="dark"] .sr-badge-tag-master{color:#d89040;background:rgba(192,120,48,.18)}
+html[data-theme="dark"] .sr-badge-tag-legend{color:#c86050;background:rgba(168,80,56,.18)}
+html[data-theme="dark"] .sr-badge-tag-year{color:#9a7ac0;background:rgba(122,90,160,.18)}
 .sr-star-badge{font-size:10.5px;font-weight:600;color:#8a5a00;background:linear-gradient(135deg,#fff4d6,#ffe49a);padding:2px 9px;border-radius:999px;flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 3px rgba(180,130,0,.15)}
 .sr-star-badge .ic{width:11px;height:11px;fill:currentColor;stroke:none}
 .sr-self-tag{font-size:11px;color:var(--muted);flex:0 0 auto}

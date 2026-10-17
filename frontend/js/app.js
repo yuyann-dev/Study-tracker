@@ -16735,6 +16735,17 @@ function buildMemberCard(m, iAmOwner) {
   var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
   var starBadge = m.isTodayStar ? '<span class="sr-star-badge" title="今日活跃度第1名">' + svgIcon('star') + ' 今日之星</span>' : '';
   var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
+  // 徽章标签：连续学习达到对应天数直接显示徽章名
+  var streakForBadge = (typeof m.streak === 'number') ? m.streak : 0;
+  var badgeName = '';
+  var badgeClass = '';
+  if (streakForBadge >= 365) { badgeName = '学以致用'; badgeClass = 'sr-badge-tag-year'; }
+  else if (streakForBadge >= 100) { badgeName = '融会贯通'; badgeClass = 'sr-badge-tag-legend'; }
+  else if (streakForBadge >= 30) { badgeName = '博览群书'; badgeClass = 'sr-badge-tag-master'; }
+  else if (streakForBadge >= 14) { badgeName = '温故知新'; badgeClass = 'sr-badge-tag-half'; }
+  else if (streakForBadge >= 7) { badgeName = '日读成习'; badgeClass = 'sr-badge-tag-pro'; }
+  else if (streakForBadge >= 3) { badgeName = '开卷有得'; badgeClass = 'sr-badge-tag-beginner'; }
+  var streakBadge = badgeName ? '<span class="sr-badge-tag ' + badgeClass + '">' + badgeName + '</span>' : '';
   var kickBtn = (iAmOwner && !m.isSelf)
     ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
     : '';
@@ -16747,7 +16758,7 @@ function buildMemberCard(m, iAmOwner) {
     + '<div class="sr-member-info">'
     +   '<div class="sr-member-name-row">'
     +     '<span class="sr-member-name">' + esc(m.username || '匿名') + '</span>'
-    +     ownerBadge + starBadge + selfTag
+    +     ownerBadge + streakBadge + starBadge + selfTag
     +   '</div>'
     +   '<div class="sr-member-meta">'
     +     buildMemberMetaHtml(m)
@@ -16773,6 +16784,31 @@ function updateMemberCardDynamic(card, m, iAmOwner) {
   // meta 行（streak + 今日状态）
   var metaEl = card.querySelector('.sr-member-meta');
   if (metaEl) metaEl.innerHTML = buildMemberMetaHtml(m);
+  // 徽章标签（名字行）：streak变化时更新
+  var nameRow = card.querySelector('.sr-member-name-row');
+  if (nameRow) {
+    var oldBadge = nameRow.querySelector('.sr-badge-tag');
+    if (oldBadge) oldBadge.remove();
+    var s = (typeof m.streak === 'number') ? m.streak : 0;
+    var bn = '', bc = '';
+    if (s >= 365) { bn = '学以致用'; bc = 'sr-badge-tag-year'; }
+    else if (s >= 100) { bn = '融会贯通'; bc = 'sr-badge-tag-legend'; }
+    else if (s >= 30) { bn = '博览群书'; bc = 'sr-badge-tag-master'; }
+    else if (s >= 14) { bn = '温故知新'; bc = 'sr-badge-tag-half'; }
+    else if (s >= 7) { bn = '日读成习'; bc = 'sr-badge-tag-pro'; }
+    else if (s >= 3) { bn = '开卷有得'; bc = 'sr-badge-tag-beginner'; }
+    if (bn) {
+      var span = document.createElement('span');
+      span.className = 'sr-badge-tag ' + bc;
+      span.textContent = bn;
+      var ownerEl = nameRow.querySelector('.sr-owner-badge');
+      if (ownerEl) ownerEl.after(span);
+      else {
+        var nameEl = nameRow.querySelector('.sr-member-name');
+        if (nameEl) nameEl.after(span);
+      }
+    }
+  }
   // 踢人按钮显隐
   var oldKick = card.querySelector('.sr-kick-btn');
   var shouldShowKick = iAmOwner && !m.isSelf;
@@ -17173,7 +17209,7 @@ function renderPlazaList(rooms) {
     var catBadge = cat !== 'other' ? '<span class="sr-plaza-cat">' + esc(cat) + '</span>' : '';
     // 近7天活跃
     var active7 = r.active7 || 0;
-    var active7Html = '<span class="sr-plaza-active">近7天活跃 ' + active7 + '</span>';
+    var active7Html = '<span class="sr-plaza-active">活跃 ' + active7 + ' 人</span>';
     // 简介（截断）
     var intro = r.intro || '';
     var introHtml = intro ? '<div class="sr-plaza-intro">' + esc(intro) + '</div>' : '';
