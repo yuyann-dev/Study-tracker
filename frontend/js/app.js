@@ -16798,14 +16798,18 @@ function updateMemberCardDynamic(card, m, iAmOwner) {
     else if (s >= 7) { bn = '日读成习'; bc = 'sr-badge-tag-pro'; }
     else if (s >= 3) { bn = '开卷有得'; bc = 'sr-badge-tag-beginner'; }
     if (bn) {
-      var span = document.createElement('span');
-      span.className = 'sr-badge-tag ' + bc;
-      span.textContent = bn;
+      var badgeSpan = document.createElement('span');
+      badgeSpan.className = 'sr-badge-tag ' + bc;
+      badgeSpan.textContent = bn;
       var ownerEl = nameRow.querySelector('.sr-owner-badge');
-      if (ownerEl) ownerEl.after(span);
-      else {
+      var starEl = nameRow.querySelector('.sr-star-badge');
+      if (ownerEl) {
+        nameRow.insertBefore(badgeSpan, ownerEl.nextSibling);
+      } else if (starEl) {
+        nameRow.insertBefore(badgeSpan, starEl);
+      } else {
         var nameEl = nameRow.querySelector('.sr-member-name');
-        if (nameEl) nameEl.after(span);
+        if (nameEl) nameRow.insertBefore(badgeSpan, nameEl.nextSibling);
       }
     }
   }

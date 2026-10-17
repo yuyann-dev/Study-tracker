@@ -2072,8 +2072,8 @@
 .sr-privacy-row{background:var(--inputBg);border-radius:12px;padding:12px 14px;margin-bottom:16px;border:1px solid var(--border)}
 html[data-theme="dark"] .sr-privacy-row{background:var(--input);border-color:var(--input-border)}
 .sr-member-list-title{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin:6px 0 10px;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:6px}
-.sr-badge-help-btn{width:16px;height:16px;border-radius:50%;background:rgba(46,107,79,.08);color:var(--brand);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;flex:0 0 auto}
-.sr-badge-help-btn:hover{background:rgba(46,107,79,.16)}
+.sr-badge-help-btn{width:18px;height:18px;border-radius:50%;border:none;background:rgba(46,107,79,.10);color:var(--brand);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;flex:0 0 auto;padding:0;line-height:1}
+.sr-badge-help-btn:hover{background:rgba(46,107,79,.18)}
 .sr-badge-help-btn svg{width:10px;height:10px;max-width:10px;max-height:10px;display:block}
 /* 徽章说明弹窗 */
 .sr-badge-help-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
