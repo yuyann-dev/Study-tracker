@@ -19597,6 +19597,8 @@ if (document.readyState === 'loading') {
     } catch (_) {}
     // 未登录时隐藏AI入口
     if (typeof STAuth === 'undefined' || !STAuth.isLoggedIn()) { fab.style.display = 'none'; return; }
+    // 登录后立即预加载AI配置：确保 __aiConfigured 在打卡前已设置，否则 StudyTime.hasAi() 返回 false 导致打卡不加时长
+    ensureConfig();
     drawer = mask.querySelector('.ai-drawer');
     els = {
       msgs: document.getElementById('aiMsgs'),
