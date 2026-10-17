@@ -16793,12 +16793,12 @@ function buildMemberMetaHtml(m) {
   var streak = (typeof m.streak === 'number') ? m.streak : 0;
   var streakClass = 'sr-streak-normal';
   var streakTitle = '';
-  if (streak >= 365) { streakClass = 'sr-streak-year'; streakTitle = '全年如一'; }
-  else if (streak >= 100) { streakClass = 'sr-streak-legend'; streakTitle = '百日不辍'; }
-  else if (streak >= 30) { streakClass = 'sr-streak-master'; streakTitle = '月度恒心'; }
-  else if (streak >= 14) { streakClass = 'sr-streak-half'; streakTitle = '半月如一'; }
-  else if (streak >= 7) { streakClass = 'sr-streak-pro'; streakTitle = '七日坚持'; }
-  else if (streak >= 3) { streakClass = 'sr-streak-beginner'; streakTitle = '起步'; }
+  if (streak >= 365) { streakClass = 'sr-streak-year'; streakTitle = '学以致用'; }
+  else if (streak >= 100) { streakClass = 'sr-streak-legend'; streakTitle = '融会贯通'; }
+  else if (streak >= 30) { streakClass = 'sr-streak-master'; streakTitle = '博览群书'; }
+  else if (streak >= 14) { streakClass = 'sr-streak-half'; streakTitle = '温故知新'; }
+  else if (streak >= 7) { streakClass = 'sr-streak-pro'; streakTitle = '日读成习'; }
+  else if (streak >= 3) { streakClass = 'sr-streak-beginner'; streakTitle = '开卷有得'; }
   var streakHtml = streak > 0
     ? '<span class="sr-meta-streak ' + streakClass + '" title="' + streakTitle + '">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
     : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
@@ -16806,16 +16806,16 @@ function buildMemberMetaHtml(m) {
   if (!(m.publicData || m.isSelf)) {
     var hasToday = !!m.checkedInToday;
     todayHtml = hasToday
-      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已打卡</span>'
-      : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已学习</span>'
+      : '<span class="sr-meta-today sr-today-zero">今日未学习</span>';
   } else {
     var n = m.todayReviewCount || 0;
     if (n > 0) {
       todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日复习 ' + n + ' 条</span>';
     } else if (m.checkedInToday) {
-      todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已打卡</span>';
+      todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已学习</span>';
     } else {
-      todayHtml = '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+      todayHtml = '<span class="sr-meta-today sr-today-zero">今日未学习</span>';
     }
   }
   // 在线状态文字（away 时显示"x分钟前"）
@@ -17357,6 +17357,11 @@ function initStudyRoomUI() {
   bind('#srLeaveCancelBtn', 'click', function(){ var m = $('#srLeaveConfirmMask'); if (m) m.hidden = true; });
   bind('#srLeaveCancelBtn2', 'click', function(){ var m = $('#srLeaveConfirmMask'); if (m) m.hidden = true; });
   bind('#srLeaveConfirmBtn', 'click', confirmLeaveRoom);
+
+  // 徽章说明弹窗
+  bind('#srBadgeHelpBtn', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = false; });
+  bind('#srBadgeHelpClose', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = true; });
+  bind('#srBadgeHelpMask', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = true; });
 
   // 公开自习室广场
   bind('#srPlazaBtn', 'click', openStudyRoomPlaza);

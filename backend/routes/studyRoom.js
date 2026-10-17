@@ -177,23 +177,61 @@ function getUserStats(userId) {
 }
 
 /**
- * 计算连续打卡 streak：
- *   - 今天有 review → 从今天起算；
- *   - 今天没有 review → 从昨天起算（不因今天尚未学而清零，符合「 streak 是历史连续」口径）；
- *   逐日回退直到遇到无记录日为止。加 3650 天保险上限防异常数据死循环。
- * @param {Object<string,number>} byDate {'YYYY-MM-DD': 当天 review 条数}
+ * 计算连续打卡 streak（宽容模式）：
+ *   - 今天有学习 → 从今天起算；今天没有 → 从昨天起算（不因今天尚未学而清零）
+ *   - 宽容续接：中间断签天数不超过当前等级的宽容阈值，且断签后立刻接上
+ *     并连续达到补偿天数，则断签日也算入 streak，不中断连续
+ *   - 等级越高宽容度越大：3天级允许断1天续2天，365天级允许断5天续30天
+ *   - 加 3650 天保险上限防异常数据死循环
+ * @param {Set<string>|Object<string,number>} dateSource 有学习记录的日期集合或 byDate 对象
  * @param {string} today 当前 UTC+8 日期 'YYYY-MM-DD'
  * @returns {number}
  */
-function computeStreak(byDate, today) {
+function computeStreak(dateSource, today) {
+  const has = (d) => {
+    if (dateSource instanceof Set) return dateSource.has(d);
+    return (dateSource[d] || 0) > 0;
+  };
+  // 今天学了从今天算，今天还没学则从昨天往回算
+  let cursor = has(today) ? today : shiftDate(today, -1);
+  if (!has(cursor)) return 0;
   let streak = 0;
-  // 今天学了从今天算，今天还没学则从昨天往回算（不因今天尚未学清零）
-  let cursor = (byDate[today] || 0) > 0 ? today : shiftDate(today, -1);
-  let guard = 0; // 3650 天保险上限
-  while ((byDate[cursor] || 0) > 0 && guard < 3650) {
+  let guard = 0;
+  // 第一段：严格连续
+  while (has(cursor) && guard < 3650) {
     streak++;
     cursor = shiftDate(cursor, -1);
     guard++;
+  }
+  // 宽容续接循环：找间隔 → 判断是否在宽容阈值内 → 数下一段连续 → 满足补偿则拼接
+  while (guard < 3650) {
+    let gap = 0;
+    while (!has(cursor) && gap < 10 && guard < 3650) {
+      gap++;
+      cursor = shiftDate(cursor, -1);
+      guard++;
+    }
+    if (gap === 0 || gap >= 10) break;
+    // 根据当前累计 streak 决定宽容阈值和补偿要求
+    let maxGap = 1, minContinue = 2;
+    if (streak >= 365) { maxGap = 5; minContinue = 30; }
+    else if (streak >= 100) { maxGap = 3; minContinue = 14; }
+    else if (streak >= 30) { maxGap = 2; minContinue = 7; }
+    else if (streak >= 14) { maxGap = 2; minContinue = 5; }
+    else if (streak >= 7) { maxGap = 1; minContinue = 3; }
+    if (gap > maxGap) break;
+    // 数下一段连续天数
+    let nextLen = 0;
+    let nextCursor = cursor;
+    while (has(nextCursor) && guard < 3650) {
+      nextLen++;
+      nextCursor = shiftDate(nextCursor, -1);
+      guard++;
+    }
+    if (nextLen < minContinue) break;
+    // 续接成功：间隔日 + 下一段全部计入
+    streak += gap + nextLen;
+    cursor = nextCursor;
   }
   return streak;
 }
