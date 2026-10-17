@@ -2374,7 +2374,9 @@ function estimateMistakeCompletion(p) {
     const stage = Math.min(it.stage || 0, intervals.length - 1);
     var startDate = (it.nextReviewDate && it.nextReviewDate > today) ? it.nextReviewDate : today;
     var date = startDate;
-    for (var s = stage; s < intervals.length; s++) {
+    // 从 stage+1 开始累加：nextReviewDate 已经是 stage 轮的复习日，
+    // 复习后进入 stage+1，后续间隔为 intervals[stage+1..last]，最后一轮复习当天攻克
+    for (var s = stage + 1; s < intervals.length; s++) {
       date = addDays(date, Math.max(1, parseInt(intervals[s], 10) || 1));
     }
     if (date > maxDate) maxDate = date;
