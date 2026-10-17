@@ -17610,9 +17610,9 @@ function initStudyRoomUI() {
   }
   // 隐私开关状态已在 renderStudyRoomViews() 中从 /me 返回的 self 项回填，无需另发请求
 
-  // 自习室入口红点：启动时检查一次，之后每 60 秒检查一次
+  // 自习室入口红点：启动时检查一次，之后每 10 秒检查一次（接近实时）
   checkLikeDot();
-  setInterval(checkLikeDot, 60000);
+  setInterval(checkLikeDot, 10000);
 }
 
 // 安卓/物理返回键：专门处理自习室层。
