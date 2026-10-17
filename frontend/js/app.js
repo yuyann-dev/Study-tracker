@@ -16872,10 +16872,8 @@ function renderMemberDetail(profile) {
         var pages = a.pages || 0;
         var sets = a.sets || 0;
         var reviews = a.reviews != null ? a.reviews : (a.reviewCount || 0);
-        var exerciseBits = [];
-        if (pages > 0) exerciseBits.push(pages + ' 页');
-        if (sets > 0) exerciseBits.push(sets + ' 套');
-        if (exerciseBits.length) bits.push('刷题 ' + exerciseBits.join('、'));
+        if (pages > 0) bits.push('刷题 ' + pages + ' 页');
+        if (sets > 0) bits.push('刷套卷 ' + sets + ' 套');
         if (reviews > 0) bits.push('复习 ' + reviews + ' 条');
         var detail = bits.length ? bits.join('，') : '已学习';
         return '<div class="sr-recent-item">'
