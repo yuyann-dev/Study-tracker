@@ -16868,9 +16868,17 @@ function renderMemberDetail(profile) {
       recentEl.innerHTML = '<div class="sr-recent-empty">暂无学习记录</div>';
     } else {
       recentEl.innerHTML = recent.map(function(a) {
+        var bits = [];
+        var pages = a.pages || 0;
+        var sets = a.sets || 0;
+        var reviews = a.reviews != null ? a.reviews : (a.reviewCount || 0);
+        if (pages > 0) bits.push('刷题 ' + pages + ' 页');
+        if (sets > 0) bits.push(sets + ' 套');
+        if (reviews > 0) bits.push('复习 ' + reviews + ' 条');
+        var detail = bits.length ? bits.join('，') : '已学习';
         return '<div class="sr-recent-item">'
           + '<span class="sr-recent-date">' + esc((a.date || '').slice(5)) + ' ' + esc(a.dayOfWeek || '') + '</span>'
-          + '<span class="sr-recent-count">复习 ' + (a.reviewCount || 0) + ' 条</span>'
+          + '<span class="sr-recent-count">' + esc(detail) + '</span>'
           + '</div>';
       }).join('');
     }
@@ -16920,9 +16928,9 @@ function renderProjectTodayCharts(projects) {
   var r = (size - strokeW) / 2;
   var cx = size / 2, cy = size / 2;
   var circ = 2 * Math.PI * r;
-  // 项目越多间隙越小：1-3项1.5px，4-8项1px，9-15项0.6px，16+项0.3px
+  // 项目越多间隙越小：单项目无间隙，2-3项1.5px，4-8项1px，9-15项0.6px，16+项0.3px
   var n = weighted.length;
-  var gap = n > 15 ? 0.3 : n > 8 ? 0.6 : n > 3 ? 1.0 : 1.5;
+  var gap = n <= 1 ? 0 : n > 15 ? 0.3 : n > 8 ? 0.6 : n > 3 ? 1.0 : 1.5;
   // 背景轨
   var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">'
     + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" class="sr-chart-track" stroke-width="' + strokeW + '"/>';

@@ -702,16 +702,57 @@ router.get('/member/:userId', (req, res) => {
     const { byDate, total } = getUserStats(targetUserId);
 
     const today = todayStr();
-    // 最近学习动态：最近 3 条有打卡记录的日期（按日期降序，不含今天之后的日期）
-    const recentActivity = Object.entries(byDate)
-      .filter(([date, count]) => date <= today && count > 0)
-      .sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0))
-      .slice(0, 3)
-      .map(([date, count]) => ({
+    // 收集所有有学习记录的日期（刷题 records + 复习 reviews），取最近3天
+    let storeObj = null;
+    try { storeObj = row && row.store_json ? JSON.parse(row.store_json) : null; } catch (_) { storeObj = null; }
+    const allDates = new Set();
+    if (storeObj && storeObj.projects) {
+      for (const p of Object.values(storeObj.projects)) {
+        if (!p) continue;
+        if (p.type === 'exercise' && Array.isArray(p.records)) {
+          p.records.forEach(r => { if (r && r.date) allDates.add(r.date); });
+        }
+        if (Array.isArray(p.items)) {
+          p.items.forEach(it => {
+            if (it && Array.isArray(it.reviews)) {
+              it.reviews.forEach(r => { if (r && r.date) allDates.add(r.date); });
+            }
+          });
+        }
+      }
+    }
+    const recentDates = [...allDates].filter(d => d <= today).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).slice(0, 3);
+    // 计算每日 breakdown：刷题页数、套数、复习条数
+    const recentActivity = recentDates.map(date => {
+      const prevDate = shiftDate(date, -1);
+      let pages = 0, sets = 0, reviews = 0;
+      if (storeObj && storeObj.projects) {
+        for (const p of Object.values(storeObj.projects)) {
+          if (!p) continue;
+          if (p.type === 'exercise') {
+            const cur = _getCompletedPagesAtDate(p, date);
+            const prev = _getCompletedPagesAtDate(p, prevDate);
+            const delta = Math.max(0, cur - prev);
+            if (_isSetMode(p)) sets += delta; else pages += delta;
+          } else if (p.type === 'mistake' || p.type === 'recite') {
+            if (Array.isArray(p.items)) {
+              p.items.forEach(it => {
+                if (it && Array.isArray(it.reviews)) {
+                  it.reviews.forEach(r => { if (r && r.date === date) reviews++; });
+                }
+              });
+            }
+          }
+        }
+      }
+      return {
         date,
-        reviewCount: count,
         dayOfWeek: dayOfWeekCn(date),
-      }));
+        pages: Math.round(pages * 10) / 10,
+        sets: Math.round(sets * 10) / 10,
+        reviews,
+      };
+    });
 
     // 本周复习数：周一→周日 7 个数
     const monday = shiftDate(today, -mondayIndex(today));
