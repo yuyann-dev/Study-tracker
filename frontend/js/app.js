@@ -16732,7 +16732,7 @@ function buildMemberCard(m, iAmOwner) {
     : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
   var onlineDot = buildOnlineDot(m);
 
-  var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">' + svgIcon('crown') + ' 房主</span>' : '';
+  var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
   var starBadge = m.isTodayStar ? '<span class="sr-star-badge" title="今日活跃度第1名">' + svgIcon('star') + ' 今日之星</span>' : '';
   var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
   var kickBtn = (iAmOwner && !m.isSelf)
@@ -16793,10 +16793,12 @@ function buildMemberMetaHtml(m) {
   var streak = (typeof m.streak === 'number') ? m.streak : 0;
   var streakClass = 'sr-streak-normal';
   var streakTitle = '';
-  if (streak >= 100) { streakClass = 'sr-streak-legend'; streakTitle = '百日传奇'; }
-  else if (streak >= 30) { streakClass = 'sr-streak-master'; streakTitle = '月度王者'; }
+  if (streak >= 365) { streakClass = 'sr-streak-year'; streakTitle = '全年如一'; }
+  else if (streak >= 100) { streakClass = 'sr-streak-legend'; streakTitle = '百日不辍'; }
+  else if (streak >= 30) { streakClass = 'sr-streak-master'; streakTitle = '月度恒心'; }
+  else if (streak >= 14) { streakClass = 'sr-streak-half'; streakTitle = '半月如一'; }
   else if (streak >= 7) { streakClass = 'sr-streak-pro'; streakTitle = '七日坚持'; }
-  else if (streak >= 3) { streakClass = 'sr-streak-beginner'; streakTitle = '初露锋芒'; }
+  else if (streak >= 3) { streakClass = 'sr-streak-beginner'; streakTitle = '起步'; }
   var streakHtml = streak > 0
     ? '<span class="sr-meta-streak ' + streakClass + '" title="' + streakTitle + '">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
     : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';

@@ -26,7 +26,7 @@ const SWEEP_INTERVAL_MS = 30 * 1000;
 // 硬上限：对齐注册用户口径（1000 内最佳、2000 内可接受），留余量到 3000
 const MAX_ENTRIES = 3000;
 
-/** @type {Map<number, {ts:number, today:string, byDate:object, total:number}>} */
+/** @type {Map<number, {ts:number, today:string, byDate:object, total:number, allDates:Set, todayScore:number}>} */
 const cache = new Map();
 /** 上次懒清理的时间戳（ms）；0 表示尚未清理 */
 let _lastSweep = 0;
@@ -80,7 +80,7 @@ function get(userId, expectedToday) {
     cache.delete(userId);
     return null;
   }
-  return { byDate: entry.byDate, total: entry.total };
+  return { byDate: entry.byDate, total: entry.total, allDates: entry.allDates, todayScore: entry.todayScore };
 }
 
 /**
@@ -97,6 +97,8 @@ function set(userId, today, stats) {
     today,
     byDate: (stats && stats.byDate) || {},
     total: (stats && stats.total) || 0,
+    allDates: (stats && stats.allDates) || new Set(),
+    todayScore: (stats && stats.todayScore) || 0,
   });
   evictIfOverLimit();
 }
