@@ -2163,6 +2163,7 @@ html[data-theme="dark"] .sr-like-btn-liked .ic{fill:#e89050;stroke:#e89050}
   display:flex;align-items:center;gap:10px;padding:11px 14px;
   background:var(--card);border-radius:13px;border:1px solid var(--border);
   box-shadow:var(--shadow);transition:transform .15s ease,box-shadow .15s ease;
+  overflow:hidden;
 }
 .sr-member-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-1px)}
 .sr-member-avatar{width:40px;height:40px;border-radius:50%;background:var(--elevated);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex:0 0 auto;font-size:20px;border:1px solid var(--border);transition:transform .15s ease}
@@ -2208,7 +2209,7 @@ html[data-theme="dark"] .sr-badge-tag-year{color:#a888d0;background:rgba(122,90,
 .sr-kick-btn{flex:0 0 auto;align-self:center;padding:4px 10px;font-size:12px;color:var(--bad)}
 
 /* 在线状态指示点（叠加在头像右下角） */
-.sr-member-avatar-wrap{position:relative;flex:0 0 auto;width:40px;height:40px}
+.sr-member-avatar-wrap{position:relative;flex:0 0 auto;width:40px;height:40px;flex-shrink:0}
 .sr-online-dot{position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;border:2px solid var(--card);box-sizing:border-box}
 .sr-online-dot.sr-online-on{background:#2eb87a;animation:srPulse 2s infinite}
 @keyframes srPulse{0%{box-shadow:0 0 0 0 rgba(46,184,122,.35)}70%{box-shadow:0 0 0 5px rgba(46,184,122,0)}100%{box-shadow:0 0 0 0 rgba(46,184,122,0)}}
