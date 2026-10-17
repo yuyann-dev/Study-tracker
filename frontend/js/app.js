@@ -16886,53 +16886,74 @@ function renderMemberDetail(profile) {
   renderProjectTodayCharts(profile.projectToday || []);
 }
 
-// 渲染今日各项目完成量环形图（SVG 原生绘制，不引入第三方库）
-// 每个项目一个小环，环填充量=该项目今日完成量占今日总量的比例；中心显示"今日X页/套"
+// 渲染今日各项目完成量环形图（统一单环多段，SVG 原生绘制）
+// 不同单位按权重换算为等效学习量后分段：刷题页/背书页=1，套卷=4，错题条=0.3
+// 中心显示"今日 N 项有进展"，下方图例列出各项目完成量，hover 显示完整项目名
 function renderProjectTodayCharts(projects) {
   var container = $('#srDetailCharts');
   if (!container) return;
-  var emptyHtml = '<div class="sr-charts-empty"><span class="sr-empty-ico">🌱</span>今天还没有学习记录<br>完成一项学习后，这里会显示各项目的完成占比</div>';
+  var emptyHtml = '<div class="sr-charts-empty"><span class="sr-empty-ico">🌱</span>今天还没有学习记录<br>完成学习后，这里会显示今日各项目的完成分布</div>';
   if (!projects.length) {
     container.innerHTML = emptyHtml;
     return;
   }
-  var total = projects.reduce(function(s, p) { return s + (p.todayCount || 0); }, 0);
-  if (total <= 0) {
+  // 不同单位的等效学习量权重
+  function getWeight(p) {
+    if (p.type === 'exercise' && (p.unit === '套' || p.unit === 'set')) return 4.0;
+    if (p.type === 'mistake') return 0.3;
+    return 1.0;
+  }
+  var weighted = projects.map(function(p) {
+    return { p: p, w: Math.max(0, p.todayCount || 0) * getWeight(p) };
+  }).filter(function(x) { return x.w > 0; });
+  if (!weighted.length) {
     container.innerHTML = emptyHtml;
     return;
   }
-  // 品牌绿色系（纸感学院派暖色调）
-  var palette = ['#2e6b4f', '#4a8c6e', '#6ba88a', '#8fc0a9', '#b5d4c5', '#d4e8dd'];
-  container.innerHTML = projects.map(function(p, i) {
-    var proportion = (p.todayCount || 0) / total;
+  var totalW = weighted.reduce(function(s, x) { return s + x.w; }, 0);
+  // 品牌绿色系（纸感学院派暖色调，从深到浅）
+  var palette = ['#2e6b4f', '#4a8c6e', '#6ba88a', '#8fc0a9', '#b5d4c5', '#cfe3d8'];
+  var size = 140, strokeW = 16;
+  var r = (size - strokeW) / 2;
+  var cx = size / 2, cy = size / 2;
+  var circ = 2 * Math.PI * r;
+  // 背景轨
+  var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" class="sr-chart-track" stroke-width="' + strokeW + '"/>';
+  // 各项目分段
+  var offset = 0;
+  weighted.forEach(function(x, i) {
+    var frac = x.w / totalW;
+    var len = circ * frac;
     var color = palette[i % palette.length];
-    var size = 76;          // 环外直径 px
-    var strokeW = 8;         // 环粗
-    var r = (size - strokeW) / 2;
-    var cx = size / 2, cy = size / 2;
-    var circumference = 2 * Math.PI * r;
-    var filledLen = circumference * proportion;
-    var emptyLen = circumference - filledLen;
-    // SVG 圆环：背景轨 + 填充弧（从顶部 -90deg 开始顺时针）
-    var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">'
-      + '<circle class="sr-chart-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke-width="' + strokeW + '"/>'
-      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '"'
-      + ' stroke-dasharray="' + filledLen.toFixed(1) + ' ' + emptyLen.toFixed(1) + '"'
-      + ' stroke-dashoffset="0"'
-      + ' stroke-linecap="round" transform="rotate(-90 ' + cx + ' ' + cy + ')"'
-      + '/>'
-      + '</svg>';
-    var unit = p.unit || '页';
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '"'
+      + ' stroke-dasharray="' + len.toFixed(2) + ' ' + (circ - len + 0.01).toFixed(2) + '"'
+      + ' stroke-dashoffset="' + (-offset).toFixed(2) + '"'
+      + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"'
+      + '/>';
+    offset += len;
+  });
+  svg += '</svg>';
+  // 图例：颜色点 + 项目名（截断，hover完整） + 完成量+单位
+  var legend = weighted.map(function(x, i) {
+    var color = palette[i % palette.length];
+    var p = x.p;
     var count = p.todayCount;
     var countStr = Number.isInteger(count) ? String(count) : count.toFixed(1);
-    var centerHtml = '<span class="sr-chart-num">' + countStr + '</span><span class="sr-chart-unit">' + esc(unit) + '</span>';
-    return '<div class="sr-chart-item">'
-      +   '<div class="sr-chart-ring-wrap">' + svg
-      +     '<div class="sr-chart-center">' + centerHtml + '</div>'
-      +   '</div>'
-      +   '<div class="sr-chart-name">' + esc(p.projectName || '未命名') + '</div>'
+    var name = p.projectName || '未命名项目';
+    var unit = p.unit || '页';
+    return '<div class="sr-legend-item" title="' + esc(name) + ' · ' + countStr + esc(unit) + '">'
+      + '<span class="sr-legend-dot" style="background:' + color + '"></span>'
+      + '<span class="sr-legend-name">' + esc(name) + '</span>'
+      + '<span class="sr-legend-val">' + countStr + esc(unit) + '</span>'
       + '</div>';
   }).join('');
+  container.innerHTML = '<div class="sr-unified-chart">'
+    + '<div class="sr-unified-ring">' + svg
+    +   '<div class="sr-unified-center"><span class="sr-unified-num">' + weighted.length + '</span><span class="sr-unified-label">项今日有进展</span></div>'
+    + '</div>'
+    + '<div class="sr-unified-legend">' + legend + '</div>'
+    + '</div>';
 }
 
 // 创建房间：POST /api/study-room/create
