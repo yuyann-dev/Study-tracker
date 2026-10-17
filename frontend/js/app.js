@@ -16595,6 +16595,8 @@ var studyRoomState = {
 async function openStudyRoomPage() {
   var mask = $('#studyRoomMask');
   if (!mask) return;
+  // 清除入口红点：进入自习室即视为已查看
+  clearLikeDot();
   // 必须在弹窗仍处于 hidden 时调用 modalTop：其内部幂等判断会在「已可见」时早退，
   // 若先 hidden=false 再调用，lockBodyScroll 不会执行，背景滚动将锁不住。
   try { modalTop(mask); } catch (e) {}
@@ -16608,6 +16610,47 @@ async function openStudyRoomPage() {
     renderStudyRoomViews();
   }
   startStudyRoomPolling();
+}
+
+// ══════════════ 自习室入口红点（未读点赞） ══════════════
+// 用 localStorage 记录上次查看时的点赞数和日期；有新赞则在导航按钮显示红点
+function _todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function checkLikeDot() {
+  var dot = $('#srLikeDot');
+  if (!dot) return;
+  try {
+    var seenDate = localStorage.getItem('sr_like_seen_date') || '';
+    var seenCount = parseInt(localStorage.getItem('sr_like_seen_count') || '0', 10);
+    var today = _todayStr();
+    // 跨天重置
+    if (seenDate !== today) {
+      seenCount = 0;
+      localStorage.setItem('sr_like_seen_date', today);
+      localStorage.setItem('sr_like_seen_count', '0');
+    }
+    STAuth.apiRequest('/api/study-room/likes').then(function(data) {
+      var cur = (data && data.received) || 0;
+      if (cur > seenCount) {
+        dot.hidden = false;
+      } else {
+        dot.hidden = true;
+      }
+    }).catch(function() { /* 静默失败，不影响主流程 */ });
+  } catch (e) { /* localStorage 不可用时静默 */ }
+}
+function clearLikeDot() {
+  var dot = $('#srLikeDot');
+  if (dot) dot.hidden = true;
+  try {
+    STAuth.apiRequest('/api/study-room/likes').then(function(data) {
+      var cur = (data && data.received) || 0;
+      localStorage.setItem('sr_like_seen_date', _todayStr());
+      localStorage.setItem('sr_like_seen_count', String(cur));
+    }).catch(function() {});
+  } catch (e) {}
 }
 
 // 关闭自习室主页面（返回按钮）
@@ -17566,6 +17609,10 @@ function initStudyRoomUI() {
     privacyCb.addEventListener('change', function(){ saveStudyRoomPublic(this.checked); });
   }
   // 隐私开关状态已在 renderStudyRoomViews() 中从 /me 返回的 self 项回填，无需另发请求
+
+  // 自习室入口红点：启动时检查一次，之后每 60 秒检查一次
+  checkLikeDot();
+  setInterval(checkLikeDot, 60000);
 }
 
 // 安卓/物理返回键：专门处理自习室层。

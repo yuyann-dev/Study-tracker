@@ -2149,6 +2149,15 @@ html[data-theme="dark"] .sr-privacy-row{background:var(--input);border-color:var
 .sr-like-msg{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html[data-theme="dark"] .sr-like-btn-liked{color:#e89050;border-color:rgba(232,144,80,.35);background:rgba(232,144,80,.10)}
 html[data-theme="dark"] .sr-like-btn-liked .ic{fill:#e89050;stroke:#e89050}
+
+/* 自习室入口红点 */
+.sr-nav-btn{position:relative}
+.sr-like-dot{
+  position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;
+  background:var(--bad);border:2px solid var(--card);
+  animation:srLikeDotPop .2s ease-out;pointer-events:none;
+}
+@keyframes srLikeDotPop{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
 .sr-member-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
 .sr-member-card{
   display:flex;align-items:center;gap:10px;padding:11px 14px;
