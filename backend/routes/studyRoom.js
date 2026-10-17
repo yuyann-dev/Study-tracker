@@ -752,7 +752,7 @@ router.get('/member/:userId', (req, res) => {
         sets: Math.round(sets * 10) / 10,
         reviews,
       };
-    });
+    }).filter(a => a.pages > 0 || a.sets > 0 || a.reviews > 0);
 
     // 本周复习数：周一→周日 7 个数
     const monday = shiftDate(today, -mondayIndex(today));
