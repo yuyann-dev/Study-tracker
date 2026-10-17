@@ -16911,12 +16911,14 @@ function renderProjectTodayCharts(projects) {
     return;
   }
   var totalW = weighted.reduce(function(s, x) { return s + x.w; }, 0);
-  // 品牌绿色系（纸感学院派暖色调，从深到浅）
-  var palette = ['#2e6b4f', '#4a8c6e', '#6ba88a', '#8fc0a9', '#b5d4c5', '#cfe3d8'];
+  // 纸感学院派调色板：绿色系为主 + 暖金/深棕对比色，相邻明度差足够大
+  var palette = ['#2a5f45', '#4a8c6e', '#7ab092', '#c9a96e', '#a67c52', '#6b8e7b', '#b8d4c0', '#9e8b6e'];
   var size = 140, strokeW = 16;
   var r = (size - strokeW) / 2;
   var cx = size / 2, cy = size / 2;
   var circ = 2 * Math.PI * r;
+  // 多项目时段间留白色间隙，单项目不留
+  var gap = weighted.length > 1 ? 1.5 : 0;
   // 背景轨
   var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">'
     + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" class="sr-chart-track" stroke-width="' + strokeW + '"/>';
@@ -16924,14 +16926,14 @@ function renderProjectTodayCharts(projects) {
   var offset = 0;
   weighted.forEach(function(x, i) {
     var frac = x.w / totalW;
-    var len = circ * frac;
+    var len = Math.max(0, circ * frac - gap);
     var color = palette[i % palette.length];
     svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '"'
       + ' stroke-dasharray="' + len.toFixed(2) + ' ' + (circ - len + 0.01).toFixed(2) + '"'
       + ' stroke-dashoffset="' + (-offset).toFixed(2) + '"'
       + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"'
       + '/>';
-    offset += len;
+    offset += len + gap;
   });
   svg += '</svg>';
   // 图例：颜色点 + 项目名（截断，hover完整） + 完成量+单位
