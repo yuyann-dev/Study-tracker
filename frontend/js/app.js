@@ -2342,6 +2342,11 @@ function getIntervals(p) {
   return (p.intervals && p.intervals.length) ? p.intervals : DEFAULT_INTERVALS;
 }
 
+/* 格式化记忆间隔为展示字符串，如 [1,2,4,7,15,30] → "1→2→4→7→15→30" */
+function formatIntervals(p) {
+  return getIntervals(p).join('→');
+}
+
 /* 一条内容从首次学习到"走完最后一轮、毕业"所需的累计天数 = 各档间隔之和。
    默认 [1,2,4,7,15,30] → 59 天。背书要保证所有内容在考试前毕业，
    最后一批新内容最晚必须在 deadline - cycleDays 天学完，之后只复习不学新。 */
@@ -7496,15 +7501,15 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   if (!doneAll) {
     if (p.type === 'mistake') {
       // 错题本是滚动复习，不是线性进度：不按"攻克速度"外推完成时间，说明要贴合其机制
-      algoNote = '每道错题按记忆间隔（1→2→4→7→15→30天）滚动复习，连续做对才算攻克。均匀模式会自动把每天的量错峰，你只要做完"今天到期"的即可，越往后复习越稀疏、负担越轻，不需要自己算每天做多少。';
+      algoNote = `每道错题按记忆间隔（${formatIntervals(p)}天）滚动复习，连续做对才算攻克。均匀模式会自动把每天的量错峰，你只要做完"今天到期"的即可，越往后复习越稀疏、负担越轻，不需要自己算每天做多少。`;
     } else if (p.type === 'recite') {
       // 背书本是"新学推进 + 间隔复习"双任务，且要预留完整复习周期，说明与刷题/错题都不同
       if (m.sprint) {
-        algoNote = `一轮完整复习约需 ${m.cycleDays} 天（1→2→4→7→15→30 间隔）。现在距目标日不足一个完整周期，已进入冲刺期，系统把"先复习已学、再挑重点学新"放在第一位；你只需按今天的清单做，不用再算新学目标。`;
+        algoNote = `一轮完整复习约需 ${m.cycleDays} 天（${formatIntervals(p)} 间隔）。现在距目标日不足一个完整周期，已进入冲刺期，系统把"先复习已学、再挑重点学新"放在第一位；你只需按今天的清单做，不用再算新学目标。`;
       } else if (!m.enoughData) {
         algoNote = `背书 = 新学推进 + 按间隔复习，一轮完整复习约需 ${m.cycleDays} 天。系统会算出新学截止日（${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'}），之后只做滚动复习；现在数据少，先按粗略目标推进。`;
       } else {
-        algoNote = `背书 = 新学 + 按间隔（1→2→4→7→15→30天）滚动复习，一轮约需 ${m.cycleDays} 天。系统按你的节奏安排每天新学页与复习并错峰，避免扎堆；新内容建议在 ${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'} 前学完，之后只做滚动复习，到期记得最牢。`;
+        algoNote = `背书 = 新学 + 按间隔（${formatIntervals(p)}天）滚动复习，一轮约需 ${m.cycleDays} 天。系统按你的节奏安排每天新学页与复习并错峰，避免扎堆；新内容建议在 ${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'} 前学完，之后只做滚动复习，到期记得最牢。`;
       }
     } else if (!m.enoughData) {
       algoNote = `系统统计你最近每个"真正学习的日子"推进了多少${u}、每周大约学几天，据此折算目标。满 3 个学习日开始个性化（范围偏宽），满 7 个学习日、跨约 2 周后最可靠；现在数据少，先按粗略目标推进。`;
@@ -14191,7 +14196,7 @@ function confirmModeSwitch(newMode) {
   } else {
     target.className = 'mode-help-card mode-classic';
     target.innerHTML = '<div style="font-weight:700;margin-bottom:6px">' + svgIcon('book-open') + ' 经典间隔模式</div>' +
-      '<div style="color:var(--muted);font-size:13px;line-height:1.7">严格按间隔天数（1→2→4→7→15→30天）提醒复习。<br><b>适合</b>：量少、能跟上节奏、希望严格遵循记忆曲线。</div>';
+      '<div style="color:var(--muted);font-size:13px;line-height:1.7">严格按间隔天数（' + formatIntervals(p) + '天）提醒复习。<br><b>适合</b>：量少、能跟上节奏、希望严格遵循记忆曲线。</div>';
   }
   $('#modeSwitchConfirmMask').hidden = false;
   modalTop($('#modeSwitchConfirmMask'));
