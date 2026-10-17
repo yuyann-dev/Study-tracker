@@ -1301,9 +1301,9 @@
           ? ops + (adminBadge ? ' ' + adminBadge.replace('adm-role-badge','') : '')
           : adminBadge + ops;
         return '<tr><td><input type="checkbox" class="ad-table-check rowcheck" data-id="' + u.id + '"' + checked + '></td>'
-          + '<td>' + u.id + '</td><td>' + name + '</td><td>' + esc(u.email || '—') + '</td>'
+          + '<td>' + u.id + '</td><td title="' + name + '">' + name + '</td><td title="' + esc(u.email || '—') + '">' + esc(u.email || '—') + '</td>'
           + '<td>' + st + '</td><td>' + (u.projectCount || 0) + '</td>'
-          + '<td>' + fmtSync(u.lastLoginAt) + '</td><td>' + (u.createdAt ? fmtDateTime(u.createdAt) : '—') + '</td>'
+          + '<td>' + fmtSync(u.lastLoginAt) + '</td><td>' + (u.createdAt ? fmtSync(u.createdAt) : '—') + '</td>'
           + '<td><div class="adm-ops">' + opCol + '</div></td></tr>';
       }).join('');
       renderPager(); updateBatchBar(); updateSortHeaders();

@@ -1779,9 +1779,17 @@
   .badge-unused{display:inline-block;background:#e9ebdb;color:var(--brand);font-size:10px;padding:2px 8px;border-radius:999px}
   .invite-code-display{font-family:monospace;font-size:16px;font-weight:700;letter-spacing:2px;background:var(--bg);padding:10px 16px;border-radius:10px;text-align:center;color:var(--brand);cursor:pointer;margin:8px 0;user-select:all}
   html[data-theme="dark"] .invite-code-display{background:#3a5079}
-  #adminPaneUsers .admin-table{min-width:780px}
-  #adminPaneUsers .admin-table td:last-child{width:210px;min-width:210px}
-  .adm-ops{display:flex;gap:6px;flex-wrap:wrap;width:210px}
+  #adminPaneUsers .admin-table{min-width:720px;table-layout:fixed}
+  #adminPaneUsers .admin-table th:nth-child(1),#adminPaneUsers .admin-table td:nth-child(1){width:36px;min-width:36px;padding-left:6px;padding-right:6px}
+  #adminPaneUsers .admin-table th:nth-child(2),#adminPaneUsers .admin-table td:nth-child(2){width:42px;min-width:42px}
+  #adminPaneUsers .admin-table th:nth-child(3),#adminPaneUsers .admin-table td:nth-child(3){width:88px;min-width:88px;max-width:88px;overflow:hidden;text-overflow:ellipsis}
+  #adminPaneUsers .admin-table th:nth-child(4),#adminPaneUsers .admin-table td:nth-child(4){width:130px;min-width:130px;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+  #adminPaneUsers .admin-table th:nth-child(5),#adminPaneUsers .admin-table td:nth-child(5){width:52px;min-width:52px}
+  #adminPaneUsers .admin-table th:nth-child(6),#adminPaneUsers .admin-table td:nth-child(6){width:42px;min-width:42px;text-align:center}
+  #adminPaneUsers .admin-table th:nth-child(7),#adminPaneUsers .admin-table td:nth-child(7){width:102px;min-width:102px}
+  #adminPaneUsers .admin-table th:nth-child(8),#adminPaneUsers .admin-table td:nth-child(8){width:102px;min-width:102px}
+  #adminPaneUsers .admin-table td:last-child{width:190px;min-width:190px}
+  .adm-ops{display:flex;gap:6px;flex-wrap:wrap;width:190px}
   .adm-op{padding:4px 9px !important;font-size:11.5px !important;white-space:nowrap;flex:0 0 auto}
   .adm-danger{color:#b02e24 !important;border-color:rgba(201,48,56,.35) !important}
   .adm-role-badge{display:block;width:100%;text-align:center;margin-bottom:5px;font-size:10.5px;padding:1px 0}
