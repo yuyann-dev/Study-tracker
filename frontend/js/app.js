@@ -225,22 +225,6 @@ const StudyTime = {
       remainingEl.textContent = '估算中';
       return;
     }
-    // 检查是否有今天的预估数据，没有则显示"待估算"（不用旧模式误导）
-    var hasTodayEst = false;
-    try {
-      var today = todayStr();
-      var projs = (store && store.projects) || {};
-      Object.keys(projs).forEach(function(pid) {
-        var p = projs[pid];
-        if (p && p.todayEstimateDate && String(p.todayEstimateDate).slice(0,10) === today &&
-            Number(p.todayEstimatedTotalMinutes) > 0) hasTodayEst = true;
-      });
-    } catch(e) {}
-    if (!hasTodayEst) {
-      studiedEl.textContent = '待估算';
-      remainingEl.textContent = '待估算';
-      return;
-    }
     var studiedMin = this.getDisplayStudiedMin();
     var remainingMin = this.getRemainingMin();
     studiedEl.textContent = (studiedMin / 60).toFixed(1) + 'h';
