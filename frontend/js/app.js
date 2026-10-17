@@ -17039,15 +17039,25 @@ function renderProjectTodayCharts(projects) {
     + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" class="sr-chart-track" stroke-width="' + strokeW + '"/>';
   // 各项目分段
   var offset = 0;
+  var segData = [];
   weighted.forEach(function(x, i) {
     var frac = x.w / totalW;
     var len = Math.max(0, circ * frac - gap);
     var color = palette[i % palette.length];
-    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '"'
+    var p = x.p;
+    var count = p.todayCount;
+    var countStr = Number.isInteger(count) ? String(count) : count.toFixed(1);
+    var name = p.projectName || '未命名项目';
+    var unit = p.unit || '页';
+    var pct = Math.round(frac * 100);
+    segData.push({ name: name, countStr: countStr, unit: unit, pct: pct, color: color });
+    svg += '<circle class="sr-ring-seg" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '"'
       + ' stroke-dasharray="' + len.toFixed(2) + ' ' + (circ - len + 0.01).toFixed(2) + '"'
       + ' stroke-dashoffset="' + (-offset).toFixed(2) + '"'
       + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"'
-      + '/>';
+      + ' data-idx="' + i + '"'
+      + ' title="' + esc(name) + ' · ' + countStr + esc(unit) + ' · ' + pct + '%"/>'
+      + '';
     offset += len + gap;
   });
   svg += '</svg>';
@@ -17059,18 +17069,64 @@ function renderProjectTodayCharts(projects) {
     var countStr = Number.isInteger(count) ? String(count) : count.toFixed(1);
     var name = p.projectName || '未命名项目';
     var unit = p.unit || '页';
-    return '<div class="sr-legend-item" title="' + esc(name) + ' · ' + countStr + esc(unit) + '">'
+    return '<div class="sr-legend-item" data-idx="' + i + '" title="' + esc(name) + ' · ' + countStr + esc(unit) + '">'
       + '<span class="sr-legend-dot" style="background:' + color + '"></span>'
       + '<span class="sr-legend-name">' + esc(name) + '</span>'
       + '<span class="sr-legend-val">' + countStr + esc(unit) + '</span>'
       + '</div>';
   }).join('');
   container.innerHTML = '<div class="sr-unified-chart">'
-    + '<div class="sr-unified-ring">' + svg
-    +   '<div class="sr-unified-center"><span class="sr-unified-num">' + weighted.length + '项</span><span class="sr-unified-label">今日有进展</span></div>'
+    + '<div class="sr-unified-ring" id="srUnifiedRing">' + svg
+    +   '<div class="sr-unified-center"><span class="sr-unified-num" id="srRingNum">' + weighted.length + '项</span><span class="sr-unified-label" id="srRingLabel">今日有进展</span></div>'
     + '</div>'
     + '<div class="sr-unified-legend">' + legend + '</div>'
     + '</div>';
+  // hover交互：环形段或图例项hover时，中心显示该项目详情，其他段变暗
+  var ringEl = $('#srUnifiedRing');
+  var numEl = $('#srRingNum');
+  var labelEl = $('#srRingLabel');
+  if (ringEl && numEl && labelEl) {
+    var segs = ringEl.querySelectorAll('.sr-ring-seg');
+    var legendItems = container.querySelectorAll('.sr-legend-item');
+    function highlight(idx) {
+      segs.forEach(function(s, i) {
+        if (i === idx) {
+          s.setAttribute('stroke-width', String(strokeW + 3));
+          s.style.opacity = '1';
+        } else {
+          s.setAttribute('stroke-width', String(strokeW));
+          s.style.opacity = '0.35';
+        }
+      });
+      legendItems.forEach(function(li, i) {
+        li.style.opacity = (i === idx) ? '1' : '0.4';
+      });
+      var d = segData[idx];
+      if (d) {
+        numEl.textContent = d.countStr + d.unit;
+        numEl.style.color = d.color;
+        labelEl.textContent = d.name + ' · ' + d.pct + '%';
+      }
+    }
+    function reset() {
+      segs.forEach(function(s) {
+        s.setAttribute('stroke-width', String(strokeW));
+        s.style.opacity = '1';
+      });
+      legendItems.forEach(function(li) { li.style.opacity = '1'; });
+      numEl.textContent = weighted.length + '项';
+      numEl.style.color = '';
+      labelEl.textContent = '今日有进展';
+    }
+    segs.forEach(function(s, i) {
+      s.addEventListener('mouseenter', function() { highlight(i); });
+      s.addEventListener('mouseleave', reset);
+    });
+    legendItems.forEach(function(li, i) {
+      li.addEventListener('mouseenter', function() { highlight(i); });
+      li.addEventListener('mouseleave', reset);
+    });
+  }
 }
 
 // 创建房间：POST /api/study-room/create
