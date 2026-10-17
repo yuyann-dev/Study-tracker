@@ -2087,12 +2087,20 @@ html[data-theme="dark"] .sr-privacy-row{background:var(--input);border-color:var
 .sr-member-info{flex:1;min-width:0}
 .sr-member-name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .sr-member-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.sr-owner-badge{font-size:10.5px;font-weight:600;color:var(--brand);background:rgba(46,107,79,.10);padding:2px 9px;border-radius:999px;flex:0 0 auto}
+.sr-owner-badge{font-size:10.5px;font-weight:600;color:var(--brand);background:rgba(46,107,79,.10);padding:2px 9px;border-radius:999px;flex:0 0 auto;display:inline-flex;align-items:center;gap:3px}
+.sr-owner-badge .ic{width:11px;height:11px}
+.sr-star-badge{font-size:10.5px;font-weight:600;color:#8a5a00;background:linear-gradient(135deg,#fff4d6,#ffe49a);padding:2px 9px;border-radius:999px;flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 3px rgba(180,130,0,.15)}
+.sr-star-badge .ic{width:11px;height:11px;fill:currentColor;stroke:none}
 .sr-self-tag{font-size:11px;color:var(--muted);flex:0 0 auto}
 .sr-member-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:4px;font-size:12px;line-height:1.4;color:var(--muted)}
 .sr-member-meta .ic{width:12px;height:12px;vertical-align:-1px}
 .sr-meta-streak{color:var(--brand);font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px}
 .sr-meta-streak.sr-streak-zero{color:var(--muted);font-variant-numeric:normal}
+.sr-meta-streak.sr-streak-beginner{color:#e07a3c}
+.sr-meta-streak.sr-streak-pro{color:#d94848}
+.sr-meta-streak.sr-streak-master{color:#c8961e}
+.sr-meta-streak.sr-streak-legend{color:#8b5cf6}
+.sr-meta-streak .ic{width:12px;height:12px}
 .sr-meta-divider{color:var(--border)}
 .sr-meta-today{font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px}
 .sr-meta-today.sr-today-ok{color:var(--ok)}
@@ -2269,6 +2277,11 @@ html[data-theme="dark"] .sr-plaza-full{background:rgba(205,174,112,.14);border-c
 html[data-theme="dark"] .sr-kick-btn{color:var(--bad)}
 html[data-theme="dark"] .sr-detail-avatar{background:var(--input);border-color:var(--input-border)}
 html[data-theme="dark"] .sr-owner-badge{background:rgba(131,188,169,.14);color:var(--brand)}
+html[data-theme="dark"] .sr-star-badge{background:linear-gradient(135deg,rgba(255,220,120,.18),rgba(255,200,80,.10));color:#f0c040;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+html[data-theme="dark"] .sr-meta-streak.sr-streak-beginner{color:#f09050}
+html[data-theme="dark"] .sr-meta-streak.sr-streak-pro{color:#f06060}
+html[data-theme="dark"] .sr-meta-streak.sr-streak-master{color:#f0c040}
+html[data-theme="dark"] .sr-meta-streak.sr-streak-legend{color:#b080f0}
 html[data-theme="dark"] .sr-room-category{background:rgba(131,188,169,.14);color:var(--brand)}
 html[data-theme="dark"] .sr-plaza-cat{background:rgba(131,188,169,.14);color:var(--brand)}
 html[data-theme="dark"] .sr-plaza-active{color:var(--brand)}

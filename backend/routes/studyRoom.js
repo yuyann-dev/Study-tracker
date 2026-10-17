@@ -107,9 +107,10 @@ function dayOfWeekCn(dateStr) {
 
 /**
  * 从 user_data.store_json 收集 review 统计：
- *   byDate   { 'YYYY-MM-DD': 当天 review 条数 }
- *   total    全量 review 总条数
- *   allDates Set，所有有学习活动的日期（刷题 records + 复习 reviews + 首次学习 learnedDate）
+ *   byDate     { 'YYYY-MM-DD': 当天 review 条数 }
+ *   total      全量 review 总条数
+ *   allDates   Set，所有有学习活动的日期（刷题 records + 复习 reviews + 首次学习 learnedDate）
+ *   todayScore 今日活跃度分数（刷题页×1 + 套卷×4 + 错题×0.3），用于成员列表排序
  * 口径与前端 renderHeatmap 一致：遍历 projects[].items[].reviews[]，每条 review 计 1。
  * allDates 用于学习天数、streak、今日打卡判断，确保纯刷题日也算学习。
  */
@@ -119,13 +120,25 @@ function collectReviewStats(storeJson) {
   let total = 0;
   let store = null;
   try { store = storeJson ? JSON.parse(storeJson) : null; } catch (_) { store = null; }
-  if (!store || typeof store !== 'object') return { byDate, total, allDates };
+  if (!store || typeof store !== 'object') return { byDate, total, allDates, todayScore: 0 };
   const projects = store.projects || {};
+  const today = todayStr();
+  const yesterday = shiftDate(today, -1);
+  let todayScore = 0;
   for (const p of Object.values(projects)) {
     if (!p || typeof p !== 'object') continue;
     // 刷题打卡记录日期
     if (p.type === 'exercise' && Array.isArray(p.records)) {
       p.records.forEach(r => { if (r && r.date) allDates.add(r.date); });
+    }
+    // 今日活跃度：刷题页数/套数
+    if (p.type === 'exercise') {
+      const cur = _getCompletedPagesAtDate(p, today);
+      const prev = _getCompletedPagesAtDate(p, yesterday);
+      const delta = Math.max(0, cur - prev);
+      if (delta > 0) {
+        todayScore += delta * (_isSetMode(p) ? 4.0 : 1.0);
+      }
     }
     if (!Array.isArray(p.items)) continue;
     for (const it of p.items) {
@@ -138,10 +151,12 @@ function collectReviewStats(storeJson) {
         byDate[r.date] = (byDate[r.date] || 0) + 1;
         allDates.add(r.date);
         total++;
+        // 今日复习条数计入活跃度（错题和背书都算，权重0.3）
+        if (r.date === today) todayScore += 0.3;
       }
     }
   }
-  return { byDate, total, allDates };
+  return { byDate, total, allDates, todayScore: Math.round(todayScore * 100) / 100 };
 }
 
 /**
@@ -502,6 +517,9 @@ router.get('/me', (req, res) => {
       }
       // 在线状态：从内存心跳表取（60s=在线绿点，60s~5min=离开灰点+"x分钟前"，>5min=离线灰点）
       const online = getOnlineStatus(m.userId);
+      // 活跃度分数：今日学习量加权 + 在线加成 + streak小幅加成
+      const onlineBonus = online.status === 'online' ? 2 : (online.status === 'away' ? 1 : 0);
+      const activityScore = (stats.todayScore || 0) + onlineBonus + streak * 0.1;
       return {
         userId: m.userId,
         username: m.username,
@@ -512,10 +530,23 @@ router.get('/me', (req, res) => {
         streak,
         todayReviewCount,
         checkedInToday,
+        todayScore: stats.todayScore || 0,
+        activityScore: Math.round(activityScore * 100) / 100,
         onlineStatus: online.status,   // 'online' | 'away' | 'offline'
         onlineLabel: online.label,      // '刚刚' | 'x 分钟前' | ''
       };
     });
+
+    // 按活跃度降序排序：房主不固定，参与统一排序；同分按 streak 降序，再同按 user_id 升序
+    members.sort((a, b) => {
+      if (b.activityScore !== a.activityScore) return b.activityScore - a.activityScore;
+      if (b.streak !== a.streak) return b.streak - a.streak;
+      return a.userId - b.userId;
+    });
+    // 标记今日之星（活跃度第1，且分数>0；全0则无人获此徽章）
+    if (members.length > 0 && members[0].activityScore > 0) {
+      members[0].isTodayStar = true;
+    }
 
     return ok(res, {
       room: {

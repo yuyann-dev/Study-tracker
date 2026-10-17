@@ -16732,7 +16732,8 @@ function buildMemberCard(m, iAmOwner) {
     : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
   var onlineDot = buildOnlineDot(m);
 
-  var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
+  var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">' + svgIcon('crown') + ' 房主</span>' : '';
+  var starBadge = m.isTodayStar ? '<span class="sr-star-badge" title="今日活跃度第1名">' + svgIcon('star') + ' 今日之星</span>' : '';
   var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
   var kickBtn = (iAmOwner && !m.isSelf)
     ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
@@ -16746,7 +16747,7 @@ function buildMemberCard(m, iAmOwner) {
     + '<div class="sr-member-info">'
     +   '<div class="sr-member-name-row">'
     +     '<span class="sr-member-name">' + esc(m.username || '匿名') + '</span>'
-    +     ownerBadge + selfTag
+    +     ownerBadge + starBadge + selfTag
     +   '</div>'
     +   '<div class="sr-member-meta">'
     +     buildMemberMetaHtml(m)
@@ -16790,8 +16791,14 @@ function updateMemberCardDynamic(card, m, iAmOwner) {
 // 构建成员 meta 行 HTML（streak + 今日状态 + 在线文字）
 function buildMemberMetaHtml(m) {
   var streak = (typeof m.streak === 'number') ? m.streak : 0;
+  var streakClass = 'sr-streak-normal';
+  var streakTitle = '';
+  if (streak >= 100) { streakClass = 'sr-streak-legend'; streakTitle = '百日传奇'; }
+  else if (streak >= 30) { streakClass = 'sr-streak-master'; streakTitle = '月度王者'; }
+  else if (streak >= 7) { streakClass = 'sr-streak-pro'; streakTitle = '七日坚持'; }
+  else if (streak >= 3) { streakClass = 'sr-streak-beginner'; streakTitle = '初露锋芒'; }
   var streakHtml = streak > 0
-    ? '<span class="sr-meta-streak">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
+    ? '<span class="sr-meta-streak ' + streakClass + '" title="' + streakTitle + '">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
     : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
   var todayHtml;
   if (!(m.publicData || m.isSelf)) {
