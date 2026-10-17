@@ -2408,6 +2408,30 @@ function suggestShorterIntervals(p, targetDate) {
   return suggested;
 }
 
+/* 按新间隔重新计算所有未攻克题目的 nextReviewDate（一键缩短间隔后调用）
+   从每道题的上次复习日（或学习日）起，用新间隔[当前stage]重算下次复习日；
+   有 customIntervals 的单题跳过（用户单独设定的不受全局间隔影响）。 */
+function rescheduleAllItemsWithNewIntervals(p) {
+  const intervals = getIntervals(p);
+  const today = todayStr();
+  (p.items || []).forEach(function(it) {
+    if (it.mastered || it.manualMastered || it.finalReviewDate) return;
+    if (it.customIntervals && it.customIntervals.length) return;
+    const stage = Math.min(it.stage || 0, intervals.length - 1);
+    const gap = Math.max(1, parseInt(intervals[stage], 10) || 1);
+    var baseDate = null;
+    if (it.reviews && it.reviews.length) {
+      baseDate = it.reviews[it.reviews.length - 1].date;
+    } else if (it.learnedDate) {
+      baseDate = it.learnedDate;
+    }
+    if (!baseDate) return;
+    var newDate = addDays(baseDate, gap);
+    if (newDate < today) newDate = today; // 逾期的锚定到今天，由 autoBalance 后续摊派
+    it.nextReviewDate = newDate;
+  });
+}
+
 function calcNextReviewDateFromLearn(learnDate, completedReviews, intervals) {
   if (completedReviews >= intervals.length) return null;
   let total = 0;
@@ -5531,9 +5555,9 @@ function getStatusMessage(p, m) {
           const isSprint = daysLeft <= 15 && daysLeft >= 0;
           const suggested = suggestShorterIntervals(p, p.deadline);
           const suggestedStr = suggested.join('→');
-          const sprintTag = isSprint ? '<span style="display:inline-block;padding:1px 8px;margin-right:6px;font-size:11px;border-radius:4px;background:#fff3e0;color:#e65100;font-weight:600">冲刺期</span>' : '';
+          const sprintTag = isSprint ? '<span style="display:inline-block;padding:1px 8px;margin-right:6px;font-size:11px;border-radius:4px;background:rgba(176,122,75,.15);color:var(--brand2,#b07a4b);font-weight:600">冲刺期</span>' : '';
           etaLine = `<br><br>${sprintTag}<span style="color:var(--danger,#c0392b)">按当前间隔，截止日前可攻克 <b>${eta.byDeadlinePct}%</b>（${eta.byDeadlineCount}/${eta.unmasteredCount} 道），全部过完预计到 ${fmtCN(eta.allMasterDate)}，比目标日晚 ${late} 天。</span>`;
-          etaLine += `<br>建议：<button class="eta-shorten-btn" data-intervals="${suggestedStr}" style="display:inline-block;padding:2px 10px;margin:4px 0;font-size:12px;border-radius:6px;border:1px solid var(--primary,#4a6cf7);color:var(--primary,#4a6cf7);background:transparent;cursor:pointer">一键缩短间隔为 ${suggestedStr} 天</button>，或增加每日复习量、优先攻克反复错的高频薄弱点。`;
+          etaLine += `<br>建议：<button class="eta-shorten-btn" data-intervals="${suggestedStr}" style="display:inline-block;padding:3px 12px;margin:6px 0;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--brand,#2e6b4f);color:var(--brand,#2e6b4f);background:rgba(46,107,79,.06);cursor:pointer;transition:.15s">一键缩短间隔为 ${suggestedStr} 天</button>，或增加每日复习量、优先攻克反复错的高频薄弱点。`;
         }
       }
     }
@@ -7580,8 +7604,9 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       if (!confirm('确定将记忆间隔缩短为 ' + newIv.join('→') + ' 天？所有未攻克的错题会按新间隔重新排期。')) return;
       p.intervals = newIv;
       p.updatedAt = Date.now();
-      saveStore();
+      rescheduleAllItemsWithNewIntervals(p);
       rebalanceAllItems(p);
+      saveStore();
       render();
       showToast('' + svgIcon('check-circle') + '', '间隔已缩短', '新间隔为 ' + newIv.join('→') + ' 天，所有未攻克的错题已按新间隔重新排期。', 3500);
     });
