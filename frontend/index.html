@@ -106,7 +106,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
 <link rel="stylesheet" href="lib/katex.min.css?v=b189">
-<link rel="stylesheet" href="css/style.css?v=b195">
+<link rel="stylesheet" href="css/style.css?v=b196">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1994,9 +1994,9 @@ if ('serviceWorker' in navigator) {
 
 
 <script src="js/icons.js?v=b189"></script>
-<script src="js/auth.js?v=b195"></script>
+<script src="js/auth.js?v=b196"></script>
 <script src="lib/katex.min.js?v=b189"></script>
-<script src="js/app.js?v=b190"></script>
+<script src="js/app.js?v=b196"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2055,6 +2055,7 @@ if (document.readyState === 'loading') {
       <div class="sr-room-info">
         <div class="sr-room-name-row">
           <span class="sr-room-name" id="srRoomName"></span>
+          <span class="sr-room-category" id="srRoomCategory" hidden></span>
           <span class="sr-member-count" id="srMemberCount"></span>
           <span class="sr-visibility-badge" id="srVisibilityBadge"></span>
         </div>
@@ -2063,6 +2064,7 @@ if (document.readyState === 'loading') {
           <span class="sr-room-code" id="srRoomCode"></span>
           <button class="ghost-btn sr-copy-btn" id="srCopyCodeBtn" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> 复制</button>
         </div>
+        <div class="sr-room-intro" id="srRoomIntro" hidden></div>
       </div>
 
       <!-- 房主操作行（仅房主可见，JS 控制 hidden） -->
@@ -2092,6 +2094,14 @@ if (document.readyState === 'loading') {
     <div id="srPlazaView" hidden>
       <button class="ghost-btn" id="srPlazaBackBtn" type="button">← 返回</button>
       <div class="sr-plaza-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> 自习室广场</div>
+      <div class="sr-plaza-filters" id="srPlazaFilters">
+        <button class="sr-plaza-filter active" data-cat="all" type="button">全部</button>
+        <button class="sr-plaza-filter" data-cat="考研" type="button">考研</button>
+        <button class="sr-plaza-filter" data-cat="考公" type="button">考公</button>
+        <button class="sr-plaza-filter" data-cat="期末" type="button">期末</button>
+        <button class="sr-plaza-filter" data-cat="英语" type="button">英语</button>
+        <button class="sr-plaza-filter" data-cat="other" type="button">其他</button>
+      </div>
       <div class="hint" id="srPlazaLoading" style="margin:10px 0">加载中…</div>
       <div class="sr-plaza-list" id="srPlazaList"></div>
       <div id="srPlazaEmpty" hidden style="margin:20px 0;text-align:center;color:var(--muted)">暂时没有公开自习室，去创建一个吧</div>
@@ -2109,7 +2119,23 @@ if (document.readyState === 'loading') {
     <label>房间名
       <input id="srCreateNameInput" type="text" maxlength="20" placeholder="最多 20 个字">
     </label>
-    <p class="hint" style="margin-top:0;margin-bottom:10px">创建后自动生成 6 位房间号，可分享给朋友加入。</p>
+    <label>房间简介（选填）
+      <textarea id="srCreateIntroInput" maxlength="100" rows="2" placeholder="一句话介绍这个自习室（≤100字）" style="resize:vertical"></textarea>
+    </label>
+    <label>房间标签
+      <select id="srCreateCategorySelect">
+        <option value="other">其他</option>
+        <option value="考研">考研</option>
+        <option value="考公">考公</option>
+        <option value="期末">期末</option>
+        <option value="英语">英语</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
+      <input id="srCreateIsPublic" type="checkbox" style="width:auto">
+      公开到自习室广场
+    </label>
+    <p class="hint" style="margin-top:6px;margin-bottom:10px">创建后自动生成 6 位房间号，可分享给朋友加入。</p>
     <div class="sr-form-error" id="srCreateError" hidden></div>
     <div class="modal-actions">
       <div class="spacer"></div>
@@ -2175,6 +2201,11 @@ if (document.readyState === 'loading') {
         <div class="sr-stat-value" id="srDetailProjects">–</div>
         <div class="sr-stat-label">项目数</div>
       </div>
+    </div>
+    <!-- 今日各项目完成量环形图 -->
+    <div class="sr-charts-section">
+      <div class="sr-charts-title">今日各项目完成量</div>
+      <div class="sr-charts-grid" id="srDetailCharts"></div>
     </div>
   </div>
 </div>
@@ -2244,6 +2275,18 @@ if (document.readyState === 'loading') {
     </div>
     <label>房间名
       <input id="srSettingsNameInput" type="text" maxlength="20" placeholder="最多 20 个字">
+    </label>
+    <label>房间简介
+      <textarea id="srSettingsIntroInput" maxlength="100" rows="2" placeholder="一句话介绍这个自习室（≤100字）" style="resize:vertical"></textarea>
+    </label>
+    <label>房间标签
+      <select id="srSettingsCategorySelect">
+        <option value="other">其他</option>
+        <option value="考研">考研</option>
+        <option value="考公">考公</option>
+        <option value="期末">期末</option>
+        <option value="英语">英语</option>
+      </select>
     </label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
       <input id="srSettingsIsPublic" type="checkbox" style="width:auto">

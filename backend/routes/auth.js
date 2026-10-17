@@ -138,7 +138,7 @@ router.post('/send-code', async (req, res) => {
           return fail(res, '邮件服务未配置，请联系管理员', 503);
         }
       } catch (e) {
-        console.error('sendVerificationCode failed:', e.code || e.message, 'responseCode=', e.responseCode);
+        console.error('sendVerificationCode failed: to=', emailNorm, 'code=', e.code, 'responseCode=', e.responseCode, 'response=', e.response, 'command=', e.command);
         invalidateCode(emailNorm, purpose); // 撤销刚下发的验证码，允许立即重试
         return fail(res, '验证码邮件发送失败，请稍后重试（邮件服务暂时不可用）', 502);
       }

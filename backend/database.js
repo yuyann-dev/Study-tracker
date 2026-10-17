@@ -120,6 +120,8 @@ function runMigrations(db) {
       name        TEXT NOT NULL,                      -- 房间名（≤20 字）
       owner_id    INTEGER NOT NULL REFERENCES users(id),
       is_public   INTEGER NOT NULL DEFAULT 0,        -- 0=私有（默认，只能凭房间号加入），1=公开（进入公开广场）
+      intro       TEXT,                               -- 房间简介（可为空，≤100字）
+      category    TEXT NOT NULL DEFAULT 'other',     -- 房间标签：考研/考公/期末/英语/其他
       created_at  TEXT DEFAULT (datetime('now'))
     );
 
@@ -266,6 +268,9 @@ function runMigrations(db) {
   ensureColumn(db, 'users', 'study_room_public', 'INTEGER NOT NULL DEFAULT 0');
   // v1.1: 自习室是否公开到广场——0=私有（默认，只能凭房间号加入），1=公开（广场可见可加入）
   ensureColumn(db, 'study_rooms', 'is_public', 'INTEGER NOT NULL DEFAULT 0');
+  // v1.2: 自习室简介（可为空）与标签分类（考研/考公/期末/英语/其他）
+  ensureColumn(db, 'study_rooms', 'intro', 'TEXT');
+  ensureColumn(db, 'study_rooms', 'category', "TEXT NOT NULL DEFAULT 'other'");
   // v5: user_data 项目数冗余列
   ensureColumn(db, 'user_data', 'project_count', 'INTEGER NOT NULL DEFAULT 0');
   // AI 助手：mode（quick/deep）列老库幂等补列

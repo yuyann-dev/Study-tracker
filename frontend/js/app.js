@@ -12708,7 +12708,7 @@ function openWeaknessBoard() {
 }
 function closeWeaknessBoard() { const m=$('#weaknessMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
 
-/* 热力图自适应布局（全局函数，供 renderWeaknessBoard 和 renderMemberHeatmap 共用）
+/* 热力图自适应布局（全局函数，供 renderWeaknessBoard 使用）
    按滚动容器真实可用宽度决定显示多少周+格子尺寸，使格子刚好填满、不横向滚动。
    @param maxWeeks 宽屏最多显示周数；@param minWeeks 窄屏最少显示周数。
    返回 {weeks, cell, gap}，并把尺寸写入 wrap 作用域的 CSS 变量。 */
@@ -16584,10 +16584,11 @@ window.addEventListener('resize', () => {
 // 房间成员上限，与后端 MAX_ROOM_MEMBERS=20 保持一致
 var SR_MAX_MEMBERS = 20;
 var studyRoomState = {
-  room: null,        // {id, roomCode, name, isOwner, isPublic}
+  room: null,        // {id, roomCode, name, isOwner, isPublic, intro, category}
   members: [],       // 成员数组
   pollTimer: null,
-  pendingKickUserId: null // 踢人确认弹窗暂存的目标成员 id
+  pendingKickUserId: null, // 踢人确认弹窗暂存的目标成员 id
+  plazaCategory: 'all'     // 广场当前筛选标签
 };
 
 // 打开自习室主页面（导航按钮入口）
@@ -16662,63 +16663,163 @@ function renderStudyRoomViews() {
   // 公开/私有徽章
   var badge = $('#srVisibilityBadge');
   if (badge) badge.innerHTML = studyRoomState.room.isPublic ? '' + svgIcon('globe') + ' 公开' : '' + svgIcon('lock') + ' 私有';
+  // 房间标签徽章（在名称行旁显示）
+  var catBadge = $('#srRoomCategory');
+  if (catBadge) {
+    var cat = studyRoomState.room.category || 'other';
+    catBadge.textContent = cat === 'other' ? '' : cat;
+    catBadge.style.display = cat === 'other' ? 'none' : '';
+  }
+  // 房间简介（在房间号行下方显示）
+  var introEl = $('#srRoomIntro');
+  if (introEl) {
+    var intro = studyRoomState.room.intro || '';
+    introEl.textContent = intro;
+    introEl.style.display = intro ? '' : 'none';
+  }
   // 是否房主：房间标记优先，否则从成员里找自己的 isOwner
   var selfMember = (studyRoomState.members || []).find(function(m){ return m.isSelf; });
   studyRoomState.iAmOwner = !!(studyRoomState.room.isOwner || (selfMember && selfMember.isOwner));
   var ownerActions = $('#srOwnerActions');
   if (ownerActions) ownerActions.hidden = !studyRoomState.iAmOwner;
+  // 从已有 /me 数据回填隐私开关（不再另发请求）
+  refreshStudyRoomPrivacyToggle();
   renderMemberList();
 }
 
-// 渲染成员列表（紧凑两行：第一行 名字+房主/我标记；第二行 连续·今日状态 内联合一）
+// 渲染成员列表（keyed diff：按 userId 复用 DOM，只更新变化的成员，避免头像闪、hover 丢）
 function renderMemberList() {
   var listEl = $('#srMemberList');
   if (!listEl) return;
   var members = studyRoomState.members || [];
   var iAmOwner = !!studyRoomState.iAmOwner;
-  listEl.innerHTML = members.map(function(m) {
-    var avatarHtml = m.avatar
-      ? '<img src="' + esc(m.avatar) + '" alt="">'
-      : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
-    // 连续打卡 streak（基础社交信息，对所有成员可见，后端已真实返回）
-    var streak = (typeof m.streak === 'number') ? m.streak : 0;
-    var streakHtml = streak > 0
-      ? '<span class="sr-meta-streak">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
-      : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
-    // 今日状态：publicData||isSelf 显示具体次数；未公开者只显示是否打卡（基础社交信息），不显示具体次数
-    var todayHtml;
-    if (!(m.publicData || m.isSelf)) {
-      var hasToday = !!m.checkedInToday;
-      todayHtml = hasToday
-        ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已打卡</span>'
-        : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+
+  // 现有卡片按 userId 索引
+  var existing = {};
+  Array.prototype.forEach.call(listEl.children, function(card) {
+    var uid = parseInt(card.getAttribute('data-user-id'), 10);
+    if (uid) existing[uid] = card;
+  });
+
+  var seenUids = {};
+  members.forEach(function(m) {
+    seenUids[m.userId] = true;
+    var card = existing[m.userId];
+    if (!card) {
+      // 新成员：创建完整卡片
+      card = buildMemberCard(m, iAmOwner);
+      listEl.appendChild(card);
     } else {
-      var n = m.todayReviewCount || 0;
-      todayHtml = n > 0
-        ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日学习 ' + n + ' 次</span>'
-        : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+      // 已有成员：只更新动态部分（在线点、meta 行、踢人按钮），不重建头像
+      updateMemberCardDynamic(card, m, iAmOwner);
     }
-    var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
-    var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
-    // 房主对非本人显示「踢出」按钮
-    var kickBtn = (iAmOwner && !m.isSelf)
-      ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
-      : '';
-    return '<div class="sr-member-card" data-user-id="' + m.userId + '">'
-      + '<div class="sr-member-avatar" data-user-id="' + m.userId + '" title="点击查看详情">' + avatarHtml + '</div>'
-      + '<div class="sr-member-info">'
-      +   '<div class="sr-member-name-row">'
-      +     '<span class="sr-member-name">' + esc(m.username || '匿名') + '</span>'
-      +     ownerBadge + selfTag
-      +   '</div>'
-      +   '<div class="sr-member-meta">'
-      +     streakHtml
-      +     '<span class="sr-meta-divider">·</span>'
-      +     todayHtml
-      +   '</div>'
-      + '</div>' + kickBtn + '</div>';
-    // 头像点击 / 踢人按钮统一由 initStudyRoomUI 中的事件委托处理，避免重复绑定
-  }).join('');
+  });
+
+  // 删除已离开的成员卡片
+  Object.keys(existing).forEach(function(uid) {
+    if (!seenUids[uid]) listEl.removeChild(existing[uid]);
+  });
+}
+
+// 构建单个成员卡片 DOM（新成员时调用一次）
+function buildMemberCard(m, iAmOwner) {
+  var div = document.createElement('div');
+  div.className = 'sr-member-card';
+  div.setAttribute('data-user-id', m.userId);
+
+  var avatarHtml = m.avatar
+    ? '<img src="' + esc(m.avatar) + '" alt="">'
+    : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
+  var onlineDot = buildOnlineDot(m);
+
+  var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
+  var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
+  var kickBtn = (iAmOwner && !m.isSelf)
+    ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
+    : '';
+
+  div.innerHTML =
+    '<div class="sr-member-avatar-wrap">'
+    +   '<div class="sr-member-avatar" data-user-id="' + m.userId + '" title="点击查看详情">' + avatarHtml + '</div>'
+    +   onlineDot
+    + '</div>'
+    + '<div class="sr-member-info">'
+    +   '<div class="sr-member-name-row">'
+    +     '<span class="sr-member-name">' + esc(m.username || '匿名') + '</span>'
+    +     ownerBadge + selfTag
+    +   '</div>'
+    +   '<div class="sr-member-meta">'
+    +     buildMemberMetaHtml(m)
+    +   '</div>'
+    + '</div>' + kickBtn;
+  return div;
+}
+
+// 更新已有成员卡片的动态部分（在线点 + meta 行 + 踢人按钮显隐）
+function updateMemberCardDynamic(card, m, iAmOwner) {
+  // 在线点
+  var avatarWrap = card.querySelector('.sr-member-avatar-wrap');
+  if (avatarWrap) {
+    var oldDot = avatarWrap.querySelector('.sr-online-dot');
+    if (oldDot) oldDot.remove();
+    var dotHtml = buildOnlineDot(m);
+    if (dotHtml) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = dotHtml;
+      avatarWrap.appendChild(tmp.firstChild);
+    }
+  }
+  // meta 行（streak + 今日状态）
+  var metaEl = card.querySelector('.sr-member-meta');
+  if (metaEl) metaEl.innerHTML = buildMemberMetaHtml(m);
+  // 踢人按钮显隐
+  var oldKick = card.querySelector('.sr-kick-btn');
+  var shouldShowKick = iAmOwner && !m.isSelf;
+  if (shouldShowKick && !oldKick) {
+    var btn = document.createElement('button');
+    btn.className = 'ghost-btn sr-kick-btn';
+    btn.setAttribute('data-user-id', m.userId);
+    btn.type = 'button';
+    btn.textContent = '踢出';
+    card.appendChild(btn);
+  } else if (!shouldShowKick && oldKick) {
+    oldKick.remove();
+  }
+}
+
+// 构建成员 meta 行 HTML（streak + 今日状态 + 在线文字）
+function buildMemberMetaHtml(m) {
+  var streak = (typeof m.streak === 'number') ? m.streak : 0;
+  var streakHtml = streak > 0
+    ? '<span class="sr-meta-streak">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
+    : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
+  var todayHtml;
+  if (!(m.publicData || m.isSelf)) {
+    var hasToday = !!m.checkedInToday;
+    todayHtml = hasToday
+      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已打卡</span>'
+      : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+  } else {
+    var n = m.todayReviewCount || 0;
+    todayHtml = n > 0
+      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日学习 ' + n + ' 次</span>'
+      : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+  }
+  // 在线状态文字（away 时显示"x分钟前"）
+  var onlineText = '';
+  if (m.onlineStatus === 'away' && m.onlineLabel) {
+    onlineText = '<span class="sr-meta-online">' + esc(m.onlineLabel) + '</span>';
+  }
+  return streakHtml + '<span class="sr-meta-divider">·</span>' + todayHtml
+    + (onlineText ? '<span class="sr-meta-divider">·</span>' + onlineText : '');
+}
+
+// 构建在线状态指示点 HTML
+function buildOnlineDot(m) {
+  var st = m.onlineStatus || 'offline';
+  if (st === 'online') return '<span class="sr-online-dot sr-online-on" title="在线"></span>';
+  if (st === 'away') return '<span class="sr-online-dot sr-online-away" title="' + esc(m.onlineLabel || '离开') + '"></span>';
+  return '<span class="sr-online-dot sr-online-off" title="离线"></span>';
 }
 
 // 点击成员头像：未公开且非自己则弹提示；公开或自己则拉详情
@@ -16781,108 +16882,77 @@ function renderMemberDetail(profile) {
   var st = $('#srDetailStreak'); if (st) st.textContent = (profile.currentStreak || 0) + '天';
   var tt = $('#srDetailTotal'); if (tt) tt.textContent = profile.totalReviews || 0;
   var pj = $('#srDetailProjects'); if (pj) pj.textContent = profile.projectCount || 0;
+  // 今日各项目完成量环形图
+  renderProjectTodayCharts(profile.projectToday || []);
 }
 
-// 复用现有热力图 CSS 类（wb-heatmap-col / hm-cell / hm-0~hm-4）渲染后端返回的 {date: count} 数据
-// 与个人版 renderHeatmap 一致：列内 hm-col-label 月份标签 + dow hm-dow-spacer，废弃 monthsEl 的 margin-left 硬编码
-function renderMemberHeatmap(heatmapData, containerEl, monthsEl) {
-  if (!containerEl) return;
-  var mmScrollEl = containerEl.closest('.wb-heatmap-scroll');
-  var mmWrapEl = containerEl.closest('.wb-heatmap-wrap');
-  // 周数与格子尺寸按弹窗容器宽度自适应（宽屏可多显示），不横向滚动
-  var WEEKS = planHeatmapLayout(mmScrollEl, mmWrapEl, 52, 8).weeks;
-  var todayDate = new Date();
-  var todayStrVal = todayStr();
-  var dayOfWeek = todayDate.getDay(); // 0=周日
-  var daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  var lastMonday = new Date(todayDate);
-  lastMonday.setDate(todayDate.getDate() - daysSinceMonday);
-
-  var columns = [];
-  for (var w = WEEKS - 1; w >= 0; w--) {
-    var colStart = new Date(lastMonday);
-    colStart.setDate(lastMonday.getDate() - w * 7);
-    var days = [];
-    for (var d = 0; d < 7; d++) {
-      var dt = new Date(colStart);
-      dt.setDate(colStart.getDate() + d);
-      var ds = fmtDate(dt); // 本地时间格式化，修复 UTC 时区偏移
-      var n = heatmapData[ds] || 0;
-      var isFuture = ds > todayStrVal;
-      var isToday = ds === todayStrVal;
-      days.push({ date: ds, n: n, isFuture: isFuture, isToday: isToday });
-    }
-    columns.push({ start: colStart, days: days });
+// 渲染今日各项目完成量环形图（SVG 原生绘制，不引入第三方库）
+// 每个项目一个小环，环填充量=该项目今日完成量占今日总量的比例；中心显示"今日X页/套"
+function renderProjectTodayCharts(projects) {
+  var container = $('#srDetailCharts');
+  if (!container) return;
+  var emptyHtml = '<div class="sr-charts-empty"><span class="sr-empty-ico">🌱</span>今天还没有学习记录<br>完成一项学习后，这里会显示各项目的完成占比</div>';
+  if (!projects.length) {
+    container.innerHTML = emptyHtml;
+    return;
   }
-
-  function levelOf(n) {
-    if (n <= 0) return 0;
-    if (n === 1) return 1;
-    if (n <= 3) return 2;
-    if (n <= 6) return 3;
-    return 4;
+  var total = projects.reduce(function(s, p) { return s + (p.todayCount || 0); }, 0);
+  if (total <= 0) {
+    container.innerHTML = emptyHtml;
+    return;
   }
-
-  // 列内月份标签：该列周一进入新的月份/年份时在列顶显示，彻底消除 margin-left 硬编码错位
-  var lastMonth = -1, lastYear = -1;
-  columns.forEach(function(col) {
-    var y = col.start.getFullYear(), m = col.start.getMonth();
-    var label = '';
-    if (lastMonth === -1 || y !== lastYear || m !== lastMonth) {
-      label = (lastYear !== -1 && y !== lastYear) ? (y + '年' + (m + 1) + '月') : ((m + 1) + '月');
-    }
-    lastMonth = m; lastYear = y;
-    col.monthLabel = label;
-  });
-  // 顶部月份行已废弃，清空并隐藏
-  if (monthsEl) { monthsEl.innerHTML = ''; monthsEl.style.display = 'none'; }
-
-  // dow 行顶部补 14px 标签占位，与列内月份标签位对齐（只补一次）
-  var dowEl = document.querySelector('#srMemberDetailMask .wb-heatmap-dow');
-  if (dowEl && !dowEl.querySelector('.hm-dow-spacer')) {
-    var sp = document.createElement('div');
-    sp.className = 'hm-dow-spacer';
-    sp.style.height = '14px';
-    dowEl.insertBefore(sp, dowEl.firstChild);
-  }
-
-  // 只替换固定尺寸容器内部内容，不操作 body 滚动、不改变页面整体高度
-  containerEl.innerHTML = columns.map(function(col) {
-    var labelHtml = '<div class="hm-col-label">' + esc(col.monthLabel) + '</div>';
-    return '<div class="wb-heatmap-col">' + labelHtml + col.days.map(function(d) {
-      var lv = d.isFuture ? 0 : levelOf(d.n);
-      var cls = 'hm-cell hm-' + lv + (d.isToday ? ' hm-today' : '') + (d.isFuture ? ' hm-future' : '');
-      var title = d.isFuture ? '未来日期' : (d.date + ' 复习' + d.n + '次');
-      return '<div class="' + cls + '" data-date="' + d.date + '" title="' + title + '"></div>';
-    }).join('') + '</div>';
+  // 品牌绿色系（纸感学院派暖色调）
+  var palette = ['#2e6b4f', '#4a8c6e', '#6ba88a', '#8fc0a9', '#b5d4c5', '#d4e8dd'];
+  container.innerHTML = projects.map(function(p, i) {
+    var proportion = (p.todayCount || 0) / total;
+    var color = palette[i % palette.length];
+    var size = 76;          // 环外直径 px
+    var strokeW = 8;         // 环粗
+    var r = (size - strokeW) / 2;
+    var cx = size / 2, cy = size / 2;
+    var circumference = 2 * Math.PI * r;
+    var filledLen = circumference * proportion;
+    var emptyLen = circumference - filledLen;
+    // SVG 圆环：背景轨 + 填充弧（从顶部 -90deg 开始顺时针）
+    var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">'
+      + '<circle class="sr-chart-track" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke-width="' + strokeW + '"/>'
+      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '"'
+      + ' stroke-dasharray="' + filledLen.toFixed(1) + ' ' + emptyLen.toFixed(1) + '"'
+      + ' stroke-dashoffset="0"'
+      + ' stroke-linecap="round" transform="rotate(-90 ' + cx + ' ' + cy + ')"'
+      + '/>'
+      + '</svg>';
+    var unit = p.unit || '页';
+    var count = p.todayCount;
+    var countStr = Number.isInteger(count) ? String(count) : count.toFixed(1);
+    var centerHtml = '<span class="sr-chart-num">' + countStr + '</span><span class="sr-chart-unit">' + esc(unit) + '</span>';
+    return '<div class="sr-chart-item">'
+      +   '<div class="sr-chart-ring-wrap">' + svg
+      +     '<div class="sr-chart-center">' + centerHtml + '</div>'
+      +   '</div>'
+      +   '<div class="sr-chart-name">' + esc(p.projectName || '未命名') + '</div>'
+      + '</div>';
   }).join('');
-
-  // 固定一行详情：初始占位空行
-  var dayEl = $('#srDetailDay');
-  if (dayEl) dayEl.innerHTML = '&nbsp;';
-
-  // 点击非未来格子：在 srDetailDay 显示「日期 周X · 复习 N 次」；未来格子（hm-future）不可点
-  containerEl.querySelectorAll('.hm-cell:not(.hm-future)').forEach(function(cell) {
-    cell.addEventListener('click', function() {
-      var ds = cell.getAttribute('data-date');
-      var n = heatmapData[ds] || 0;
-      var dt = new Date(ds + 'T00:00:00');
-      var weekNames = ['日', '一', '二', '三', '四', '五', '六'];
-      if (dayEl) dayEl.textContent = ds + ' 周' + weekNames[dt.getDay()] + ' · 复习 ' + n + ' 次';
-    });
-  });
 }
 
 // 创建房间：POST /api/study-room/create
 async function submitCreateRoom() {
   var nameInput = $('#srCreateNameInput');
+  var introInput = $('#srCreateIntroInput');
+  var catSelect = $('#srCreateCategorySelect');
+  var pubCb = $('#srCreateIsPublic');
   var errEl = $('#srCreateError');
   var name = (nameInput.value || '').trim();
   if (!name) { if (errEl){ errEl.textContent = '请输入房间名'; errEl.hidden = false; } return; }
+  var intro = introInput ? (introInput.value || '').trim() : '';
+  var category = catSelect ? (catSelect.value || 'other') : 'other';
+  var isPublic = pubCb ? !!pubCb.checked : false;
   try {
-    await STAuth.apiRequest('/api/study-room/create', { method: 'POST', body: { name: name } });
+    await STAuth.apiRequest('/api/study-room/create', { method: 'POST', body: { name: name, intro: intro, category: category, isPublic: isPublic } });
     var cm = $('#srCreateMask'); if (cm) cm.hidden = true;
     nameInput.value = '';
+    if (introInput) introInput.value = '';
+    if (pubCb) pubCb.checked = false;
     if (errEl) errEl.hidden = true;
     await loadStudyRoomMe();
     showToast('' + svgIcon('party-popper') + '', '创建成功', '房间号已生成，可分享给朋友', 2500);
@@ -17018,7 +17088,11 @@ async function loadStudyRoomPlaza() {
   if (list) list.innerHTML = '';
   if (empty) empty.hidden = true;
   try {
-    var data = await STAuth.apiRequest('/api/study-room/plaza');
+    var url = '/api/study-room/plaza';
+    if (studyRoomState.plazaCategory && studyRoomState.plazaCategory !== 'all') {
+      url += '?category=' + encodeURIComponent(studyRoomState.plazaCategory);
+    }
+    var data = await STAuth.apiRequest(url);
     renderPlazaList((data && data.rooms) || []);
   } catch (e) {
     showToast('' + svgIcon('alert-triangle') + '', '加载失败', e.message || '请稍后重试', 2500);
@@ -17046,6 +17120,15 @@ function renderPlazaList(rooms) {
     var isFull = !!r.isFull;
     // 已满：显示「已满」徽章，按钮 disabled 且文案改为「已满」
     var fullBadge = isFull ? '<span class="sr-plaza-full">已满</span>' : '';
+    // 标签徽章
+    var cat = r.category || 'other';
+    var catBadge = cat !== 'other' ? '<span class="sr-plaza-cat">' + esc(cat) + '</span>' : '';
+    // 近7天活跃
+    var active7 = r.active7 || 0;
+    var active7Html = '<span class="sr-plaza-active">近7天活跃 ' + active7 + '</span>';
+    // 简介（截断）
+    var intro = r.intro || '';
+    var introHtml = intro ? '<div class="sr-plaza-intro">' + esc(intro) + '</div>' : '';
     var joinBtn;
     if (isFull) {
       joinBtn = '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" disabled type="button">已满</button>';
@@ -17055,8 +17138,9 @@ function renderPlazaList(rooms) {
       joinBtn = '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" type="button">加入</button>';
     }
     return '<div class="sr-plaza-card">'
-      + '<div class="sr-plaza-name"><span class="sr-plaza-name-text">' + esc(r.name || '未命名房间') + '</span>' + fullBadge + '</div>'
-      + '<div class="sr-plaza-meta">' + (r.memberCount || 0) + '/' + SR_MAX_MEMBERS + ' 人 · 房主 ' + esc(r.ownerName || '匿名') + '</div>'
+      + '<div class="sr-plaza-name"><span class="sr-plaza-name-text">' + esc(r.name || '未命名房间') + '</span>' + catBadge + fullBadge + '</div>'
+      + introHtml
+      + '<div class="sr-plaza-meta">' + (r.memberCount || 0) + '/' + SR_MAX_MEMBERS + ' 人 · 房主 ' + esc(r.ownerName || '匿名') + ' · ' + active7Html + '</div>'
       + joinBtn
       + '</div>';
   }).join('');
@@ -17116,9 +17200,13 @@ function openRoomSettings() {
   if (!room) return;
   var nameInput = $('#srSettingsNameInput');
   var pubCb = $('#srSettingsIsPublic');
+  var introInput = $('#srSettingsIntroInput');
+  var catSelect = $('#srSettingsCategorySelect');
   var errEl = $('#srSettingsError');
   if (nameInput) nameInput.value = room.name || '';
   if (pubCb) pubCb.checked = !!room.isPublic;
+  if (introInput) introInput.value = room.intro || '';
+  if (catSelect) catSelect.value = room.category || 'other';
   if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
   var m = $('#srRoomSettingsMask'); if (m) m.hidden = false;
 }
@@ -17128,13 +17216,17 @@ async function saveRoomSettings() {
   var room = studyRoomState.room;
   var nameInput = $('#srSettingsNameInput');
   var pubCb = $('#srSettingsIsPublic');
+  var introInput = $('#srSettingsIntroInput');
+  var catSelect = $('#srSettingsCategorySelect');
   var errEl = $('#srSettingsError');
   if (!room || !nameInput || !pubCb) return;
   var name = (nameInput.value || '').trim();
   if (!name) { if (errEl){ errEl.textContent = '房间名不能为空'; errEl.hidden = false; } nameInput.focus(); return; }
   if (name.length > 20) { if (errEl){ errEl.textContent = '房间名最多 20 个字'; errEl.hidden = false; } nameInput.focus(); return; }
+  var intro = introInput ? (introInput.value || '').trim() : '';
+  var category = catSelect ? (catSelect.value || 'other') : 'other';
   try {
-    await STAuth.apiRequest('/api/study-room/settings', { method: 'PATCH', body: { name: name, isPublic: !!pubCb.checked } });
+    await STAuth.apiRequest('/api/study-room/settings', { method: 'PATCH', body: { name: name, isPublic: !!pubCb.checked, intro: intro, category: category } });
     var m = $('#srRoomSettingsMask'); if (m) m.hidden = true;
     await loadStudyRoomMe();
     showToast('' + svgIcon('check-circle') + '', '已保存', '房间设置已更新', 2000);
@@ -17171,15 +17263,12 @@ async function saveStudyRoomPublic(val) {
   }
 }
 
-// 打开自习室时刷新隐私开关状态（从 /me 中找自己的 publicData）
-async function refreshStudyRoomPrivacyToggle() {
+// 从已有 /me 返回的 self 项回填隐私开关状态（不另发请求）
+function refreshStudyRoomPrivacyToggle() {
   var cb = $('#srStudyRoomPublic');
   if (!cb) return;
-  try {
-    var data = await STAuth.apiRequest('/api/study-room/me');
-    var self = (data.members || []).find(function(m){ return m.isSelf; });
-    cb.checked = !!(self && self.publicData);
-  } catch (e) { /* 未登录或出错时保持原状 */ }
+  var self = (studyRoomState.members || []).find(function(m){ return m.isSelf; });
+  cb.checked = !!(self && self.publicData);
 }
 
 // 初始化所有事件绑定
@@ -17271,6 +17360,18 @@ function initStudyRoomUI() {
       }
     });
   }
+  // 广场分类筛选按钮
+  var plazaFiltersEl = $('#srPlazaFilters');
+  if (plazaFiltersEl) {
+    plazaFiltersEl.addEventListener('click', function(e) {
+      var btn = e.target.closest ? e.target.closest('.sr-plaza-filter') : null;
+      if (!btn) return;
+      plazaFiltersEl.querySelectorAll('.sr-plaza-filter').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      studyRoomState.plazaCategory = btn.getAttribute('data-cat') || 'all';
+      loadStudyRoomPlaza();
+    });
+  }
 
   // 点击遮罩空白处关闭弹窗（自习室主页面除外；子弹窗只 hidden，不重复 lock/unlock）
   ['srMemberDetailMask','srPrivateMask','srLeaveConfirmMask','srCreateMask','srJoinMask','srKickConfirmMask','srRoomSettingsMask','srDisbandConfirmMask'].forEach(function(mid){
@@ -17283,14 +17384,7 @@ function initStudyRoomUI() {
   if (privacyCb) {
     privacyCb.addEventListener('change', function(){ saveStudyRoomPublic(this.checked); });
   }
-  // 打开自习室时刷新开关状态
-  bind('#studyRoomNavBtn', 'click', function(){ setTimeout(refreshStudyRoomPrivacyToggle, 300); });
-  // 进入房间视图时也刷新一次
-  var origOpenRoom = window._srOpenRoom;
-  if (typeof openStudyRoom === 'function') {
-    var _orig = openStudyRoom;
-    window.openStudyRoom = function(){ _orig.apply(this, arguments); setTimeout(refreshStudyRoomPrivacyToggle, 300); };
-  }
+  // 隐私开关状态已在 renderStudyRoomViews() 中从 /me 返回的 self 项回填，无需另发请求
 }
 
 // 安卓/物理返回键：专门处理自习室层。

@@ -111,7 +111,7 @@ router.post('/change-email/request', async (req, res) => {
         return fail(res, '邮件服务未配置，无法发送验证码');
       }
     } catch (e) {
-      console.error('change-email/request error:', e.message);
+      console.error('change-email/request sendMail failed: to=', newEmail, 'code=', e.code, 'responseCode=', e.responseCode, 'response=', e.response, 'command=', e.command);
       // SMTP 发送失败：撤销刚下发的验证码，允许用户立即重试，无需等 60s 冷却
       invalidateCode(newEmail, 'changeemail');
       return fail(res, '验证码发送失败，请稍后再试', 500);

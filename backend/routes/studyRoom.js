@@ -40,6 +40,42 @@ const MAX_ROOM_MEMBERS = 20;
 /** 房间号格式：6 位大写字母数字（I/L/O/0/1 已排除） */
 const ROOM_CODE_RE = /^[A-HJKMNP-Z2-9]{6}$/;
 
+/** 房间标签枚举：考研、考公、期末、英语、其他 */
+const VALID_CATEGORIES = ['考研', '考公', '期末', '英语', 'other'];
+
+/**
+ * 广场结果 60s 进程内缓存。key 固定为 'plaza'（公开房列表全局共享）。
+ * 公开房列表不涉及用户私有数据，60s 延迟可接受（新加入/满员最多延迟一个周期）。
+ */
+const PLAZA_CACHE_TTL = 60 * 1000;
+let _plazaCache = { ts: 0, data: null };
+
+/**
+ * 在线状态心跳表：userId -> lastSeenAt(ms)。
+ * /me 请求时顺带更新（30s 轮询天然带心跳）。进程内，重启丢失可接受。
+ * 60s 内有心跳=在线(绿点)；60s~5min=离开(灰点+"x分钟前")；>5min=离线(灰点)。
+ */
+const onlineHeartbeat = new Map();
+const ONLINE_MS = 60 * 1000;       // 60s 内 = 在线
+const AWAY_MS = 5 * 60 * 1000;     // 5 分钟内 = 离开
+function touchOnline(userId) {
+  if (typeof userId === 'number' && Number.isInteger(userId)) {
+    onlineHeartbeat.set(userId, Date.now());
+  }
+}
+/** 取某用户的在线状态：online / away / offline */
+function getOnlineStatus(userId) {
+  const last = onlineHeartbeat.get(userId);
+  if (!last) return { status: 'offline', label: '' };
+  const diff = Date.now() - last;
+  if (diff < ONLINE_MS) return { status: 'online', label: '刚刚' };
+  if (diff < AWAY_MS) {
+    const mins = Math.floor(diff / 60000);
+    return { status: 'away', label: (mins < 1 ? 1 : mins) + ' 分钟前' };
+  }
+  return { status: 'offline', label: '' };
+}
+
 // ── 日期 / 统计小工具 ──────────────────────────────────────────────────────
 
 /** 今天（UTC+8）的 'YYYY-MM-DD'，与前端本地日期对齐 */
@@ -135,6 +171,228 @@ function computeStreak(byDate, today) {
   return streak;
 }
 
+// ── 项目今日完成量提取（口径与前端 getMetrics 一致）──────────────────────
+// 以下函数复刻 frontend/js/app.js 中 getCompletedPages / getCompletedPagesAtDate
+// 的区间合并逻辑，用于 /member/:userId 返回各项目今日完成页数/套数。
+
+function _mergeRanges(ranges) {
+  if (!ranges || !ranges.length) return [];
+  const sorted = ranges.filter(r => r.end >= r.start).slice().sort((a, b) => a.start - b.start);
+  if (!sorted.length) return [];
+  const merged = [{ start: sorted[0].start, end: sorted[0].end }];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    if (sorted[i].start <= last.end + 1) last.end = Math.max(last.end, sorted[i].end);
+    else merged.push({ start: sorted[i].start, end: sorted[i].end });
+  }
+  return merged;
+}
+function _countMergedPages(merged) {
+  return merged.reduce((sum, r) => sum + (r.end - r.start + 1), 0);
+}
+function _countRanges(rs) { return rs.reduce((s, r) => s + (r.end - r.start + 1), 0); }
+function _getRecordRange(r, p) {
+  if (r.startPage != null) {
+    const s = r.startPage;
+    const e = r.endPage != null ? r.endPage : s;
+    return { start: s, end: e };
+  }
+  const end = r.endPage != null ? r.endPage : (r.page != null ? r.page : 0);
+  return { start: 1, end };
+}
+function _getTargetPageRanges(p) {
+  if (p.unitMode && Array.isArray(p.units) && p.units.length) {
+    const mode = p.unitScopeMode || (p.unitScopeOnly === false ? 'book' : 'all');
+    if (mode === 'leaf' || mode === 'all') {
+      const all = [];
+      (function collect(u) {
+        const hasChildren = u.children && u.children.length;
+        if (mode === 'all' || !hasChildren) {
+          if (u.startPage != null && u.endPage != null && u.endPage >= u.startPage) {
+            all.push({ start: u.startPage, end: u.endPage });
+          }
+        }
+        (u.children || []).forEach(collect);
+      })({ children: p.units });
+      if (all.length) return _mergeRanges(all);
+    }
+  }
+  if (p.scopeMode && Array.isArray(p.targetRanges) && p.targetRanges.length) {
+    return _mergeRanges(p.targetRanges.map(r => ({ start: r.start, end: r.end })));
+  }
+  const lo = p.bookStartPage != null ? p.bookStartPage : 1;
+  const hi = p.bookEndPage != null ? p.bookEndPage : (p.total || 0);
+  if (hi >= lo) return [{ start: lo, end: hi }];
+  return [];
+}
+function _getBookDoneRanges(p) {
+  let raw;
+  if (p.type === 'exercise') raw = (p.records || []).map(r => _getRecordRange(r, p));
+  else raw = (p.items || []).map(it => {
+    const s = it.pageStart != null ? it.pageStart : (it.page != null ? it.page : 0);
+    const e = it.pageEnd != null ? it.pageEnd : (it.pageStart != null ? it.pageStart : (it.page != null ? it.page : 0));
+    return { start: s, end: e };
+  });
+  const targets = _getTargetPageRanges(p);
+  if (!targets.length) return [];
+  const clipped = [];
+  _mergeRanges(raw).forEach(r => {
+    targets.forEach(t => {
+      const s = Math.max(t.start, r.start), e = Math.min(t.end, r.end);
+      if (e >= s) clipped.push({ start: s, end: e });
+    });
+  });
+  return _mergeRanges(clipped);
+}
+function _getNormalizedSections(p) {
+  const secs = Array.isArray(p.paperSections) ? p.paperSections.filter(s => s && s.name) : [];
+  if (!secs.length) return [];
+  const sum = secs.reduce((s, x) => s + Math.max(0, Number(x.weight) || 0), 0);
+  if (sum <= 0) {
+    const eq = 1 / secs.length;
+    return secs.map(s => ({ id: s.id, wt: eq }));
+  }
+  return secs.map(s => ({ id: s.id, wt: Math.max(0, Number(s.weight) || 0) / sum }));
+}
+function _getSetState(p, targetDate) {
+  const secs = _getNormalizedSections(p);
+  const state = {};
+  const recs = (p.records || []).slice().sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+  const lastSetSec = {};
+  recs.forEach(r => {
+    if (r.set == null) return;
+    if (targetDate && r.date > targetDate) return;
+    const no = r.set;
+    if (!state[no]) state[no] = { secs: {}, legacy: 0 };
+    const st = state[no];
+    if (r.secId != null && r.pct != null) {
+      const key = no + '|' + r.secId;
+      const pct = Number(r.pct);
+      const prev = lastSetSec[key];
+      if (prev && prev.date === r.date) {
+        st.secs[r.secId] = Math.max(0, Math.min(100, (st.secs[r.secId] || 0) - prev.pct + pct));
+        prev.pct = pct;
+      } else {
+        st.secs[r.secId] = Math.max(0, Math.min(100, (st.secs[r.secId] || 0) + pct));
+        lastSetSec[key] = { date: r.date, pct: pct };
+      }
+    } else if (r.all === true || (r.done == null && r.q == null)) {
+      if (secs.length) secs.forEach(s => { st.secs[s.id] = 100; });
+      st.legacy = 1;
+    } else if (r.done != null && r.q != null && r.q > 0) {
+      st.legacy = Math.max(0, Math.min(1, r.done / r.q));
+    }
+  });
+  return state;
+}
+function _getSetFraction(p, no, state) {
+  const st = (state || _getSetState(p))[no];
+  if (!st) return 0;
+  const secs = _getNormalizedSections(p);
+  if (secs.length) {
+    let f = 0;
+    secs.forEach(s => { f += ((st.secs[s.id] || 0) / 100) * s.wt; });
+    return Math.max(0, Math.min(1, f));
+  }
+  return st.legacy;
+}
+function _getCompletedSets(p, targetDate) {
+  const state = _getSetState(p, targetDate);
+  return Object.keys(state).reduce((sum, no) => sum + _getSetFraction(p, no, state), 0);
+}
+function _isSetMode(p) { return !!p && p.type === 'exercise' && p.unit === 'set'; }
+
+/** 当前累计完成量（页数或套数） */
+function _getCompletedPagesNow(p) {
+  if (_isSetMode(p)) return _getCompletedSets(p);
+  if (p.type === 'mistake') return (p.items || []).filter(it => it.mastered || it.manualMastered).length;
+  let done = _countRanges(_getBookDoneRanges(p));
+  if (p.type === 'recite' && Array.isArray(p.abandonedRanges)) {
+    p.abandonedRanges.forEach(r => {
+      if (r && r.end >= r.start) done += (r.end - r.start + 1);
+    });
+  }
+  return done;
+}
+/** 截至 targetDate 当日累计完成量 */
+function _getCompletedPagesAtDate(p, targetDate) {
+  if (_isSetMode(p)) return _getCompletedSets(p, targetDate);
+  if (p.type === 'mistake') {
+    return (p.items || []).filter(it => {
+      if (!(it.mastered || it.manualMastered)) return false;
+      const d = it.masteredDate || it.learnedDate;
+      return d && d <= targetDate;
+    }).length;
+  }
+  let ranges;
+  if (p.type === 'exercise') {
+    ranges = (p.records || []).filter(r => r.date <= targetDate).map(r => _getRecordRange(r, p));
+  } else {
+    ranges = (p.items || []).filter(it => it.learnedDate && it.learnedDate <= targetDate)
+      .map(it => {
+        const s = it.pageStart != null ? it.pageStart : (it.page != null ? it.page : 0);
+        const e = it.pageEnd != null ? it.pageEnd : (it.pageStart != null ? it.pageStart : (it.page != null ? it.page : 0));
+        return { start: s, end: e };
+      });
+  }
+  // 裁剪到目标范围
+  const targets = _getTargetPageRanges(p);
+  if (!targets.length) return 0;
+  const merged = _mergeRanges(ranges);
+  const clipped = [];
+  merged.forEach(r => targets.forEach(t => {
+    const s = Math.max(t.start, r.start), e = Math.min(t.end, r.end);
+    if (e >= s) clipped.push({ start: s, end: e });
+  }));
+  let result = _countMergedPages(_mergeRanges(clipped));
+  // recite 类型：与 _getCompletedPagesNow 对齐，战略放弃页段也计入累计，
+  // 否则 delta（now - yesterday）会把 abandoned 误算成今日新增
+  if (p.type === 'recite' && Array.isArray(p.abandonedRanges)) {
+    p.abandonedRanges.forEach(r => {
+      if (r && r.end >= r.start) result += (r.end - r.start + 1);
+    });
+  }
+  return result;
+}
+
+/**
+ * 从 store_json 提取每个项目今日完成量（delta = 当前累计 - 昨日累计）。
+ * 刷题本页模式→页；套卷模式→套；错题本→条；背书本→页。
+ * 只返回今日有完成的项目（todayCount > 0）。
+ */
+function collectProjectTodayProgress(storeJson) {
+  let store = null;
+  try { store = storeJson ? JSON.parse(storeJson) : null; } catch (_) { store = null; }
+  if (!store || typeof store !== 'object' || !store.projects) return [];
+  const today = todayStr();
+  const yesterday = shiftDate(today, -1);
+  const result = [];
+  for (const [pid, p] of Object.entries(store.projects)) {
+    if (!p || typeof p !== 'object') continue;
+    let unit = '页';
+    if (_isSetMode(p)) unit = '套';
+    else if (p.type === 'mistake') unit = '条';
+    else if (p.type === 'exercise') unit = '页';
+    else if (p.type === 'recite') unit = '页';
+
+    const now = _getCompletedPagesNow(p);
+    const yest = _getCompletedPagesAtDate(p, yesterday);
+    const todayCount = Math.max(0, now - yest);
+    if (todayCount <= 0) continue;
+
+    result.push({
+      projectId: pid,
+      projectName: String(p.name || '未命名项目'),
+      type: p.type || 'exercise',
+      unit,
+      todayCount: Math.round(todayCount * 100) / 100,
+    });
+  }
+  // 今日完成量降序，做多环图排列更直观
+  result.sort((a, b) => b.todayCount - a.todayCount);
+  return result;
+}
+
 /**
  * 广场房间排序：成员数降序优先；成员数相同时，近 7 天成员打卡总数 active7 降序。
  * 热门口径：成员规模优先，其次近 7 天活跃热度。返回 -1 / 0 / 1 供 Array.sort 使用。
@@ -169,7 +427,8 @@ function myRoomRow(userId) {
   return db
     .prepare(
       `SELECT srm.room_id AS roomId, sr.room_code AS roomCode, sr.name,
-              sr.owner_id AS ownerId, sr.is_public AS isPublic
+              sr.owner_id AS ownerId, sr.is_public AS isPublic,
+              sr.intro AS intro, sr.category AS category
        FROM study_room_members srm
        JOIN study_rooms sr ON sr.id = srm.room_id
        WHERE srm.user_id = ?`
@@ -194,6 +453,8 @@ function isUniqueViolation(e) {
 router.get('/me', (req, res) => {
   try {
     const me = req.user.id;
+    // 在线心跳：/me 30s 轮询天然带心跳，进程内记录 lastSeenAt
+    touchOnline(me);
     const room = myRoomRow(me);
     if (!room) return ok(res, { room: null, members: [] });
 
@@ -224,6 +485,8 @@ router.get('/me', (req, res) => {
       if (visible) {
         todayReviewCount = stats.byDate[today] || 0;
       }
+      // 在线状态：从内存心跳表取（60s=在线绿点，60s~5min=离开灰点+"x分钟前"，>5min=离线灰点）
+      const online = getOnlineStatus(m.userId);
       return {
         userId: m.userId,
         username: m.username,
@@ -234,6 +497,8 @@ router.get('/me', (req, res) => {
         streak,
         todayReviewCount,
         checkedInToday,
+        onlineStatus: online.status,   // 'online' | 'away' | 'offline'
+        onlineLabel: online.label,      // '刚刚' | 'x 分钟前' | ''
       };
     });
 
@@ -244,6 +509,8 @@ router.get('/me', (req, res) => {
         name: room.name,
         isPublic: room.isPublic === 1,
         isOwner: me === room.ownerId,
+        intro: room.intro || '',
+        category: room.category || 'other',
       },
       members,
     });
@@ -253,11 +520,20 @@ router.get('/me', (req, res) => {
   }
 });
 
-// POST /api/study-room/create  body: { name }
+// POST /api/study-room/create  body: { name, intro?, category? }
 router.post('/create', (req, res) => {
   try {
     const name = String((req.body && req.body.name) || '').trim();
     if (!name || name.length > 20) return fail(res, '房间名必填且不超过 20 个字');
+
+    // 简介可选：≤100 字
+    let intro = String((req.body && req.body.intro) || '').trim();
+    if (intro.length > 100) intro = intro.slice(0, 100);
+    // 标签可选：默认 other，枚举校验
+    let category = String((req.body && req.body.category) || 'other').trim();
+    if (!VALID_CATEGORIES.includes(category)) category = 'other';
+    // 是否公开到广场：默认私有(0)，前端创建面板可选
+    const isPublic = !!(req.body && req.body.isPublic);
 
     // 一个用户同时只能在一个房间
     if (myRoomRow(req.user.id)) return fail(res, '你已在某个自习室中，请先退出当前房间');
@@ -266,15 +542,15 @@ router.post('/create', (req, res) => {
     let roomId;
     const tx = db.transaction(() => {
       const info = db
-        .prepare('INSERT INTO study_rooms (room_code, name, owner_id) VALUES (?, ?, ?)')
-        .run(roomCode, name, req.user.id);
+        .prepare('INSERT INTO study_rooms (room_code, name, owner_id, intro, category, is_public) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(roomCode, name, req.user.id, intro, category, isPublic ? 1 : 0);
       roomId = info.lastInsertRowid;
       db.prepare('INSERT INTO study_room_members (room_id, user_id) VALUES (?, ?)').run(roomId, req.user.id);
     });
     tx();
 
-    writeAudit(req.user.id, 'study_room_create', 'study_room', roomId, { roomCode, name }, req);
-    return ok(res, { room: { id: roomId, roomCode, name } });
+    writeAudit(req.user.id, 'study_room_create', 'study_room', roomId, { roomCode, name, category }, req);
+    return ok(res, { room: { id: roomId, roomCode, name, intro, category, isPublic } });
   } catch (e) {
     // 并发/重复创建时 INSERT study_room_members 撞 UNIQUE(user_id)，转友好提示
     if (isUniqueViolation(e)) return fail(res, '你已在某个自习室中，请先退出当前房间');
@@ -422,7 +698,7 @@ router.get('/member/:userId', (req, res) => {
     if (target.publicFlag !== 1 && targetUserId !== me) return ok(res, { profile: null });
 
     // 统计走统一缓存取数；project_count 仍单独取（admin 列表冗余列，不在缓存内）
-    const row = db.prepare('SELECT project_count FROM user_data WHERE user_id = ?').get(targetUserId);
+    const row = db.prepare('SELECT project_count, store_json FROM user_data WHERE user_id = ?').get(targetUserId);
     const { byDate, total } = getUserStats(targetUserId);
 
     const today = todayStr();
@@ -448,6 +724,10 @@ router.get('/member/:userId', (req, res) => {
     // 当前连续打卡：今天学了从今天算，今天还没学则从昨天往回算（不因今天尚未学清零）
     const currentStreak = computeStreak(byDate, today);
 
+    // 今日各项目完成量（环形图数据）：只返回今日有完成的项目
+    // 隐私：只有公开用户（或自己看自己）才走到这里，未公开已在上面拦截
+    const projectToday = collectProjectTodayProgress(row && row.store_json);
+
     return ok(res, {
       profile: {
         userId: targetUserId,
@@ -458,6 +738,7 @@ router.get('/member/:userId', (req, res) => {
         currentStreak,
         totalReviews: total,
         projectCount: (row && row.project_count) || 0,
+        projectToday,
       },
     });
   } catch (e) {
@@ -520,8 +801,8 @@ router.post('/kick', (req, res) => {
   }
 });
 
-// PATCH /api/study-room/settings  body: { name?: string, isPublic?: boolean }
-// 仅房主可改房间名与是否公开到广场；至少要提供一项。
+// PATCH /api/study-room/settings  body: { name?, isPublic?, intro?, category? }
+// 仅房主可改房间名、是否公开到广场、简介、标签；至少要提供一项。
 router.patch('/settings', (req, res) => {
   try {
     const me = req.user.id;
@@ -532,7 +813,9 @@ router.patch('/settings', (req, res) => {
     const body = req.body || {};
     const hasName = Object.prototype.hasOwnProperty.call(body, 'name');
     const hasPublic = Object.prototype.hasOwnProperty.call(body, 'isPublic');
-    if (!hasName && !hasPublic) return fail(res, '没有需要修改的设置', 400);
+    const hasIntro = Object.prototype.hasOwnProperty.call(body, 'intro');
+    const hasCategory = Object.prototype.hasOwnProperty.call(body, 'category');
+    if (!hasName && !hasPublic && !hasIntro && !hasCategory) return fail(res, '没有需要修改的设置', 400);
 
     const sets = [];
     const params = [];
@@ -550,13 +833,30 @@ router.patch('/settings', (req, res) => {
       params.push(body.isPublic ? 1 : 0);
       changes.isPublic = body.isPublic;
     }
+    if (hasIntro) {
+      let intro = String(body.intro == null ? '' : body.intro).trim();
+      if (intro.length > 100) intro = intro.slice(0, 100);
+      sets.push('intro = ?');
+      params.push(intro);
+      changes.intro = intro;
+    }
+    if (hasCategory) {
+      let category = String(body.category == null ? 'other' : body.category).trim();
+      if (!VALID_CATEGORIES.includes(category)) category = 'other';
+      sets.push('category = ?');
+      params.push(category);
+      changes.category = category;
+    }
     params.push(room.roomId);
     db.prepare(`UPDATE study_rooms SET ${sets.join(', ')} WHERE id = ?`).run(...params);
 
     writeAudit(me, 'study_room_settings', 'study_room', room.roomId, { changes }, req);
 
+    // 改了房间信息后失效广场缓存
+    _plazaCache = { ts: 0, data: null };
+
     const updated = db
-      .prepare('SELECT room_code AS roomCode, name, is_public AS isPublic FROM study_rooms WHERE id = ?')
+      .prepare('SELECT room_code AS roomCode, name, is_public AS isPublic, intro, category FROM study_rooms WHERE id = ?')
       .get(room.roomId);
     return ok(res, {
       ok: true,
@@ -565,6 +865,8 @@ router.patch('/settings', (req, res) => {
         roomCode: updated.roomCode,
         name: updated.name,
         isPublic: updated.isPublic === 1,
+        intro: updated.intro || '',
+        category: updated.category || 'other',
       },
     });
   } catch (e) {
@@ -576,13 +878,21 @@ router.patch('/settings', (req, res) => {
 // GET /api/study-room/plaza —— 公开自习室广场（只列 is_public=1 的房间，不含私有房）
 // 排序：成员数降序优先，其次近 7 天成员打卡总数 active7 降序（热门口径：规模优先，其次活跃热度）。
 // 已满房（成员数 >= 上限）标记 isFull，前端置灰「加入」按钮，不可加入。
+// 60s 进程内缓存：公开房列表全局共享，key 固定。category 筛选在缓存结果上做内存过滤。
 router.get('/plaza', (req, res) => {
   try {
+    const now = Date.now();
+    // 命中缓存直接返回（缓存的是全量未筛选结果）
+    if (_plazaCache.data && (now - _plazaCache.ts) < PLAZA_CACHE_TTL) {
+      return _respondPlaza(res, _plazaCache.data, req.query.category);
+    }
+
     const today = todayStr();
     const rooms = db
       .prepare(
         `SELECT sr.id AS roomId, sr.room_code AS roomCode, sr.name,
                 sr.owner_id AS ownerId, u.username AS ownerName,
+                sr.intro AS intro, sr.category AS category,
                 (SELECT COUNT(*) FROM study_room_members m WHERE m.room_id = sr.id) AS memberCount
          FROM study_rooms sr
          JOIN users u ON u.id = sr.owner_id
@@ -591,7 +901,9 @@ router.get('/plaza', (req, res) => {
       .all();
 
     // 每房近 7 天成员打卡总数（含今天共 7 天：today-6 … today）
-    const start = shiftDate(today, -6);
+    // 优化：只遍历近 7 天的日期 key，不遍历全部历史 byDate
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) last7Days.push(shiftDate(today, -i));
     for (const room of rooms) {
       const members = db
         .prepare('SELECT user_id AS userId FROM study_room_members WHERE room_id = ?')
@@ -599,8 +911,9 @@ router.get('/plaza', (req, res) => {
       let active7 = 0;
       for (const mem of members) {
         const stats = getUserStats(mem.userId);
-        for (const [date, count] of Object.entries(stats.byDate)) {
-          if (date >= start && date <= today) active7 += count;
+        // 只查近 7 天的日期，不遍历全部 byDate
+        for (const d of last7Days) {
+          active7 += (stats.byDate[d] || 0);
         }
       }
       room.active7 = active7;
@@ -618,13 +931,31 @@ router.get('/plaza', (req, res) => {
       maxMembers: MAX_ROOM_MEMBERS,
       active7: r.active7,
       isFull: r.memberCount >= MAX_ROOM_MEMBERS,
+      intro: r.intro || '',
+      category: r.category || 'other',
     }));
 
-    return ok(res, { ok: true, maxMembers: MAX_ROOM_MEMBERS, rooms: result });
+    // 写入缓存
+    _plazaCache = { ts: now, data: result };
+
+    return _respondPlaza(res, result, req.query.category);
   } catch (e) {
     console.error('GET /api/study-room/plaza error:', e.message);
     return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
+
+/**
+ * 在全量广场结果上做 category 筛选后返回。
+ * category 查询参数为空或 'all' 时返回全部；否则按精确匹配过滤。
+ */
+function _respondPlaza(res, allRooms, categoryQuery) {
+  let rooms = allRooms;
+  const cat = String(categoryQuery || '').trim();
+  if (cat && cat !== 'all') {
+    rooms = allRooms.filter((r) => r.category === cat);
+  }
+  return ok(res, { ok: true, maxMembers: MAX_ROOM_MEMBERS, rooms });
+}
 
 module.exports = router;

@@ -121,6 +121,16 @@ const dataLimiter = rateLimit({
 });
 app.use('/api/data', dataLimiter);
 
+/** 自习室限流：每 IP 每分钟 30 次（正常 30s 轮询 /me = 每分钟 2 次，余量充足） */
+const studyRoomLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: '操作过于频繁，请稍后再试' },
+});
+app.use('/api/study-room', studyRoomLimiter);
+
 // 业务路由
 app.use('/api/auth', authRoutes);
 app.use('/api/data', dataRoutes);
