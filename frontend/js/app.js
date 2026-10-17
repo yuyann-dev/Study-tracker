@@ -16950,7 +16950,7 @@ function renderProjectTodayCharts(projects) {
   }).join('');
   container.innerHTML = '<div class="sr-unified-chart">'
     + '<div class="sr-unified-ring">' + svg
-    +   '<div class="sr-unified-center"><span class="sr-unified-num">' + weighted.length + '</span><span class="sr-unified-label">项今日有进展</span></div>'
+    +   '<div class="sr-unified-center"><span class="sr-unified-num">' + weighted.length + '项</span><span class="sr-unified-label">今日有进展</span></div>'
     + '</div>'
     + '<div class="sr-unified-legend">' + legend + '</div>'
     + '</div>';
