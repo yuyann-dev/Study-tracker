@@ -1302,7 +1302,7 @@
           + '<td>' + fmtSync(u.lastLoginAt) + '</td><td>' + (u.createdAt ? fmtDateTime(u.createdAt) : '—') + '</td>'
           + '<td><div class="adm-ops">' + ops + '</div></td></tr>';
       }).join('');
-      renderPager(); updateBatchBar();
+      renderPager(); updateBatchBar(); updateSortHeaders();
     } catch(e){
       tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--bad)">' + esc(e.message || '加载失败') + '</td></tr>';
     }
@@ -1314,6 +1314,16 @@
     var prev = document.getElementById('adPagerPrev'), next = document.getElementById('adPagerNext');
     if (prev) prev.disabled = (page <= 1);
     if (next) next.disabled = (page >= pages);
+  }
+  function updateSortHeaders(){
+    var ths = document.querySelectorAll('#adminPaneUsers .sort-th');
+    if (!ths.length) return;
+    ths.forEach(function(th){
+      th.classList.remove('sort-asc','sort-desc');
+      if (th.getAttribute('data-sort') === adminState.usersSort) {
+        th.classList.add(adminState.usersSortDir === 'desc' ? 'sort-desc' : 'sort-asc');
+      }
+    });
   }
   function updateBatchBar(){
     var n = Object.keys(adminState.selected).length;
@@ -1548,6 +1558,26 @@
   }
 
   /* ---- 邀请码 admin-42/44 ---- */
+  function renderUsedBy(names, code) {
+    if (!names || !names.length) return '—';
+    if (names.length <= 3) return names.map(esc).join('、');
+    var shown = names.slice(0, 3).map(esc).join('、');
+    var tags = names.map(function(n){ return '<span class="ub-tag">' + esc(n) + '</span>'; }).join('');
+    return '<span class="ub-collapsed">' + shown + '、<a href="javascript:;" class="ub-link" onclick="STAuth._toggleInviteUsers(\'' + esc(code) + '\')">+' + (names.length - 3) + '</a></span>'
+         + '<span class="ub-expanded" id="ub-' + esc(code) + '" style="display:none">' + tags + ' <a href="javascript:;" class="ub-link" onclick="STAuth._toggleInviteUsers(\'' + esc(code) + '\')">收起</a></span>';
+  }
+  function _toggleInviteUsers(code) {
+    var expanded = document.getElementById('ub-' + code);
+    if (!expanded) return;
+    var collapsed = expanded.previousElementSibling;
+    if (expanded.style.display === 'none') {
+      expanded.style.display = 'inline';
+      if (collapsed) collapsed.style.display = 'none';
+    } else {
+      expanded.style.display = 'none';
+      if (collapsed) collapsed.style.display = 'inline';
+    }
+  }
   async function loadInviteList(){
     var tb = document.getElementById('adminInvitesBody'); if (!tb) return;
     tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted)">加载中…</td></tr>';
@@ -1580,7 +1610,7 @@
         else if (c.usedCount >= c.maxUses) st = '<span class="badge-used">已用完</span>';
         else if (c.usedCount > 0) st = '<span class="badge-unused" style="background:#e8f4fd;color:#1a73e8">使用中</span>';
         else st = '<span class="badge-unused">未用</span>';
-        var userNames = (c.usedByNames && c.usedByNames.length) ? c.usedByNames.map(esc).join('、') : '—';
+        var userNames = renderUsedBy(c.usedByNames, c.code);
         var exp = c.expiresAt ? fmtDateTime(c.expiresAt) : '永久';
         var canBatchDel = !!(c.usedCount > 0 || c.revokedAt || expired);
         var checked = adminState.selectedInvites[c.code] ? ' checked' : '';
@@ -2287,6 +2317,7 @@
     _deleteCode: _deleteCode,
     _batchDeleteInvites: _batchDeleteInvites,
     _copyCode: _copyCode,
+    _toggleInviteUsers: _toggleInviteUsers,
     scheduleCloudSync: scheduleCloudSync,
     triggerSync: triggerSync,
     syncFromCloud: function(opts){ return syncFromCloud(opts); },

@@ -1784,6 +1784,20 @@
   .adm-ops{display:flex;gap:6px;flex-wrap:wrap;width:210px}
   .adm-op{padding:4px 9px !important;font-size:11.5px !important;white-space:nowrap;flex:0 0 auto}
   .adm-danger{color:#b02e24 !important;border-color:rgba(201,48,56,.35) !important}
+  /* 邀请码使用者列：固定宽度，超过3人折叠 */
+  #adminPaneInvites .admin-table th:nth-child(5),#adminPaneInvites .admin-table td:nth-child(5){width:170px;min-width:170px;max-width:170px}
+  .ub-collapsed{white-space:nowrap}
+  .ub-expanded{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;line-height:1.8}
+  .ub-tag{display:inline-block;padding:1px 7px;border-radius:10px;background:rgba(46,107,79,.1);color:var(--text);font-size:11.5px;white-space:nowrap}
+  html[data-theme="dark"] .ub-tag{background:rgba(131,188,169,.18);color:#c8d6e5}
+  .ub-link{color:var(--brand);font-size:11.5px;cursor:pointer;text-decoration:none;white-space:nowrap}
+  .ub-link:hover{text-decoration:underline}
+  /* 表头排序指示箭头 */
+  .sort-th{cursor:pointer;user-select:none;position:relative}
+  .sort-th:hover{color:var(--brand)}
+  .sort-th::after{content:'⇅';margin-left:3px;font-size:10px;opacity:.35}
+  .sort-th.sort-asc::after{content:'↑';opacity:1;color:var(--brand)}
+  .sort-th.sort-desc::after{content:'↓';opacity:1;color:var(--brand)}
   .batch-bar{display:none;align-items:center;gap:12px;padding:8px 12px;background:rgba(46,107,79,.08);border:1px solid rgba(46,107,79,.2);border-radius:8px;font-size:13px}
   .batch-bar.show{display:flex}
   /* 摆烂/未打卡提醒：纸感学院派风格，替代原刺眼黄底 */
