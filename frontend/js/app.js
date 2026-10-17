@@ -2357,6 +2357,55 @@ function getReviewCycleDays(p) {
   return sum;
 }
 
+/* 模拟计算错题本预计全部攻克日（假设用户每天完成所有到期题且都做对）
+   遍历每道未攻克题，从其下次复习日（逾期从今天）起累加剩余各轮间隔，
+   取最晚攻克日作为全部攻克日；同时统计截止日前能攻克的比例。 */
+function estimateMistakeCompletion(p) {
+  const intervals = getIntervals(p);
+  const today = todayStr();
+  const items = p.items || [];
+  let maxDate = today;
+  let unmastered = 0;
+  let byDeadline = 0;
+
+  items.forEach(function(it) {
+    if (it.mastered || it.manualMastered || it.finalReviewDate) return;
+    unmastered++;
+    const stage = Math.min(it.stage || 0, intervals.length - 1);
+    var startDate = (it.nextReviewDate && it.nextReviewDate > today) ? it.nextReviewDate : today;
+    var date = startDate;
+    for (var s = stage; s < intervals.length; s++) {
+      date = addDays(date, Math.max(1, parseInt(intervals[s], 10) || 1));
+    }
+    if (date > maxDate) maxDate = date;
+    if (p.deadline && date <= p.deadline) byDeadline++;
+  });
+
+  return {
+    allMasterDate: maxDate,
+    unmasteredCount: unmastered,
+    byDeadlineCount: byDeadline,
+    byDeadlinePct: unmastered > 0 ? Math.round(byDeadline / unmastered * 100) : 100,
+    canFinish: !p.deadline || maxDate <= p.deadline
+  };
+}
+
+/* 根据目标日期生成建议的缩短间隔（按比例压缩，最小1天，保留间隔递增结构） */
+function suggestShorterIntervals(p, targetDate) {
+  const intervals = getIntervals(p);
+  const today = todayStr();
+  const currentCycle = getReviewCycleDays(p);
+  const daysAvailable = diffDays(today, targetDate);
+  if (daysAvailable <= 0 || currentCycle <= daysAvailable) return intervals.slice();
+  const ratio = daysAvailable / currentCycle;
+  var suggested = intervals.map(function(d) { return Math.max(1, Math.round((parseInt(d, 10) || 1) * ratio)); });
+  // 保证严格递增（后一个≥前一个），避免压缩后出现 [1,1,1,...] 无梯度
+  for (var i = 1; i < suggested.length; i++) {
+    if (suggested[i] < suggested[i - 1]) suggested[i] = suggested[i - 1];
+  }
+  return suggested;
+}
+
 function calcNextReviewDateFromLearn(learnDate, completedReviews, intervals) {
   if (completedReviews >= intervals.length) return null;
   let total = 0;
@@ -5464,6 +5513,29 @@ function getStatusMessage(p, m) {
       }
     }
 
+    // 预计全部攻克日：模拟每道未攻克题按间隔滚动的最晚攻克日，动态显示
+    let etaLine = '';
+    if (m.remaining > 0) {
+      const eta = estimateMistakeCompletion(p);
+      if (eta.unmasteredCount > 0) {
+        if (!p.deadline) {
+          etaLine = `<br><br>按当前节奏，预计 <b>${fmtCN(eta.allMasterDate)}</b> 全部攻克。`;
+        } else if (eta.canFinish) {
+          const early = diffDays(eta.allMasterDate, p.deadline);
+          etaLine = `<br><br>按当前节奏，预计 <b>${fmtCN(eta.allMasterDate)}</b> 全部攻克（比目标日早 ${early} 天）。`;
+        } else {
+          const late = diffDays(p.deadline, eta.allMasterDate);
+          const daysLeft = diffDays(today, p.deadline);
+          const isSprint = daysLeft <= 15 && daysLeft >= 0;
+          const suggested = suggestShorterIntervals(p, p.deadline);
+          const suggestedStr = suggested.join('→');
+          const sprintTag = isSprint ? '<span style="display:inline-block;padding:1px 8px;margin-right:6px;font-size:11px;border-radius:4px;background:#fff3e0;color:#e65100;font-weight:600">冲刺期</span>' : '';
+          etaLine = `<br><br>${sprintTag}<span style="color:var(--danger,#c0392b)">按当前间隔，截止日前可攻克 <b>${eta.byDeadlinePct}%</b>（${eta.byDeadlineCount}/${eta.unmasteredCount} 道），全部过完预计到 ${fmtCN(eta.allMasterDate)}，比目标日晚 ${late} 天。</span>`;
+          etaLine += `<br>建议：<button class="eta-shorten-btn" data-intervals="${suggestedStr}" style="display:inline-block;padding:2px 10px;margin:4px 0;font-size:12px;border-radius:6px;border:1px solid var(--primary,#4a6cf7);color:var(--primary,#4a6cf7);background:transparent;cursor:pointer">一键缩短间隔为 ${suggestedStr} 天</button>，或增加每日复习量、优先攻克反复错的高频薄弱点。`;
+        }
+      }
+    }
+
     // (a) 有逾期：温和提醒 + 分批（自动均衡已控制今日量），进步前置，不制造"做不完"的恐慌
     if (over > 0) {
       const heavy = over >= Math.max(1, due * 0.5);
@@ -5471,7 +5543,7 @@ function getStatusMessage(p, m) {
         ? `今天有 ${due} 道待复习（含 ${over} 道逾期）。<strong>分批消化，先从最久没复习的开始</strong>，其余的系统会自动摊到接下来几天。`
         : `今天有 ${due} 道待复习（含 ${over} 道逾期）。先把逾期的过一遍，哪怕只做几条，记忆也会重新接上。`;
       return { icon:'' + svgIcon('pin') + '', cls:'info', title: heavy ? `有 ${over} 道逾期，分批消化就好` : `有 ${over} 道错题到期了`,
-        desc:`${lead}<br>${progressPhrase}${weakPhrase ? '<br>' + weakPhrase : ''}错题按间隔滚动，做完当轮自动排下一轮，你只管清今天的。${deadlineWarn}` };
+        desc:`${lead}<br>${progressPhrase}${weakPhrase ? '<br>' + weakPhrase : ''}错题按间隔滚动，做完当轮自动排下一轮，你只管清今天的。${deadlineWarn}${etaLine}` };
     }
     // (b) 正常待复习：强调"攻克 = 实打实进步"
     if (due > 0) {
@@ -5480,13 +5552,13 @@ function getStatusMessage(p, m) {
       else if (mpct >= 0.5) tail = '已经攻克过半，进展很实在。';
       else if (masteredNum > 0) tail = '做对会把间隔越拉越长，之后会越来越轻松。';
       return { icon:'' + svgIcon('clipboard-list') + '', cls:'info', title:`今天有 ${due} 道错题等你过一遍`,
-        desc:`每攻克一道错题，就是实打实补上一个提分点，比刷十道新题更值。${masteryLine ? masteryLine + '，' : ''}${tail}${weakPhrase ? '<br>' + weakPhrase : ''}${deadlineWarn}` };
+        desc:`每攻克一道错题，就是实打实补上一个提分点，比刷十道新题更值。${masteryLine ? masteryLine + '，' : ''}${tail}${weakPhrase ? '<br>' + weakPhrase : ''}${deadlineWarn}${etaLine}` };
     }
     // (c) 今天刚把队列清完（还没全攻克）：给即时满足
     if (due <= 0 && reviewedToday > 0 && m.remaining > 0) {
       const got = masteredToday > 0 ? `今天还攻克了 ${masteredToday} 道，又拿下 ${masteredToday} 个薄弱点。` : '';
       return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'今天的错题都过完了',
-        desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，系统帮你记着。${progressPhrase ? '<br>' + progressPhrase : ''}` };
+        desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，系统帮你记着。${progressPhrase ? '<br>' + progressPhrase : ''}${etaLine}` };
     }
     if (m.remaining === 0 && m.currentPage > 0) {
       return { icon:'' + svgIcon('party-popper') + '', cls:'ok', title:'已收录的错题全部攻克',
@@ -5495,7 +5567,7 @@ function getStatusMessage(p, m) {
     // (d) 刚收录、还没开始：把"收录错题"正面化
     if (justStarted) {
       return { icon:'' + svgIcon('square-pen') + '', cls:'info', title:'错题已经帮你记下了',
-        desc:`已收录 ${tot} 道错题，等于提前找到了 ${tot} 个提分点。现在还没有到期提醒，可以在复习区先过 1 道，间隔系统就开始运转，之后全自动提醒。` };
+        desc:`已收录 ${tot} 道错题，等于提前找到了 ${tot} 个提分点。现在还没有到期提醒，可以在复习区先过 1 道，间隔系统就开始运转，之后全自动提醒。${etaLine}` };
     }
     // (e) 队列暂时清空
     const calmTail = mpct >= 0.8
@@ -5506,7 +5578,7 @@ function getStatusMessage(p, m) {
           ? `已攻克 ${curN} / ${tot} 道，队列暂时清空，状态不错，继续保持。`
           : '暂无到期错题，遇到新错题随时收录即可。';
     return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'暂无到期错题',
-      desc:`${calmTail}${deadlineWarn}` };
+      desc:`${calmTail}${deadlineWarn}${etaLine}` };
   }
 
   // 3. 背书本·冲刺期：剩余时间已不足一个完整复习周期（距考试 < cycleDays），
@@ -7495,6 +7567,23 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   $('#statusIcon').innerHTML = status.icon;
   $('#statusTitle').textContent = status.title;
   $('#statusDesc').innerHTML = status.desc;
+  // 绑定"一键缩短间隔"按钮事件
+  var shortenBtns = document.querySelectorAll('.eta-shorten-btn');
+  for (var si = 0; si < shortenBtns.length; si++) {
+    shortenBtns[si].addEventListener('click', function() {
+      var ivStr = this.getAttribute('data-intervals');
+      if (!ivStr) return;
+      var newIv = ivStr.split('→').map(function(d) { return parseInt(d, 10) || 1; });
+      if (!newIv.length) return;
+      if (!confirm('确定将记忆间隔缩短为 ' + newIv.join('→') + ' 天？所有未攻克的错题会按新间隔重新排期。')) return;
+      p.intervals = newIv;
+      p.updatedAt = Date.now();
+      saveStore();
+      rebalanceAllItems(p);
+      render();
+      showToast('' + svgIcon('check-circle') + '', '间隔已缩短', '新间隔为 ' + newIv.join('→') + ' 天，所有未攻克的错题已按新间隔重新排期。', 3500);
+    });
+  }
   // 常驻算法说明：让用户知道数字怎么来、何时可信
   let algoNote = '';
   const doneAll = m.currentPage > 0 && m.remaining === 0;
