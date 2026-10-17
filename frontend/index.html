@@ -106,7 +106,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
 <link rel="stylesheet" href="lib/katex.min.css?v=b189">
-<link rel="stylesheet" href="css/style.css?v=b213">
+<link rel="stylesheet" href="css/style.css?v=b214">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -1996,7 +1996,7 @@ if ('serviceWorker' in navigator) {
 <script src="js/icons.js?v=b207"></script>
 <script src="js/auth.js?v=b203"></script>
 <script src="lib/katex.min.js?v=b189"></script>
-<script src="js/app.js?v=b213"></script>
+<script src="js/app.js?v=b214"></script>
 <script>
 
 if (document.readyState === 'loading') {
@@ -2113,16 +2113,30 @@ if (document.readyState === 'loading') {
       </div>
     </div>
 
+    <!-- 点赞列表弹窗 -->
+    <div class="sr-like-modal" id="srLikeModal" hidden>
+      <div class="sr-like-mask" id="srLikeMask"></div>
+      <div class="sr-like-panel">
+        <div class="sr-like-header">
+          <span>今日收到的赞</span>
+          <button class="sr-like-close" id="srLikeClose" type="button">×</button>
+        </div>
+        <div class="sr-like-body" id="srLikeBody">
+          <div class="sr-like-loading">加载中…</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 公开自习室广场视图（与引导页/房间主页同级切换） -->
     <div id="srPlazaView" hidden>
       <button class="ghost-btn" id="srPlazaBackBtn" type="button">← 返回</button>
       <div class="sr-plaza-title"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> 自习室广场</div>
       <div class="sr-plaza-filters" id="srPlazaFilters">
         <button class="sr-plaza-filter active" data-cat="all" type="button">全部</button>
-        <button class="sr-plaza-filter" data-cat="考研" type="button">考研</button>
-        <button class="sr-plaza-filter" data-cat="考公" type="button">考公</button>
-        <button class="sr-plaza-filter" data-cat="期末" type="button">期末</button>
-        <button class="sr-plaza-filter" data-cat="英语" type="button">英语</button>
+        <button class="sr-plaza-filter" data-cat="kaoyan" type="button">考研</button>
+        <button class="sr-plaza-filter" data-cat="kaogong" type="button">考公</button>
+        <button class="sr-plaza-filter" data-cat="qimo" type="button">期末</button>
+        <button class="sr-plaza-filter" data-cat="english" type="button">英语</button>
         <button class="sr-plaza-filter" data-cat="other" type="button">其他</button>
       </div>
       <div class="hint" id="srPlazaLoading" style="margin:10px 0">加载中…</div>
@@ -2148,10 +2162,10 @@ if (document.readyState === 'loading') {
     <label>房间标签
       <select id="srCreateCategorySelect">
         <option value="other">其他</option>
-        <option value="考研">考研</option>
-        <option value="考公">考公</option>
-        <option value="期末">期末</option>
-        <option value="英语">英语</option>
+        <option value="kaoyan">考研</option>
+        <option value="kaogong">考公</option>
+        <option value="qimo">期末</option>
+        <option value="english">英语</option>
       </select>
     </label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
@@ -2305,10 +2319,10 @@ if (document.readyState === 'loading') {
     <label>房间标签
       <select id="srSettingsCategorySelect">
         <option value="other">其他</option>
-        <option value="考研">考研</option>
-        <option value="考公">考公</option>
-        <option value="期末">期末</option>
-        <option value="英语">英语</option>
+        <option value="kaoyan">考研</option>
+        <option value="kaogong">考公</option>
+        <option value="qimo">期末</option>
+        <option value="english">英语</option>
       </select>
     </label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px">

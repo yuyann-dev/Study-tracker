@@ -16667,7 +16667,7 @@ function renderStudyRoomViews() {
   var catBadge = $('#srRoomCategory');
   if (catBadge) {
     var cat = studyRoomState.room.category || 'other';
-    catBadge.textContent = cat === 'other' ? '' : cat;
+    catBadge.textContent = cat === 'other' ? '' : srCategoryLabel(cat);
     catBadge.style.display = cat === 'other' ? 'none' : '';
   }
   // 房间简介（在房间号行下方显示）
@@ -16749,6 +16749,12 @@ function buildMemberCard(m, iAmOwner) {
   var kickBtn = (iAmOwner && !m.isSelf)
     ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
     : '';
+  // 点赞按钮：自己→点击查看谁赞了我；别人→点击点赞
+  var likesCount = m.likesReceived || 0;
+  var likedClass = m.likedByMe ? ' sr-like-btn-liked' : '';
+  var likeBtn = '<button class="sr-like-btn' + likedClass + '" data-user-id="' + m.userId + '" type="button" title="'
+    + (m.isSelf ? '查看谁给我点了赞' : '给TA点赞') + '">'
+    + svgIcon('thumbs-up') + '<span class="sr-like-count">' + likesCount + '</span></button>';
 
   div.innerHTML =
     '<div class="sr-member-avatar-wrap">'
@@ -16763,7 +16769,8 @@ function buildMemberCard(m, iAmOwner) {
     +   '<div class="sr-member-meta">'
     +     buildMemberMetaHtml(m)
     +   '</div>'
-    + '</div>' + kickBtn;
+    + '</div>'
+    + '<div class="sr-member-actions">' + likeBtn + kickBtn + '</div>';
   return div;
 }
 
@@ -16816,15 +16823,24 @@ function updateMemberCardDynamic(card, m, iAmOwner) {
   // 踢人按钮显隐
   var oldKick = card.querySelector('.sr-kick-btn');
   var shouldShowKick = iAmOwner && !m.isSelf;
+  var actionsEl = card.querySelector('.sr-member-actions');
   if (shouldShowKick && !oldKick) {
     var btn = document.createElement('button');
     btn.className = 'ghost-btn sr-kick-btn';
     btn.setAttribute('data-user-id', m.userId);
     btn.type = 'button';
     btn.textContent = '踢出';
-    card.appendChild(btn);
+    if (actionsEl) actionsEl.appendChild(btn); else card.appendChild(btn);
   } else if (!shouldShowKick && oldKick) {
     oldKick.remove();
+  }
+  // 点赞数更新
+  var likeBtn = card.querySelector('.sr-like-btn');
+  if (likeBtn) {
+    var cnt = likeBtn.querySelector('.sr-like-count');
+    if (cnt) cnt.textContent = m.likesReceived || 0;
+    if (m.likedByMe) likeBtn.classList.add('sr-like-btn-liked');
+    else likeBtn.classList.remove('sr-like-btn-liked');
   }
 }
 
@@ -16843,20 +16859,11 @@ function buildMemberMetaHtml(m) {
     ? '<span class="sr-meta-streak ' + streakClass + '" title="' + streakTitle + '">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
     : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
   var todayHtml;
-  if (!(m.publicData || m.isSelf)) {
-    var hasToday = !!m.checkedInToday;
-    todayHtml = hasToday
-      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已学习</span>'
-      : '<span class="sr-meta-today sr-today-zero">今日未学习</span>';
+  var hasToday = !!m.checkedInToday;
+  if (hasToday) {
+    todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日学习中</span>';
   } else {
-    var n = m.todayReviewCount || 0;
-    if (n > 0) {
-      todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日复习 ' + n + ' 条</span>';
-    } else if (m.checkedInToday) {
-      todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已学习</span>';
-    } else {
-      todayHtml = '<span class="sr-meta-today sr-today-zero">今日未学习</span>';
-    }
+    todayHtml = '<span class="sr-meta-today sr-today-zero">今日待开始</span>';
   }
   // 在线状态文字（away 时显示"x分钟前"）
   var onlineText = '';
@@ -17167,6 +17174,12 @@ async function openStudyRoomPlaza() {
   await loadStudyRoomPlaza();
 }
 
+// category 英文值 → 中文显示
+function srCategoryLabel(cat) {
+  var map = { kaoyan: '考研', kaogong: '考公', qimo: '期末', english: '英语', other: '其他' };
+  return map[cat] || '其他';
+}
+
 // 拉取并渲染广场房间列表
 async function loadStudyRoomPlaza() {
   var loading = $('#srPlazaLoading');
@@ -17210,7 +17223,7 @@ function renderPlazaList(rooms) {
     var fullBadge = isFull ? '<span class="sr-plaza-full">已满</span>' : '';
     // 标签徽章
     var cat = r.category || 'other';
-    var catBadge = cat !== 'other' ? '<span class="sr-plaza-cat">' + esc(cat) + '</span>' : '';
+    var catBadge = cat !== 'other' ? '<span class="sr-plaza-cat">' + srCategoryLabel(cat) + '</span>' : '';
     // 近7天活跃
     var active7 = r.active7 || 0;
     var active7Html = '<span class="sr-plaza-active">活跃 ' + active7 + ' 人</span>';
@@ -17278,6 +17291,60 @@ async function confirmKickMember() {
     showToast('' + svgIcon('user-minus') + '', '已踢出', '该成员已被移出房间', 2200);
   } catch (e) {
     showToast('' + svgIcon('alert-triangle') + '', '操作失败', e.message || '请稍后重试', 2500);
+  }
+}
+
+// ============ 每日点赞 ============
+// 给某人点赞
+async function doLike(userId, btnEl) {
+  try {
+    var data = await STAuth.apiRequest('/api/study-room/like', { method: 'POST', body: { toUserId: userId } });
+    // 乐观更新：点赞数+1，高亮
+    if (btnEl) {
+      btnEl.classList.add('sr-like-btn-liked');
+      var cnt = btnEl.querySelector('.sr-like-count');
+      if (cnt) cnt.textContent = (parseInt(cnt.textContent, 10) || 0) + 1;
+    }
+    // 更新state
+    var m = (studyRoomState.members || []).find(function(x){ return x.userId === userId; });
+    if (m) { m.likedByMe = true; m.likesReceived = (m.likesReceived || 0) + 1; }
+    if (data && data.message) {
+      showToast('' + svgIcon('thumbs-up') + '', '点赞成功', data.message, 2000);
+    }
+  } catch (e) {
+    showToast('' + svgIcon('alert-triangle') + '', '点赞失败', e.message || '请稍后重试', 2200);
+  }
+}
+
+// 打开点赞列表弹窗（查看谁给我点了赞）
+async function openLikeList() {
+  var modal = $('#srLikeModal');
+  var body = $('#srLikeBody');
+  if (!modal || !body) return;
+  modal.hidden = false;
+  body.innerHTML = '<div class="sr-like-loading">加载中…</div>';
+  try {
+    var data = await STAuth.apiRequest('/api/study-room/likes');
+    var likes = (data && data.likes) || [];
+    if (!likes.length) {
+      body.innerHTML = '<div class="sr-like-empty">今天还没有人给你点赞，去给别人点个赞吧～</div>';
+      return;
+    }
+    var html = '';
+    likes.forEach(function(l) {
+      var avatarHtml = l.avatar
+        ? '<img src="' + esc(l.avatar) + '" alt="">'
+        : '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      html += '<div class="sr-like-item">'
+        + '<div class="sr-like-avatar">' + avatarHtml + '</div>'
+        + '<div class="sr-like-info">'
+        +   '<div class="sr-like-name">' + esc(l.username || '匿名') + '</div>'
+        +   '<div class="sr-like-msg">' + esc(l.message || '') + '</div>'
+        + '</div></div>';
+    });
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div class="sr-like-empty">加载失败：' + esc(e.message || '请稍后重试') + '</div>';
   }
 }
 
@@ -17402,6 +17469,27 @@ function initStudyRoomUI() {
   bind('#srBadgeHelpBtn', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = false; });
   bind('#srBadgeHelpClose', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = true; });
   bind('#srBadgeHelpMask', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = true; });
+
+  // 点赞：事件委托（成员列表动态渲染）
+  var memberListEl = $('#srMemberList');
+  if (memberListEl) {
+    memberListEl.addEventListener('click', function(e) {
+      var btn = e.target.closest ? e.target.closest('.sr-like-btn') : null;
+      if (!btn) return;
+      var userId = parseInt(btn.getAttribute('data-user-id'), 10);
+      if (!userId) return;
+      var m = (studyRoomState.members || []).find(function(x){ return x.userId === userId; });
+      if (!m) return;
+      if (m.isSelf) {
+        openLikeList();
+      } else {
+        doLike(userId, btn);
+      }
+    });
+  }
+  // 点赞列表弹窗
+  bind('#srLikeClose', 'click', function(){ var m = $('#srLikeModal'); if (m) m.hidden = true; });
+  bind('#srLikeMask', 'click', function(){ var m = $('#srLikeModal'); if (m) m.hidden = true; });
 
   // 公开自习室广场
   bind('#srPlazaBtn', 'click', openStudyRoomPlaza);

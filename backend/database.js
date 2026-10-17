@@ -134,6 +134,20 @@ function runMigrations(db) {
       UNIQUE(user_id)                           -- 全表唯一：一个用户同时只能加入一个自习室
     );
 
+    -- 自习室每日点赞：每天每人可给同房间其他人点一次赞，附带随机鼓励文案
+    CREATE TABLE IF NOT EXISTS study_room_likes (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id       INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+      from_user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      to_user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      like_date     TEXT NOT NULL,                    -- YYYY-MM-DD，每天清空
+      message       TEXT NOT NULL,                    -- 随机鼓励文案
+      created_at    INTEGER NOT NULL,
+      UNIQUE(room_id, from_user_id, to_user_id, like_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_likes_room_date ON study_room_likes(room_id, like_date);
+    CREATE INDEX IF NOT EXISTS idx_likes_to_date ON study_room_likes(to_user_id, like_date);
+
     -- ══════════════ AI 助手相关表（M1+M2，全部幂等新建，只加表不改老表）══════════════
     -- AI 配置：每用户一行。encrypted_api_key 为 AES-256-GCM 密文（见 utils/aiCrypto.js），
     -- key_salt 为该用户专属随机 salt（base64），key_preview 仅末 4 位用于回显，绝不存明文。

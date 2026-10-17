@@ -40,8 +40,8 @@ const MAX_ROOM_MEMBERS = 20;
 /** 房间号格式：6 位大写字母数字（I/L/O/0/1 已排除） */
 const ROOM_CODE_RE = /^[A-HJKMNP-Z2-9]{6}$/;
 
-/** 房间标签枚举：考研、考公、期末、英语、其他 */
-const VALID_CATEGORIES = ['考研', '考公', '期末', '英语', 'other'];
+/** 房间标签枚举：kaoyan考研、kaogong考公、qimo期末、english英语、other其他 */
+const VALID_CATEGORIES = ['kaoyan', 'kaogong', 'qimo', 'english', 'other'];
 
 /**
  * 广场结果 60s 进程内缓存。key 固定为 'plaza'（公开房列表全局共享）。
@@ -534,6 +534,17 @@ router.get('/me', (req, res) => {
       )
       .all(room.roomId);
 
+    // 批量查询今日点赞：每个成员收到的赞数 + 我给哪些人点过赞
+    const likeRows = db.prepare(
+      'SELECT from_user_id AS fromId, to_user_id AS toId FROM study_room_likes WHERE room_id=? AND like_date=?'
+    ).all(room.roomId, today);
+    const receivedCount = {};
+    const likedByMe = new Set();
+    for (const lr of likeRows) {
+      receivedCount[lr.toId] = (receivedCount[lr.toId] || 0) + 1;
+      if (lr.fromId === me) likedByMe.add(lr.toId);
+    }
+
     const members = rows.map((m) => {
       const isSelf = m.userId === me;
       const isOwner = m.userId === room.ownerId;
@@ -572,6 +583,8 @@ router.get('/me', (req, res) => {
         activityScore: Math.round(activityScore * 100) / 100,
         onlineStatus: online.status,   // 'online' | 'away' | 'offline'
         onlineLabel: online.label,      // '刚刚' | 'x 分钟前' | ''
+        likesReceived: receivedCount[m.userId] || 0,
+        likedByMe: likedByMe.has(m.userId),
       };
     });
 
@@ -1079,5 +1092,107 @@ function _respondPlaza(res, allRooms, categoryQuery) {
   }
   return ok(res, { ok: true, maxMembers: MAX_ROOM_MEMBERS, rooms });
 }
+
+// ══════════════ 每日点赞 ══════════════
+const LIKE_MESSAGES = [
+  '今天真棒！继续加油',
+  '你是最棒的！',
+  '坚持就是胜利',
+  '一起上岸！',
+  '今天也超努力呢',
+  '为你打call！',
+  '稳稳的，没问题',
+  '冲就完事了',
+  '你已经很棒了',
+  '每天进步一点点',
+  '今天的你闪闪发光',
+  '努力不会被辜负',
+  '保持这个节奏',
+  '太厉害了吧',
+  '向你学习！',
+  '今天也是元气满满',
+  '稳扎稳打，未来可期',
+  '你就是我的榜样',
+  '一起加油鸭',
+  '今天的努力，明天的底气',
+  '别放弃，你可以的',
+  '你比想象中更强大',
+  '今天也在发光发热',
+  '冲冲冲！',
+  '好样的！',
+  '真的很佩服你',
+  '今天也要加油哦',
+  '你是最靓的仔',
+  '一步一个脚印',
+  '你的努力大家都看在眼里',
+];
+
+function _randomLikeMessage(seed) {
+  // 每天每人固定一个文案：用 fromUserId + toUserId + date 做种子
+  let hash = 0;
+  const s = String(seed);
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+  }
+  const idx = Math.abs(hash) % LIKE_MESSAGES.length;
+  return LIKE_MESSAGES[idx];
+}
+
+// POST /api/study-room/like  给同房间成员点赞（每天每人限一次）
+router.post('/like', (req, res) => {
+  try {
+    const me = req.user.id;
+    const { toUserId } = req.body || {};
+    const targetId = parseInt(toUserId, 10);
+    if (!targetId || targetId === me) return fail(res, '参数错误', 400);
+
+    const myRoom = db.prepare('SELECT room_id FROM study_room_members WHERE user_id = ?').get(me);
+    if (!myRoom) return fail(res, '你还没有加入自习室', 400);
+    const targetRoom = db.prepare('SELECT room_id FROM study_room_members WHERE user_id = ?').get(targetId);
+    if (!targetRoom || targetRoom.room_id !== myRoom.room_id) return fail(res, '对方不在你的自习室', 400);
+
+    const today = todayStr();
+    const existing = db.prepare(
+      'SELECT id FROM study_room_likes WHERE room_id=? AND from_user_id=? AND to_user_id=? AND like_date=?'
+    ).get(myRoom.room_id, me, targetId, today);
+    if (existing) return fail(res, '今天已经给TA点过赞啦', 400);
+
+    const message = _randomLikeMessage(`${me}_${targetId}_${today}`);
+    db.prepare(
+      'INSERT INTO study_room_likes (room_id, from_user_id, to_user_id, like_date, message, created_at) VALUES (?,?,?,?,?,?)'
+    ).run(myRoom.room_id, me, targetId, today, message, Date.now());
+
+    return ok(res, { ok: true, message });
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) return fail(res, '今天已经给TA点过赞啦', 400);
+    console.error('POST /api/study-room/like error:', e.message);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
+  }
+});
+
+// GET /api/study-room/likes  查看今天谁给我点了赞
+router.get('/likes', (req, res) => {
+  try {
+    const me = req.user.id;
+    const today = todayStr();
+    const rows = db.prepare(`
+      SELECT l.from_user_id AS userId, l.message, u.username, u.avatar
+      FROM study_room_likes l
+      JOIN users u ON u.id = l.from_user_id
+      WHERE l.to_user_id = ? AND l.like_date = ?
+      ORDER BY l.created_at DESC
+    `).all(me, today);
+
+    // 我今天收到的总赞数
+    const received = db.prepare(
+      'SELECT COUNT(*) AS c FROM study_room_likes WHERE to_user_id=? AND like_date=?'
+    ).get(me, today).c;
+
+    return ok(res, { ok: true, likes: rows, received });
+  } catch (e) {
+    console.error('GET /api/study-room/likes error:', e.message);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
+  }
+});
 
 module.exports = router;
