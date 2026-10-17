@@ -1784,6 +1784,7 @@
   .adm-ops{display:flex;gap:6px;flex-wrap:wrap;width:210px}
   .adm-op{padding:4px 9px !important;font-size:11.5px !important;white-space:nowrap;flex:0 0 auto}
   .adm-danger{color:#b02e24 !important;border-color:rgba(201,48,56,.35) !important}
+  .adm-role-badge{display:block;width:100%;text-align:center;margin-bottom:5px;font-size:10.5px;padding:1px 0}
   /* 邀请码使用者列：固定宽度，超过3人折叠 */
   #adminPaneInvites .admin-table th:nth-child(5),#adminPaneInvites .admin-table td:nth-child(5){width:170px;min-width:170px;max-width:170px}
   .ub-collapsed{white-space:nowrap}

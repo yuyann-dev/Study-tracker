@@ -1278,7 +1278,7 @@
         var self = currentUser && u.id === currentUser.id;
         var name = esc(u.username || '');
         var nameJs = esc(JSON.stringify(u.username || ''));
-        var adminBadge = u.isSuperAdmin ? '<span class="badge-admin">超级管理员</span>' : (u.isAdmin ? '<span class="badge-admin">管理员</span>' : '');
+        var adminBadge = u.isSuperAdmin ? '<span class="badge-admin adm-role-badge">超管</span>' : (u.isAdmin ? '<span class="badge-admin adm-role-badge">管理员</span>' : '');
         var st = u.deletedAt 
                ? (u.deleteReason === 'self' ? '<span class="badge-deleted">已注销</span>' : '<span class="badge-deleted">回收站</span>')
                : (u.status === 'disabled' ? '<span class="badge-disabled">已禁用</span>' : '<span class="badge-active">正常</span>');
@@ -1296,11 +1296,15 @@
           if (meSuper) ops += '<button class="ghost-btn adm-op" onclick="STAuth._toggleAdmin(' + u.id + ',' + (u.isAdmin ? 'false' : 'true') + ')">' + (u.isAdmin ? '取消管理员' : '设为管理员') + '</button>';
           ops += '<button class="ghost-btn adm-op adm-danger" onclick="STAuth._softDelete(' + u.id + ',' + nameJs + '">删除</button>';
         }
+        // 管理员徽章放在操作列：self/受保护账号跟文字同行，普通管理员独占一行在按钮上方
+        var opCol = (self || (u.isSuperAdmin && !meSuper))
+          ? ops + (adminBadge ? ' ' + adminBadge.replace('adm-role-badge','') : '')
+          : adminBadge + ops;
         return '<tr><td><input type="checkbox" class="ad-table-check rowcheck" data-id="' + u.id + '"' + checked + '></td>'
-          + '<td>' + u.id + '</td><td>' + name + adminBadge + '</td><td>' + esc(u.email || '—') + '</td>'
+          + '<td>' + u.id + '</td><td>' + name + '</td><td>' + esc(u.email || '—') + '</td>'
           + '<td>' + st + '</td><td>' + (u.projectCount || 0) + '</td>'
           + '<td>' + fmtSync(u.lastLoginAt) + '</td><td>' + (u.createdAt ? fmtDateTime(u.createdAt) : '—') + '</td>'
-          + '<td><div class="adm-ops">' + ops + '</div></td></tr>';
+          + '<td><div class="adm-ops">' + opCol + '</div></td></tr>';
       }).join('');
       renderPager(); updateBatchBar(); updateSortHeaders();
     } catch(e){
