@@ -1794,12 +1794,12 @@
   .adm-danger{color:#b02e24 !important;border-color:rgba(201,48,56,.35) !important}
   .adm-role-badge{display:block;width:100%;text-align:center;margin-bottom:5px;font-size:10.5px;padding:1px 0}
   /* 邀请码使用者列：固定宽度，超过3人折叠 */
-  #adminPaneInvites .admin-table th:nth-child(5),#adminPaneInvites .admin-table td:nth-child(5){width:170px;min-width:170px;max-width:170px}
-  .ub-collapsed{white-space:nowrap}
-  .ub-expanded{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;line-height:1.8}
-  .ub-tag{display:inline-block;padding:1px 7px;border-radius:10px;background:rgba(46,107,79,.1);color:var(--text);font-size:11.5px;white-space:nowrap}
+  #adminPaneInvites .admin-table th:nth-child(5),#adminPaneInvites .admin-table td:nth-child(5){width:170px;min-width:170px;max-width:170px;white-space:normal;vertical-align:top}
+  .ub-collapsed{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:170px}
+  .ub-expanded{display:flex;flex-wrap:wrap;gap:4px;align-items:center;line-height:1.8;width:100%}
+  .ub-tag{display:inline-block;padding:1px 7px;border-radius:10px;background:rgba(46,107,79,.1);color:var(--text);font-size:11.5px;white-space:nowrap;flex:0 0 auto}
   html[data-theme="dark"] .ub-tag{background:rgba(131,188,169,.18);color:#c8d6e5}
-  .ub-link{color:var(--brand);font-size:11.5px;cursor:pointer;text-decoration:none;white-space:nowrap}
+  .ub-link{color:var(--brand);font-size:11.5px;cursor:pointer;text-decoration:none;white-space:nowrap;flex:0 0 auto}
   .ub-link:hover{text-decoration:underline}
   /* 表头排序指示箭头 */
   .sort-th{cursor:pointer;user-select:none;position:relative}
