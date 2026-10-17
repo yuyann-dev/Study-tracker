@@ -1445,7 +1445,10 @@
       document.getElementById('userDrawerMask').hidden = false;
     } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '加载失败'); }
   }
-  async function _resetPw(id){
+  function _resetPw(id){
+    openConfirm({title:'重置密码', msg:'将为该用户生成一次性临时密码，用户需用临时密码登录后立即修改。确定继续？', onOk:function(){ _doResetPw(id); }});
+  }
+  async function _doResetPw(id){
     try {
       var d = await apiRequest('/api/admin/users/' + id + '/reset-password', {method:'POST'});
       document.getElementById('resetPwBody').innerHTML =

@@ -1780,7 +1780,8 @@
   .invite-code-display{font-family:monospace;font-size:16px;font-weight:700;letter-spacing:2px;background:var(--bg);padding:10px 16px;border-radius:10px;text-align:center;color:var(--brand);cursor:pointer;margin:8px 0;user-select:all}
   html[data-theme="dark"] .invite-code-display{background:#3a5079}
   #adminPaneUsers .admin-table{min-width:780px}
-  .adm-ops{display:flex;gap:6px;flex-wrap:wrap}
+  #adminPaneUsers .admin-table td:last-child{width:210px;min-width:210px}
+  .adm-ops{display:flex;gap:6px;flex-wrap:wrap;width:210px}
   .adm-op{padding:4px 9px !important;font-size:11.5px !important;white-space:nowrap;flex:0 0 auto}
   .adm-danger{color:#b02e24 !important;border-color:rgba(201,48,56,.35) !important}
   .batch-bar{display:none;align-items:center;gap:12px;padding:8px 12px;background:rgba(46,107,79,.08);border:1px solid rgba(46,107,79,.2);border-radius:8px;font-size:13px}
