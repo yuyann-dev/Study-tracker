@@ -107,29 +107,41 @@ function dayOfWeekCn(dateStr) {
 
 /**
  * 从 user_data.store_json 收集 review 统计：
- *   byDate { 'YYYY-MM-DD': 当天 review 条数 }
- *   total  全量 review 总条数
+ *   byDate   { 'YYYY-MM-DD': 当天 review 条数 }
+ *   total    全量 review 总条数
+ *   allDates Set，所有有学习活动的日期（刷题 records + 复习 reviews + 首次学习 learnedDate）
  * 口径与前端 renderHeatmap 一致：遍历 projects[].items[].reviews[]，每条 review 计 1。
+ * allDates 用于学习天数、streak、今日打卡判断，确保纯刷题日也算学习。
  */
 function collectReviewStats(storeJson) {
   const byDate = {};
+  const allDates = new Set();
   let total = 0;
   let store = null;
   try { store = storeJson ? JSON.parse(storeJson) : null; } catch (_) { store = null; }
-  if (!store || typeof store !== 'object') return { byDate, total };
+  if (!store || typeof store !== 'object') return { byDate, total, allDates };
   const projects = store.projects || {};
   for (const p of Object.values(projects)) {
-    if (!p || typeof p !== 'object' || !Array.isArray(p.items)) continue;
+    if (!p || typeof p !== 'object') continue;
+    // 刷题打卡记录日期
+    if (p.type === 'exercise' && Array.isArray(p.records)) {
+      p.records.forEach(r => { if (r && r.date) allDates.add(r.date); });
+    }
+    if (!Array.isArray(p.items)) continue;
     for (const it of p.items) {
-      if (!it || typeof it !== 'object' || !Array.isArray(it.reviews)) continue;
+      if (!it || typeof it !== 'object') continue;
+      // 首次学习日期也算学习活动
+      if (it.learnedDate) allDates.add(it.learnedDate);
+      if (!Array.isArray(it.reviews)) continue;
       for (const r of it.reviews) {
         if (!r || typeof r.date !== 'string' || !r.date) continue;
         byDate[r.date] = (byDate[r.date] || 0) + 1;
+        allDates.add(r.date);
         total++;
       }
     }
   }
-  return { byDate, total };
+  return { byDate, total, allDates };
 }
 
 /**
@@ -477,10 +489,13 @@ router.get('/me', (req, res) => {
       const visible = publicData || isSelf;
       // 统一走缓存取数：每个成员解析 store_json 一次（缓存命中则免解析）
       const stats = getUserStats(m.userId);
+      // 所有有学习活动的日期（刷题+复习+首次学习），转成 byDate 格式供 computeStreak 使用
+      const activityByDate = {};
+      stats.allDates.forEach(d => { if (d <= today) activityByDate[d] = 1; });
       // streak 属基础社交信息（头像/用户名/房主标记/streak 全可见），对所有成员真实返回
-      const streak = computeStreak(stats.byDate, today);
-      // 今日是否打卡属基础社交信息（全可见）；今日具体次数属进阶信息（未公开者 null）
-      const checkedInToday = (stats.byDate[today] || 0) > 0;
+      const streak = computeStreak(activityByDate, today);
+      // 今日是否打卡属基础社交信息（全可见）；今日具体复习条数属进阶信息（未公开者 null）
+      const checkedInToday = !!activityByDate[today];
       let todayReviewCount = null;
       if (visible) {
         todayReviewCount = stats.byDate[today] || 0;
@@ -699,29 +714,18 @@ router.get('/member/:userId', (req, res) => {
 
     // 统计走统一缓存取数；project_count 仍单独取（admin 列表冗余列，不在缓存内）
     const row = db.prepare('SELECT project_count, store_json FROM user_data WHERE user_id = ?').get(targetUserId);
-    const { byDate, total } = getUserStats(targetUserId);
+    const stats = getUserStats(targetUserId);
+    const { byDate, total } = stats;
 
     const today = todayStr();
-    // 收集所有有学习记录的日期（刷题 records + 复习 reviews），取最近3天
+    // 所有有学习活动的日期（刷题+复习+首次学习），口径与 /me 一致
+    const allDates = stats.allDates;
     let storeObj = null;
     try { storeObj = row && row.store_json ? JSON.parse(row.store_json) : null; } catch (_) { storeObj = null; }
-    const allDates = new Set();
-    if (storeObj && storeObj.projects) {
-      for (const p of Object.values(storeObj.projects)) {
-        if (!p) continue;
-        if (p.type === 'exercise' && Array.isArray(p.records)) {
-          p.records.forEach(r => { if (r && r.date) allDates.add(r.date); });
-        }
-        if (Array.isArray(p.items)) {
-          p.items.forEach(it => {
-            if (it && Array.isArray(it.reviews)) {
-              it.reviews.forEach(r => { if (r && r.date) allDates.add(r.date); });
-            }
-          });
-        }
-      }
-    }
     const recentDates = [...allDates].filter(d => d <= today).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).slice(0, 3);
+    // 所有有学习活动的日期，用于学习天数和 streak 计算
+    const allActivityByDate = {};
+    allDates.forEach(d => { if (d <= today) allActivityByDate[d] = 1; });
     // 计算每日 breakdown：刷题页数、套数、复习条数
     const recentActivity = recentDates.map(date => {
       const prevDate = shiftDate(date, -1);
@@ -761,12 +765,15 @@ router.get('/member/:userId', (req, res) => {
       const date = shiftDate(monday, d);
       weekReviewCount.push(byDate[date] || 0);
     }
-    // 本周学习天数 / 累计学习天数（有复习记录的天数，比"复习条数"更有意义）
-    const weekStudyDays = weekReviewCount.filter(n => n > 0).length;
-    const totalStudyDays = Object.values(byDate).filter(n => n > 0).length;
+    // 本周学习天数 / 累计学习天数（有刷题或复习记录的天数，口径与 recentActivity 一致）
+    let weekStudyDays = 0;
+    for (let d = 0; d < 7; d++) {
+      if (allActivityByDate[shiftDate(monday, d)]) weekStudyDays++;
+    }
+    const totalStudyDays = Object.keys(allActivityByDate).length;
 
     // 当前连续打卡：今天学了从今天算，今天还没学则从昨天往回算（不因今天尚未学清零）
-    const currentStreak = computeStreak(byDate, today);
+    const currentStreak = computeStreak(allActivityByDate, today);
 
     // 今日各项目完成量（环形图数据）：只返回今日有完成的项目
     // 隐私：只有公开用户（或自己看自己）才走到这里，未公开已在上面拦截
@@ -957,9 +964,9 @@ router.get('/plaza', (req, res) => {
       let active7 = 0;
       for (const mem of members) {
         const stats = getUserStats(mem.userId);
-        // 只查近 7 天的日期，不遍历全部 byDate
+        // 近7天有学习活动的天数（刷题/复习/首次学习都算），比复习条数更能反映活跃度
         for (const d of last7Days) {
-          active7 += (stats.byDate[d] || 0);
+          if (stats.allDates.has(d)) active7++;
         }
       }
       room.active7 = active7;

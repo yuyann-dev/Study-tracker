@@ -16801,9 +16801,13 @@ function buildMemberMetaHtml(m) {
       : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
   } else {
     var n = m.todayReviewCount || 0;
-    todayHtml = n > 0
-      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日复习 ' + n + ' 条</span>'
-      : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+    if (n > 0) {
+      todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日复习 ' + n + ' 条</span>';
+    } else if (m.checkedInToday) {
+      todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已打卡</span>';
+    } else {
+      todayHtml = '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+    }
   }
   // 在线状态文字（away 时显示"x分钟前"）
   var onlineText = '';
