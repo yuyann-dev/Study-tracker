@@ -720,6 +720,9 @@ router.get('/member/:userId', (req, res) => {
       const date = shiftDate(monday, d);
       weekReviewCount.push(byDate[date] || 0);
     }
+    // 本周学习天数 / 累计学习天数（有复习记录的天数，比"复习条数"更有意义）
+    const weekStudyDays = weekReviewCount.filter(n => n > 0).length;
+    const totalStudyDays = Object.values(byDate).filter(n => n > 0).length;
 
     // 当前连续打卡：今天学了从今天算，今天还没学则从昨天往回算（不因今天尚未学清零）
     const currentStreak = computeStreak(byDate, today);
@@ -735,6 +738,8 @@ router.get('/member/:userId', (req, res) => {
         avatar: target.avatar,
         recentActivity,
         weekReviewCount,
+        weekStudyDays,
+        totalStudyDays,
         currentStreak,
         totalReviews: total,
         projectCount: (row && row.project_count) || 0,

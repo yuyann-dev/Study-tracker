@@ -16802,7 +16802,7 @@ function buildMemberMetaHtml(m) {
   } else {
     var n = m.todayReviewCount || 0;
     todayHtml = n > 0
-      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日学习 ' + n + ' 次</span>'
+      ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日复习 ' + n + ' 条</span>'
       : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
   }
   // 在线状态文字（away 时显示"x分钟前"）
@@ -16870,17 +16870,15 @@ function renderMemberDetail(profile) {
       recentEl.innerHTML = recent.map(function(a) {
         return '<div class="sr-recent-item">'
           + '<span class="sr-recent-date">' + esc((a.date || '').slice(5)) + ' ' + esc(a.dayOfWeek || '') + '</span>'
-          + '<span class="sr-recent-count">学习 ' + (a.reviewCount || 0) + ' 次</span>'
+          + '<span class="sr-recent-count">复习 ' + (a.reviewCount || 0) + ' 条</span>'
           + '</div>';
       }).join('');
     }
   }
   // 统计卡片
-  var week = profile.weekReviewCount || [];
-  var weekSum = week.reduce(function(a,b){ return (a||0) + (b||0); }, 0);
-  var wc = $('#srDetailWeekCount'); if (wc) wc.textContent = weekSum;
+  var wc = $('#srDetailWeekCount'); if (wc) wc.textContent = (profile.weekStudyDays != null ? profile.weekStudyDays : (profile.weekReviewCount || []).filter(function(n){return n>0;}).length) + '天';
   var st = $('#srDetailStreak'); if (st) st.textContent = (profile.currentStreak || 0) + '天';
-  var tt = $('#srDetailTotal'); if (tt) tt.textContent = profile.totalReviews || 0;
+  var tt = $('#srDetailTotal'); if (tt) tt.textContent = (profile.totalStudyDays != null ? profile.totalStudyDays : 0) + '天';
   var pj = $('#srDetailProjects'); if (pj) pj.textContent = profile.projectCount || 0;
   // 今日各项目完成量环形图
   renderProjectTodayCharts(profile.projectToday || []);
@@ -16911,14 +16909,20 @@ function renderProjectTodayCharts(projects) {
     return;
   }
   var totalW = weighted.reduce(function(s, x) { return s + x.w; }, 0);
-  // 纸感学院派调色板：绿色系为主 + 暖金/深棕对比色，相邻明度差足够大
-  var palette = ['#2a5f45', '#4a8c6e', '#7ab092', '#c9a96e', '#a67c52', '#6b8e7b', '#b8d4c0', '#9e8b6e'];
+  // 纸感学院派20色调色板：绿色系为主(1-10)，暖金棕(11-15)，中性灰绿(16-20)，相邻明度差足够大
+  var palette = [
+    '#1e4d35','#2a5f45','#3a7558','#4a8c6e','#5a9e78',
+    '#6ba88a','#7ab898','#8fc0a9','#a5cfb8','#bbdcc9',
+    '#c9a96e','#b8956a','#a67c52','#8b6b4a','#7a5c3e',
+    '#6b8e9e','#7a9e8b','#9e8b6e','#8a9a7b','#a8b5a0'
+  ];
   var size = 140, strokeW = 16;
   var r = (size - strokeW) / 2;
   var cx = size / 2, cy = size / 2;
   var circ = 2 * Math.PI * r;
-  // 多项目时段间留白色间隙，单项目不留
-  var gap = weighted.length > 1 ? 1.5 : 0;
+  // 项目越多间隙越小：1-3项1.5px，4-8项1px，9-15项0.6px，16+项0.3px
+  var n = weighted.length;
+  var gap = n > 15 ? 0.3 : n > 8 ? 0.6 : n > 3 ? 1.0 : 1.5;
   // 背景轨
   var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">'
     + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" class="sr-chart-track" stroke-width="' + strokeW + '"/>';
