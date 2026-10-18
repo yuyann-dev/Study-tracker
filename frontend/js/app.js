@@ -1799,25 +1799,29 @@ async function loadStore() {
     migrateProject(p);
   });
   // 老用户适配：把已有项目的单元/套卷数据自动存为模板
+  // 只执行一次（templatesMigrated 标记），避免每次启动都重复创建导致模板重复
   if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
   if (!Array.isArray(store.paperTemplates)) store.paperTemplates = [];
   // 墓碑字段（多设备删除同步）：老版本数据无此字段时补空对象
   if (!store.tombstones || typeof store.tombstones !== 'object' || Array.isArray(store.tombstones)) store.tombstones = {};
-  Object.values(store.projects).forEach(p => {
-    if (!p || typeof p !== 'object') return;
-    if (p.unitMode && Array.isArray(p.units) && p.units.length > 0) {
-      const exists = store.unitTemplates.some(t => t.name === p.name);
-      if (!exists) {
-        store.unitTemplates.push({ id: genId(), name: p.name, units: JSON.parse(JSON.stringify(p.units)), createdAt: Date.now(), updatedAt: Date.now() });
+  if (!store.templatesMigrated) {
+    Object.values(store.projects).forEach(p => {
+      if (!p || typeof p !== 'object') return;
+      if (p.unitMode && Array.isArray(p.units) && p.units.length > 0) {
+        const exists = store.unitTemplates.some(t => t.name === p.name);
+        if (!exists) {
+          store.unitTemplates.push({ id: genId(), name: p.name, units: JSON.parse(JSON.stringify(p.units)), createdAt: Date.now(), updatedAt: Date.now(), autoMigrated: true });
+        }
       }
-    }
-    if (p.type === 'exercise' && p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
-      const exists = store.paperTemplates.some(t => t.name === p.name);
-      if (!exists) {
-        store.paperTemplates.push({ id: genId(), name: p.name, sections: JSON.parse(JSON.stringify(p.paperSections)), createdAt: Date.now(), updatedAt: Date.now() });
+      if (p.type === 'exercise' && p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
+        const exists = store.paperTemplates.some(t => t.name === p.name);
+        if (!exists) {
+          store.paperTemplates.push({ id: genId(), name: p.name, sections: JSON.parse(JSON.stringify(p.paperSections)), createdAt: Date.now(), updatedAt: Date.now(), autoMigrated: true });
+        }
       }
-    }
-  });
+    });
+    store.templatesMigrated = true;
+  }
   if (JSON.stringify(store) !== beforeMigrate) saveStore();
 
   ensurePresetTemplates();
@@ -12799,7 +12803,14 @@ function openTplManager(type) {
 }
 function renderTplManagerList() {
   const list = $('#tplManagerList');
-  const templates = tplManagerType === 'unit' ? (store.unitTemplates || []) : (store.paperTemplates || []);
+  let templates = tplManagerType === 'unit' ? (store.unitTemplates || []) : (store.paperTemplates || []);
+  // 按 id 去重，防止历史重复数据导致管理器显示重复模板
+  const _seen = new Set();
+  templates = templates.filter(t => {
+    if (!t || !t.id || _seen.has(t.id)) return false;
+    _seen.add(t.id);
+    return true;
+  });
   if (!templates.length) {
     list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px 0">还没有保存的模板<br><span style="font-size:12px">在设置页编辑好单元/板块后，点「存为模板」即可保存</span></div>';
     return;
@@ -16714,7 +16725,7 @@ window.addEventListener('resize', () => {
   if (history.scrollRestoration) history.scrollRestoration = 'manual';
   // 版本强制下线机制：大版本更新时清除登录态（仅 token/user，学习数据完整保留）
   // 每次需要强制全员重新登录时，修改下方 APP_VERSION 的值即可
-  const APP_VERSION = '20261005';
+  const APP_VERSION = '20261018';
   const VER_KEY = 'st_app_version';
   try {
     const lastVer = localStorage.getItem(VER_KEY);
