@@ -110,7 +110,7 @@ function dayOfWeekCn(dateStr) {
  *   byDate     { 'YYYY-MM-DD': 当天 review 条数 }
  *   total      全量 review 总条数
  *   allDates   Set，所有有学习活动的日期（刷题 records + 复习 reviews + 首次学习 learnedDate）
- *   todayScore 今日活跃度分数（刷题页×1 + 套卷×4 + 错题×0.3），用于成员列表排序
+ *   todayScore 今日活跃度分数（套卷×10 + 刷题页×1 + 背书新学/复习×1 + 错题复习×0.25），用于成员列表排序
  * 口径与前端 renderHeatmap 一致：遍历 projects[].items[].reviews[]，每条 review 计 1。
  * allDates 用于学习天数、streak、今日打卡判断，确保纯刷题日也算学习。
  */
@@ -127,17 +127,18 @@ function collectReviewStats(storeJson) {
   let todayScore = 0;
   for (const p of Object.values(projects)) {
     if (!p || typeof p !== 'object') continue;
+    // 归档项目也正常计入（只要今天有完成）
     // 刷题打卡记录日期
     if (p.type === 'exercise' && Array.isArray(p.records)) {
       p.records.forEach(r => { if (r && r.date) allDates.add(r.date); });
     }
-    // 今日活跃度：刷题页数/套数
+    // 今日活跃度：刷题页数/套数（套卷每套=10分，普通每页=1分）
     if (p.type === 'exercise') {
       const cur = _getCompletedPagesAtDate(p, today);
       const prev = _getCompletedPagesAtDate(p, yesterday);
       const delta = Math.max(0, cur - prev);
       if (delta > 0) {
-        todayScore += delta * (_isSetMode(p) ? 4.0 : 1.0);
+        todayScore += delta * (_isSetMode(p) ? 10.0 : 1.0);
       }
     }
     if (!Array.isArray(p.items)) continue;
@@ -145,14 +146,20 @@ function collectReviewStats(storeJson) {
       if (!it || typeof it !== 'object') continue;
       // 首次学习日期也算学习活动
       if (it.learnedDate) allDates.add(it.learnedDate);
+      // 背书新学：今天首次学习的条目，每条=1分（背书同时算新学和复习）
+      if (p.type === 'recite' && it.learnedDate === today) {
+        todayScore += 1.0;
+      }
       if (!Array.isArray(it.reviews)) continue;
       for (const r of it.reviews) {
         if (!r || typeof r.date !== 'string' || !r.date) continue;
         byDate[r.date] = (byDate[r.date] || 0) + 1;
         allDates.add(r.date);
         total++;
-        // 今日复习条数计入活跃度（错题和背书都算，权重0.3）
-        if (r.date === today) todayScore += 0.3;
+        // 今日复习条数计入活跃度：错题每条=0.25分，背书每条=1分
+        if (r.date === today) {
+          todayScore += (p.type === 'recite' ? 1.0 : 0.25);
+        }
       }
     }
   }
@@ -566,9 +573,9 @@ router.get('/me', (req, res) => {
       }
       // 在线状态：从内存心跳表取（60s=在线绿点，60s~5min=离开灰点+"x分钟前"，>5min=离线灰点）
       const online = getOnlineStatus(m.userId);
-      // 活跃度分数：今日学习量加权 + 在线加成 + streak小幅加成
-      const onlineBonus = online.status === 'online' ? 2 : (online.status === 'away' ? 1 : 0);
-      const activityScore = (stats.todayScore || 0) + onlineBonus + streak * 0.1;
+      // 活跃度分数：今日学习量加权 + streak加成（每7天+1，上限+5）；取消在线加成避免挂机刷分
+      const streakBonus = Math.min(Math.floor(streak / 7), 5);
+      const activityScore = (stats.todayScore || 0) + streakBonus;
       return {
         userId: m.userId,
         username: m.username,
