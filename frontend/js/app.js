@@ -2051,6 +2051,7 @@ async function getStorageEstimate() {
 // ---- 保存：localStorage（主）+ IndexedDB（备）双写，带防抖 ----
 var _lastSaveSig = '';
 let _booting = true; // 启动恢复期间禁止写入，防止空数据覆盖备份
+var _srRefreshTimer = null; // 自习室成员列表刷新防抖定时器
 function saveStore() {
   if (_booting) return; // 恢复期间静默忽略，防止空 store 污染 IndexedDB 备份
   // TODO: 数据量大的时候 JSON.stringify 有点卡，以后可以考虑增量存或者用 IDB 直接存对象
@@ -2075,6 +2076,13 @@ function saveStore() {
   cacheSave(dataStr);
   // 云端同步：已登录则防抖同步到云端（追加，不影响原有逻辑）
   if (typeof STAuth !== 'undefined' && STAuth.isLoggedIn()) STAuth.scheduleCloudSync();
+  // 自习室实时排序：在房间内时，数据变化后防抖刷新成员列表（打卡后活跃度变化能即时反映）
+  if (typeof studyRoomState !== 'undefined' && studyRoomState.room) {
+    if (_srRefreshTimer) clearTimeout(_srRefreshTimer);
+    _srRefreshTimer = setTimeout(function() {
+      if (typeof loadStudyRoomMe === 'function' && studyRoomState.room) loadStudyRoomMe().catch(function(){});
+    }, 2500);
+  }
 }
 
 /* ---- UI 标记：双写 localStorage + store.uiFlags，任一为 true 即视为已设置 ----
