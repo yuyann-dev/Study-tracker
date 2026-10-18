@@ -7638,7 +7638,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
     $('#labelDays').textContent = '可用天数';
     _setBigNum($('#mDays'), String(Math.max(0, m.daysAvailable)), '天');
     // 底部一句话总结：剩余 X 页 / 已积累 Y 个学习日
-    const remText = isExercise ? `剩 ${fmtUnitNum(m.remaining)} ${ru}` : `剩 ${m.remaining} 条`;
+    const remText = isExercise ? `剩 ${fmtUnitNum(m.remaining)} ${u}` : `剩 ${m.remaining} 条`;
     $('#mergedSummary').textContent = `${remText} · 已积累 ${m.activeDays || 0} 个学习日`;
   }
 
