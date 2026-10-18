@@ -872,6 +872,8 @@
           showToast('' + svgIcon('cloud') + '','已从云端恢复数据','共 ' + cloudProjectCount + ' 个任务');
         }
       }
+      // 云同步后补全可能缺失的内置预设单元模板
+      try { if (typeof ensurePresetTemplates === 'function') ensurePresetTemplates(); } catch(e) {}
       _syncOk = true;
     } catch(e) {
       console.error('云端同步失败:', e);

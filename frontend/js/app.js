@@ -1820,18 +1820,27 @@ async function loadStore() {
   });
   if (JSON.stringify(store) !== beforeMigrate) saveStore();
 
-  // 预设单元模板（放在恢复成功之后，空库也不会覆盖备份）
-  const PRESET_VERSION = 7;
-  const needPresetUpdate = !store.presetTemplatesLoaded || store.presetVersion !== PRESET_VERSION;
-  if (needPresetUpdate) {
-    if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
-    store.unitTemplates = store.unitTemplates.filter(t => t.id && !t.id.startsWith('preset_'));
-    const presets = getPresetUnitTemplates();
-    presets.forEach(p => store.unitTemplates.push(p));
-    store.presetTemplatesLoaded = true;
-    store.presetVersion = PRESET_VERSION;
-    saveStore();
-  }
+  ensurePresetTemplates();
+}
+
+// 确保内置预设单元模板完整（缺失则补全），启动和云同步后均需调用
+function ensurePresetTemplates() {
+  try {
+    const PRESET_VERSION = 7;
+    const _presetList = getPresetUnitTemplates();
+    const _hasAllPresets = _presetList.every(function(pt){
+      return (store.unitTemplates || []).some(function(t){ return t.id === pt.id; });
+    });
+    const needPresetUpdate = !store.presetTemplatesLoaded || store.presetVersion !== PRESET_VERSION || !_hasAllPresets;
+    if (needPresetUpdate) {
+      if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
+      store.unitTemplates = store.unitTemplates.filter(t => t.id && !t.id.startsWith('preset_'));
+      _presetList.forEach(p => store.unitTemplates.push(p));
+      store.presetTemplatesLoaded = true;
+      store.presetVersion = PRESET_VERSION;
+      saveStore();
+    }
+  } catch (e) {}
 }
 /* ============ 数据安全防护：双写存储 + IndexedDB 版本快照 + 持久化 + 自动保存 + 损坏恢复 ============ */
 
@@ -12627,17 +12636,12 @@ function updateScopeCount(listEl) {
 function refreshUnitTplSelect(selectEl) {
   if (!selectEl) return;
   const cur = selectEl.value;
-  const tpls = store.unitTemplates || [];
-  if (tpls.length === 0) {
-    selectEl.innerHTML = '<option value="">暂无单元模板（可在设置→模板管理创建）</option>';
-  } else {
-    selectEl.innerHTML = '<option value="">从模板加载（可选）</option>';
-    tpls.forEach(t => {
-      const op = document.createElement('option');
-      op.value = t.id; op.textContent = t.name + `（${t.units.length}个单元）`;
-      selectEl.appendChild(op);
-    });
-  }
+  selectEl.innerHTML = '<option value="">从模板加载（可选）</option>';
+  (store.unitTemplates || []).forEach(t => {
+    const op = document.createElement('option');
+    op.value = t.id; op.textContent = t.name + `（${t.units.length}个单元）`;
+    selectEl.appendChild(op);
+  });
   selectEl.value = cur;
 }
 function refreshPaperTplSelect(selectEl) {
