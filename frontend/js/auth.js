@@ -2374,6 +2374,7 @@
     tryPromptInstallOnce: tryPromptInstallOnce,
     initAuth: initAuth,
     bindEvents: bindEvents,
+    openAuth: openAuth,
     closeAuth: closeAuth,
     closeProfile: closeProfile,
     isLoginWallActive: isLoginWallActive

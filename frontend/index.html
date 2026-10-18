@@ -106,7 +106,7 @@ if ('serviceWorker' in navigator) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&display=swap">
 <link rel="stylesheet" href="lib/katex.min.css?v=b189">
-<link rel="stylesheet" href="css/style.css?v=b218">
+<link rel="stylesheet" href="css/style.css?v=b219">
 <script>
 /* 主题预加载：在 body 渲染前把 data-theme 设好，避免首屏白闪 */
 (function () {
@@ -159,6 +159,10 @@ if ('serviceWorker' in navigator) {
       <span class="welcome-feat"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg> 云端同步备份</span>
     </div>
     <button class="primary" id="btnCreateFirst">＋ 新建第一个任务</button>
+    <div class="welcome-sync-row" id="welcomeSyncRow" hidden>
+      <span class="welcome-sync-user" id="welcomeSyncUser"></span>
+      <button class="ghost-btn" id="btnWelcomeSync" type="button">从云端恢复数据</button>
+    </div>
     <div class="welcome-types">
       <div class="wtype"><div class="wt-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></div><div class="wt-name">习题册 / 套卷</div><div class="wt-desc">按页或按套打卡，自动算每日计划与预计完成日</div></div>
       <div class="wtype"><div class="wt-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="wt-name">背书</div><div class="wt-desc">记得 / 模糊 / 忘记，间隔自动推进或回退</div></div>
@@ -1993,9 +1997,9 @@ if ('serviceWorker' in navigator) {
 
 
 <script src="js/icons.js?v=b217"></script>
-<script src="js/auth.js?v=b205"></script>
+<script src="js/auth.js?v=b206"></script>
 <script src="lib/katex.min.js?v=b189"></script>
-<script src="js/app.js?v=b227"></script>
+<script src="js/app.js?v=b228"></script>
 <script>
 
 if (document.readyState === 'loading') {

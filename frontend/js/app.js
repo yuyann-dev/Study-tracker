@@ -7192,6 +7192,18 @@ function render() {
     $('#welcome').hidden = false;
     $('#app').hidden = true;
     lastRenderedProjectId = null;
+    // 已登录但本地无数据：显示用户信息和云端恢复按钮
+    try {
+      var syncRow = document.getElementById('welcomeSyncRow');
+      var syncUser = document.getElementById('welcomeSyncUser');
+      if (syncRow && syncUser && typeof STAuth !== 'undefined' && STAuth.isLoggedIn && STAuth.isLoggedIn()) {
+        var u = STAuth.getUser ? STAuth.getUser() : null;
+        syncUser.textContent = u ? ('已登录：' + (u.username || u.email || '')) : '已登录';
+        syncRow.hidden = false;
+      } else if (syncRow) {
+        syncRow.hidden = true;
+      }
+    } catch (e) {}
     return;
   }
   // 登录墙激活时（未登录/登出后）：在任何自动均衡/写盘副作用之前直接挡住，
@@ -12615,12 +12627,17 @@ function updateScopeCount(listEl) {
 function refreshUnitTplSelect(selectEl) {
   if (!selectEl) return;
   const cur = selectEl.value;
-  selectEl.innerHTML = '<option value="">从模板加载（可选）</option>';
-  (store.unitTemplates || []).forEach(t => {
-    const op = document.createElement('option');
-    op.value = t.id; op.textContent = t.name + `（${t.units.length}个单元）`;
-    selectEl.appendChild(op);
-  });
+  const tpls = store.unitTemplates || [];
+  if (tpls.length === 0) {
+    selectEl.innerHTML = '<option value="">暂无单元模板（可在设置→模板管理创建）</option>';
+  } else {
+    selectEl.innerHTML = '<option value="">从模板加载（可选）</option>';
+    tpls.forEach(t => {
+      const op = document.createElement('option');
+      op.value = t.id; op.textContent = t.name + `（${t.units.length}个单元）`;
+      selectEl.appendChild(op);
+    });
+  }
   selectEl.value = cur;
 }
 function refreshPaperTplSelect(selectEl) {
@@ -13720,6 +13737,16 @@ $('#switchClose').addEventListener('click', closeSwitch);
 $('#sortProjectsBtn').addEventListener('click', toggleProjectSort);
 $('#btnNewProject').addEventListener('click', () => { closeSwitch(); openFormCreate(); });
 $('#btnCreateFirst').addEventListener('click', openFormCreate);
+$('#btnWelcomeSync').addEventListener('click', function(){
+  if (typeof STAuth !== 'undefined' && STAuth.triggerSync) {
+    var btn = this;
+    btn.disabled = true;
+    var orig = btn.textContent;
+    btn.textContent = '同步中…';
+    setTimeout(function(){ btn.disabled = false; btn.textContent = orig; }, 8000);
+    STAuth.triggerSync();
+  }
+});
 $('#btnSettings').addEventListener('click', openSettings);
 $('#btnLinkRef').addEventListener('click', () => {
   openSettings();

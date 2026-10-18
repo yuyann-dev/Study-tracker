@@ -116,6 +116,11 @@
     background:#fff;color:var(--brand);font-weight:700;padding:14px 46px;font-size:15px;
     border-radius:999px;box-shadow:0 14px 28px -12px rgba(0,0,0,.4);transition:.18s;
   }
+  .welcome-sync-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+  .welcome-sync-user{font-size:13px;color:rgba(255,255,255,.8);background:rgba(255,255,255,.12);padding:6px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.2)}
+  .welcome-sync-row .ghost-btn{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.32);color:#fff;font-size:13px;padding:8px 18px;border-radius:999px;font-weight:600;cursor:pointer}
+  .welcome-sync-row .ghost-btn:hover{background:rgba(255,255,255,.28)}
+  .welcome-sync-row .ghost-btn:disabled{opacity:.5;cursor:not-allowed}
   .welcome-types{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:32px}
   .wtype{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:15px;padding:16px 12px}
   .wtype .wt-ico{font-size:24px;line-height:1;margin-bottom:8px}
