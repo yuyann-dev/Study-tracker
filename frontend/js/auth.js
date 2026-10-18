@@ -9,7 +9,7 @@
   var syncPending = false;   // 同步进行中又有新变更时标记，当前同步结束后自动补一次
   var _lastSyncEtag = null;  // 上次 GET /api/data 的 ETag，用于 304 增量判断
   var _localDirty = false;   // 本地数据自上次成功推送后是否有变更
-  var SYNC_DEBOUNCE_MS = 5000;
+  var SYNC_DEBOUNCE_MS = 2000;  // 打卡后2秒内同步，降低关页丢失风险
   var PERIODIC_SYNC_MS = 60000;   // 每 60 秒自动双向同步一次
   var _syncRetryCount = 0;        // 同步失败自动退避重试计数（成功后清零）
   var _syncRetryTimer = null;     // 同步失败自动重试定时器
@@ -79,7 +79,35 @@
   // 页面从后台回到前台时立即同步一次（多端数据更快收敛）
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible' && isLoggedIn() && !isSyncing) syncFromCloud();
+    // 页面隐藏时立即同步（用户切后台/关标签页前把数据推上去）
+    if (document.visibilityState === 'hidden' && isLoggedIn() && _localDirty) flushSync();
   });
+  // 页面关闭前强制同步（兜底，防止关页丢失数据）
+  window.addEventListener('pagehide', function(){
+    if (isLoggedIn() && _localDirty) flushSync();
+  });
+  window.addEventListener('beforeunload', function(){
+    if (isLoggedIn() && _localDirty) flushSync();
+  });
+
+  // 同步阻塞式推送：用于页面关闭/隐藏时，确保数据不丢失
+  function flushSync() {
+    try {
+      var token = getToken();
+      if (!token) return;
+      var xhr = new XMLHttpRequest();
+      xhr.open('PUT', '/api/data', false);  // false=同步请求，阻塞直到完成
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+      xhr.send(JSON.stringify({ store: store }));
+      if (xhr.status >= 200 && xhr.status < 300) {
+        _localDirty = false;
+        lastCloudSync = new Date();
+      }
+    } catch (e) {
+      // 同步请求失败也不阻塞页面关闭，数据仍在本地，下次打开会重试
+    }
+  }
 
   function getToken() {
     try {
