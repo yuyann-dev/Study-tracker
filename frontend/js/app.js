@@ -1824,20 +1824,37 @@ async function loadStore() {
 }
 
 // 确保内置预设单元模板完整（缺失则补全），启动和云同步后均需调用
+// 同时清理因历史 bug 导致的重复模板（按 id 去重）
 function ensurePresetTemplates() {
   try {
-    const PRESET_VERSION = 7;
+    const PRESET_VERSION = 8;
     const _presetList = getPresetUnitTemplates();
+    if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
+
+    // 全量去重：按模板 id 去重，保留第一个出现的（清理历史 bug 导致的重复自定义模板）
+    const _seenIds = new Set();
+    const _deduped = [];
+    for (const t of store.unitTemplates) {
+      if (!t || !t.id) continue;
+      if (_seenIds.has(t.id)) continue;
+      _seenIds.add(t.id);
+      _deduped.push(t);
+    }
+    store.unitTemplates = _deduped;
+
     const _hasAllPresets = _presetList.every(function(pt){
-      return (store.unitTemplates || []).some(function(t){ return t.id === pt.id; });
+      return store.unitTemplates.some(function(t){ return t.id === pt.id; });
     });
     const needPresetUpdate = !store.presetTemplatesLoaded || store.presetVersion !== PRESET_VERSION || !_hasAllPresets;
     if (needPresetUpdate) {
-      if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
+      // 过滤掉旧的预设模板，再重新添加（确保预设模板内容是最新的）
       store.unitTemplates = store.unitTemplates.filter(t => t.id && !t.id.startsWith('preset_'));
       _presetList.forEach(p => store.unitTemplates.push(p));
       store.presetTemplatesLoaded = true;
       store.presetVersion = PRESET_VERSION;
+      saveStore();
+    } else if (_deduped.length !== store.unitTemplates.length) {
+      // 只去重了但没更新预设，也需要保存
       saveStore();
     }
   } catch (e) {}
@@ -7363,7 +7380,6 @@ function render() {
 
   const isExercise = p.type === 'exercise';
   const setMode = isSetMode(p);
-  const u = unitName(p);
   let modeTag = '';
   if (isExercise) {
     modeTag = setMode ? '<span class="mode-badge set">' + svgIcon('copy', 15) + ' 套卷模式</span>' : '<span class="mode-badge">' + svgIcon('file-text', 15) + ' 习题册模式</span>';
@@ -12637,7 +12653,11 @@ function refreshUnitTplSelect(selectEl) {
   if (!selectEl) return;
   const cur = selectEl.value;
   selectEl.innerHTML = '<option value="">从模板加载（可选）</option>';
+  // 按 id 去重，防止历史重复数据导致下拉显示重复模板
+  const _seen = new Set();
   (store.unitTemplates || []).forEach(t => {
+    if (!t || !t.id || _seen.has(t.id)) return;
+    _seen.add(t.id);
     const op = document.createElement('option');
     op.value = t.id; op.textContent = t.name + `（${t.units.length}个单元）`;
     selectEl.appendChild(op);

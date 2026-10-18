@@ -13,7 +13,6 @@ const { config } = require('../config');
 const { authRequired } = require('../middleware/auth');
 const { ok, fail } = require('../utils/respond');
 const { mergeStoresServer, pruneTombstones } = require('../utils/syncMerge');
-const { writeAudit } = require('../utils/audit');
 
 const router = express.Router();
 router.use(authRequired);
@@ -88,36 +87,6 @@ router.put('/', (req, res) => {
     return ok(res, { updatedAt: row.updatedAt, projectCount });
   } catch (e) {
     console.error('PUT /api/data error:', e.message);
-    return fail(res, '服务器内部错误', 500);
-  }
-});
-
-// POST /api/data/wipe —— 清除用户全部云端数据（user_data + AI相关 + 自习室成员关系），保留账号
-router.post('/wipe', (req, res) => {
-  try {
-    const userId = req.user.id;
-    const tx = db.transaction(() => {
-      // 1. 清除主数据
-      db.prepare('DELETE FROM user_data WHERE user_id = ?').run(userId);
-      // 2. 清除AI相关数据
-      db.prepare('DELETE FROM ai_configs WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM ai_conversations WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM ai_messages WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM ai_profile WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM ai_memory WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM ai_action_logs WHERE user_id = ?').run(userId);
-      db.prepare('DELETE FROM ai_usage_daily WHERE user_id = ?').run(userId);
-      // 3. 清除自习室成员关系
-      db.prepare('DELETE FROM study_room_members WHERE user_id = ?').run(userId);
-      // 4. 记录审计日志
-      writeAudit(userId, 'wipe_user_data', 'user', userId, { reason: '用户主动清除全部云端数据' }, req);
-    });
-    tx();
-    // 使缓存失效
-    try { require('../utils/statsCache').invalidate(userId); } catch(_) {}
-    return ok(res, { message: '云端数据已全部清除' });
-  } catch (e) {
-    console.error('POST /api/data/wipe error:', e.message);
     return fail(res, '服务器内部错误', 500);
   }
 });
