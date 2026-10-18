@@ -280,6 +280,9 @@ function runMigrations(db) {
   ensureColumn(db, 'users', 'delete_reason', 'TEXT');
   // v8: 自习室隐私开关——0=未公开（默认），1=公开今日打卡状态+学习图表给同房间成员
   ensureColumn(db, 'users', 'study_room_public', 'INTEGER NOT NULL DEFAULT 0');
+  // v9: 每日邮件提醒——reminder_enabled=1开启，reminder_times存JSON数组如["20:00","08:00"]
+  ensureColumn(db, 'users', 'reminder_enabled', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'users', 'reminder_times', "TEXT NOT NULL DEFAULT '[\"20:00\"]'");
   // v1.1: 自习室是否公开到广场——0=私有（默认，只能凭房间号加入），1=公开（广场可见可加入）
   ensureColumn(db, 'study_rooms', 'is_public', 'INTEGER NOT NULL DEFAULT 0');
   // v1.2: 自习室简介（可为空）与标签分类（考研/考公/期末/英语/其他）

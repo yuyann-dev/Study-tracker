@@ -15,7 +15,7 @@ const { config, RULES } = require('../config');
 const { authRequired } = require('../middleware/auth');
 const { ok, fail } = require('../utils/respond');
 const { createCode, verifyCode, invalidateCode } = require('../utils/verification');
-const { sendVerificationCode } = require('../utils/mailer');
+const { sendVerificationCode, sendDailyReminder } = require('../utils/mailer');
 
 const router = express.Router();
 router.use(authRequired);
@@ -251,5 +251,97 @@ router.delete('/', (req, res) => {
     return fail(res, '服务器开小差了，请稍后重试', 500);
   }
 });
+
+// ── 每日邮件提醒 ──────────────────────────────────────────────
+
+// GET /api/user/reminder — 获取当前用户的邮件提醒设置
+router.get('/reminder', (req, res) => {
+  try {
+    const row = db.prepare('SELECT reminder_enabled, reminder_times FROM users WHERE id = ?').get(req.user.id);
+    if (!row) return fail(res, '用户不存在', 404);
+    let times = ['20:00'];
+    try { times = JSON.parse(row.reminder_times || '["20:00"]'); } catch (_) {}
+    if (!Array.isArray(times) || !times.length) times = ['20:00'];
+    return ok(res, {
+      enabled: row.reminder_enabled === 1,
+      times: times,
+      email: req.user.email,
+    });
+  } catch (e) {
+    console.error('GET /api/user/reminder error:', e.message);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
+  }
+});
+
+// PUT /api/user/reminder — 保存邮件提醒设置 { enabled, times }
+router.put('/reminder', (req, res) => {
+  try {
+    const { enabled, times } = req.body || {};
+    const en = enabled === true || enabled === 1 ? 1 : 0;
+    let t = Array.isArray(times) ? times.filter(s => typeof s === 'string' && /^\d{2}:\d{2}$/.test(s)) : ['20:00'];
+    if (!t.length) t = ['20:00'];
+    t = [...new Set(t)].slice(0, 5); // 最多5个时间点，去重
+    db.prepare('UPDATE users SET reminder_enabled = ?, reminder_times = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .run(en, JSON.stringify(t), req.user.id);
+    return ok(res, { enabled: en === 1, times: t });
+  } catch (e) {
+    console.error('PUT /api/user/reminder error:', e.message);
+    return fail(res, '服务器开小差了，请稍后重试', 500);
+  }
+});
+
+// POST /api/user/reminder/test — 立即发送一封测试邮件到当前用户邮箱
+router.post('/reminder/test', async (req, res) => {
+  try {
+    const summary = buildTodaySummary(req.user.id);
+    const sent = await sendDailyReminder(req.user.email, req.user.username, summary);
+    if (!sent) return fail(res, '邮件服务未配置，请联系管理员', 503);
+    return ok(res, { sent: true, email: req.user.email });
+  } catch (e) {
+    console.error('POST /api/user/reminder/test error:', e.message);
+    return fail(res, '邮件发送失败：' + (e.message || '未知错误'), 500);
+  }
+});
+
+/** 从 user_data.store_json 解析今日待办摘要（供邮件提醒使用） */
+function buildTodaySummary(userId) {
+  try {
+    const row = db.prepare('SELECT store_json FROM user_data WHERE user_id = ?').get(userId);
+    if (!row || !row.store_json) return { reviewCount: 0, planPages: 0, planSets: 0, streak: 0 };
+    const store = JSON.parse(row.store_json);
+    const projects = store.projects || {};
+    const now = new Date();
+    const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    let reviewCount = 0, planPages = 0, planSets = 0;
+    Object.values(projects).forEach(p => {
+      if (!p || p.archived) return;
+      // 今日待复习：背书+错题中 nextReviewDate <= today 且未攻克
+      if (p.type === 'recite' || p.type === 'mistake') {
+        (p.items || []).forEach(it => {
+          if (it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today) {
+            reviewCount++;
+          }
+        });
+      }
+      // 刷题目标：perStudyDay
+      if (p.type === 'exercise') {
+        if (p.unit === 'set' && p.perStudyDay) planSets += Number(p.perStudyDay) || 0;
+        else if (p.perStudyDay) planPages += Number(p.perStudyDay) || 0;
+      }
+    });
+    // 连续打卡天数
+    let streak = 0;
+    const checkins = store.checkins || {};
+    let d = new Date();
+    while (checkins[d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')]) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return { reviewCount, planPages, planSets, streak };
+  } catch (e) {
+    console.error('buildTodaySummary error:', e.message);
+    return { reviewCount: 0, planPages: 0, planSets: 0, streak: 0 };
+  }
+}
 
 module.exports = router;

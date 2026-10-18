@@ -343,6 +343,8 @@
     if (typeof render === 'function') { try { render(); } catch(e) {} }
     // 标记本地数据归属为新账号，避免下次登录时因无归属标记而误清空
     try { store.ownerUserId = data.user.id; saveStore(); } catch(e) {}
+    // 拉取后端邮件提醒设置（新账号默认关闭）
+    try { fetchReminderSettings(); } catch(e) {}
     startPeriodicSync();
     return data.user;
   }
@@ -367,8 +369,24 @@
     }
     // 标记归属为当前用户（saveStore 随整 store 持久化到 localStorage/IndexedDB）
     try { store.ownerUserId = currentUser.id; saveStore(); } catch(e) {}
+    // 拉取后端邮件提醒设置，同步到本地
+    try { fetchReminderSettings(); } catch(e) {}
     startPeriodicSync();
     return data.user;
+  }
+  /* 从后端拉取邮件提醒设置并同步到本地（登录后调用） */
+  function fetchReminderSettings() {
+    if (typeof apiRequest !== 'function' || typeof saveReminder !== 'function') return;
+    apiRequest('/api/user/reminder', { method: 'GET' }).then(function(r) {
+      if (r && r.ok && r.times && Array.isArray(r.times)) {
+        // 只写本地，不触发后端同步（避免循环）
+        try {
+          var REMIND_KEY = 'st_reminder';
+          var t = r.times.length ? r.times : ['20:00'];
+          localStorage.setItem(REMIND_KEY, JSON.stringify({ enabled: !!r.enabled, times: t, time: t[0] }));
+        } catch(_) {}
+      }
+    }).catch(function() {});
   }
   /* 登出/切换账号时彻底清除本地学习数据（localStorage + IndexedDB + Cache 三层），
      防止新账号登录后把老账号数据同步到云端（数据串号） */

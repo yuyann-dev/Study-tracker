@@ -162,6 +162,85 @@ const server = app.listen(config.port, config.host, () => {
   logger.log('info', `backend listening on http://${config.host}:${config.port}`);
 });
 
+// ── 每日邮件提醒定时任务：每分钟检查一次，到点给开启提醒的用户发邮件 ──
+const { sendDailyReminder } = require('./utils/mailer');
+function localDateStr(d) {
+  const dt = d || new Date();
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+}
+const sentReminders = new Set(); // 当天已发送的 "userId:HH:MM"，避免同一分钟重复发
+function clearSentCache() {
+  const today = localDateStr();
+  for (const key of sentReminders) {
+    if (!key.startsWith(today + ':')) sentReminders.delete(key);
+  }
+}
+async function runReminderCron() {
+  try {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+    const today = localDateStr(now);
+    clearSentCache();
+    // 查询所有开启提醒的用户
+    const users = db.prepare('SELECT id, username, email, reminder_times FROM users WHERE reminder_enabled = 1 AND deleted_at IS NULL AND status = \'active\'').all();
+    for (const u of users) {
+      let times = [];
+      try { times = JSON.parse(u.reminder_times || '[]'); } catch (_) {}
+      if (!times.includes(timeStr)) continue;
+      const cacheKey = `${today}:${u.id}:${timeStr}`;
+      if (sentReminders.has(cacheKey)) continue;
+      sentReminders.add(cacheKey);
+      // 解析今日待办
+      const summary = buildTodaySummaryForMail(u.id);
+      try {
+        const sent = await sendDailyReminder(u.email, u.username, summary);
+        if (sent) console.log(`[reminder] sent to user ${u.id} (${u.email}) at ${timeStr}`);
+        else console.log(`[reminder] SMTP not configured, skip user ${u.id}`);
+      } catch (e) {
+        console.error(`[reminder] failed to send to user ${u.id}:`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error('[reminder] cron error:', e.message);
+  }
+}
+function buildTodaySummaryForMail(userId) {
+  try {
+    const row = db.prepare('SELECT store_json FROM user_data WHERE user_id = ?').get(userId);
+    if (!row || !row.store_json) return { reviewCount: 0, planPages: 0, planSets: 0, streak: 0 };
+    const store = JSON.parse(row.store_json);
+    const projects = store.projects || {};
+    const today = localDateStr();
+    let reviewCount = 0, planPages = 0, planSets = 0;
+    Object.values(projects).forEach(p => {
+      if (!p || p.archived) return;
+      if (p.type === 'recite' || p.type === 'mistake') {
+        (p.items || []).forEach(it => {
+          if (it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today) {
+            reviewCount++;
+          }
+        });
+      }
+      if (p.type === 'exercise') {
+        if (p.unit === 'set' && p.perStudyDay) planSets += Number(p.perStudyDay) || 0;
+        else if (p.perStudyDay) planPages += Number(p.perStudyDay) || 0;
+      }
+    });
+    let streak = 0;
+    const checkins = store.checkins || {};
+    let d = new Date();
+    while (checkins[localDateStr(d)]) { streak++; d.setDate(d.getDate() - 1); }
+    return { reviewCount, planPages, planSets, streak };
+  } catch (e) {
+    return { reviewCount: 0, planPages: 0, planSets: 0, streak: 0 };
+  }
+}
+setInterval(runReminderCron, 60 * 1000);
+// 启动后延迟5秒跑一次（确保数据库就绪），之后每分钟
+setTimeout(runReminderCron, 5000);
+
 // 优雅关闭：systemd restart / docker stop 收到 SIGTERM 时先停止接新连接，
 // 再做一次 WAL checkpoint 把内存页刷盘，避免进程直接退出中断写入。
 process.on('SIGTERM', () => {
