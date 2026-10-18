@@ -7227,8 +7227,8 @@ function render() {
       var syncRow = document.getElementById('welcomeSyncRow');
       var syncUser = document.getElementById('welcomeSyncUser');
       if (syncRow && syncUser && typeof STAuth !== 'undefined' && STAuth.isLoggedIn && STAuth.isLoggedIn()) {
-        var u = STAuth.getUser ? STAuth.getUser() : null;
-        syncUser.textContent = u ? ('已登录：' + (u.username || u.email || '')) : '已登录';
+        var welcomeUser = STAuth.getUser ? STAuth.getUser() : null;
+        syncUser.textContent = welcomeUser ? ('已登录：' + (welcomeUser.username || welcomeUser.email || '')) : '已登录';
         syncRow.hidden = false;
       } else if (syncRow) {
         syncRow.hidden = true;
@@ -7370,6 +7370,7 @@ function render() {
 
   const m = getMetrics(p);
   lastMetrics = { m, p };
+  const u = unitName(p); // 单位名称：刷题=页/套，背书=页，错题=条
   const type = TYPES[p.type] || TYPES.exercise;
 
   let dlText = p.deadline ? fmtCN(p.deadline) : '未设置';
@@ -7609,7 +7610,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天学';
-      _setBigNum($('#mNeed'), String(Math.ceil(m.needPerDay)), u);
+      _setBigNum($('#mNeed'), String(Math.ceil(m.needPerDay)), ru);
       $('#mNeedFoot').textContent = m.daysToMedium > 0 ? `粗估（剩余÷剩余自然日）· 再攒 ${m.daysToMedium} 个学习日就开始按你的节奏调整` : `${ru} / 天`;
     }
   }
@@ -7637,7 +7638,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
     $('#labelDays').textContent = '可用天数';
     _setBigNum($('#mDays'), String(Math.max(0, m.daysAvailable)), '天');
     // 底部一句话总结：剩余 X 页 / 已积累 Y 个学习日
-    const remText = isExercise ? `剩 ${fmtUnitNum(m.remaining)} ${u}` : `剩 ${m.remaining} 条`;
+    const remText = isExercise ? `剩 ${fmtUnitNum(m.remaining)} ${ru}` : `剩 ${m.remaining} 条`;
     $('#mergedSummary').textContent = `${remText} · 已积累 ${m.activeDays || 0} 个学习日`;
   }
 
