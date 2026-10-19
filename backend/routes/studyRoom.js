@@ -573,9 +573,8 @@ router.get('/me', (req, res) => {
       }
       // 在线状态：从内存心跳表取（60s=在线绿点，60s~5min=离开灰点+"x分钟前"，>5min=离线灰点）
       const online = getOnlineStatus(m.userId);
-      // 活跃度分数：今日学习量加权 + streak加成（每7天+1，上限+5）；取消在线加成避免挂机刷分
-      const streakBonus = Math.min(Math.floor(streak / 7), 5);
-      const activityScore = (stats.todayScore || 0) + streakBonus;
+      // 活跃度分数：今日学习量加权（套卷×10 + 刷题页×1 + 背书×1 + 错题复习×0.25）；不含连续打卡加成
+      const activityScore = stats.todayScore || 0;
       return {
         userId: m.userId,
         username: m.username,
