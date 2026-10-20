@@ -18767,7 +18767,11 @@ if (document.readyState === 'loading') {
     if (a.projectId && store.projects && store.projects[a.projectId]) p = store.projects[a.projectId];
     switch(a.op){
       case 'adjust_daily_comfort':
-        if (p && typeof a.value === 'number' && isFinite(a.value)) p.dailyComfort = Math.max(1, Math.round(a.value));
+        if (p && typeof a.value === 'number' && isFinite(a.value)) {
+          var _cv = Math.max(1, Math.round(a.value));
+          p.dailyComfort = _cv;
+          p.spreadThreshold = _cv; // 同步修改实际生效的分散阈值字段
+        }
         break;
       case 'adjust_deadline':
         if (p && typeof a.value === 'string') p.deadline = a.value;
@@ -18935,7 +18939,7 @@ if (document.readyState === 'loading') {
     var p = a.projectId ? store.projects[a.projectId] : null;
     switch(a.op){
       case 'adjust_daily_comfort':
-        if (p) a.inverse = { op:'adjust_daily_comfort', projectId:a.projectId, value:p.dailyComfort };
+        if (p) a.inverse = { op:'adjust_daily_comfort', projectId:a.projectId, value:(p.spreadThreshold != null ? p.spreadThreshold : p.dailyComfort) };
         break;
       case 'adjust_deadline':
         if (p) a.inverse = { op:'adjust_deadline', projectId:a.projectId, value:p.deadline };
