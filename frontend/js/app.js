@@ -17229,7 +17229,7 @@ function renderProjectTodayCharts(projects) {
     '#6b8e9e','#7a9e8b','#9e8b6e','#8a9a7b','#a8b5a0'
   ];
   var size = 140, strokeW = 16;
-  var r = (size - strokeW) / 2;
+  var r = (size - strokeW) / 2 - 2; // 留2px边距，hover变粗时不会溢出SVG边界
   var cx = size / 2, cy = size / 2;
   var circ = 2 * Math.PI * r;
   // 项目越多间隙越小：单项目无间隙，2-3项1.5px，4-8项1px，9-15项0.6px，16+项0.3px
@@ -17292,7 +17292,7 @@ function renderProjectTodayCharts(projects) {
     function highlight(idx) {
       segs.forEach(function(s, i) {
         if (i === idx) {
-          s.setAttribute('stroke-width', String(strokeW + 3));
+      s.setAttribute('stroke-width', String(strokeW + 2));
           s.style.opacity = '1';
         } else {
           s.setAttribute('stroke-width', String(strokeW));

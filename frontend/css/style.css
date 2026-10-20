@@ -2272,7 +2272,7 @@ html[data-theme="dark"] .sr-badge-tag-year{color:#a888d0;background:rgba(122,90,
 /* 统一环形图（单环多段饼图） */
 .sr-unified-chart{display:flex;align-items:center;gap:24px;flex-wrap:wrap;width:100%;box-sizing:border-box}
 .sr-unified-ring{position:relative;width:140px;height:140px;flex:0 0 auto}
-.sr-unified-ring svg{display:block}
+.sr-unified-ring svg{display:block;overflow:visible}
 .sr-ring-seg{cursor:pointer;transition:stroke-width .2s ease,opacity .2s ease}
 .sr-ring-seg:hover{filter:brightness(1.1)}
 .sr-unified-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;width:100%}
