@@ -6685,7 +6685,7 @@ function renderExerciseHints(p, m) {
   // —— 完成条：整本刷完 → 归档入口 ——
   if (m.remaining === 0 && m.currentPage > 0) {
     bars.push({ build: () => `<div class="excess-banner celebrate" style="display:flex;flex-direction:column;gap:8px">
-      <div class="ob-text"><span class="ob-icon">${svgIcon('party-popper')}</span><span class="ob-main">整本刷完了！之前的努力都算数。</span></div>
+      <div class="ob-text"><span class="ob-icon">${svgIcon('party-popper')}</span><span class="ob-main">整本刷完啦，辛苦了！</span></div>
       <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
       onMount: null });
   }

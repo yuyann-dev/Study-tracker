@@ -2452,7 +2452,9 @@ html[data-theme="dark"] .neutral-banner .nb-text b{color:#e8c878}
 /* M1：整本刷完庆祝条——品牌实底配白字/深色字，避免对比度崩坏 */
 .excess-banner.celebrate{background:var(--brand);border-color:var(--brand)}
 .excess-banner.celebrate .ob-main{color:#fff}
+.excess-banner.celebrate .ob-icon{color:#fff;font-size:20px}
 html[data-theme="dark"] .excess-banner.celebrate .ob-main{color:#10302a}
+html[data-theme="dark"] .excess-banner.celebrate .ob-icon{color:#10302a}
 
 /* 进度透明化一行（已做X/共Y + 落后/领先天数） */
 .neutral-hint{padding:9px 14px;margin-bottom:8px;background:var(--bg);border:1px solid var(--border);
