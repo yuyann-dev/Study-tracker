@@ -5803,7 +5803,10 @@ function getStatusMessage(p, m) {
     if (m.momentumOnTime && m.momentumEtaDate) {
       const keepPer = plan.onTime ? plan.onTime.per : m.perStudyDay;
       const todayDone = m.todayDone || 0;
-      const todayMet = todayDone >= keepPer;
+      // 套卷按 0.1 精度录入，达标判定与目标卡/列表显示口径一致（四舍五入后比较）
+      const todayMet = isSetMode(p)
+        ? (Math.round(todayDone * 10) / 10) >= (Math.round(keepPer * 10) / 10)
+        : todayDone >= keepPer;
       let body = `还剩 ${rem} ${u}、距目标日 ${fmtDaysLeft(m.daysLeft)}，每个学习日约 ${n1(keepPer)} ${u}就能按时完成。<br><br>`;
       body += Coach.pick([
         '你最近状态不错，按这个节奏稳定推进就好。',
@@ -6496,7 +6499,11 @@ function renderDailyGoal(p, m) {
   const targetR = u === '套' ? (Math.round(target * 10) / 10) : Math.ceil(target);
   const doneR = Math.round(done * 10) / 10;
   const effTarget = u === '套' ? target : Math.ceil(target);
-  const ratio = effTarget > 0 ? done / effTarget : 0;
+  let ratio = effTarget > 0 ? done / effTarget : 0;
+  // 套卷按 0.1 精度展示，进度条与“已做 X / X”文字必须同口径：四舍五入后的已做量已达到显示目标
+  // （如 0.3/0.3）时，进度条与完成状态同步满格，避免“数字显示达标、进度条却没满”的矛盾。
+  // 真实已超额（ratio>1）保留超额分支；未达标时仍用真实比例，进度条平滑反映推进。
+  if (u === '套' && ratio < 1 && targetR > 0 && doneR >= targetR) ratio = 1;
   const pct = Math.min(100, ratio * 100);
   const isHard = p.hardDeadline === true;
 
@@ -10927,7 +10934,12 @@ function getTodayStatus(p) {
     const target = dt && dt.per != null ? dt.per : (m && isFinite(m.needPerDay) ? m.needPerDay : 0);
     const td = m ? (m.todayDone || 0) : 0;
     if (!(target > 0)) return { state: 'none' };
-    if (td >= target) return { state: 'done', need: target, done: td };
+    // 套卷按 0.1 精度分模块录入，达标线与界面“需做 X / 已做 X”同口径，
+    // 避免出现“已做 0.3 / 0.3”却仍被判为进行中（真实 0.3<0.32 的小数误差）
+    const met = isSetMode(p)
+      ? (Math.round(td * 10) / 10) >= (Math.round(target * 10) / 10)
+      : td >= target;
+    if (met) return { state: 'done', need: target, done: td };
     if (td > 0) return { state: 'partial', need: target, done: td };
     return { state: 'todo', need: target, done: 0 };
   }
@@ -11394,7 +11406,9 @@ function buildReminderBody() {
         hasAnyTask = true;
         const done = m.todayDone || 0;
         const needRounded = isSetMode(p) ? (Math.round(need * 10) / 10) : Math.ceil(need);
-        if (done >= need) {
+        // 套卷按 0.1 精度分模块录入，达标判定与“已做 X / X”显示口径一致，避免“显示 0.3/0.3 却不打勾”
+        const met = isSetMode(p) ? (Math.round(done * 10) / 10) >= needRounded : done >= need;
+        if (met) {
           doneItems.push({ name: p.name, type: 'exercise', text: `今日目标${needRounded}${unit}，已完成${done}${unit} ${svgIcon('check-circle')}` });
         } else {
           planItems.push({ name: p.name, type: 'exercise', text: `今日约${needRounded}${unit}${done > 0 ? `（已完成${done}${unit}）` : ''}`, urgent: false });
