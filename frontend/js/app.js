@@ -6559,7 +6559,7 @@ function renderDailyGoal(p, m) {
         pr = Coach.pick(Coach.progress.early, 'pe') + '，' + Coach.pick([
           '已经进入状态了',
           '开头顺利，后面会更顺',
-          '保持这个感觉',
+          '状态不错，继续推进',
         ], 'pe2');
       } else {
         pr = Coach.pick(Coach.progress.mid, 'pm');
