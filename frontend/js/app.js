@@ -7454,7 +7454,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   const qBtns = document.querySelectorAll('#reciteQuality .rec-qbtn');
   const qText = p.type === 'mistake' ? ['做对了', '看答案', '错了'] : ['记得', '模糊', '忘记'];
   qBtns.forEach((b, i) => { b.textContent = qText[i]; b.dataset.q = ['good','fuzzy','forgot'][i]; });
-  if (isExercise && !setMode) { pageRangeMode = hasRangeHistory(p); applyPageModeUI(); }
+  if (isExercise && !setMode) { pageRangeMode = hasPageGaps(p); applyPageModeUI(); }
   if (setMode) {
     if (!$('#inSetDate').value) $('#inSetDate').value = m.t;
     syncSetFormUI(p);
@@ -15012,9 +15012,26 @@ $('#projectList').addEventListener('click', e => {
 
 /* 页码录入：顺序 / 区间切换 */
 let pageRangeMode = false;
-function hasRangeHistory(p) {
-  if (!p || !p.records) return false;
-  return p.records.some(r => r.startPage != null);
+/* 是否默认「按区间录入」：只看当前已学页码是否存在漏做/跳过的空洞。
+   哪怕历史上用过区间录入，只要各目标范围（正文/单元）内已学页是从起点连续覆盖、
+   中间没夹未做的页，就默认顺序录入方便操作；存在开头跳过或中间空洞时才默认区间。 */
+function hasPageGaps(p) {
+  if (!p || !Array.isArray(p.records) || !p.records.length) return false;
+  const targets = getTargetPageRanges(p);
+  if (!targets.length) return false;
+  const done = getBookDoneRanges(p);
+  if (!done.length) return false;
+  for (const t of targets) {
+    const inside = mergeRanges(done
+      .map(r => ({ start: Math.max(r.start, t.start), end: Math.min(r.end, t.end) }))
+      .filter(r => r.end >= r.start));
+    if (!inside.length) continue;
+    if (inside[0].start > t.start) return true; // 目标范围开头有跳过的页
+    for (let i = 0; i < inside.length - 1; i++) {
+      if (inside[i + 1].start > inside[i].end + 1) return true; // 中间夹着未做的页
+    }
+  }
+  return false;
 }
 function applyPageModeUI() {
   const lead = $('#piLead'), st = $('#inPageStart'), dash = $('#piDash'),
@@ -15063,7 +15080,7 @@ function retainEntryValue(el) {
 function resetEntryInputs() {
   const t = todayStr();
   const p = cur();
-  pageRangeMode = hasRangeHistory(p); applyPageModeUI();
+  pageRangeMode = hasPageGaps(p); applyPageModeUI();
   ['inPageStart', 'inPageEnd'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
   if ($('#inDate')) $('#inDate').value = t;
   ['inSetNo', 'inSetDone', 'inSetTotalQ'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
