@@ -104,6 +104,70 @@ function findProject(store, projectId) {
 
 function isSetModeFE(p) { return !!p && p.type === 'exercise' && p.unit === 'set'; }
 
+/** 套卷板块归一化（权重占比），口径 = 前端 getNormalizedSections */
+function getNormalizedSectionsFE(p) {
+  const secs = Array.isArray(p.paperSections) ? p.paperSections.filter(s => s && s.name) : [];
+  if (!secs.length) return [];
+  const sum = secs.reduce((s, x) => s + Math.max(0, Number(x.weight) || 0), 0);
+  if (sum <= 0) {
+    const eq = 1 / secs.length;
+    return secs.map(s => ({ id: s.id, wt: eq }));
+  }
+  return secs.map(s => ({ id: s.id, wt: Math.max(0, Number(s.weight) || 0) / sum }));
+}
+
+/** 重建每套完成状态（同一天同板块覆盖、跨天累加），口径 = 前端 getSetState */
+function getSetStateFE(p, targetDate) {
+  const secs = getNormalizedSectionsFE(p);
+  const state = {};
+  const recs = (p.records || []).slice().sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+  const lastSetSec = {};
+  recs.forEach(r => {
+    if (r.set == null) return;
+    if (targetDate && r.date > targetDate) return;
+    const no = r.set;
+    if (!state[no]) state[no] = { secs: {}, legacy: 0 };
+    const st = state[no];
+    if (r.secId != null && r.pct != null) {
+      const key = no + '|' + r.secId;
+      const pct = Number(r.pct);
+      const prev = lastSetSec[key];
+      if (prev && prev.date === r.date) {
+        st.secs[r.secId] = Math.max(0, Math.min(100, (st.secs[r.secId] || 0) - prev.pct + pct));
+        prev.pct = pct;
+      } else {
+        st.secs[r.secId] = Math.max(0, Math.min(100, (st.secs[r.secId] || 0) + pct));
+        lastSetSec[key] = { date: r.date, pct: pct };
+      }
+    } else if (r.all === true || (r.done == null && r.q == null)) {
+      if (secs.length) secs.forEach(s => { st.secs[s.id] = 100; });
+      st.legacy = 1;
+    } else if (r.done != null && r.q != null && r.q > 0) {
+      st.legacy = Math.max(0, Math.min(1, r.done / r.q));
+    }
+  });
+  return state;
+}
+
+/** 单套完成比例（板块加权），口径 = 前端 getSetFraction */
+function getSetFractionFE(p, no, state) {
+  const st = (state || getSetStateFE(p))[no];
+  if (!st) return 0;
+  const secs = getNormalizedSectionsFE(p);
+  if (secs.length) {
+    let f = 0;
+    secs.forEach(s => { f += ((st.secs[s.id] || 0) / 100) * s.wt; });
+    return Math.max(0, Math.min(1, f));
+  }
+  return st.legacy;
+}
+
+/** 已完成套数（支持小数，即分板块完成），口径 = 前端 getCompletedSets */
+function getCompletedSetsFE(p, targetDate) {
+  const state = getSetStateFE(p, targetDate);
+  return Object.keys(state).reduce((sum, no) => sum + getSetFractionFE(p, no, state), 0);
+}
+
 /** 合并重叠/相邻区间（相邻页 start <= last.end+1 也合并） */
 function mergeRanges(ranges) {
   const valid = (ranges || []).filter(r => r && Number.isFinite(r.start) && Number.isFinite(r.end) && r.end >= r.start);
@@ -209,7 +273,7 @@ function countClippedRanges(ranges, p) {
 /** 权威"已完成量"：套卷→完成套数；错题→已攻克条数；刷题/背书→区间合并页数（与前端 getCompletedPages 一致） */
 function getCompletedPages(p) {
   if (isSetModeFE(p)) {
-    return Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
+    return getCompletedSetsFE(p);
   }
   if (p.type === 'mistake') {
     return (p.items || []).filter(it => it.mastered || it.manualMastered).length;
@@ -246,7 +310,7 @@ function getTotalPages(p) {
 /** 刷题本已完成页数（页码模式），口径 = 前端 getCompletedPages */
 function exerciseDonePages(p) {
   if (isSetModeFE(p)) {
-    return Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
+    return getCompletedSetsFE(p);
   }
   return getCompletedPages(p);
 }
@@ -368,7 +432,7 @@ function getPaceSnapshot(p) {
   const isSet = isSetModeFE(p);
   const total = getTotalPages(p);
   const done = isSet
-    ? (Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0)
+    ? getCompletedSetsFE(p)
     : Math.min(getCompletedPages(p), total);
   const remaining = Math.max(0, total - done);
   const daysLeft = p.deadline ? dayDiff(today, p.deadline) : null;
@@ -389,7 +453,7 @@ function getPaceSnapshot(p) {
 
   // 某日期为止的累计完成量（与前端 getCompletedPagesAtDate 同口径）
   const cumAt = (d) => {
-    if (isSet) return (p.records || []).filter(r => r.setCompleted && String(r.date).slice(0, 10) <= d).length;
+    if (isSet) return getCompletedSetsFE(p, d);
     if (p.type === 'mistake') {
       return (p.items || []).filter(it => (it.mastered || it.manualMastered)
         && String(it.masteredDate || it.learnedDate).slice(0, 10) <= d).length;
@@ -599,9 +663,9 @@ function projectStats(p, summary) {
     s.unitMode = unitMode;
     let total, done;
     if (isSetMode) {
-      // 套卷模式：total = 套卷数，done = 已完成套卷数
+      // 套卷模式：total = 套卷数，done = 已完成套卷数（含分板块小数）
       total = (Array.isArray(p.units) && p.units.length) ? p.units.length : (Number(p.total) || 0);
-      done = Array.isArray(p.records) ? p.records.filter(r => r.setCompleted).length : 0;
+      done = getCompletedSetsFE(p);
     } else {
       // 页码模式：total/done 与前端 getMetrics 完全同口径（单元范围合并、战略放弃、区间去重）
       total = getTotalPages(p);
@@ -1299,7 +1363,7 @@ function getTodayPlan(userId, budgetMin) {
   // 收集所有有今日任务的项目：未完成刷题 + 今日到期背书 + 今日到期错题
   const blocks = [];
   for (const s of list) {
-    const mpu = s.minutesPerUnit || (s.type === 'exercise' ? 7 : s.type === 'recite' ? 3 : 5);
+    const mpu = s.minutesPerUnit || (s.isSetMode ? 180 : s.type === 'exercise' ? 7 : s.type === 'recite' ? 3 : 5);
     if (s.type === 'exercise') {
       // 所有未完成的刷题本都纳入今日计划
       const remain = Math.max((s.total || 0) - (s.done || 0), 0);
@@ -1313,8 +1377,13 @@ function getTodayPlan(userId, budgetMin) {
         todayUnits = Math.max(recentRate, requiredRate);
       }
       if (todayUnits <= 0) todayUnits = 4;
-      if (todayUnits < 2) todayUnits = 2;
-      todayUnits = Math.min(Math.round(todayUnits), remain);
+      if (s.isSetMode) {
+        // 套卷模式：每天1套甚至0.几套都正常，不强制最少2套，保留1位小数（用于时间估算）
+        todayUnits = Math.min(Math.round(todayUnits * 10) / 10, remain);
+      } else {
+        if (todayUnits < 2) todayUnits = 2;
+        todayUnits = Math.min(Math.round(todayUnits), remain);
+      }
       blocks.push({
         projectId: s.id, name: s.name, kind: 'exercise',
         units: todayUnits, minutesPerUnit: mpu,
