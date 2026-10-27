@@ -5737,10 +5737,12 @@ function getStatusMessage(p, m) {
   const remaining = m.remaining, daysAvailable = m.daysAvailable;
   const curWk = plan.curWk, curRate = plan.curRate;
   const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  // 方案里的目标量与目标卡同口径：套卷保留1位小数，页/条向上取整
+  const perTxt = (v) => isSetMode(p) ? n1(v) : String(Math.ceil(v));
   const planText = (c) => {
     if (!c) return '';
-    if (c.keep) return `保持每周 ${c.wk} 天、每次约 ${n1(c.per)} ${u}（比平时多约 ${Math.round((c.mult - 1) * 100)}%）`;
-    return `每周学 ${c.wk} 天、每次约 ${n1(c.per)} ${u}`;
+    if (c.keep) return `保持每周 ${c.wk} 天、每次约 ${perTxt(c.per)} ${u}（比平时多约 ${Math.round((c.mult - 1) * 100)}%）`;
+    return `每周学 ${c.wk} 天、每次约 ${perTxt(c.per)} ${u}`;
   };
   // 真实完成日期：高置信给区间；小样本只在"能赶上 / 仅小幅落后"时给精确日期，
   // 若外推到目标日 30 天以后（数据少时极易被几天低迷放大成击溃性数字），只如实说"会晚"而不给伪精确日期。
@@ -5784,7 +5786,7 @@ function getStatusMessage(p, m) {
       : `你最近 ${m.momentumDays} 天有在持续推进，这股劲很重要。<br><br>`;
     if (plan.onTime) {
       if (plan.onTime.heavy) {
-        body += `<b>硬要赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+        body += `<b>硬要赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${perTxt(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
       } else {
         body += `<b>想赶上 ${fmtCN(p.deadline)}，可行的方式：</b>${planText(plan.onTime)}。<br><br>`;
       }
@@ -5803,11 +5805,11 @@ function getStatusMessage(p, m) {
     if (m.momentumOnTime && m.momentumEtaDate) {
       const keepPer = plan.onTime ? plan.onTime.per : m.perStudyDay;
       const todayDone = m.todayDone || 0;
-      // 套卷按 0.1 精度录入，达标判定与目标卡/列表显示口径一致（四舍五入后比较）
-      const todayMet = isSetMode(p)
-        ? (Math.round(todayDone * 10) / 10) >= (Math.round(keepPer * 10) / 10)
-        : todayDone >= keepPer;
-      let body = `还剩 ${rem} ${u}、距目标日 ${fmtDaysLeft(m.daysLeft)}，每个学习日约 ${n1(keepPer)} ${u}就能按时完成。<br><br>`;
+      // 目标显示与达标判定统一用目标卡口径：套卷保留1位小数，页/条向上取整，避免与看板数字打架
+      const goalNum = isSetMode(p) ? (Math.round(keepPer * 10) / 10) : Math.ceil(keepPer);
+      const goalDisp = isSetMode(p) ? n1(keepPer) : String(goalNum);
+      const todayMet = todayDone >= goalNum - 1e-9;
+      let body = `还剩 ${rem} ${u}、距目标日 ${fmtDaysLeft(m.daysLeft)}，每个学习日约 ${goalDisp} ${u}就能按时完成。<br><br>`;
       body += Coach.pick([
         '你最近状态不错，按这个节奏稳定推进就好。',
         '最近效率在线，保持稳定推进，水到渠成。',
@@ -5815,9 +5817,9 @@ function getStatusMessage(p, m) {
       ], '6a') + '<br><br>';
       // 结尾按"今天是否已达标"给正确场景的话，不催已完成的人"继续"
       if (todayMet) {
-        body += `<span class="muted">今天已完成 ${fmtUnitNum(todayDone)} ${u}` + (todayDone > keepPer*1.2 ? '、超额完成，今天状态很好' : '，目标达成，很踏实') + `</span>`;
+        body += `<span class="muted">今天已完成 ${fmtUnitNum(todayDone)} ${u}` + (todayDone > goalNum*1.2 ? '、超额完成，今天状态很好' : '，目标达成，很踏实') + `</span>`;
       } else {
-        body += `<span class="muted">今天目标 ${n1(keepPer)} ${u}，${todayDone>0 ? '已完成 '+fmtUnitNum(todayDone)+'，还差一点～' : '找个时间开始吧～'}</span>`;
+        body += `<span class="muted">今天目标 ${goalDisp} ${u}，${todayDone>0 ? '已完成 '+fmtUnitNum(todayDone)+'，还差一点～' : '找个时间开始吧～'}</span>`;
       }
       return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'节奏稳，能按时完成', desc: body };
     }
@@ -5826,7 +5828,7 @@ function getStatusMessage(p, m) {
       // 只剩"硬路径"（强度很大）时，不能只给乐观，要如实说明仍需大幅加量
       if (plan.onTime && plan.onTime.heavy) {
         let body = `还剩 ${rem} ${u}。你最近明显提速了，方向对了，但按 ${fmtCN(p.deadline)} 算，缺口仍然偏大。<br><br>`;
-        body += `<b>硬要赶上，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+        body += `<b>硬要赶上，只能每天都学、每次约 ${perTxt(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
         if (plan.delay && p.hardDeadline !== true) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
         body += reciteCycleLine;
         return { icon:'' + svgIcon('wrench') + '', cls:'warn', title:'在提速，但还需要加量', desc: body };
@@ -5846,7 +5848,7 @@ function getStatusMessage(p, m) {
     let body = `还剩 ${rem} ${u}，${etaLine.text}。${earlyTag}<br><br>`;
     if (hardPath) {
       // 缺口大到可持续方案都不可行：硬路径如实标注强度，延期不再弱化，而作为并列的现实选择
-      body += `<b>想赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+      body += `<b>想赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${perTxt(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
       if (plan.delay && p.hardDeadline !== true) body += `<b>更现实的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏可持续），在设置里即可调整。`;
     } else {
       if (plan.onTime) {
@@ -11828,7 +11830,7 @@ function renderProgressInsights(p, m) {
       else body = (delayDate && canDelay)
         ? `按你最近的节奏基本能按时完成，想留更多余量的话，可把截止日延后到约 ${fmtCN(delayDate)}`
         : `按你最近的节奏基本能按时完成，偶尔状态起伏也正常，正常推进就好`;
-      etaLines += `<br><span style="color:#96600c">${svgIcon('x-circle')} ${body}。</span>`;
+      etaLines += `<br><span style="color:#96600c">${svgIcon('alert-triangle')} ${body}。</span>`;
     }
     else if (m.feasibility === 'impossible') {
       const dLong = m.feasibleDaysLong ? addDays(m.t, Math.ceil(m.feasibleDaysLong)) : null;
@@ -11845,7 +11847,7 @@ function renderProgressInsights(p, m) {
         if (Math.abs(g) >= 1) etaLines += g > 0
           ? `<br>${svgIcon('trending-up')} 相对“${m.effStart}→${p.deadline} 匀速”的理想进度，<b style="color:var(--ok)">超前约 ${g} ${u}</b>。`
           : `<br>${svgIcon('trending-down')} 相对理想进度，<b style="color:var(--bad)">慢了约 ${-g} ${u}</b>（这部分已经算进每天目标里，不用额外补）。`;
-        else etaLines += `<br>${svgIcon('minus')} 与理想进度基本同步。`;
+        else etaLines += `<br>${svgIcon('check')} 与理想进度基本同步。`;
       }
     }
   }
