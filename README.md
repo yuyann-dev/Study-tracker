@@ -9,7 +9,7 @@
 ![Platform](https://img.shields.io/badge/platform-web%20%7C%20PWA-lightgrey)
 ![AI](https://img.shields.io/badge/AI-Agent%20%7C%20Function%20Calling-blue)
 
-**在线体验**：<https://yystudy.top>
+**在线体验**：<https://yystudy.top>（注册邀请码：EFC7CG8U）
 
 ---
 
