@@ -1,4 +1,4 @@
-/* 文案用词记一下：错题用「攻克」，背书用「掌握」，刷题用「完成」，
+﻿/* 文案用词记一下：错题用「攻克」，背书用「掌握」，刷题用「完成」，
    混在一起分不清类型就用「完成」。变量名里的 mastered 不用改。
    「已熟知」是手动跳过的意思，跟上面不是一回事。 */
 
@@ -23,11 +23,14 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"'\\]/g, c => ({ '&':'&
    - 校准系数：用户手动调整后推算系数，存 store.aiCalibration，后续默认值乘系数 */
 const StudyTime = {
   DEFAULT_HOURS: 7,
-  DEFAULT_MIN_MISTAKE: 3,
-  DEFAULT_MIN_RECITE: 2,
-  DEFAULT_MIN_PER_PAGE: 8,
+  BUILD_VERSION: 'v136', /* 升级后强制重新预估今日任务时长 */
 
   _key: function(suffix) { return 'ai_' + suffix + '_' + todayStr(); },
+
+  /* 用户是否配置了 AI API（由 AI 模块加载配置后设置全局标记） */
+  hasAi: function() {
+    return window.__aiConfigured === true;
+  },
 
   getBudgetMin: function() {
     var v = Number(localStorage.getItem(this._key('budget')));
@@ -47,20 +50,227 @@ const StudyTime = {
     localStorage.setItem(this._key('studied_offset'), String(Math.round(offset)));
   },
 
-  /* 校准系数：从 store 读，默认 1.0 */
-  getCalibration: function(type) {
-    try {
-      var cal = (store && store.aiCalibration) || {};
-      var v = Number(cal[type]);
-      return (isFinite(v) && v > 0.1 && v < 5) ? v : 1.0;
-    } catch(e) { return 1.0; }
+  /* 今日已学时长（增量累加，打卡时加，取消时减） */
+  getAutoStudiedMin: function() {
+    var v = Number(localStorage.getItem(this._key('studied_auto')));
+    return isFinite(v) && v > 0 ? Math.round(v) : 0;
   },
-  _applyCalibration: function(minutes, type) {
-    return Math.round(minutes * this.getCalibration(type));
+  addStudied: function(min) {
+    min = Math.round(Number(min));
+    if (!isFinite(min) || min <= 0) return;
+    var cur = this.getAutoStudiedMin();
+    localStorage.setItem(this._key('studied_auto'), String(cur + min));
+    this.updateDisplay();
+  },
+  subtractStudied: function(min) {
+    min = Math.round(Number(min));
+    if (!isFinite(min) || min <= 0) return;
+    var cur = this.getAutoStudiedMin();
+    localStorage.setItem(this._key('studied_auto'), String(Math.max(0, cur - min)));
+    this.updateDisplay();
   },
 
-  /* 从今日打卡记录重新计算自动已学时长（分钟） */
-  recalcAutoStudied: function() {
+  /* 显示用已学时长 = 增量累加 + 用户手动偏移 */
+  getDisplayStudiedMin: function() {
+    return Math.max(0, this.getAutoStudiedMin() + this.getStudiedOffset());
+  },
+
+  getRemainingMin: function() {
+    return Math.max(0, this.getBudgetMin() - this.getDisplayStudiedMin());
+  },
+
+  /* 用户手动修改已学时长：设偏移量 = 用户输入 - 当前自动值，并采样校准 */
+  setManualStudied: function(minutes) {
+    minutes = Math.round(Number(minutes));
+    if (!isFinite(minutes) || minutes < 0) minutes = 0;
+    this._recomputeTodayStudied();
+    var auto = this.getAutoStudiedMin();
+    this._addCalibrationSample(auto, minutes);
+    this.setStudiedOffset(minutes - auto);
+    this.updateDisplay();
+  },
+
+  /* ============ 校准算法：手动修改后采样，长期学习实际速度 ============ */
+  CALIB_MIN_SAMPLES: 2,
+  CALIB_MAX_SAMPLES: 30,
+  CALIB_HALF_LIFE_DAYS: 7,
+  CALIB_MIN_DIFF_PCT: 0.05,
+
+  _getCalibrationStore: function() {
+    if (typeof store === 'undefined' || !store) return { perProject: {} };
+    if (!store.aiCalibration) store.aiCalibration = { perProject: {} };
+    if (!store.aiCalibration.perProject) store.aiCalibration.perProject = {};
+    return store.aiCalibration;
+  },
+
+  _calcWeightedPerUnit: function(samples) {
+    if (!samples || samples.length < this.CALIB_MIN_SAMPLES) return null;
+    var today = todayStr();
+    var totalWeight = 0, totalWeighted = 0;
+    var self = this;
+    samples.forEach(function(s) {
+      var daysAgo = Math.max(0, (new Date(today) - new Date(s.date)) / 86400000);
+      var weight = Math.pow(0.5, daysAgo / self.CALIB_HALF_LIFE_DAYS);
+      totalWeight += weight;
+      totalWeighted += s.perUnitMin * weight;
+    });
+    if (totalWeight <= 0) return null;
+    return Math.round(totalWeighted / totalWeight);
+  },
+
+  _addCalibrationSample: function(autoMin, userMin) {
+    if (!this.hasAi()) return;
+    if (userMin <= 0) return;
+    // autoMin 为 0 时（系统还没算出自动时长），只要用户输入了正数就尝试采样
+    if (autoMin > 0) {
+      var diffPct = Math.abs(userMin - autoMin) / autoMin;
+      if (diffPct < this.CALIB_MIN_DIFF_PCT) return;
+      if (userMin > autoMin * 5) return;
+    }
+
+    var today = todayStr();
+    var cal = this._getCalibrationStore();
+    var self = this;
+    var projects = (typeof store !== 'undefined' && store && store.projects) || {};
+
+    var projectContrib = [];
+    var totalAuto = 0;
+    Object.keys(projects).forEach(function(pid) {
+      var p = projects[pid];
+      if (!p || p.archived) return;
+      var totalMin = Number(p.todayEstimatedTotalMinutes);
+      var totalUnits = Number(p.todayTotalUnits);
+      var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+      if (estDate !== today || !isFinite(totalMin) || totalMin < 1 || !isFinite(totalUnits) || totalUnits < 1) return;
+
+      var doneUnits = 0;
+      if (p.type === 'exercise') {
+        var records = Array.isArray(p.records) ? p.records : [];
+        var todayRecords = records.filter(function(r) { return r && r.date === today; });
+        doneUnits = self._calcDonePages(records, todayRecords, today);
+      } else {
+        var items = Array.isArray(p.items) ? p.items : [];
+        var dueItems = typeof getDueItems === 'function' ? getDueItems(p) : items.filter(function(it) {
+          return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
+        });
+        doneUnits = dueItems.filter(function(it) {
+          if (!it || !Array.isArray(it.reviews)) return false;
+          return it.reviews.some(function(r) {
+            if (!r || String(r.date).slice(0, 10) !== today) return false;
+            if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
+            return true;
+          });
+        }).length;
+      }
+      if (doneUnits <= 0) return;
+      var projAuto = Math.min(1, doneUnits / totalUnits) * totalMin;
+      projectContrib.push({ pid: pid, name: p.name, type: p.type, doneUnits: doneUnits, projAuto: projAuto });
+      totalAuto += projAuto;
+    });
+
+    if (totalAuto <= 0 || projectContrib.length === 0) return;
+
+    projectContrib.forEach(function(c) {
+      var share = totalAuto > 0 ? c.projAuto / totalAuto : 0;
+      var userProjMin = userMin * share;
+      var perUnit = userProjMin / c.doneUnits;
+      perUnit = Math.max(1, Math.min(perUnit, 240));
+
+      if (!cal.perProject[c.pid]) cal.perProject[c.pid] = { samples: [] };
+      cal.perProject[c.pid].samples.push({
+        date: today,
+        doneUnits: c.doneUnits,
+        autoMin: Math.round(c.projAuto),
+        userMin: Math.round(userProjMin),
+        perUnitMin: Math.round(perUnit)
+      });
+      if (cal.perProject[c.pid].samples.length > self.CALIB_MAX_SAMPLES) {
+        cal.perProject[c.pid].samples = cal.perProject[c.pid].samples.slice(-self.CALIB_MAX_SAMPLES);
+      }
+      cal.perProject[c.pid].weightedPerUnit = self._calcWeightedPerUnit(cal.perProject[c.pid].samples);
+      cal.perProject[c.pid].sampleCount = cal.perProject[c.pid].samples.length;
+    });
+
+    if (typeof saveStore === 'function') saveStore();
+  },
+
+  getCalibrationPrompt: function() {
+    var cal = this._getCalibrationStore();
+    var lines = [];
+    var self = this;
+    var projects = (typeof store !== 'undefined' && store && store.projects) || {};
+    Object.keys(cal.perProject || {}).forEach(function(pid) {
+      var pc = cal.perProject[pid];
+      if (!pc || !pc.samples || pc.samples.length < self.CALIB_MIN_SAMPLES) return;
+      var p = projects[pid];
+      var name = p ? p.name : pid;
+      var wpu = self._calcWeightedPerUnit(pc.samples);
+      if (!wpu) return;
+      var unit = (p && p.type === 'exercise') ? '页' : '条';
+      lines.push('- ' + name + '：实际约' + wpu + '分钟/' + unit + '（' + pc.samples.length + '次采样）');
+    });
+    if (lines.length === 0) return '';
+    return '\n\n【用户历史校准数据（实际做题速度）】\n' + lines.join('\n') + '\n请参考这些实际速度进行预估，不要用默认值。';
+  },
+
+  /* 更新 UI 显示（AI面板输入区） */
+  updateDisplay: function() {
+    var row = document.querySelector('.ai-time-row');
+    if (row) row.style.display = this.hasAi() ? '' : 'none';
+    var studiedEl = document.getElementById('aiStudiedMin');
+    var remainingEl = document.getElementById('aiRemainingMin');
+    if (!studiedEl || !remainingEl) return;
+    if (this._estimating) {
+      studiedEl.textContent = '估算中';
+      remainingEl.textContent = '估算中';
+      return;
+    }
+    var studiedMin = this.getDisplayStudiedMin();
+    var remainingMin = this.getRemainingMin();
+    studiedEl.textContent = (studiedMin / 60).toFixed(1) + 'h';
+    remainingEl.textContent = (remainingMin / 60).toFixed(1) + 'h';
+  },
+
+  /* 今天是否已经预估过任务时长 */
+  _estimatedToday: function() {
+    return localStorage.getItem(this._key('estimated_done')) === this.BUILD_VERSION;
+  },
+  _markEstimated: function() {
+    localStorage.setItem(this._key('estimated_done'), this.BUILD_VERSION);
+  },
+
+  /* 计算今日任务总数（包括已完成，用于检测自动均衡/新增项目导致的变化） */
+  _getTodayTaskCount: function() {
+    var today = todayStr();
+    var count = 0;
+    var projects = (store && store.projects) || {};
+    Object.keys(projects).forEach(function(pid) {
+      var p = projects[pid];
+      if (!p || p.archived) return;
+      if (p.type === 'exercise') {
+        // 刷题项目：用 dailyCapacity 作为指纹，新增/修改刷题项目可触发重估
+        count += Number(p.dailyCapacity) || 0;
+        return;
+      }
+      // 错题/背书项目：如果今天已预估过，用 todayTotalUnits（稳定值，完成错题不会变）
+      // 未预估过时用 getDueItems 作为初始指纹
+      var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+      var totalUnits = Number(p.todayTotalUnits);
+      if (estDate === today && isFinite(totalUnits) && totalUnits > 0) {
+        count += totalUnits;
+      } else {
+        var items = Array.isArray(p.items) ? p.items : [];
+        var dueCount = typeof getDueItems === 'function' ? getDueItems(p).length : items.filter(function(it) {
+          return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
+        }).length;
+        count += dueCount;
+      }
+    });
+    return count;
+  },
+
+  /* 预估完成后追溯计算今天已打卡的时长（按比例：已完成/总任务 × 总时长） */
+  _recomputeTodayStudied: function() {
     var today = todayStr();
     var total = 0;
     var projects = (store && store.projects) || {};
@@ -70,98 +280,328 @@ const StudyTime = {
       var p = projects[pid];
       if (!p || p.archived) return;
 
+      var totalMin = Number(p.todayEstimatedTotalMinutes);
+      var totalUnits = Number(p.todayTotalUnits);
+      var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+      var hasNewMode = estDate === today && isFinite(totalMin) && totalMin >= 1 && totalMin <= 600
+                    && isFinite(totalUnits) && totalUnits >= 1;
+
       if (p.type === 'exercise') {
-        // 刷题：今日完成页数 × 每页预估分钟
-        var recs = Array.isArray(p.records) ? p.records : [];
-        var pages = 0;
-        recs.forEach(function(r) {
-          if (String(r.date || '').slice(0, 10) !== today) return;
-          var s = Number(r.startPage) || 0;
-          var e = Number(r.endPage) || s;
-          pages += Math.max(e - s, 0);
-        });
-        var perPage = self._applyCalibration(self.DEFAULT_MIN_PER_PAGE, 'exercise');
-        total += pages * perPage;
+        var records = Array.isArray(p.records) ? p.records : [];
+        var todayRecords = records.filter(function(r) { return r && r.date === today; });
+
+        if (hasNewMode) {
+          // 新模式：按比例计算
+          var ratio;
+          if (p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
+            // 套卷模式：按完成的分块数 / 总分块数计算
+            var sectionsPerSet = p.paperSections.length;
+            var totalSections = totalUnits * sectionsPerSet;
+            var doneSections = todayRecords.filter(function(r) { return r && Number(r.pct) > 0; }).length;
+            ratio = Math.min(1, doneSections / totalSections);
+          } else {
+            // 普通模式：按页数计算
+            var donePages = self._calcDonePages(records, todayRecords, today);
+            ratio = Math.min(1, donePages / totalUnits);
+          }
+          total += Math.round(ratio * totalMin);
+        } else {
+          // 兼容旧模式：estMinPerPage × 页数
+          var perPage = Number(p.estMinPerPage);
+          if (!isFinite(perPage) || perPage <= 0) perPage = 8;
+          todayRecords.forEach(function(r) {
+            var pages = self._calcRecordPages(r, records, today);
+            if (pages > 0) total += Math.round(pages * perPage);
+          });
+        }
       } else {
-        // 错题/背书：今日复习过的条目 × 每条预估分钟
+        // 错题/背书项目：只算今日到期（今日复习区）且今日有真实review的
         var items = Array.isArray(p.items) ? p.items : [];
-        items.forEach(function(it) {
-          var revs = Array.isArray(it.reviews) ? it.reviews : [];
-          var reviewedToday = false;
-          for (var i = 0; i < revs.length; i++) {
-            if (String(revs[i].date || '').slice(0, 10) === today) { reviewedToday = true; break; }
-          }
-          if (!reviewedToday) return;
-          var defaultMin = p.type === 'mistake' ? self.DEFAULT_MIN_MISTAKE : self.DEFAULT_MIN_RECITE;
-          var min = Number(it.estimatedMinutes);
-          if (!isFinite(min) || min <= 0) {
-            min = self._applyCalibration(defaultMin, p.type);
-          }
-          total += min;
+        var dueItems = typeof getDueItems === 'function' ? getDueItems(p) : items.filter(function(it) {
+          return it && !it.mastered && !it.manualMastered && it.nextReviewDate && it.nextReviewDate <= today;
         });
+        var reviewedToday = dueItems.filter(function(it) {
+          if (!it || !Array.isArray(it.reviews)) return false;
+          return it.reviews.some(function(r) {
+            if (!r || String(r.date).slice(0, 10) !== today) return false;
+            if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
+            return true;
+          });
+        }).length;
+
+        if (hasNewMode) {
+          var ratio = Math.min(1, reviewedToday / totalUnits);
+          total += Math.round(ratio * totalMin);
+        } else {
+          // 兼容旧模式：每条 estimatedMinutes
+          dueItems.forEach(function(it) {
+            if (!it) return;
+            var revToday = Array.isArray(it.reviews) && it.reviews.some(function(r) {
+              if (!r || String(r.date).slice(0, 10) !== today) return false;
+              if (r.note && (r.note.indexOf('快录占位') >= 0 || r.note.indexOf('刷题打卡快录') >= 0)) return false;
+              return true;
+            });
+            if (!revToday) return;
+            var em = Number(it.estimatedMinutes);
+            if (isFinite(em) && em >= 1 && em <= 120) {
+              total += Math.round(em);
+            } else if (!isFinite(em) || em <= 0) {
+              // 旧模式无默认值兜底：错题5min，背书2min
+              total += Math.round(p.type === 'recite' ? 2 : 5);
+            }
+          });
+        }
       }
     });
 
-    return Math.max(0, Math.round(total));
+    localStorage.setItem(this._key('studied_auto'), String(Math.max(0, total)));
   },
 
-  /* 显示用已学时长 = 自动计算 + 用户手动偏移 */
-  getDisplayStudiedMin: function() {
-    return Math.max(0, this.recalcAutoStudied() + this.getStudiedOffset());
+  /* 计算今日已完成页数（去重，修复只有endPage的情况） */
+  _calcDonePages: function(allRecords, todayRecords, today) {
+    var self = this;
+    var pageSet = {};
+    todayRecords.forEach(function(r) {
+      var pages = self._calcRecordPages(r, allRecords, today);
+      if (pages <= 0) return;
+      var start = r.startPage != null ? Number(r.startPage) : null;
+      var end = r.endPage != null ? Number(r.endPage) : null;
+      if (start != null && end != null) {
+        for (var i = start; i <= end; i++) pageSet[i] = true;
+      } else if (end != null) {
+        // 只有endPage：从上一次打卡的endPage+1开始
+        var prevEnd = self._findPrevEndPage(allRecords, r, today);
+        var s = prevEnd != null ? prevEnd + 1 : 1;
+        if (s > end) {
+          pageSet[end] = true;
+        } else {
+          for (var j = s; j <= end; j++) pageSet[j] = true;
+        }
+      }
+    });
+    return Object.keys(pageSet).length;
   },
 
-  getRemainingMin: function() {
-    return Math.max(0, this.getBudgetMin() - this.getDisplayStudiedMin());
+  /* 计算单条打卡记录的页数 */
+  _calcRecordPages: function(r, allRecords, today) {
+    // 只有 endPage 的顺序打卡：pages 字段历史上被硬编码为 1（bug），不可信。
+    // 用 endPage - 之前最近 endPage 计算实际新增页数，保证今日页数/时长统计准确。
+    if (r.endPage != null && r.startPage == null) {
+      var prevEnd = this._findPrevEndPage(allRecords, r, today);
+      if (prevEnd != null && prevEnd < Number(r.endPage)) {
+        return Number(r.endPage) - prevEnd;
+      }
+      return 1;
+    }
+    var pages = Number(r.pages);
+    if (isFinite(pages) && pages > 0) return pages;
+    if (r.startPage != null && r.endPage != null) {
+      return Math.max(Number(r.endPage) - Number(r.startPage) + 1, 0);
+    }
+    if (r.endPage != null) {
+      var prevEnd = this._findPrevEndPage(allRecords, r, today);
+      if (prevEnd != null && prevEnd < Number(r.endPage)) {
+        return Number(r.endPage) - prevEnd;
+      }
+      return 1;
+    }
+    return 0;
   },
 
-  /* 用户手动修改已学时长：设偏移量 = 用户输入 - 当前自动值 */
-  setManualStudied: function(minutes) {
-    minutes = Math.round(Number(minutes));
-    if (!isFinite(minutes) || minutes < 0) minutes = 0;
-    var auto = this.recalcAutoStudied();
-    this.setStudiedOffset(minutes - auto);
-    // 学习校准系数：根据用户手动调整推算
-    this._learnCalibration(minutes, auto);
-    this.updateDisplay();
+  /* 找到这条打卡之前最近一次打卡的endPage（不含今天这条及之后的） */
+  _findPrevEndPage: function(allRecords, currentRec, today) {
+    var prev = null;
+    var curIdx = allRecords.indexOf(currentRec);
+    allRecords.forEach(function(r, idx) {
+      if (!r || r === currentRec) return;
+      if (r.endPage == null) return;
+      if (r.date < today || (r.date === today && idx < curIdx)) {
+        prev = Number(r.endPage);
+      }
+    });
+    return prev;
   },
 
-  /* 从用户手动修改学习校准系数 */
-  _learnCalibration: function(manualMin, autoMin) {
-    if (!autoMin || autoMin < 5 || manualMin < 5) return; // 数据太少不校准
-    var ratio = manualMin / autoMin;
-    if (ratio < 0.3 || ratio > 3) return; // 极端值不采纳
+  /* 每天首次上线：后台让 AI 预估今日任务时长（不显示在对话里） */
+  estimateTodayIfNeeded: function(force) {
+    if (!this.hasAi()) return;
+    if (this._estimating) return;
+    // 任务数变化检测：今日未完成任务数变了就重新预估
+    var curCount = this._getTodayTaskCount();
+    var lastCount = Number(localStorage.getItem(this._key('task_count')));
+    // 额外检查：store里没有任何今日预估数据时，强制重新预估（防止标记存在但数据丢失）
+    var hasEstData = false;
     try {
-      if (!store.aiCalibration || typeof store.aiCalibration !== 'object') store.aiCalibration = {};
-      // 按项目类型加权平均（简化：全局系数，近期权重高）
-      var projects = store.projects || {};
-      var typeCounts = { mistake: 0, recite: 0, exercise: 0 };
-      Object.keys(projects).forEach(function(pid) {
-        var p = projects[pid];
-        if (!p || p.archived) return;
-        if (p.type === 'exercise') typeCounts.exercise++;
-        else if (p.type === 'mistake') typeCounts.mistake++;
-        else if (p.type === 'recite') typeCounts.recite++;
-      });
-      // 简单做法：只更新有活跃项目的类型
-      var self = this;
-      Object.keys(typeCounts).forEach(function(t) {
-        if (typeCounts[t] === 0) return;
-        var old = self.getCalibration(t);
-        // 指数移动平均：新系数权重 0.3
-        store.aiCalibration[t] = Math.round((old * 0.7 + ratio * 0.3) * 100) / 100;
+      var today = todayStr();
+      var projs = (store && store.projects) || {};
+      Object.keys(projs).forEach(function(pid) {
+        var p = projs[pid];
+        var estDate = p.todayEstimateDate ? String(p.todayEstimateDate).slice(0, 10) : '';
+        if (p && estDate === today && Number(p.todayEstimatedTotalMinutes) > 0) hasEstData = true;
       });
     } catch(e) {}
-  },
+    if (!force && this._estimatedToday() && lastCount === curCount && hasEstData) return;
 
-  /* 更新 UI 显示（AI面板输入区） */
-  updateDisplay: function() {
-    var studiedEl = document.getElementById('aiStudiedMin');
-    var remainingEl = document.getElementById('aiRemainingMin');
-    if (!studiedEl || !remainingEl) return;
-    var studiedMin = this.getDisplayStudiedMin();
-    var remainingMin = this.getRemainingMin();
-    studiedEl.textContent = (studiedMin / 60).toFixed(1) + 'h';
-    remainingEl.textContent = (remainingMin / 60).toFixed(1) + 'h';
+    var wasEstimated = this._estimatedToday();
+
+    this._estimating = true;
+    this._estimateStartTime = Date.now();
+    this.updateDisplay();
+
+    var self = this;
+    var estimateOk = false;
+    var estCtrl = null;   // 静默预估也挂 AbortController：后端挂死时 120s 主动断开，避免 reader 永久悬挂
+    var estTimer = null;
+    var MIN_DISPLAY_MS = 300;  // "估算中"至少显示300ms，避免一闪而过用户看不到
+    var finish = function(success) {
+      try { if (estTimer) { clearTimeout(estTimer); estTimer = null; } } catch(_){}
+      var elapsed = Date.now() - (self._estimateStartTime || 0);
+      var doFinish = function() {
+        self._estimating = false;
+      if (success) {
+        self._markEstimated();
+        localStorage.setItem(self._key('task_count'), String(self._getTodayTaskCount()));
+      }
+      // AI 写回 estMinPerPage 到后端后，前端 store 还是旧的，需要重新拉取
+      setTimeout(function() {
+        try {
+          var tok = null;
+          try {
+            var persist = localStorage.getItem('st_auth_persist');
+            if (persist === null) tok = localStorage.getItem('st_auth_token') || sessionStorage.getItem('st_auth_token');
+            else if (persist === 'true') tok = localStorage.getItem('st_auth_token');
+            else tok = sessionStorage.getItem('st_auth_token');
+          } catch(e) {}
+          var headers = {};
+          if (tok) headers['Authorization'] = 'Bearer ' + tok;
+          fetch('/api/data', { headers: headers, credentials: 'include' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data && data.data && data.data.store) {
+                store = data.data.store;
+              } else if (data && data.store) {
+                store = data.store;
+              }
+              // 每次重新预估后重置手动偏移：预估基准变了，旧的校准不再适用
+              localStorage.setItem(self._key('studied_offset'), '0');
+              self._recomputeTodayStudied();
+              self.updateDisplay();
+            })
+            .catch(function() {
+              localStorage.setItem(self._key('studied_offset'), '0');
+              self._recomputeTodayStudied();
+              self.updateDisplay();
+            });
+        } catch(e) {
+          localStorage.setItem(self._key('studied_offset'), '0');
+          self._recomputeTodayStudied();
+          self.updateDisplay();
+        }
+      }, 500);
+      };
+      if (elapsed < MIN_DISPLAY_MS) {
+        setTimeout(doFinish, MIN_DISPLAY_MS - elapsed);
+      } else {
+        doFinish();
+      }
+    };
+
+    try {
+      var headers = { 'Content-Type': 'application/json' };
+      // 直接读 token，不依赖 aiToken() 函数（StudyTime 在文件头部定义，aiToken 在后面）
+      var tok = null;
+      try {
+        var persist = localStorage.getItem('st_auth_persist');
+        if (persist === null) {
+          tok = localStorage.getItem('st_auth_token') || sessionStorage.getItem('st_auth_token');
+        } else if (persist === 'true') {
+          tok = localStorage.getItem('st_auth_token');
+        } else {
+          tok = sessionStorage.getItem('st_auth_token');
+        }
+      } catch(e) {}
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+
+      // 用首页同一口径（getDailyTarget）算好每个项目今日任务量，直接传给AI
+      var todayTaskList = [];
+      try {
+        var allProj = (store && store.projects) || {};
+        Object.keys(allProj).forEach(function(pid) {
+          var p = allProj[pid];
+          if (!p || p.archived) return;
+          if (p.type === 'exercise') {
+            var per = 0;
+            if (p.unit === 'set') {
+              // 套卷模式：自己算今日任务量（getMetrics 对套卷可能返回 0）
+              var totalSets = Number(p.total) || 0;
+              var doneSets = typeof getCompletedSets === 'function' ? getCompletedSets(p) : 0;
+              var remSets = Math.max(0, totalSets - doneSets);
+              if (remSets > 0 && p.deadline) {
+                var dl = String(p.deadline).slice(0, 10);
+                var today = new Date().toISOString().slice(0, 10);
+                var daysLeft = Math.ceil((new Date(dl) - new Date(today)) / 86400000) + 1;
+                per = remSets / Math.max(1, daysLeft);
+              }
+            } else {
+              var m = typeof getMetrics === 'function' ? getMetrics(p) : null;
+              per = m && typeof getDailyTarget === 'function' ? getDailyTarget(p, m).per : 0;
+            }
+            if (per > 0) {
+              var taskItem = { projectId: pid, name: p.name, kind: 'exercise', units: Math.round(per * 10) / 10 };
+              if (p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
+                taskItem.isPaperSet = true;
+                taskItem.sections = p.paperSections.map(function(s) { return { name: s.name, weight: s.weight }; });
+              }
+              todayTaskList.push(taskItem);
+            }
+          } else if (p.type === 'mistake' || p.type === 'recite') {
+            var due = typeof getDueItems === 'function' ? getDueItems(p).length : 0;
+            if (due > 0) todayTaskList.push({ projectId: pid, name: p.name, kind: p.type, units: due });
+          }
+        });
+      } catch(e) { console.warn('算今日任务量出错:', e); }
+      var taskJson = JSON.stringify(todayTaskList);
+
+      estCtrl = new AbortController();
+      estTimer = setTimeout(function () { try { estCtrl && estCtrl.abort(); } catch (_) {} }, 120000);
+      fetch('/api/ai/chat/stream', {
+        method: 'POST',
+        headers: headers,
+        credentials: 'include',
+        signal: estCtrl.signal,
+        body: JSON.stringify({
+          silent: true,
+          message: '以下是今日所有项目的任务清单：' + taskJson + '。请根据每个项目的今日任务量（units），分别预估每个项目今日完成所有任务需要的总分钟数。这是考研备考系统，所有项目都是考研相关学习材料。参考考研真题典型做题速度：数学真题分类习题册一页约7-8题，考试平均每题8分钟，计算时长需要包含做题+对答案+整理，一页约1小时；408计算机真题分类习题册一页约4-5题，选择题每题1.5-2分钟、综合题每题20-30分钟，一页约15分钟；错题复习每条5分钟；背书项目根据条目内容多少和页数自行判断。如果项目是整套试卷模式（isPaperSet=true），units表示今日需要完成的套数（可以是小数，比如0.3表示今天做30%的一套），按考研考试标准估算：数学/408/英语均为180分钟一套，总时长=units×180分钟，不要因为units小于1就跳过。如果不在以上范围内且你对某科速度不确定，可以调用 web_search 工具搜索，参数格式为 {"query": "搜索关键词"}。结合你对我的长期记忆（比如我之前说过的学习习惯、某类任务的速度），用 set_task_estimates 工具给清单里**所有**项目分别写回预估，参数格式为 {"estimates": [{"projectId": "项目id", "totalMinutes": 该项目今日总时长分钟数, "totalUnits": 该项目今日任务总数}]}。每个项目都要预估，不能遗漏，包括套卷模式和units很小的项目。如果长期记忆中有特别提到对某项任务速度快或者慢，请合理调整幅度，但也要合理，符合人类正常速度。totalMinutes 是该项目今日完成所有任务需要的总分钟数，totalUnits 直接用清单里的 units 值。只调用工具，不需要给我文字回复。' + self.getCalibrationPrompt(),
+          context: { silentEstimate: true }
+        })
+      }).then(function(resp) {
+        if (!resp.ok) throw new Error('estimate failed');
+        var reader = resp.body.getReader();
+        var decoder = new TextDecoder();
+        var buf = '';
+        function pump() {
+          reader.read().then(function(chunk) {
+            if (chunk.done) { finish(estimateOk); return; }
+            buf += decoder.decode(chunk.value, { stream: true });
+            var parts = buf.split('\n\n');
+            buf = parts.pop() || '';
+            for (var i = 0; i < parts.length; i++) {
+              var p = parts[i];
+              if (!p.trim()) continue;
+              var lines = p.split('\n');
+              var ev = 'message', ed = '';
+              for (var j = 0; j < lines.length; j++) {
+                if (lines[j].startsWith('event: ')) ev = lines[j].slice(7).trim();
+                else if (lines[j].startsWith('data: ')) ed += lines[j].slice(6);
+              }
+              if (ev === 'done') { estimateOk = true; finish(true); return; } if (ev === 'error') { finish(false); return; }
+            }
+            pump();
+          }).catch(function() { finish(false); });
+        }
+        pump();
+      }).catch(function() { finish(false); });
+    } catch(e) { finish(false); }
   },
 
   /* 绑定事件：已学时长可点击修改 */
@@ -200,6 +640,24 @@ const StudyTime = {
         if (e.key === 'Escape') { el.textContent = ''; el.blur(); }
       });
     });
+
+    // 手动重新预估按钮
+    var reBtn = document.getElementById('aiReestimateBtn');
+    if (reBtn && !reBtn._bound) {
+      reBtn._bound = true;
+      reBtn.addEventListener('click', function() {
+        if (reBtn.classList.contains('spinning')) return;
+        reBtn.classList.add('spinning');
+        reBtn.title = '预估中…';
+        // 清除预估标记，强制重新预估
+        localStorage.removeItem(self._key('estimated_done'));
+        self.estimateTodayIfNeeded(true);
+        setTimeout(function() {
+          reBtn.classList.remove('spinning');
+          reBtn.title = '重新预估今日任务时长';
+        }, 3000);
+      });
+    }
   },
 
   /* 供 AI 模块调用：获取当前时间状态（发送给后端） */
@@ -219,6 +677,10 @@ function getThemePref() {
 }
 function resolveTheme(pref) {
   if (pref === 'light' || pref === 'dark') return pref;
+  if (pref === 'time') {
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 function applyTheme() {
@@ -359,7 +821,7 @@ function renderReasonDropdown(p) {
     return;
   }
   const opts = reasonOptionList(p);
-  const cur = (hidden.value || '').split(',').filter(Boolean);
+  const cur = (hidden.value || '').split(/[,，]+/).filter(Boolean);
   btn.innerHTML = cur.length
     ? cur.map(r => reasonPill(r)).join('')
     : '<span class="muted">不设置（可多选）</span>';
@@ -516,6 +978,16 @@ document.addEventListener('click', e => {
   if (pop && !pop.hidden && !e.target.closest('#reasonPopover') && !e.target.closest('[data-reasonpicker]')) pop.hidden = true;
   const scopePanel = $('#inSetScopePanel');
   if (scopePanel && !scopePanel.hidden && !e.target.closest('#inSetScopeMulti')) scopePanel.hidden = true;
+  // 关联徽标点击：切换到关联刷题本
+  const linkBadge = e.target.closest('[data-ref-project]');
+  if (linkBadge) {
+    const refId = linkBadge.dataset.refProject;
+    if (refId && store.projects[refId]) {
+      store.currentId = refId;
+      saveStore();
+      render();
+    }
+  }
 });
 
 /* ============ 存储 ============ */
@@ -1252,7 +1724,7 @@ async function loadStore() {
       cacheSave(_lastSaveSig);
       // 只有 localStorage 本来有数据但损坏时才显示警告；本来就没数据则静默恢复
       if (lsRaw) {
-        showStorageWarning('' + svgIcon('alert-triangle') + ' 检测到本地数据异常，已从' + source + '自动恢复。建议立即到「设置 → 导出备份」保存一份 JSON 文件。');
+        showStorageWarning('' + svgIcon('x-circle') + ' 检测到本地数据异常，已从' + source + '自动恢复。建议立即到「设置 → 导出备份」保存一份 JSON 文件。');
       }
     } else {
       // 真·全新用户：此时才初始化空 store
@@ -1314,6 +1786,7 @@ async function loadStore() {
     if (p.reviewMode == null) p.reviewMode = 'classic';
     if (p.dailyCapacity == null) p.dailyCapacity = null;
     if (p.spreadThreshold == null) p.spreadThreshold = defaultComfortCap(p);
+    if (p.masterMode == null) p.masterMode = 'ask'; // ask=每次询问 auto=自动熟知 manual=手动熟知
     if (p.totalLocked == null) p.totalLocked = false;
     if (p.bookStartPage == null) p.bookStartPage = null;
     if (p.bookEndPage == null) p.bookEndPage = null;
@@ -1326,39 +1799,69 @@ async function loadStore() {
     migrateProject(p);
   });
   // 老用户适配：把已有项目的单元/套卷数据自动存为模板
+  // 只执行一次（templatesMigrated 标记），避免每次启动都重复创建导致模板重复
   if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
   if (!Array.isArray(store.paperTemplates)) store.paperTemplates = [];
   // 墓碑字段（多设备删除同步）：老版本数据无此字段时补空对象
   if (!store.tombstones || typeof store.tombstones !== 'object' || Array.isArray(store.tombstones)) store.tombstones = {};
-  Object.values(store.projects).forEach(p => {
-    if (!p || typeof p !== 'object') return;
-    if (p.unitMode && Array.isArray(p.units) && p.units.length > 0) {
-      const exists = store.unitTemplates.some(t => t.name === p.name);
-      if (!exists) {
-        store.unitTemplates.push({ id: genId(), name: p.name, units: JSON.parse(JSON.stringify(p.units)), createdAt: Date.now(), updatedAt: Date.now() });
+  if (!store.templatesMigrated) {
+    Object.values(store.projects).forEach(p => {
+      if (!p || typeof p !== 'object') return;
+      if (p.unitMode && Array.isArray(p.units) && p.units.length > 0) {
+        const exists = store.unitTemplates.some(t => t.name === p.name);
+        if (!exists) {
+          store.unitTemplates.push({ id: genId(), name: p.name, units: JSON.parse(JSON.stringify(p.units)), createdAt: Date.now(), updatedAt: Date.now(), autoMigrated: true });
+        }
       }
-    }
-    if (p.type === 'exercise' && p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
-      const exists = store.paperTemplates.some(t => t.name === p.name);
-      if (!exists) {
-        store.paperTemplates.push({ id: genId(), name: p.name, sections: JSON.parse(JSON.stringify(p.paperSections)), createdAt: Date.now(), updatedAt: Date.now() });
+      if (p.type === 'exercise' && p.unit === 'set' && Array.isArray(p.paperSections) && p.paperSections.length > 0) {
+        const exists = store.paperTemplates.some(t => t.name === p.name);
+        if (!exists) {
+          store.paperTemplates.push({ id: genId(), name: p.name, sections: JSON.parse(JSON.stringify(p.paperSections)), createdAt: Date.now(), updatedAt: Date.now(), autoMigrated: true });
+        }
       }
-    }
-  });
+    });
+    store.templatesMigrated = true;
+  }
   if (JSON.stringify(store) !== beforeMigrate) saveStore();
 
-  // 预设单元模板（放在恢复成功之后，空库也不会覆盖备份）
-  const PRESET_VERSION = 7;
-  const needPresetUpdate = !store.presetTemplatesLoaded || store.presetVersion !== PRESET_VERSION;
-  if (needPresetUpdate) {
+  ensurePresetTemplates();
+}
+
+// 确保内置预设单元模板完整（缺失则补全），启动和云同步后均需调用
+// 同时清理因历史 bug 导致的重复模板（按 id 去重）
+function ensurePresetTemplates() {
+  try {
+    const PRESET_VERSION = 8;
+    const _presetList = getPresetUnitTemplates();
     if (!Array.isArray(store.unitTemplates)) store.unitTemplates = [];
-    store.unitTemplates = store.unitTemplates.filter(t => t.id && !t.id.startsWith('preset_'));
-    const presets = getPresetUnitTemplates();
-    presets.forEach(p => store.unitTemplates.push(p));
-    store.presetTemplatesLoaded = true;
-    store.presetVersion = PRESET_VERSION;
-    saveStore();
-  }
+
+    // 全量去重：按模板 id 去重，保留第一个出现的（清理历史 bug 导致的重复自定义模板）
+    const _seenIds = new Set();
+    const _deduped = [];
+    for (const t of store.unitTemplates) {
+      if (!t || !t.id) continue;
+      if (_seenIds.has(t.id)) continue;
+      _seenIds.add(t.id);
+      _deduped.push(t);
+    }
+    store.unitTemplates = _deduped;
+
+    const _hasAllPresets = _presetList.every(function(pt){
+      return store.unitTemplates.some(function(t){ return t.id === pt.id; });
+    });
+    const needPresetUpdate = !store.presetTemplatesLoaded || store.presetVersion !== PRESET_VERSION || !_hasAllPresets;
+    if (needPresetUpdate) {
+      // 过滤掉旧的预设模板，再重新添加（确保预设模板内容是最新的）
+      store.unitTemplates = store.unitTemplates.filter(t => t.id && !t.id.startsWith('preset_'));
+      _presetList.forEach(p => store.unitTemplates.push(p));
+      store.presetTemplatesLoaded = true;
+      store.presetVersion = PRESET_VERSION;
+      saveStore();
+    } else if (_deduped.length !== store.unitTemplates.length) {
+      // 只去重了但没更新预设，也需要保存
+      saveStore();
+    }
+  } catch (e) {}
 }
 /* ============ 数据安全防护：双写存储 + IndexedDB 版本快照 + 持久化 + 自动保存 + 损坏恢复 ============ */
 
@@ -1578,6 +2081,7 @@ async function getStorageEstimate() {
 // ---- 保存：localStorage（主）+ IndexedDB（备）双写，带防抖 ----
 var _lastSaveSig = '';
 let _booting = true; // 启动恢复期间禁止写入，防止空数据覆盖备份
+var _srRefreshTimer = null; // 自习室成员列表刷新防抖定时器
 function saveStore() {
   if (_booting) return; // 恢复期间静默忽略，防止空 store 污染 IndexedDB 备份
   // TODO: 数据量大的时候 JSON.stringify 有点卡，以后可以考虑增量存或者用 IDB 直接存对象
@@ -1591,7 +2095,7 @@ function saveStore() {
     lsOk = true;
   } catch (e) {
     if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
-      showStorageWarning('' + svgIcon('alert-triangle') + ' 浏览器存储空间不足，数据可能无法保存。请到「设置 → 导出备份」保存 JSON 文件，然后清理浏览器网站数据。');
+      showStorageWarning('' + svgIcon('x-circle') + ' 浏览器存储空间不足，数据可能无法保存。请到「设置 → 导出备份」保存 JSON 文件，然后清理浏览器网站数据。');
     }
   }
   // 只有写入成功才更新签名，失败时允许下次重试（避免一次失败后永久跳过）
@@ -1602,6 +2106,13 @@ function saveStore() {
   cacheSave(dataStr);
   // 云端同步：已登录则防抖同步到云端（追加，不影响原有逻辑）
   if (typeof STAuth !== 'undefined' && STAuth.isLoggedIn()) STAuth.scheduleCloudSync();
+  // 自习室实时排序：在房间内时，数据变化后防抖刷新成员列表（打卡后活跃度变化能即时反映）
+  if (typeof studyRoomState !== 'undefined' && studyRoomState.room) {
+    if (_srRefreshTimer) clearTimeout(_srRefreshTimer);
+    _srRefreshTimer = setTimeout(function() {
+      if (typeof loadStudyRoomMe === 'function' && studyRoomState.room) loadStudyRoomMe().catch(function(){});
+    }, 2500);
+  }
 }
 
 /* ---- UI 标记：双写 localStorage + store.uiFlags，任一为 true 即视为已设置 ----
@@ -1738,7 +2249,7 @@ function initStorageSafety() {
   setTimeout(() => {
     getStorageEstimate().then(est => {
       if (est && est.usagePct >= 80) {
-        showStorageWarning('' + svgIcon('alert-triangle') + ' 浏览器存储空间已用 ' + est.usagePct + '%，快满了。建议尽快到「设置 → 导出备份」保存数据，并清理浏览器缓存。');
+        showStorageWarning('' + svgIcon('x-circle') + ' 浏览器存储空间已用 ' + est.usagePct + '%，快满了。建议尽快到「设置 → 导出备份」保存数据，并清理浏览器缓存。');
       }
     });
   }, 3000);
@@ -1869,6 +2380,11 @@ function getIntervals(p) {
   return (p.intervals && p.intervals.length) ? p.intervals : DEFAULT_INTERVALS;
 }
 
+/* 格式化记忆间隔为展示字符串，如 [1,2,4,7,15,30] → "1→2→4→7→15→30" */
+function formatIntervals(p) {
+  return getIntervals(p).join('→');
+}
+
 /* 一条内容从首次学习到"走完最后一轮、毕业"所需的累计天数 = 各档间隔之和。
    默认 [1,2,4,7,15,30] → 59 天。背书要保证所有内容在考试前毕业，
    最后一批新内容最晚必须在 deadline - cycleDays 天学完，之后只复习不学新。 */
@@ -1877,6 +2393,81 @@ function getReviewCycleDays(p) {
   let sum = 0;
   for (let i = 0; i < iv.length; i++) sum += Math.max(1, parseInt(iv[i], 10) || 1);
   return sum;
+}
+
+/* 模拟计算错题本预计全部攻克日（假设用户每天完成所有到期题且都做对）
+   遍历每道未攻克题，从其下次复习日（逾期从今天）起累加剩余各轮间隔，
+   取最晚攻克日作为全部攻克日；同时统计截止日前能攻克的比例。 */
+function estimateMistakeCompletion(p) {
+  const intervals = getIntervals(p);
+  const today = todayStr();
+  const items = p.items || [];
+  let maxDate = today;
+  let unmastered = 0;
+  let byDeadline = 0;
+
+  items.forEach(function(it) {
+    if (it.mastered || it.manualMastered || it.finalReviewDate) return;
+    unmastered++;
+    const stage = Math.min(it.stage || 0, intervals.length - 1);
+    var startDate = (it.nextReviewDate && it.nextReviewDate > today) ? it.nextReviewDate : today;
+    var date = startDate;
+    // 从 stage+1 开始累加：nextReviewDate 已经是 stage 轮的复习日，
+    // 复习后进入 stage+1，后续间隔为 intervals[stage+1..last]，最后一轮复习当天攻克
+    for (var s = stage + 1; s < intervals.length; s++) {
+      date = addDays(date, Math.max(1, parseInt(intervals[s], 10) || 1));
+    }
+    if (date > maxDate) maxDate = date;
+    if (p.deadline && date <= p.deadline) byDeadline++;
+  });
+
+  return {
+    allMasterDate: maxDate,
+    unmasteredCount: unmastered,
+    byDeadlineCount: byDeadline,
+    byDeadlinePct: unmastered > 0 ? Math.round(byDeadline / unmastered * 100) : 100,
+    canFinish: !p.deadline || maxDate <= p.deadline
+  };
+}
+
+/* 根据目标日期生成建议的缩短间隔（按比例压缩，最小1天，保留间隔递增结构） */
+function suggestShorterIntervals(p, targetDate) {
+  const intervals = getIntervals(p);
+  const today = todayStr();
+  const currentCycle = getReviewCycleDays(p);
+  const daysAvailable = diffDays(today, targetDate);
+  if (daysAvailable <= 0 || currentCycle <= daysAvailable) return intervals.slice();
+  const ratio = daysAvailable / currentCycle;
+  var suggested = intervals.map(function(d) { return Math.max(1, Math.round((parseInt(d, 10) || 1) * ratio)); });
+  // 保证严格递增（后一个≥前一个），避免压缩后出现 [1,1,1,...] 无梯度
+  for (var i = 1; i < suggested.length; i++) {
+    if (suggested[i] < suggested[i - 1]) suggested[i] = suggested[i - 1];
+  }
+  return suggested;
+}
+
+/* 按新间隔重新计算所有未攻克题目的 nextReviewDate（一键缩短间隔后调用）
+   从每道题的上次复习日（或学习日）起，用新间隔[当前stage]重算下次复习日；
+   有 customIntervals 的单题跳过（用户单独设定的不受全局间隔影响）。 */
+function rescheduleAllItemsWithNewIntervals(p) {
+  const intervals = getIntervals(p);
+  const today = todayStr();
+  (p.items || []).forEach(function(it) {
+    if (it.mastered || it.manualMastered || it.finalReviewDate) return;
+    if (it.customIntervals && it.customIntervals.length) return;
+    const stage = Math.min(it.stage || 0, intervals.length - 1);
+    const gap = Math.max(1, parseInt(intervals[stage], 10) || 1);
+    var baseDate = null;
+    if (it.reviews && it.reviews.length) {
+      baseDate = it.reviews[it.reviews.length - 1].date;
+    } else if (it.learnedDate) {
+      baseDate = it.learnedDate;
+    }
+    if (!baseDate) return;
+    var newDate = addDays(baseDate, gap);
+    if (newDate < today) newDate = today; // 逾期的锚定到今天，由 autoBalance 后续摊派
+    it.nextReviewDate = newDate;
+  });
 }
 
 function calcNextReviewDateFromLearn(learnDate, completedReviews, intervals) {
@@ -2083,7 +2674,13 @@ function getMetrics(p) {
     + '|' + (p.unitMode ? 1 : 0) + '|' + (p.reviewMode || '')
     // [v2 exercise] 舒适量/模式/战略放弃范围参与缓存签名，改设置后立刻重算
     + '|' + (p.exerciseMode || '') + '|' + (p.dailyComfort || '') + '|' + (p.sprintPauseNewPages ? 1 : 0)
-    + '|' + JSON.stringify(p.abandonedRanges || []) + '|' + JSON.stringify(p.abandonedSets || []);
+    + '|' + JSON.stringify(p.abandonedRanges || []) + '|' + JSON.stringify(p.abandonedSets || [])
+    // [排期审查补全] 以下字段影响容量/可行性/排期，修改后必须重算
+    + '|' + (p.dailyCapacity != null ? p.dailyCapacity : '') + '|' + (p.spreadThreshold || '')
+    + '|' + (p.reciteMode || '') + '|' + (p.comfortAsHardCap ? 1 : 0)
+    + '|' + (p.pauseNewLearning ? 1 : 0) + '|' + (p.newLearnCap != null ? p.newLearnCap : '')
+    + '|' + (p.lowFreqExtended ? 1 : 0) + '|' + (p.sprintCap || '') + '|' + (p.sprintEndDate || '')
+    + '|' + (p.startDate || '') + '|' + JSON.stringify(p.units || []);
   if (_metricsCache[cacheKey] && _metricsCache[cacheKey].sig === dataSig) {
     return _metricsCache[cacheKey].result;
   }
@@ -2446,6 +3043,14 @@ function getMetrics(p) {
     cycleDays, newLearnEnd, sprint, cycleTight, planDaysAvailable,
     effStart
   };
+  // [AI数据对齐] 把计算好的 perStudyDay 保存到项目数据，供后端 AI 直接读取，
+  // 保证 AI 说的"今天排X页"与界面右下角面板"每个学习日需做"完全一致
+  // 刷题/背书向上取整为整数（录入不支持小数、整数更直观、悄悄多做一点）；套卷支持分模块录入，保留1位小数
+  if (perStudyDay != null && isFinite(perStudyDay)) {
+    p.perStudyDay = isSetMode(p) ? (Math.round(perStudyDay * 10) / 10) : Math.ceil(perStudyDay);
+  } else {
+    delete p.perStudyDay;
+  }
   _metricsCache[cacheKey] = { sig: dataSig, result };
   return result;
 }
@@ -2608,7 +3213,7 @@ function spreadItems(p, items, days) {
   let changed = 0;
   // 防饥饿锁死的逾期条目强制回到今天（已在今天的不算变更）
   blocked.forEach(it => {
-    if (it.nextReviewDate !== today) { it.nextReviewDate = today; changed++; }
+    if (it.nextReviewDate !== today) { it.nextReviewDate = today; it.updatedAt = Date.now(); changed++; }
   });
 
   if (!spreadable.length) {
@@ -2624,7 +3229,7 @@ function spreadItems(p, items, days) {
     if (toDeadline < windowDays) windowDays = Math.max(0, toDeadline);
   }
   if (windowDays <= 0) {
-    spreadable.forEach(it => { if (it.nextReviewDate !== today) { it.nextReviewDate = today; changed++; } });
+    spreadable.forEach(it => { if (it.nextReviewDate !== today) { it.nextReviewDate = today; it.updatedAt = Date.now(); changed++; } });
     if (changed) { p.updatedAt = Date.now(); saveStore(); }
     return changed;
   }
@@ -2650,17 +3255,18 @@ function spreadItems(p, items, days) {
         best = { col, ratio, dist };
       }
     }
-    // 第二轮：窗口全满 → 选绝对负载最低的，并列选最远（保护近期，把溢出推到远端）
+    // 第二轮：窗口全满 → 选绝对负载最低的，并列选最近（避免把溢出推到远端造成前松后紧）
     if (!best) {
       let col = days_[0];
       for (const c of days_) {
-        if (c.load < col.load || (c.load === col.load && c.date > col.date)) col = c;
+        if (c.load < col.load || (c.load === col.load && c.date < col.date)) col = c;
       }
       best = { col };
     }
     it.nextReviewDate = best.col.date;
     it.spreadCount = (it.spreadCount || 0) + 1;
     it.lastSpreadDate = today;
+    it.updatedAt = Date.now();
     best.col.load++;
     if (oldDate !== best.col.date) changed++;
   });
@@ -2824,7 +3430,7 @@ function getDeadlineLevelCap(p, date) {
     if (remain < 1) remain = 1;
     reviewNeed += remain;
   });
-  const reviewCap = reviewNeed / studyDaysLeft;
+  const reviewCap = reviewNeed / studyDaysLeft * 0.9; // [v4 优化] 加0.9缓冲，避免每天任务刚好卡在极限
   // ② 新学需求：仅在新学窗口内（目标日 - 一个完整复习周期之前），把未学内容均摊到剩余新学学习日
   let newCap = 0;
   const cycleDays = getReviewCycleDays(p);
@@ -2844,7 +3450,7 @@ function getDeadlineLevelCap(p, date) {
       const unlearnedItems = unlearnedPages / avgPages;
       const newWindowDays = Math.max(1, diffDays(today, newLearnEnd) + 1);
       const newStudyDays = Math.max(1, newWindowDays * ratio);
-      newCap = unlearnedItems / newStudyDays;
+      newCap = unlearnedItems / newStudyDays * 0.9; // 与 reviewCap 同口径，留缓冲避免卡极限
     }
   }
   const need = reviewNeed;
@@ -3035,7 +3641,7 @@ function renderComfortAdvice(p) {
       parts.push(`<div style="margin-bottom:6px">${svgIcon('bar-chart-3')} 当前智能容量约 <b>${cap}</b> 条/天，实际每日排题 = min(${cap}, ${currentComfort}) = <b>${daily}</b> 条。</div>`);
     }
   }
-  parts.push(`<div style="color:var(--muted);font-size:12px">${svgIcon('lightbulb')} 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议，这里不用手动猜。</div>`);
+  parts.push(`<div style="color:var(--muted);font-size:12px">${svgIcon('lightbulb')} 舒适量是你每天愿意面对的最大条数。系统会根据你的实际节奏在复习页内自动给出调整建议。</div>`);
   // [v3 P0-A6] 固定模式早期容量校准：连续14天轻松完成
   // recite 跳过此逻辑，节奏建议统一走 renderReciteComfortAdvice
   if (p.type !== 'recite' && p.dailyCapacity != null && (!p.capAdviceMutedUntil || p.capAdviceMutedUntil < today)) {
@@ -3300,7 +3906,7 @@ function updateSpreadPressureHint() {
 
   let msg;
   if (due > threshold) {
-    msg = `${svgIcon('alert-triangle')} 今天有 ${due} 道待复习（含 ${overdue} 道逾期），已超过你设的舒适量 ${threshold}。保存后复习区会出现「分散到未来」按钮。`;
+    msg = `${svgIcon('x-circle')} 今天有 ${due} 道待复习（含 ${overdue} 道逾期），已超过你设的舒适量 ${threshold}。保存后复习区会出现「分散到未来」按钮。`;
   } else if (due > 0) {
     msg = `${svgIcon('check-circle')} 今天有 ${due} 道待复习，在舒适量 ${threshold} 以内，可以从容完成。`;
   } else {
@@ -3451,7 +4057,7 @@ function findAvailableDate(p, baseDate, opts) {
     }
     if (!best.fallback
       || ratio < best.fallback.ratio - 1e-9
-      || (Math.abs(ratio - best.fallback.ratio) < 1e-9 && offset > best.fallback.offset)) {
+      || (Math.abs(ratio - best.fallback.ratio) < 1e-9 && offset < best.fallback.offset)) {
       best.fallback = { d, ratio, offset };
     }
     return best;
@@ -3639,6 +4245,7 @@ function rebalanceForSprint(p) {
     it.nextReviewDate = bestD;
     it.spreadCount = (it.spreadCount || 0) + 1;
     it.lastSpreadDate = today;
+    it.updatedAt = Date.now();
     loadMap.set(bestD, (loadMap.get(bestD) || 0) + 1);
     moved++;
   });
@@ -3681,15 +4288,18 @@ function getMistakeDayPlan(p, date) {
       const rate = getMistakeCollectRate(p);
       const predictedNew = Math.max(0, rate * Math.max(0, daysLeft - 1)); // 今天之后预计新增
       const studyDays = Math.max(1, daysLeft * getStudyDayRatio(p));
-      addon = predictedNew / studyDays;       // 为未来新题保底复习，提前均摊（前期多、后期衰减）
+      // [v4 优化] addon权重从100%降到70%：新题收录后会有自己的间隔，不需要现在就100%预留
+      addon = predictedNew / studyDays * 0.7;
     }
   }
   const comfort = getComfortCap(p);
-  // [v3 算法-04] hardMax跟随EWMA：能学多的人不被comfort×1.5卡死
+  // [v4 优化] hardMax从comfort×1.5降到×1.3，上限25→20，下限12→10，避免过度施压
   const ewma = getEwmRate(p, d);
-  const hardMax = Math.min(25, Math.max(12, Math.max(Math.round(comfort * 1.5), ewma)));
+  const hardMax = Math.min(20, Math.max(10, Math.max(Math.round(comfort * 1.3), ewma)));
   let raw = base + addon;
-  const target = Math.max(1, Math.min(hardMax, Math.ceil(raw)));
+  // [v4 优化] target不超过hardMax×0.9，留一点缓冲
+  const targetCap = Math.ceil(hardMax * 0.9);
+  const target = Math.max(1, Math.min(targetCap, Math.ceil(raw)));
   return { target, raw, base, addon, hardMax, risk: raw > hardMax };
 }
 
@@ -3720,7 +4330,7 @@ function getMistakeFeasibility(p) {
   } else {
     // 智能模式：effectiveComfort = max(comfort, EWMA)
     effectiveComfort = Math.max(comfort, ewma);
-    hardMax = Math.min(25, Math.max(12, Math.max(Math.round(comfort * 1.5), ewma)));
+    hardMax = Math.min(20, Math.max(10, Math.max(Math.round(comfort * 1.3), ewma))); // [v4 优化] 与getMistakeDayPlan保持一致
   }
   let level = 'ok';
   if (work > studyDays * hardMax) level = 'risk';
@@ -3746,9 +4356,9 @@ function pullForwardIfNeeded(p) {
   let want = plan.target - getDueItems(p).length;
   if (want <= 0) { p.lastPullForwardCount = 0; return 0; } // 今天够目标，不加
 
-  // [v3 算法-11] pullForward刹车：今天due已超过EWMA×1.2时不再拉题（避免超载硬拉）
+  // [v4 优化] pullForward刹车从EWMA×1.2降到×1.1，更灵敏避免超载硬拉
   const ewma = getEwmRate(p, today);
-  if (getDueItems(p).length > ewma * 1.2) { p.lastPullForwardCount = 0; return 0; }
+  if (getDueItems(p).length > ewma * 1.1) { p.lastPullForwardCount = 0; return 0; }
 
   const horizon = addDays(today, 14);
   let cands = (p.items || []).filter(it =>
@@ -3761,7 +4371,7 @@ function pullForwardIfNeeded(p) {
     return (a.stage || 0) - (b.stage || 0);
   });
   let pulled = 0;
-  for (const it of cands) { if (pulled >= want) break; it.originalNextReviewDate = it.nextReviewDate; it.nextReviewDate = today; it.earlyReviewed = true; pulled++; }
+  for (const it of cands) { if (pulled >= want) break; it.originalNextReviewDate = it.nextReviewDate; it.nextReviewDate = today; it.earlyReviewed = true; it.updatedAt = Date.now(); pulled++; }
   p.lastPullForwardCount = pulled;
   return pulled;
 }
@@ -3773,8 +4383,8 @@ function ensureAtLeastOneReview(p) {
   let changed = 0;
   (p.items || []).forEach(it => {
     if (it.mastered || it.manualMastered || it.finalReviewDate || (it.stage || 0) >= 1) return;
-    if (!it.nextReviewDate) { it.nextReviewDate = today < p.deadline ? addDays(today, 1) : p.deadline; changed++; }
-    else if (it.nextReviewDate > p.deadline) { it.nextReviewDate = p.deadline; changed++; }
+    if (!it.nextReviewDate) { it.nextReviewDate = today < p.deadline ? addDays(today, 1) : p.deadline; it.updatedAt = Date.now(); changed++; }
+    else if (it.nextReviewDate > p.deadline) { it.nextReviewDate = p.deadline; it.updatedAt = Date.now(); changed++; }
   });
   if (changed > 0) p.updatedAt = Date.now();
   return changed;
@@ -3790,9 +4400,10 @@ function settleToday(p) {
   let changed = 0;
   getDueItems(p).forEach(it => {
     const did = (it.reviews || []).filter(r => r.date === today).length > (it.learnedDate === today ? 1 : 0);
-    if (it.earlyReviewed && !did) { it.nextReviewDate = addDays(today, 1); changed++; }
+    if (it.earlyReviewed && !did) { it.nextReviewDate = addDays(today, 1); it.updatedAt = Date.now(); changed++; }
   });
-  if (getDueItems(p).length === 0 && p.todayMetDate !== today) { p.todayMetDate = today; changed++; }
+  // 设置 todayMetDate 标记不改变今日任务总量，单独处理，不触发重新估算
+  if (getDueItems(p).length === 0 && p.todayMetDate !== today) { p.todayMetDate = today; }
   if (changed > 0) p.updatedAt = Date.now();
   return changed;
 }
@@ -3817,7 +4428,7 @@ function autoBalanceIfNeeded(p) {
   const keepN = Math.max(0, cap - blocked.length);
   const keep = blocked.concat(spreadable.slice(0, keepN));
   const excess = spreadable.slice(keepN);
-  keep.forEach(it => { it.nextReviewDate = today; });
+  keep.forEach(it => { if (it.nextReviewDate !== today) { it.nextReviewDate = today; it.updatedAt = Date.now(); } });
   if (!excess.length) {
     // 超额条目全部因"逾期太久不能再推"而锁死，今日负载无法再后摊（记忆安全优先）。
     // 标记今天已处理，交由状态卡如实提示"优先做逾期"，不做无效写盘。
@@ -3960,6 +4571,7 @@ function rebalanceExpiredItems(p) {
     // 尊重防饥饿锁死：不能再摊的题保留在今天（它们已经在due列表里了，只是日期是过去）
     if (!canBeSpread(it, p)) {
       it.nextReviewDate = today; // 拉到今天，不再停在过去日期
+      it.updatedAt = Date.now();
       moved++;
       return;
     }
@@ -3976,6 +4588,7 @@ function rebalanceExpiredItems(p) {
     it.nextReviewDate = bestD;
     it.spreadCount = (it.spreadCount || 0) + 1;
     it.lastSpreadDate = today;
+    it.updatedAt = Date.now();
     loadMap.set(bestD, (loadMap.get(bestD) || 0) + 1);
     moved++;
   });
@@ -4063,6 +4676,18 @@ function recomputeItemMastery(item, p) {
   item.wrongStreak = wrongStreak;
   item.spreadCount = 0; // 重算后清零分散次数
   item.earlyReviewed = false;
+  // 关键薄弱点永久标记：重算时如果历史上曾经连续错2次及以上，保留标记
+  if (!item.everWeakKey) {
+    let _ws = 0;
+    for (let _i = 0; _i < reviews.length; _i++) {
+      if (reviews[_i].quality === 'forgot' || reviews[_i].quality === 'fail') {
+        _ws++;
+        if (_ws >= 2) { item.everWeakKey = true; break; }
+      } else {
+        _ws = 0;
+      }
+    }
+  }
   // 判断是否掌握：最后一轮 + 满3次 + 最近3次全对（最后一次必须是 good）才直接标记（后台重算不弹窗）
   const isLastRound = stage >= intervals.length - 1;
   const recent = reviews.slice(-3);
@@ -4098,6 +4723,8 @@ function applyReview(item, quality, p, note) {
   const tr = transitionReview(intervals, item.stage || 0, item.wrongStreak || 0, quality, isFirstLearn, p.lapseRollback);
   const newStage = tr.stage;
   item.wrongStreak = tr.wrongStreak;
+  // 关键薄弱点永久标记：一旦连续错2次及以上，永久打上标记（即使后来连续做对也保留）
+  if (item.wrongStreak >= 2) item.everWeakKey = true;
 
   const review = { date: today, quality, stage: isFirstLearn ? 0 : newStage };
   if (note && note.trim()) review.note = note.trim().slice(0, 60);
@@ -4110,6 +4737,25 @@ function applyReview(item, quality, p, note) {
   delete item.originalNextReviewDate; // 已复习，清掉提前复习的追踪字段
   p.updatedAt = Date.now();
   saveStore(); // 立即存盘，避免弹出确认弹窗时刷新导致本次评价丢失
+
+  // 更新已学时长
+  if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+    var totalMin = Number(p.todayEstimatedTotalMinutes);
+    var totalUnits = Number(p.todayTotalUnits);
+    if (isFinite(totalMin) && totalMin > 0 && isFinite(totalUnits) && totalUnits > 0) {
+      // 新模式：按比例重新计算
+      StudyTime._recomputeTodayStudied();
+      StudyTime.updateDisplay();
+    } else {
+      // 旧模式：每条 estimatedMinutes
+      var itemMin = Number(item.estimatedMinutes);
+      if (isFinite(itemMin) && itemMin >= 1 && itemMin <= 120) {
+        StudyTime.addStudied(itemMin);
+      } else {
+        StudyTime.addStudied(p.type === 'recite' ? 2 : 5);
+      }
+    }
+  }
 
   if (isFirstLearn) {
     item.mastered = false;
@@ -4133,14 +4779,15 @@ function applyReview(item, quality, p, note) {
   const isLastRound = newStage >= intervals.length - 1;
 
   if (quality === 'good' && isLastRound) {
-    if (allGood && !tooFew) {
-      // 最后一轮 + 满3次 + 最近3次全对 → 直接毕业，进入保持期
+    const masterMode = p.masterMode || 'ask';
+    if (allGood && !tooFew && masterMode === 'auto') {
+      // 自动熟知模式：最后一轮 + 满3次 + 最近3次全对 → 直接毕业，进入保持期
       item.mastered = true;
       item.masteredDate = today;
       item.nextReviewDate = null;
       scheduleRetention(item, today, 0, p);
-    } else {
-      // 最后一轮但不满足直接毕业条件 → 弹窗确认
+    } else if (masterMode !== 'manual') {
+      // 每次询问模式（或不满足直接毕业条件）→ 弹窗确认
       // 弹窗前先落一个默认的下次复习日期（最长间隔），避免用户杀进程/刷新后 stage 已推进但 nextReviewDate 还是旧值的不一致状态
       const lastGap = intervals[intervals.length - 1] || 30;
       item.mastered = false;
@@ -4151,9 +4798,17 @@ function applyReview(item, quality, p, note) {
       pendingConfirmItem = item;
       pendingConfirmProject = p;
       pendingConfirmFromSkip = false;
-      const reason = tooFew ? 'few' : 'notAllGood';
+      const reason = tooFew ? 'few' : (allGood ? 'allGood' : 'notAllGood');
       showConfirmMaster(item, p, recent, reason);
       return;
+    } else {
+      // 手动熟知模式：不弹窗，按正常间隔继续排期
+      item.mastered = false;
+      item.masteredDate = null;
+      clearRetention(item);
+      if (wasEarlyReviewed && quality !== 'good') item.earlyReviewed = true;
+      item.nextReviewDate = scheduleNextReview(p, item, today, newStage, tr.gap);
+      item.earlyReviewed = false;
     }
   } else {
     // 未到最后一轮，或 fuzzy/forgot → 不掌握，按三档模型安排下次复习
@@ -4222,7 +4877,15 @@ function showConfirmMaster(item, p, recentReviews, reason) {
   const opt1 = document.createElement('button');
   opt1.className = 'cm-opt cm-opt-primary';
   opt1.innerHTML = `<span class="cm-opt-icon">${svgIcon('check-circle')}</span><span class="cm-opt-main"><span class="cm-opt-title">确认已${masteredWord}</span><span class="cm-opt-desc">不再复习这条内容</span></span>`;
-  opt1.addEventListener('click', () => { mask.hidden = true; confirmMasterItem(true); });
+  opt1.addEventListener('click', () => {
+    const autoCheck = $('#cmAutoMasterCheck');
+    if (autoCheck && autoCheck.checked) {
+      p.masterMode = 'auto';
+      saveStore();
+    }
+    mask.hidden = true;
+    confirmMasterItem(true);
+  });
   opts.appendChild(opt1);
 
   // 选项2：重新开始
@@ -4294,8 +4957,24 @@ function showConfirmMaster(item, p, recentReviews, reason) {
     }
   }, 0);
 
+  // 不再提醒复选框
+  const oldHint = mask.querySelector('.cm-master-hint');
+  if (oldHint) oldHint.remove();
+  const masterHint = document.createElement('label');
+  masterHint.className = 'cm-master-hint';
+  masterHint.innerHTML = `
+    <input type="checkbox" id="cmAutoMasterCheck" style="margin-right:6px;accent-color:var(--brand)">
+    <span>以后掌握后自动熟知，不再询问</span>
+  `;
+  opts.parentNode.insertBefore(masterHint, opts.nextSibling);
+
   mask.hidden = false;
   modalTop(mask);
+  // 默认聚焦第一个选项，支持 Enter 直接确认、↑↓ 切换
+  setTimeout(() => {
+    const firstOpt = mask.querySelector('.cm-opt');
+    if (firstOpt) firstOpt.focus();
+  }, 50);
 }
 
 function confirmMasterItem(confirm, mode, customIntervals) {
@@ -4588,7 +5267,11 @@ function getCatchUpPlan(p, m) {
   addCand(7, '每天都学');
   addCand(5, '每周 5 天');
 
-  if (keep.mult <= 1.5) {
+  // 保持当前频率的阈值：频率正常（每周≥5天）时 1.5 倍以内算"稍微多做一点"；
+  // 频率偏低（每周<5天）时收紧到 1.25——低频下硬加量比提频率更难坚持，
+  // 避免一次打卡拉高 perStudyDayRaw 后刚好跨过 1.5 导致方案从"每周6天"跳变到"每周2天"。
+  const keepThreshold = curWk >= 5 ? 1.5 : 1.25;
+  if (keep.mult <= keepThreshold) {
     // 缺口小：保持现有频率、每次稍微多做一点即可，不必改频率
     out.onTime = keep;
     out.alt = null;
@@ -4601,7 +5284,11 @@ function getCatchUpPlan(p, m) {
       out.alt = pool[1] || null;
     }
     // 保持频率就能在 3 倍内追上（强度大但数学上可行）时，作为首选/备选
-    if (!out.onTime && keep.mult <= 3) out.onTime = keep;
+    // 超过 MAX_MULT(2.5倍) 时标注 heavy，避免面板显示"可按期完成"但实际强度很大误导用户
+    if (!out.onTime && keep.mult <= 3) {
+      out.onTime = keep;
+      if (keep.mult > MAX_MULT) out.onTime.heavy = true;
+    }
     if (out.onTime && !out.alt && keep.mult <= MAX_MULT && out.onTime.wk !== curWk) out.alt = keep;
   }
   // 无任何可行按期方案：给"每天都学"的硬路径，并如实标注强度，让卡片去引导延期
@@ -4642,106 +5329,177 @@ const Coach = {
   },
   start: {
     morning: [
-      '早上好！新的一天，先从今天的小目标开始，做完会很踏实～',
-      '早晨状态最好，先把今天的量完成，剩下时间都是赚的～',
-      '早！今天也按节奏来，先坐下开始，进入状态就顺了～',
-      '清晨是高效时段，先完成目标，一天都轻松～',
+      '早上好，新的一天从翻开书开始',
+      '清晨脑子最清醒，先把硬骨头啃了',
+      '早！坐下来，进入状态就顺了',
+      '新的一天，今天也要稳稳推进',
+      '早晨效率高，先动起来再说',
     ],
     day: [
-      '今天的目标已经安排好啦，找个时间开始吧～',
-      '按节奏推进就好，先从今天的第一部分开始～',
-      '今天也稳稳的，完成目标就是胜利～',
-      '不用想太多，跟着今天的安排走就好～',
-      '先开始，哪怕只做一点点，进入状态后会越做越顺～',
+      '今天的任务在等你，找个时间开始',
+      '按节奏来，先从第一题做起',
+      '今天也稳住，完成就是胜利',
+      '别想太多，先坐下翻开书',
+      '开始了就不难，进入状态越做越顺',
+      '今天的目标很明确，动手吧',
     ],
     evening: [
-      '晚上好，今天还有时间完成目标，现在开始刚刚好～',
-      '别拖到太晚哦，现在开始，做完安心休息～',
-      '晚上效率也可以很高，先做起来，时间够用～',
-      '今天还剩一点时间，完成目标再休息会更踏实～',
+      '晚上好，现在开始还来得及',
+      '晚上安静，正好适合刷题',
+      '别拖，现在开始做完更踏实',
+      '晚上效率也能很高，先做起来',
+      '今天还没结束，开始就不晚',
     ],
     night: [
-      '夜深了，如果今天还没做，做一点点也好，别给自己压力～',
-      '深夜了，量力而行，哪怕开始一点点都算数～',
+      '夜深了，学完这部分就休息',
+      '深夜安静，适合整理错题',
     ],
   },
   streak: {
     hot: [
-      '连续天数很亮眼，今天别断、保持住！',
-      '这份坚持很了不起，今天也坐下来、接着保持～',
-      '已经连续这么多天，惯性在你这边～',
+      '连续打卡很亮眼，今天继续保持',
+      '这份坚持了不起，今天也坐下来',
+      '已经连续这么多天，节奏已经成了习惯',
+      '连续的力量，势头正旺',
+      '状态正热，接着学',
     ],
     warm: [
-      '连续几天了，节奏不错，今天也跟上～',
-      '保持连续记录，今天做一点就续上了～',
+      '连续几天了，节奏不错',
+      '保持住，今天也跟上',
+      '连续记录在积累，继续',
     ],
   },
   back: [
-    '歇了几天没关系，节奏很快就会回来～',
-    '欢迎回来！不用补之前的，重新出发就好～',
-    '断几天很正常，捡起来比从零开始快得多～',
-    '回来就好，慢慢进入状态～',
-    '休息也是学习的一部分，今天重新出发～',
-    '之前学的都还在，不用有负担～',
+    '回来了就好，重新出发',
+    '断几天正常，捡起来比从零快',
+    '欢迎回来，之前学的都还在',
+    '休息够了，今天重新进入状态',
+    '回来就不晚，慢慢找感觉',
   ],
   progress: {
     early: [
-      '稳扎稳打，先完成一部分～',
-      '已经启动，保持这个感觉～',
-      '不错的开局，继续往下～',
-      '踏踏实实，一步步来～',
+      '开局不错，保持这个感觉',
+      '已经启动了，继续往下走',
+      '好的开始，稳扎稳打',
+      '动起来了，一步步推进',
+      '开头顺利，后面会更顺',
+      '已经在轨道上了，保持',
     ],
     mid: [
-      '稳扎稳打，保持这个节奏～',
-      '中间阶段最考验坚持，你做得很好，继续～',
-      '进度在稳步推进，继续保持～',
-      '保持这个势头，再接再厉～',
+      '进度过半，继续保持节奏',
+      '中间阶段最考验坚持，你做得很好',
+      '稳步推进中，势头不错',
+      '已经走了一半，再加把劲',
+      '进度在往前，别停',
+      '过半了，胜利在望',
     ],
     late: [
-      '进入后半程，一鼓作气～',
-      '快了，保持住这个状态～',
-      '收尾阶段，再加把劲～',
-      '手感正好，拿下它～',
+      '进入收尾，一鼓作气',
+      '快完成了，保持住状态',
+      '最后阶段，冲一下',
+      '手感正好，拿下它',
+      '就差一点了，别松劲',
+      '收尾了，集中注意力',
     ],
   },
   done: [
-    '今日目标达成，剩下时间自由安排～',
-    '完成！今天的任务稳稳拿下，好好放松～',
-    '达标了！按节奏走就是这么稳～',
-    '今日份学习圆满完成，辛苦啦～',
-    '目标完成，这份踏实感是你应得的～',
+    '今日目标达成，干得漂亮',
+    '完成！今天稳稳拿下',
+    '达标了，这份踏实感是你应得的',
+    '今日任务圆满完成，辛苦了',
+    '目标完成，今天很充实',
+    '拿下了！明天继续保持',
   ],
-  // 今日只完成一部分时的收尾鼓励（句子自带动作引导，不再拼后缀，避免"继续~继续"重复）
   dashPartial: [
-    '已经开了个好头，把剩下的完成，今天就更踏实了～',
-    '进度不错，趁热打铁把今天的目标收尾～',
-    '进度在往前走，今天的任务很快就能清完～',
-    '状态已经热起来了，顺手把剩下的做完～',
-    '继续保持这个节奏，再推进一点点，今天的目标就到手了～',
+    '已经开了好头，把剩下的也完成',
+    '进度不错，趁热打铁收尾',
+    '在往前走了，很快就能清完',
+    '状态热起来了，顺手做完',
+    '保持节奏，再推进一步',
+    '已经做了不少，继续把今天的目标拿下',
   ],
   overSmall: [
-    '小超额，今天状态不错～',
-    '多做了一些，很棒，剩下时间自由安排～',
-    '超额完成，效率在线～',
-    '比目标多做了点，今天很充实～',
+    '小超额，今天状态不错',
+    '多做了一些，很棒',
+    '效率在线，比计划多推进了',
+    '今天很充实，超出预期',
   ],
   overMid: [
-    '比目标多做了不少，今天的你很高效～',
-    '状态正佳，多学了这么多，成就感满满～',
-    '一口气推进了这么多，势头很足～',
-    '今天发挥得很好，这份高效很提气～',
+    '比目标多做不少，今天很高效率',
+    '状态正佳，成就感满满',
+    '一口气推进这么多，势头很足',
+    '今天发挥很好，这份高效很提气',
   ],
   overBig: [
-    '今天彻底爆发了，状态太强了，剩下时间好好休息～',
-    '这股劲头太棒了，不用每天都这样，今天已经很厉害～',
-    '火力全开的一天，好好犒劳自己～',
-    '今天效率拉满，爆发日是加分项，按自己的节奏来～',
-    '学了这么多，今天的你超强，剩下时间完全自由～',
+    '今天彻底爆发，状态太强了',
+    '火力全开的一天，厉害',
+    '效率拉满，今天的你超强',
+    '这股劲头太棒了，继续保持',
+    '学了这么多，今天超额完成',
   ],
   cold: [
-    '刚开始，数据还在积累，先按你的状态来，不用有压力～',
-    '前几天是磨合期，做几天系统就更懂你的节奏了～',
-    '开局阶段，目标只是参考，找到自己的感觉最重要～',
+    '刚开始，先按你的状态来',
+    '前几天是磨合期，做几天就顺了',
+    '开局阶段，找到自己的节奏最重要',
+  ],
+  // 速度加快检测：今天进度比平时快
+  speedUp: [
+    '今天状态不错，比平时快，保持住',
+    '手感正好，趁势多推进一些',
+    '今天效率很高，这个节奏很好',
+    '进入状态了，越做越顺',
+    '速度比平时快，说明知识点掌握得不错',
+  ],
+  // 速度变慢检测：今天进度比平时慢
+  speedSlow: [
+    '今天慢一点没关系，稳扎稳打更重要',
+    '遇到难题了？慢慢来，搞懂一道是一道',
+    '节奏放缓了，说明这部分需要多花时间',
+    '不用急，理解比速度更重要',
+    '慢工出细活，这部分吃透了后面会快',
+  ],
+  // 有逾期时的文案
+  hasOverdue: [
+    '有几道逾期了，先把最久的清掉',
+    '逾期的题最容易忘，优先处理它们',
+    '先清逾期，再做新的，记忆更牢',
+  ],
+  // 冲刺期文案
+  sprint: [
+    '冲刺阶段，保持节奏别松劲',
+    '临近目标，每一道题都算数',
+    '最后阶段，稳住就是赢',
+  ],
+  // 不可能完成（硬约束不建议延期）
+  impossibleHard: [
+    '今天任务量很大，拆成几次完成',
+    '量不小，优先拿下高频考点',
+    '冲刺量，能多做一道是一道',
+  ],
+  // 刷题本低进度（更丰富，带速度检测）
+  exerciseLow: [
+    '已经动起来了，继续保持这个节奏',
+    '开了个好头，往下推进会越来越顺',
+    '进度在往前走，别停',
+    '已经开始了，这就是最重要的一步',
+    '状态不错，接着做',
+    '今天已经有进展了，继续',
+    '动起来就不难，保持住',
+    '不错的开局，一鼓作气',
+    '进入状态了，趁势多做几道',
+    '今天的状态可以，保持',
+  ],
+  // 刷题本低进度+速度快
+  exerciseLowFast: [
+    '开局很快，手感正好，继续',
+    '今天进入状态很快，保持这个速度',
+    '一开始就很顺，说明这部分掌握得不错',
+  ],
+  // 刷题本低进度+速度慢
+  exerciseLowSlow: [
+    '开头慢一点正常，后面会越来越顺',
+    '刚开始进入状态，慢慢来',
+    '第一道题总是最难的，做开就好了',
   ],
 };
 function coachSlot() {
@@ -4776,7 +5534,7 @@ function getStatusMessage(p, m) {
       else if (early === 0) praise = '刚好在目标日完成，卡得很准！';
     }
     return { icon:'' + svgIcon('flag') + '', cls:'ok', title:'全部内容已完成',
-      desc:`共 ${tot} ${u}，你在 ${fmtCN(m.t)} 完成了整个目标。${praise ? praise + '<br><br>' : ''}可以在设置中调整截止日期，或开始下一个任务。` };
+      desc:`共 ${tot} ${u}，你在 ${fmtCN(m.t)} 完成了整个目标。${praise ? praise + '<br><br>' : ''}这份坚持很了不起，可以开始下一个目标，或把这本归档收进收纳箱。` };
   }
 
   // 2. 错题本：核心理念——攻克错题是最高效的提分，错题是"提前发现的薄弱点"而非负担。
@@ -4817,9 +5575,32 @@ function getStatusMessage(p, m) {
     if (p.deadline && m.remaining > 0) {
       const daysLeft = diffDays(today, p.deadline);
       if (daysLeft < 0) {
-        deadlineWarn = `<br><br>目标日已过 ${-daysLeft} 天，错题本仍会继续帮你滚动剩下的 ${rem} 道，不用焦虑；想设个新目标日，可以在设置里调整。`;
+        deadlineWarn = `<br><br>目标日已过 ${-daysLeft} 天，错题本仍会继续帮你滚动剩下的 ${rem} 道，系统会自动安排好复习节奏，你只管清今天的。想设个新目标日，可以在设置里调整。`;
       } else if (daysLeft <= 14) {
         deadlineWarn = `<br><br>距目标日 ${fmtCN(p.deadline)} ${fmtDaysLeft(daysLeft)}。这段时间建议优先清「今天到期」和「反复错」的题——把已经暴露过的薄弱点做熟，比漫无目的地刷新题更针对考前提分。想筛查哪些题从收录后一次都没复习过，可以到「${svgIcon('target')} 薄弱点 → 未复习」里看一眼。`;
+      }
+    }
+
+    // 预计全部攻克日：模拟每道未攻克题按间隔滚动的最晚攻克日，动态显示
+    let etaLine = '';
+    if (m.remaining > 0) {
+      const eta = estimateMistakeCompletion(p);
+      if (eta.unmasteredCount > 0) {
+        if (!p.deadline) {
+          etaLine = `<br><br>按当前节奏，预计 <b>${fmtCN(eta.allMasterDate)}</b> 全部攻克。`;
+        } else if (eta.canFinish) {
+          const early = diffDays(eta.allMasterDate, p.deadline);
+          etaLine = `<br><br>按当前节奏，预计 <b>${fmtCN(eta.allMasterDate)}</b> 全部攻克（比目标日早 ${early} 天）。`;
+        } else {
+          const late = diffDays(p.deadline, eta.allMasterDate);
+          const daysLeft = diffDays(today, p.deadline);
+          const isSprint = daysLeft <= 15 && daysLeft >= 0;
+          const suggested = suggestShorterIntervals(p, p.deadline);
+          const suggestedStr = suggested.join('→');
+          const sprintTag = isSprint ? '<span style="display:inline-block;padding:1px 8px;margin-right:6px;font-size:11px;border-radius:4px;background:rgba(176,122,75,.15);color:var(--brand2,#b07a4b);font-weight:600">冲刺期</span>' : '';
+          etaLine = `<br><br>${sprintTag}<span style="color:var(--danger,#c0392b)">按当前间隔，截止日前可攻克 <b>${eta.byDeadlinePct}%</b>（${eta.byDeadlineCount}/${eta.unmasteredCount} 道），全部过完预计到 ${fmtCN(eta.allMasterDate)}，比目标日晚 ${late} 天。</span>`;
+          etaLine += `<br>建议：<button class="eta-shorten-btn" data-intervals="${suggestedStr}" style="display:inline-block;padding:3px 12px;margin:6px 0;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--brand,#2e6b4f);color:var(--brand,#2e6b4f);background:rgba(46,107,79,.06);cursor:pointer;transition:.15s">一键缩短间隔为 ${suggestedStr} 天</button>，或增加每日复习量、优先攻克反复错的高频薄弱点。`;
+        }
       }
     }
 
@@ -4827,10 +5608,10 @@ function getStatusMessage(p, m) {
     if (over > 0) {
       const heavy = over >= Math.max(1, due * 0.5);
       const lead = heavy
-        ? `今天有 ${due} 道待复习（含 ${over} 道逾期）。<strong>不用一次做完，也不用有负担</strong>，先从最久没复习的那条开始，其余的系统会自动摊到接下来几天。`
+        ? `今天有 ${due} 道待复习（含 ${over} 道逾期）。<strong>分批消化，先从最久没复习的开始</strong>，其余的系统会自动摊到接下来几天。`
         : `今天有 ${due} 道待复习（含 ${over} 道逾期）。先把逾期的过一遍，哪怕只做几条，记忆也会重新接上。`;
       return { icon:'' + svgIcon('pin') + '', cls:'info', title: heavy ? `有 ${over} 道逾期，分批消化就好` : `有 ${over} 道错题到期了`,
-        desc:`${lead}<br>${progressPhrase}${weakPhrase ? '<br>' + weakPhrase : ''}错题按间隔滚动，做完当轮自动排下一轮，你只管清今天的。${deadlineWarn}` };
+        desc:`${lead}<br>${progressPhrase}${weakPhrase ? '<br>' + weakPhrase : ''}错题按间隔滚动，做完当轮自动排下一轮，你只管清今天的。${deadlineWarn}${etaLine}` };
     }
     // (b) 正常待复习：强调"攻克 = 实打实进步"
     if (due > 0) {
@@ -4839,13 +5620,13 @@ function getStatusMessage(p, m) {
       else if (mpct >= 0.5) tail = '已经攻克过半，进展很实在。';
       else if (masteredNum > 0) tail = '做对会把间隔越拉越长，之后会越来越轻松。';
       return { icon:'' + svgIcon('clipboard-list') + '', cls:'info', title:`今天有 ${due} 道错题等你过一遍`,
-        desc:`每攻克一道错题，就是实打实补上一个提分点，比刷十道新题更值。${masteryLine ? masteryLine + '，' : ''}${tail}${weakPhrase ? '<br>' + weakPhrase : ''}${deadlineWarn}` };
+        desc:`每攻克一道错题，就是实打实补上一个提分点，比刷十道新题更值。${masteryLine ? masteryLine + '，' : ''}${tail}${weakPhrase ? '<br>' + weakPhrase : ''}${deadlineWarn}${etaLine}` };
     }
     // (c) 今天刚把队列清完（还没全攻克）：给即时满足
     if (due <= 0 && reviewedToday > 0 && m.remaining > 0) {
       const got = masteredToday > 0 ? `今天还攻克了 ${masteredToday} 道，又拿下 ${masteredToday} 个薄弱点。` : '';
       return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'今天的错题都过完了',
-        desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，不用提前惦记。${progressPhrase ? '<br>' + progressPhrase : ''}` };
+        desc:`今天已复习 ${reviewedToday} 道，${got}剩下的会在到期日自动提醒，系统帮你记着。${progressPhrase ? '<br>' + progressPhrase : ''}${etaLine}` };
     }
     if (m.remaining === 0 && m.currentPage > 0) {
       return { icon:'' + svgIcon('party-popper') + '', cls:'ok', title:'已收录的错题全部攻克',
@@ -4854,7 +5635,7 @@ function getStatusMessage(p, m) {
     // (d) 刚收录、还没开始：把"收录错题"正面化
     if (justStarted) {
       return { icon:'' + svgIcon('square-pen') + '', cls:'info', title:'错题已经帮你记下了',
-        desc:`已收录 ${tot} 道错题，等于提前找到了 ${tot} 个提分点。现在还没有到期提醒，可以在复习区先过 1 道，间隔系统就开始运转，之后全自动提醒。` };
+        desc:`已收录 ${tot} 道错题，等于提前找到了 ${tot} 个提分点。现在还没有到期提醒，可以在复习区先过 1 道，间隔系统就开始运转，之后全自动提醒。${etaLine}` };
     }
     // (e) 队列暂时清空
     const calmTail = mpct >= 0.8
@@ -4862,10 +5643,10 @@ function getStatusMessage(p, m) {
       : mpct >= 0.5
         ? `已攻克 ${masteredPct}%、过半了，暂无到期就是暂时清空了队列，保持节奏就好。`
         : masteredNum > 0
-          ? `已攻克 ${curN} / ${tot} 道，队列暂时清空，今天可以轻松些。`
+          ? `已攻克 ${curN} / ${tot} 道，队列暂时清空，状态不错，继续保持。`
           : '暂无到期错题，遇到新错题随时收录即可。';
     return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'暂无到期错题',
-      desc:`${calmTail}${deadlineWarn}` };
+      desc:`${calmTail}${deadlineWarn}${etaLine}` };
   }
 
   // 3. 背书本·冲刺期：剩余时间已不足一个完整复习周期（距考试 < cycleDays），
@@ -4911,7 +5692,7 @@ function getStatusMessage(p, m) {
         ? `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前学完，之后还留约 ${m.cycleDays} 天滚动复习。`
         : `按每个学习日约 ${perStudy.toFixed(1)} ${u}（每周约 5 天）推进，就能在 ${fmtCN(targetDate)} 前完成。`;
       return { icon:'' + svgIcon('sprout') + '', cls:'info', title:'刚开始，先把节奏跑起来',
-        desc:`${doneTxt}。先有个粗略抓手：${grasp}这是早期估算，做几天就会按你的真实节奏自动修正，现在不用有压力。${reciteCycleLine}` };
+        desc:`${doneTxt}。先有个粗略抓手：${grasp}这是早期估算，做几天就会按你的真实节奏自动修正，现在专注把今天的量做好。${reciteCycleLine}` };
     }
     if (m.activeDays >= 1) {
       return { icon:'' + svgIcon('sprout') + '', cls:'info', title:'第一步已经完成',
@@ -4956,10 +5737,12 @@ function getStatusMessage(p, m) {
   const remaining = m.remaining, daysAvailable = m.daysAvailable;
   const curWk = plan.curWk, curRate = plan.curRate;
   const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  // 方案里的目标量与目标卡同口径：套卷保留1位小数，页/条向上取整
+  const perTxt = (v) => isSetMode(p) ? n1(v) : String(Math.ceil(v));
   const planText = (c) => {
     if (!c) return '';
-    if (c.keep) return `保持每周 ${c.wk} 天、每次约 ${n1(c.per)} ${u}（比平时多约 ${Math.round((c.mult - 1) * 100)}%）`;
-    return `每周学 ${c.wk} 天、每次约 ${n1(c.per)} ${u}`;
+    if (c.keep) return `保持每周 ${c.wk} 天、每次约 ${perTxt(c.per)} ${u}（比平时多约 ${Math.round((c.mult - 1) * 100)}%）`;
+    return `每周学 ${c.wk} 天、每次约 ${perTxt(c.per)} ${u}`;
   };
   // 真实完成日期：高置信给区间；小样本只在"能赶上 / 仅小幅落后"时给精确日期，
   // 若外推到目标日 30 天以后（数据少时极易被几天低迷放大成击溃性数字），只如实说"会晚"而不给伪精确日期。
@@ -5003,12 +5786,12 @@ function getStatusMessage(p, m) {
       : `你最近 ${m.momentumDays} 天有在持续推进，这股劲很重要。<br><br>`;
     if (plan.onTime) {
       if (plan.onTime.heavy) {
-        body += `<b>硬要赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+        body += `<b>硬要赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${perTxt(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
       } else {
         body += `<b>想赶上 ${fmtCN(p.deadline)}，可行的方式：</b>${planText(plan.onTime)}。<br><br>`;
       }
     }
-    if (plan.delay) {
+    if (plan.delay && p.hardDeadline !== true) {
       body += `<b>如果强度太大，更现实的是把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏更稳）。截止日是规划工具不是审判，可在设置里调整。`;
     }
     body += reciteCycleLine + sparseNote;
@@ -5022,8 +5805,11 @@ function getStatusMessage(p, m) {
     if (m.momentumOnTime && m.momentumEtaDate) {
       const keepPer = plan.onTime ? plan.onTime.per : m.perStudyDay;
       const todayDone = m.todayDone || 0;
-      const todayMet = todayDone >= keepPer;
-      let body = `还剩 ${rem} ${u}、距目标日 ${fmtDaysLeft(m.daysLeft)}，每个学习日约 ${n1(keepPer)} ${u}就能按时完成。<br><br>`;
+      // 目标显示与达标判定统一用目标卡口径：套卷保留1位小数，页/条向上取整，避免与看板数字打架
+      const goalNum = isSetMode(p) ? (Math.round(keepPer * 10) / 10) : Math.ceil(keepPer);
+      const goalDisp = isSetMode(p) ? n1(keepPer) : String(goalNum);
+      const todayMet = todayDone >= goalNum - 1e-9;
+      let body = `还剩 ${rem} ${u}、距目标日 ${fmtDaysLeft(m.daysLeft)}，每个学习日约 ${goalDisp} ${u}就能按时完成。<br><br>`;
       body += Coach.pick([
         '你最近状态不错，按这个节奏稳定推进就好。',
         '最近效率在线，保持稳定推进，水到渠成。',
@@ -5031,9 +5817,9 @@ function getStatusMessage(p, m) {
       ], '6a') + '<br><br>';
       // 结尾按"今天是否已达标"给正确场景的话，不催已完成的人"继续"
       if (todayMet) {
-        body += `<span class="muted">今天已完成 ${fmtUnitNum(todayDone)} ${u}` + (todayDone > keepPer*1.2 ? '、超额了，可以收工休息～' : '，达标了，剩下时间自由安排～') + `</span>`;
+        body += `<span class="muted">今天已完成 ${fmtUnitNum(todayDone)} ${u}` + (todayDone > goalNum*1.2 ? '、超额完成，今天状态很好' : '，目标达成，很踏实') + `</span>`;
       } else {
-        body += `<span class="muted">今天目标 ${n1(keepPer)} ${u}，${todayDone>0 ? '已完成 '+fmtUnitNum(todayDone)+'，还差一点～' : '找个时间开始吧～'}</span>`;
+        body += `<span class="muted">今天目标 ${goalDisp} ${u}，${todayDone>0 ? '已完成 '+fmtUnitNum(todayDone)+'，还差一点～' : '找个时间开始吧～'}</span>`;
       }
       return { icon:'' + svgIcon('check-circle') + '', cls:'ok', title:'节奏稳，能按时完成', desc: body };
     }
@@ -5042,8 +5828,8 @@ function getStatusMessage(p, m) {
       // 只剩"硬路径"（强度很大）时，不能只给乐观，要如实说明仍需大幅加量
       if (plan.onTime && plan.onTime.heavy) {
         let body = `还剩 ${rem} ${u}。你最近明显提速了，方向对了，但按 ${fmtCN(p.deadline)} 算，缺口仍然偏大。<br><br>`;
-        body += `<b>硬要赶上，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
-        if (plan.delay) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
+        body += `<b>硬要赶上，只能每天都学、每次约 ${perTxt(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+        if (plan.delay && p.hardDeadline !== true) body += `<b>更可持续的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}）。`;
         body += reciteCycleLine;
         return { icon:'' + svgIcon('wrench') + '', cls:'warn', title:'在提速，但还需要加量', desc: body };
       }
@@ -5052,7 +5838,7 @@ function getStatusMessage(p, m) {
         body += `<b>想在 ${fmtCN(p.deadline)} 前完成：</b>${planText(plan.onTime)}。`;
         if (plan.alt) body += `（也可${planText(plan.alt)}。）`;
       }
-      if (plan.delay) body += `<br><span class="muted">若实在加不动，可把目标日延到 ${fmtCN(plan.delay.date)} 左右。</span>`;
+      if (plan.delay && p.hardDeadline !== true) body += `<br><span class="muted">若实在加不动，可把目标日延到 ${fmtCN(plan.delay.date)} 左右。</span>`;
       body += reciteCycleLine;
       return { icon:'' + svgIcon('trending-up') + '', cls:'ok', title:'状态在上升，继续保持', desc: body };
     }
@@ -5062,8 +5848,8 @@ function getStatusMessage(p, m) {
     let body = `还剩 ${rem} ${u}，${etaLine.text}。${earlyTag}<br><br>`;
     if (hardPath) {
       // 缺口大到可持续方案都不可行：硬路径如实标注强度，延期不再弱化，而作为并列的现实选择
-      body += `<b>想赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${n1(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
-      if (plan.delay) body += `<b>更现实的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏可持续），在设置里即可调整。`;
+      body += `<b>想赶上 ${fmtCN(p.deadline)}，只能每天都学、每次约 ${perTxt(plan.onTime.per)} ${u}</b>（约为平时的 ${plan.onTime.mult.toFixed(1)} 倍，强度很大、容易断档）。<br><br>`;
+      if (plan.delay && p.hardDeadline !== true) body += `<b>更现实的选择：把目标日延到 ${fmtCN(plan.delay.date)} 左右</b>（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}，节奏可持续），在设置里即可调整。`;
     } else {
       if (plan.onTime) {
         body += `<b>想按时完成，最省力的方式：</b>${planText(plan.onTime)}。`;
@@ -5071,7 +5857,7 @@ function getStatusMessage(p, m) {
         if (plan.alt) body += `<br>或者：${planText(plan.alt)}。`;
         body += '<br><br>';
       }
-      if (plan.delay) {
+      if (plan.delay && p.hardDeadline !== true) {
         body += `<span class="muted">若最近确实排不开，可把目标日延到 ${fmtCN(plan.delay.date)} 左右（每周 ${plan.delay.wk} 天、每次约 ${n1(curRate)} ${u}），在设置里即可调整。</span>`;
       }
     }
@@ -5246,6 +6032,17 @@ let _toastClickHandler = null;
 document.addEventListener('DOMContentLoaded', () => {
   const t = document.getElementById('toast');
   if (t) t.addEventListener('click', () => { if (_toastClickHandler) { const fn = _toastClickHandler; _toastClickHandler = null; fn(); } });
+  // 全局遮罩点击关闭：点击 .mask 空白区域关闭弹窗（确认类弹窗除外，避免误操作丢数据）
+  const NON_DISMISSIBLE = ['confirmMask', 'confirmMasterMask', 'genericConfirmMask',
+    'modeSwitchConfirmMask', 'randomReviewConfirmMask', 'delAcctMask', 'banMask', 'resetPwMask'];
+  document.querySelectorAll('.mask').forEach(mask => {
+    if (NON_DISMISSIBLE.includes(mask.id)) return;
+    mask.addEventListener('click', e => {
+      if (e.target !== mask) return; // 只响应点击遮罩本身，不响应子元素
+      mask.hidden = true;
+      try { unlockBodyScroll(); } catch (err) {}
+    });
+  });
 });
 /* ux-16：内联校验 helper——字段红边框 + 字段下红字，替代原生 alert()。
    错误节点挂在输入框的直接父容器下；输入时即清除（ux-26：只动轻量样式，不全量 render）。 */
@@ -5494,8 +6291,24 @@ function _dgShow(box, fill, line, praise, mood, pct, l, pr) {
   box.className = 'daily-goal dg-' + mood;
   praise.className = 'dg-praise dg-' + mood;
   fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
-  line.textContent = l;            // l 是纯文本
-  praise.innerHTML = pr;           // pr 常含 svgIcon()，必须 innerHTML（无用户原始输入，安全）
+  line.textContent = l;
+  // 全局唯一允许emoji的地方：根据mood给不同emoji前缀
+  const emojiMap = {
+    'idle': ['🌱', '☀️', '📖', '✨', '🎯'],
+    'progress': ['💪', '🔥', '📈', '⚡', '🚀'],
+    'almost': ['🏃', '🎯', '⚡', '💫', '🌟'],
+    'done': ['🎉', '✨', '🌟', '💚', '🏆'],
+    'over': ['🚀', '💫', '🏆', '🌈', '⭐'],
+    'done-all': ['👑', '🎊', '🌈', '🌟', '💎'],
+  };
+  const emojis = emojiMap[mood] || ['✨'];
+  const emoji = emojis[Math.abs(hashCode(todayStr() + mood + new Date().getHours())) % emojis.length];
+  praise.innerHTML = emoji + ' ' + pr;
+}
+function hashCode(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
 /* 在第三张"目标"卡片内，显示今天已做多少 / 还差多少 / 超额多少，并按状态给不同鼓励 */
@@ -5538,19 +6351,19 @@ function renderDailyGoal(p, m) {
     const pct = totalDueToday > 0 ? Math.min(100, reviewedToday / totalDueToday * 100) : 0;
     if (reviewedToday === 0) {
       const tip = (act.streak >= 2)
-        ? Coach.pick(Coach.streak.warm, 'mks') + ` 先从最久没复习的那条开始~`
-        : Coach.pick(Coach.progress.early, 'mks0') + ` 从第一条开始~`;
+        ? Coach.pick(Coach.streak.warm, 'mks') + '，先从最久没复习的开始'
+        : Coach.pick(Coach.progress.early, 'mks0') + '，从第一条开始';
       _dgShow(box, fill, line, praise, 'idle', 0, `今天还有 ${due} 条错题待复习`, tip);
     } else {
       const left = due;
       const ratio = totalDueToday > 0 ? reviewedToday / totalDueToday : 0;
       let mood, tip;
       if (ratio < 0.34) {
-        mood = 'progress'; tip = Coach.pick(Coach.progress.early, 'mke') + ` 还剩 ${left} 条~`;
+        mood = 'progress'; tip = Coach.pick(Coach.progress.early, 'mke');
       } else if (ratio < 0.7) {
-        mood = 'progress'; tip = Coach.pick(Coach.progress.mid, 'mkm') + ` 还剩 ${left} 条~`;
+        mood = 'progress'; tip = Coach.pick(Coach.progress.mid, 'mkm');
       } else {
-        mood = 'almost'; tip = Coach.pick(Coach.progress.late, 'mkl') + ` 只剩 ${left} 条~`;
+        mood = 'almost'; tip = Coach.pick(Coach.progress.late, 'mkl');
       }
       _dgShow(box, fill, line, praise, mood, pct, `已清 ${reviewedToday} / ${totalDueToday} 条`, tip);
     }
@@ -5592,7 +6405,7 @@ function renderDailyGoal(p, m) {
         newTarget = Math.max(0, Math.min(newTarget, roomItems * avgPages));
       }
     }
-    const newTargetR = newTarget != null ? Math.round(newTarget * 10) / 10 : null;
+    const newTargetR = newTarget != null ? Math.ceil(newTarget) : null;
     const newDone = m.todayDone || 0;
     const newDoneR = Math.round(newDone * 10) / 10;
 
@@ -5608,19 +6421,19 @@ function renderDailyGoal(p, m) {
       if (rvDoneToday === 0) {
         mood = 'idle';
         pr = (act.streak >= 2)
-          ? Coach.pick(Coach.streak.warm, 'rvs') + ' 先从最久没复习的那条开始~'
-          : Coach.pick(Coach.progress.early, 'rvs0') + ' 先复习再学新，从第一条开始~';
+          ? Coach.pick(Coach.streak.warm, 'rvs') + '，先从最久没复习的开始'
+          : Coach.pick(Coach.progress.early, 'rvs0') + '，先复习再学新';
       } else {
         const rr = rvDoneToday / Math.max(1, rvTotal);
-        if (rr < 0.5) { mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'rve') + ` 还剩 ${rvDueNow} 条~`; }
-        else if (rr < 0.7) { mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'rvm') + ` 还剩 ${rvDueNow} 条~`; }
-        else { mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'rvl') + ` 复习只剩 ${rvDueNow} 条~`; }
+        if (rr < 0.5) { mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'rve'); }
+        else if (rr < 0.7) { mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'rvm'); }
+        else { mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'rvl'); }
       }
       let tail;
       if (m.sprint) tail = '（复习优先，新学挑重点即可）';
       else if (newTargetR == null) tail = '';
-      else if (newTargetR > 0.3) tail = `（之后再学新约 ${fmtUnitNum(newTargetR)} 页）`;
-      else tail = '（今天复习是重点，新学量力而行）';
+      else if (newTargetR > 0.3) tail = '（之后再学新内容）';
+      else tail = '（今天复习是重点）';
       _dgShow(box, fill, line, praise, mood, pct, `复习 ${rvDoneToday}/${rvTotal} 条${tail}`, pr);
       return;
     }
@@ -5635,24 +6448,22 @@ function renderDailyGoal(p, m) {
       }
       return;
     }
-    const nr = newDone / newTarget;
+    const nr = newTarget > 0 ? newDone / Math.ceil(newTarget) : 0;
     const npct = Math.min(100, nr * 100);
     let nmood, nl, npr;
     if (newDone <= 0) {
       nmood = 'idle';
       nl = `${prefix}新学 0 / ${fmtUnitNum(newTargetR)} 页`;
       npr = (act.streak >= 3)
-        ? `${svgIcon('flame')} 连续 ${act.streak} 天，复习已清，今天的新学也别落下~`
-        : `${svgIcon('target')} 复习已清，今天再学 ${fmtUnitNum(newTargetR)} 页就圆满了~`;
+        ? `${svgIcon('flame')} 连续打卡，复习已清，今天的新学也别落下`
+        : `${svgIcon('target')} 复习已清，开始今天的新学吧`;
     } else if (nr < 1) {
-      const nleft = Math.max(0, Math.round((newTarget - newDone) * 10 + 1e-9) / 10);
+      const nleft = Math.max(0, Math.ceil(newTarget) - newDone);
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
       if (nr < 0.5) {
-        // “就过半”的剩余量 = 到新学目标一半的量（newTarget/2 - newDone），而非到全部完成的量
-        const nToHalf = Math.max(0, Math.round((newTarget / 2 - newDone) * 10 + 1e-9) / 10);
-        nmood = 'progress'; npr = Coach.pick(Coach.progress.early,'rne') + ` 再学 ${fmtUnitNum(nToHalf)} 页就过半~`;
+        nmood = 'progress'; npr = Coach.pick(Coach.progress.early,'rne');
       }
-      else { nmood = 'almost'; npr = Coach.pick(Coach.progress.late,'rnl') + ` 就差 ${fmtUnitNum(nleft)} 页~`; }
+      else { nmood = 'almost'; npr = Coach.pick(Coach.progress.late,'rnl'); }
     } else if (Math.abs(nr - 1) < 1e-9) {
       nmood = 'done';
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页`;
@@ -5662,9 +6473,9 @@ function renderDailyGoal(p, m) {
       nmood = 'over';
       nl = `${prefix}新学 ${fmtUnitNum(newDoneR)} / ${fmtUnitNum(newTargetR)} 页（超 ${fmtUnitNum(over)}）`;
       npr = Coach.pick(Coach.overSmall, 'rno') + Coach.pick([
-        ' 给后续复习留点空间~',
-        ' 新学和复习均衡些，记忆更牢~',
-        ' 别一次铺太多，后面复习更从容~',
+        '，给后续复习留点空间',
+        '，新学和复习均衡些，记忆更牢',
+        '，别一次铺太多，后面复习更从容',
       ], 'rno2');
     }
     _dgShow(box, fill, line, praise, nmood, npct, nl, npr);
@@ -5686,70 +6497,109 @@ function renderDailyGoal(p, m) {
   }
 
   const done = m.todayDone || 0;
-  const targetR = Math.round(target * 10) / 10;
+  // 刷题/背书目标向上取整为整数（录入不支持小数）；套卷支持分模块录入，保留1位小数
+  const targetR = u === '套' ? (Math.round(target * 10) / 10) : Math.ceil(target);
   const doneR = Math.round(done * 10) / 10;
-  const ratio = target > 0 ? done / target : 0;
+  const effTarget = u === '套' ? target : Math.ceil(target);
+  let ratio = effTarget > 0 ? done / effTarget : 0;
+  // 套卷按 0.1 精度展示，进度条与“已做 X / X”文字必须同口径：四舍五入后的已做量已达到显示目标
+  // （如 0.3/0.3）时，进度条与完成状态同步满格，避免“数字显示达标、进度条却没满”的矛盾。
+  // 真实已超额（ratio>1）保留超额分支；未达标时仍用真实比例，进度条平滑反映推进。
+  if (u === '套' && ratio < 1 && targetR > 0 && doneR >= targetR) ratio = 1;
   const pct = Math.min(100, ratio * 100);
+  const isHard = p.hardDeadline === true;
+
+  // 速度检测：今天已完成量 vs 平时每次平均量（仅当有足够数据且已完成>0时）
+  let speedState = 'normal';
+  if (done > 0 && m.enoughData && m.perStudyDayRaw > 0) {
+    // 简单判断：已完成量超过平时每次平均的50%且进度<50%，说明速度快；低于30%说明速度慢
+    const avgRate = m.perStudyDayRaw;
+    if (done >= avgRate * 0.6 && ratio < 0.5) speedState = 'fast';
+    else if (done < avgRate * 0.25 && ratio < 0.3) speedState = 'slow';
+  }
 
   let mood, l, pr;
-  // 启动量：套卷为最小单位 1 套；当目标本身不足 1 套/学习日（如 0.3 套，约几天一套）时，
-  // 明确"今天做 1 套就够"，避免与"0.3 套/天"的目标自相矛盾、让用户误以为要补量。
   const isFracPaper = u === '套' && targetR < 1;
-  const startUnit = Math.max(1, Math.round(targetR*0.3));
   const slot = coachSlot();
   if (done <= 0) {
     mood = 'idle';
     l = `今天目标 ${fmtUnitNum(targetR)} ${u} · 还没动`;
     const gap = m.prevStudyDate ? Math.max(0, diffDays(m.prevStudyDate, today) - 1) : 0;
     if (m.feasibility === 'impossible') {
-      pr = `${svgIcon('activity')} 今天 ${fmtUnitNum(targetR)} ${u}量不小，拆成几次完成，量力而行~`;
+      if (isHard) {
+        pr = Coach.pick([
+          '今天任务量大，拆成几次完成，每道都算数',
+          '冲刺量，优先把高频考点拿下',
+          '能做多少做多少，保持节奏最重要',
+          '量大别慌，一道一道来，稳扎稳打',
+        ], 'imph');
+      } else {
+        pr = `${svgIcon('activity')} 今天任务量不小，拆成几次完成，保持节奏`;
+      }
     } else if (dt0.heavy) {
-      pr = `${svgIcon('alert-triangle')} 今天约 ${fmtUnitNum(targetR)} ${u}（平时的 ${dt0.plan.onTime.mult.toFixed(1)} 倍）是冲刺量，量力而行；做不到可在设置里把目标日往后调~`;
+      pr = `${svgIcon('x-circle')} 今天是冲刺量，状态好就多做，按自己的节奏来`;
     } else if (gap >= 2) {
-      pr = Coach.pick(Coach.back, 'back') + (isFracPaper ? ` 今天做 ${startUnit} 套就好~` : ` 先从 ${startUnit} ${u}开始~`);
+      pr = Coach.pick(Coach.back, 'back');
+    } else if (act.streak >= 5) {
+      pr = Coach.pick(Coach.streak.hot, 'streak5') + '，今天也别断';
     } else if (act.streak >= 3) {
-      pr = Coach.pick(Coach.streak.hot, 'streak') + (isFracPaper ? ` 今天做 ${startUnit} 套就好~` : ` 先从 ${startUnit} ${u}开始~`);
+      pr = Coach.pick(Coach.streak.hot, 'streak');
     } else if (!m.enoughData) {
-      pr = Coach.pick(Coach.cold, 'cold') + ` 今天先做约 ${fmtUnitNum(targetR)} ${u}~`;
+      pr = Coach.pick(Coach.cold, 'cold');
     } else if (m.feasibility === 'stretch') {
-      pr = Coach.pick(Coach.start[slot], 'stretch') + ` 目标 ${fmtUnitNum(targetR)} ${u}，状态好时多做一点~`;
+      pr = Coach.pick(Coach.start[slot], 'stretch') + '，状态好时多做一点';
+    } else if (m.feasibility === 'easy') {
+      pr = Coach.pick(Coach.start[slot], 'easy') + '，今天量不大，轻松拿下';
     } else {
-      pr = Coach.pick(Coach.start[slot], 'start') + ` 目标 ${fmtUnitNum(targetR)} ${u}~`;
+      pr = Coach.pick(Coach.start[slot], 'start');
     }
   } else if (ratio < 1) {
-    const left = Math.max(0, Math.round((target - done) * 10 + 1e-9) / 10);
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
     if (p.type === 'exercise') {
-      // BUG-4 [v2 M9] exercise 低压力鼓励：不拼"再做X就过半"这种推进式后缀
       mood = 'progress';
-      const lowPool = [
-        '没填满也没关系，节奏是自己的，今天已经往前推了一步~',
-        '做了就是赚到，进度没丢，不用跟那个大数较劲~',
-        '少做一点也不亏，保持手感比硬凑数更重要~',
-        '已经动起来了，剩下的随你，别把自己逼太紧~',
-      ];
-      pr = lowPool[Math.floor(Math.random() * lowPool.length)];
+      // 刷题本低进度：根据速度状态选择不同文案
+      if (speedState === 'fast') {
+        pr = Coach.pick(Coach.exerciseLowFast, 'elf');
+      } else if (speedState === 'slow') {
+        pr = Coach.pick(Coach.exerciseLowSlow, 'els');
+      } else if (ratio < 0.2) {
+        pr = Coach.pick(Coach.exerciseLow, 'el0');
+      } else if (ratio < 0.5) {
+        pr = Coach.pick(Coach.progress.early, 'pe') + '，' + Coach.pick([
+          '已经进入状态了',
+          '开头顺利，后面会更顺',
+          '状态不错，继续推进',
+        ], 'pe2');
+      } else {
+        pr = Coach.pick(Coach.progress.mid, 'pm');
+      }
     } else if (ratio < 0.34) {
-      // “就过半”的剩余量 = 到目标一半的量（target/2 - done），而非到全部完成的量（target - done）
-      const toHalf = Math.max(0, Math.round((target / 2 - done) * 10 + 1e-9) / 10);
-      mood = 'progress'; pr = Coach.pick(Coach.progress.early, 'pe') + ` 再做 ${fmtUnitNum(toHalf)} ${u}就过半~`;
+      mood = 'progress';
+      if (speedState === 'fast') pr = Coach.pick(Coach.speedUp, 'sue');
+      else pr = Coach.pick(Coach.progress.early, 'pe');
     } else if (ratio < 0.7) {
-      mood = 'progress'; pr = Coach.pick(Coach.progress.mid, 'pm') + ` 还剩 ${fmtUnitNum(left)} ${u}~`;
+      mood = 'progress';
+      pr = Coach.pick(Coach.progress.mid, 'pm');
     } else {
-      mood = 'almost'; pr = Coach.pick(Coach.progress.late, 'pl') + ` 就差 ${fmtUnitNum(left)} ${u}~`;
+      mood = 'almost';
+      pr = Coach.pick(Coach.progress.late, 'pl');
     }
   } else if (Math.abs(ratio - 1) < 1e-9) {
     mood = 'done';
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}`;
-    pr = Coach.pick(Coach.done, 'done');
+    if (speedState === 'fast') {
+      pr = Coach.pick(Coach.done, 'donefast') + '，今天效率很高';
+    } else {
+      pr = Coach.pick(Coach.done, 'done');
+    }
   } else {
-    const over = Math.max(0, Math.round((done - target) * 10 + 1e-9) / 10);
+    const over = Math.max(0, Math.round((done - effTarget) * 10 + 1e-9) / 10);
     const overPct = Math.round((ratio - 1) * 100);
     mood = 'over';
     l = `已做 ${fmtUnitNum(doneR)} / ${fmtUnitNum(targetR)} ${u}（超 ${fmtUnitNum(over)}）`;
     if (overPct < 20) pr = Coach.pick(Coach.overSmall, 'os');
-    else if (overPct < 60) pr = Coach.pick(Coach.overMid, 'os2') + ` 超额${overPct}%~`;
-    else pr = Coach.pick(Coach.overBig, 'ob') + ` 超额${overPct}%~`;
+    else if (overPct < 60) pr = Coach.pick(Coach.overMid, 'os2');
+    else pr = Coach.pick(Coach.overBig, 'ob');
   }
   _dgShow(box, fill, line, praise, mood, pct, l, pr);
 }
@@ -5844,7 +6694,7 @@ function renderExerciseHints(p, m) {
   // —— 完成条：整本刷完 → 归档入口 ——
   if (m.remaining === 0 && m.currentPage > 0) {
     bars.push({ build: () => `<div class="excess-banner celebrate" style="display:flex;flex-direction:column;gap:8px">
-      <div class="ob-text"><span class="ob-icon">${svgIcon('party-popper')}</span><span class="ob-main">整本刷完了！之前的努力都算数。</span></div>
+      <div class="ob-text"><span class="ob-icon">${svgIcon('party-popper')}</span><span class="ob-main">整本刷完啦，辛苦了！</span></div>
       <div class="ob-actions"><button class="ob-btn" data-xe="archive" style="font-weight:700">归档这本</button></div></div>`,
       onMount: null });
   }
@@ -5983,8 +6833,9 @@ function openAbandonPanel(p) {
       const basePer = newRemaining / studyDays;
       newPer = Math.min(basePer, newRemaining);
     } else newPer = 0;
+    const roundPer = v => setMode ? (Math.round(v * 10) / 10) : Math.ceil(v);
     summaryEl.innerHTML = abPages > 0
-      ? `放弃 <b>${fmtUnitNum(abPages)}</b> ${setMode ? '套' : '页'} 后，每天目标从 <b>${fmtUnitNum(oldPer)}</b> 降到 <b>${fmtUnitNum(Math.round(newPer * 10) / 10)}</b> ${u}。`
+      ? `放弃 <b>${fmtUnitNum(abPages)}</b> ${setMode ? '套' : '页'} 后，每天目标从 <b>${fmtUnitNum(roundPer(oldPer))}</b> 降到 <b>${fmtUnitNum(roundPer(newPer))}</b> ${u}。`
       : `勾选要放弃的${setMode ? '套' : '页'}后，这里会显示每日目标的变化。`;
   };
   refreshSummary();
@@ -6024,26 +6875,51 @@ function openWrongQuickRecord(p, meta) {
   const setMode = isSetMode(p);
   const startP = meta && meta.startPage != null ? meta.startPage : '';
   const endP = meta && meta.endPage != null ? meta.endPage : '';
-  const rangeHint = startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这';
-  const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-下方第五题';
+  const setNo = meta && meta.setNo != null ? meta.setNo : '';
+  const defaultPage = setMode ? setNo : startP;
+  const rangeHint = setMode
+    ? (setNo !== '' ? `第 ${setNo} 套里` : '这套里')
+    : (startP !== '' ? `这 ${startP}${endP !== '' && endP !== startP ? '–' + endP : ''} ${u}里` : '这');
+  const fmtLabel = setMode ? '题号（跨套写套号-题号）' : '页码-题号';
+  const fmtExample = setMode ? '例：5,6,7，跨套写 4-2,3' : '例：45-1,2,3,下方第五题,46-2';
   mask.innerHTML = `<div class="modal" style="max-width:520px">
     <div class="modal-head"><h2>${svgIcon('square-pen')} 错题快录</h2><button class="x-btn" id="wqClose">${svgIcon('x', 16)}</button></div>
-    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？按「${fmtLabel}」填写，逗号分隔，题号先占位即可。</div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}有做错的题吗？${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔，题号先占位即可。</div>
     <input id="wqInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
-    <div style="display:flex;gap:10px;margin-top:14px">
+    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px;margin-bottom:4px">
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px">Enter</span> 确认
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px;margin-left:8px">Esc</span> 取消
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px">
       <button class="ghost-btn" id="wqNo" style="flex:1">这次没有</button>
       ${linked.length ? '<button class="primary" id="wqOk" style="flex:1">记进关联错题本</button>' : '<button class="primary" id="wqCreate" style="flex:1">去创建关联错题本</button>'}
     </div>
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
   const input = mask.querySelector('#wqInput');
-  const finish = () => { mask.hidden = true; unlockBodyScroll(); p.wrongQuickRecordShownDate = todayStr(); p.updatedAt = Date.now(); saveStore(); render(); };
+  const finish = () => { mask.hidden = true; unlockBodyScroll(); p.updatedAt = Date.now(); saveStore(); render(); };
   mask.querySelector('#wqClose').onclick = finish;
   mask.querySelector('#wqNo').onclick = finish;
+  // 键盘快捷键：Enter确认，Esc取消
+  const wqKeyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); finish(); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const okBtn = mask.querySelector('#wqOk') || mask.querySelector('#wqCreate');
+      if (okBtn) okBtn.click();
+    }
+  };
+  input.addEventListener('keydown', wqKeyHandler);
+  mask._wqKeyHandler = wqKeyHandler;
   if (linked.length) {
     mask.querySelector('#wqOk').onclick = () => {
-      const marks = parseWrongMarks(input.value);
+      const raw = input.value.trim();
+      if (!raw) { showToast(svgIcon('x-circle'), '还没输入', '输入题号后再保存，或点「这次没有」。', 2500); return; }
+      const marks = parseWrongMarks(raw, defaultPage);
+      if (!marks.length) {
+        showToast(svgIcon('x-circle'), '格式没识别到', setMode ? '请直接写题号（如 5,6,7），跨套写套号-题号（如 4-2）。' : '请按「页码-题号」填写（如 45-1,2,3），或直接写题号沿用当前页。', 3500);
+        return;
+      }
       // 写到本次打卡 record（取今天最后一条 page record）
       const rec = findTodayPageRecord(p);
       if (rec) rec.wrongMarks = marks;
@@ -6054,7 +6930,7 @@ function openWrongQuickRecord(p, meta) {
     };
   } else {
     mask.querySelector('#wqCreate').onclick = () => {
-      p.wrongQuickRecordShownDate = todayStr(); p.updatedAt = Date.now(); saveStore();
+      p.updatedAt = Date.now(); saveStore();
       mask.hidden = true; unlockBodyScroll();
       startCreateLinkedMistake(p);
     };
@@ -6062,14 +6938,25 @@ function openWrongQuickRecord(p, meta) {
   setTimeout(() => input && input.focus(), 50);
 }
 
-// 解析 "45-12,45-18" → ["45-12","45-18"]
-function parseWrongMarks(str) {
+// 解析 "215-1,2,3,4,5,下面第六题,216-2,3" → ["215-1","215-2","215-3","215-4","215-5","215-下面第六题","216-2","216-3"]
+// 页码只写一次，后面逗号分隔的题号沿用最近页码，直到遇到下一个带页码的条目
+function parseWrongMarks(str, defaultPage) {
   if (!str) return [];
   const out = [];
-  String(str).split(/[,，、\s]+/).forEach(s => {
+  let currentPage = defaultPage != null ? String(defaultPage) : null;
+  String(str).split(/[,，]+/).forEach(s => {
     s = s.trim();
-    // 支持 "22-5"、"22-下方5"、"22-下方5（2）"、"3-5(2)" 等格式
-    if (/^\d+\s*[-–]\s*[\w\u4e00-\u9fa5（）()]+$/.test(s)) out.push(s.replace(/\s*[-–]\s*/, '-'));
+    if (!s) return;
+    // 匹配 "页码-题号" 格式（带页码）
+    const withPage = s.match(/^(\d+)\s*[-–]\s*(.+)$/);
+    if (withPage) {
+      currentPage = withPage[1];
+      const qno = withPage[2].trim();
+      if (qno) out.push(currentPage + '-' + qno);
+    } else if (currentPage) {
+      // 只有题号，沿用最近一个页码；自由输入支持任何格式
+      out.push(currentPage + '-' + s);
+    }
   });
   return out;
 }
@@ -6132,7 +7019,7 @@ function pushWrongMarksToLinkedMistake(p, marks, fromRec) {
       stage: 0,
       nextReviewDate: null,
       reviews: [{ date: today, quality: 'fuzzy', stage: 0, note: '刷题打卡快录占位' }],
-      mastered: false, manualMastered: false, wrongStreak: 1, customIntervals: null,
+      mastered: false, manualMastered: false, wrongStreak: 0, customIntervals: null,
       // P1-1：来源回链，事后同步只动属于本 record 的占位条目
       fromExerciseRid: fromRid,
       fromExerciseMark: mark,
@@ -6144,7 +7031,7 @@ function pushWrongMarksToLinkedMistake(p, marks, fromRec) {
   mk.updatedAt = Date.now();
 }
 
-/* ---- M7·B 进度明细/打卡记录里事后编辑某条 record 的 wrongMarks，并同步增删占位条目 ---- */
+/* ---- M7·B 进度明细/打卡记录里事后补记错题：追加到已有记录，不覆盖 ---- */
 function editRecordWrongMarks(p, rid) {
   const rec = (p.records || []).find(r => r.rid === rid);
   if (!rec) return;
@@ -6155,32 +7042,54 @@ function editRecordWrongMarks(p, rid) {
     mask.id = maskId; mask.className = 'mask'; mask.hidden = true;
     document.body.appendChild(mask);
   }
-  const cur = Array.isArray(rec.wrongMarks) ? rec.wrongMarks.join(', ') : '';
   const setMode = isSetMode(p);
-  const fmtLabel = setMode ? '套号-题号' : '页码-题号';
-  const fmtExample = setMode ? '例：3-5, 3-12' : '例：45-12, 45-下方第五题';
+  const recDefaultPage = setMode ? (rec.set != null ? rec.set : '') : (rec.startPage != null ? rec.startPage : '');
+  const fmtLabel = setMode ? '题号（跨套写套号-题号）' : '页码-题号';
+  const fmtExample = setMode ? '例：5,6,7，跨套写 4-2,3' : '例：45-1,2,3,下方第五题,46-2';
+  const rangeHint = setMode
+    ? (rec.set != null ? `第 ${rec.set} 套里` : '这套里')
+    : (rec.startPage != null ? `这 ${rec.startPage}${rec.endPage != null && rec.endPage !== rec.startPage ? '–' + rec.endPage : ''} 页里` : '这条打卡里');
   mask.innerHTML = `<div class="modal" style="max-width:520px">
-    <div class="modal-head"><h2>${svgIcon('pencil')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
-    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">这条打卡（${esc(rec.date)}）里做错的题，按「${fmtLabel}」填写，逗号分隔。保存后会同步更新关联错题本里的占位条目。</div>
-    <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" value="${esc(cur)}" style="width:100%">
-    <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="ghost-btn" id="ewCancel" style="flex:1">取消</button>
-      <button class="primary" id="ewSave" style="flex:1">保存</button>
+    <div class="modal-head"><h2>${svgIcon('square-pen')} 补记错题</h2><button class="x-btn" id="ewClose">${svgIcon('x', 16)}</button></div>
+    <div style="font-size:13px;line-height:1.7;margin-bottom:10px">${rangeHint}还有做错的题吗？${setMode ? '直接写题号即可' : '按「页码-题号」填写'}，逗号分隔，题号先占位即可。追加到已有记录，不覆盖之前的。</div>
+    <input id="ewInput" type="text" placeholder="${esc(fmtExample)}" style="width:100%">
+    <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px;margin-bottom:4px">
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px">Enter</span> 确认
+      <span style="display:inline-block;padding:1px 6px;border:1px solid var(--line);border-radius:4px;font-weight:600;color:var(--brand);font-size:10.5px;margin-left:8px">Esc</span> 取消
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="ghost-btn" id="ewCancel" style="flex:1">这次没有</button>
+      <button class="primary" id="ewSave" style="flex:1">记进关联错题本</button>
     </div>
   </div>`;
   mask.hidden = false; modalTop(mask); lockBodyScroll();
   const input = mask.querySelector('#ewInput');
-  mask.querySelector('#ewClose').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
-  mask.querySelector('#ewCancel').onclick = () => { mask.hidden = true; unlockBodyScroll(); };
+  const finish = () => { mask.hidden = true; unlockBodyScroll(); p.updatedAt = Date.now(); saveStore(); render(); };
+  mask.querySelector('#ewClose').onclick = finish;
+  mask.querySelector('#ewCancel').onclick = finish;
+  // 键盘快捷键：Enter确认，Esc取消
+  const ewKeyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); finish(); }
+    else if (e.key === 'Enter') { e.preventDefault(); mask.querySelector('#ewSave').click(); }
+  };
+  input.addEventListener('keydown', ewKeyHandler);
   mask.querySelector('#ewSave').onclick = () => {
-    const newMarks = parseWrongMarks(input.value);
+    const raw = input.value.trim();
+    if (!raw) { showToast(svgIcon('x-circle'), '还没输入', '输入题号后再保存，或点「这次没有」。', 2500); return; }
+    const newMarks = parseWrongMarks(raw, recDefaultPage);
+    if (!newMarks.length) {
+      showToast(svgIcon('x-circle'), '格式没识别到', setMode ? '请直接写题号（如 5,6,7），跨套写套号-题号（如 4-2）。' : '请按「页码-题号」填写（如 45-1,2,3），或直接写题号沿用当前页。', 3500);
+      return;
+    }
+    // 追加到已有记录，合并去重，不覆盖
     const oldMarks = Array.isArray(rec.wrongMarks) ? rec.wrongMarks : [];
-    rec.wrongMarks = newMarks;
-    // 同步：删旧的占位条目（本 record 来源的），加新的
-    syncWrongMarksToLinkedMistake(p, oldMarks, newMarks, rec);
-    p.updatedAt = Date.now(); saveStore();
-    mask.hidden = true; unlockBodyScroll(); render();
-    showToast('' + svgIcon('check-circle') + '', '已保存错题标记', `共 ${newMarks.length} 道错题占位。`, 2500);
+    const merged = Array.from(new Set([...oldMarks, ...newMarks]));
+    rec.wrongMarks = merged;
+    // 只追加新录入的错题到关联错题本，不动已有的
+    const addOnly = newMarks.filter(x => !oldMarks.includes(x));
+    if (addOnly.length) pushWrongMarksToLinkedMistake(p, addOnly, rec);
+    finish();
+    showToast('' + svgIcon('check-circle') + '', '已补记错题', `新增 ${addOnly.length} 道错题占位，累计 ${merged.length} 道。`, 2800);
   };
   setTimeout(() => input && input.focus(), 50);
 }
@@ -6322,6 +7231,18 @@ function render() {
     $('#welcome').hidden = false;
     $('#app').hidden = true;
     lastRenderedProjectId = null;
+    // 已登录但本地无数据：显示用户信息和云端恢复按钮
+    try {
+      var syncRow = document.getElementById('welcomeSyncRow');
+      var syncUser = document.getElementById('welcomeSyncUser');
+      if (syncRow && syncUser && typeof STAuth !== 'undefined' && STAuth.isLoggedIn && STAuth.isLoggedIn()) {
+        var welcomeUser = STAuth.getUser ? STAuth.getUser() : null;
+        syncUser.textContent = welcomeUser ? ('已登录：' + (welcomeUser.username || welcomeUser.email || '')) : '已登录';
+        syncRow.hidden = false;
+      } else if (syncRow) {
+        syncRow.hidden = true;
+      }
+    } catch (e) {}
     return;
   }
   // 登录墙激活时（未登录/登出后）：在任何自动均衡/写盘副作用之前直接挡住，
@@ -6338,8 +7259,9 @@ function render() {
     // 清理过期未做的“提前复习”（点了但没做，第二天自动回到原计划日期，不惩罚）
     cleanupExpiredEarlyPulls(p);
     // 背书冲刺期：先把已排到考试之后的沉睡条目拉回考前（classic/balanced 都需要）
+    let _sprintMoved = 0;
     if (p.type === 'recite') {
-      const _sprintMoved = rebalanceForSprint(p);
+      _sprintMoved = rebalanceForSprint(p);
       if (_sprintMoved > 0) saveStore();
     }
     let _ens = 0;
@@ -6356,6 +7278,14 @@ function render() {
         __autoBalanceToastShown[_abKey] = true;
         setTimeout(() => showToast('' + svgIcon('scale') + '', '已自动均衡今日复习', `检测到今天待复习偏多，已把 ${_moved} 条均匀安排到未来几天，避免今天堆积；你也可以在复习区横幅手动调整。`, 3500), 450);
       }
+    }
+    // 今日任务总量因自动均衡/提前拉题/settleToday/冲刺重排发生变化时，清除今日预估标记，下次打开AI重新预估
+    if (_moved > 0 || _pulled > 0 || _settled > 0 || _ens > 0 || _sprintMoved > 0) {
+      delete p.todayEstimateDate;
+      delete p.todayTotalUnits;
+      delete p.todayEstimatedTotalMinutes;
+      p.updatedAt = Date.now();
+      saveStore();
     }
     if (_pulled > 0) {
       const _pfKey = p.id + ':pf:' + todayStr();
@@ -6395,7 +7325,7 @@ function render() {
                 <button type="button" class="ghost-btn" id="refUnlinkBtn" style="flex:1">${svgIcon('link')} 解除关联</button>
               </div>
             </div>`;
-          showGenericConfirm('关联结构已变更', bodyHtml, '取消', null);
+          showGenericConfirm('关联结构已变更', bodyHtml, '知道了', null);
           setTimeout(() => {
             const rb = $('#refRealignBtn');
             const ub = $('#refUnlinkBtn');
@@ -6449,6 +7379,7 @@ function render() {
 
   const m = getMetrics(p);
   lastMetrics = { m, p };
+  const u = unitName(p); // 单位名称：刷题=页/套，背书=页，错题=条
   const type = TYPES[p.type] || TYPES.exercise;
 
   let dlText = p.deadline ? fmtCN(p.deadline) : '未设置';
@@ -6463,14 +7394,13 @@ function render() {
 
   const isExercise = p.type === 'exercise';
   const setMode = isSetMode(p);
-  const u = unitName(p);
   let modeTag = '';
   if (isExercise) {
-    modeTag = setMode ? '<span class="mode-badge set">' + svgIcon('copy') + ' 套卷模式</span>' : '<span class="mode-badge">' + svgIcon('file-text') + ' 习题册模式</span>';
+    modeTag = setMode ? '<span class="mode-badge set">' + svgIcon('copy', 15) + ' 套卷模式</span>' : '<span class="mode-badge">' + svgIcon('file-text', 15) + ' 习题册模式</span>';
   } else if (p.type === 'mistake') {
     const mm = p.mistakeMode || 'free';
     if (mm === 'page') modeTag = '<span class="mode-badge">' + svgIcon('file-text') + ' 习题册模式</span>';
-    else if (mm === 'set') modeTag = '<span class="mode-badge set">' + svgIcon('copy') + ' 套卷模式</span>';
+    else if (mm === 'set') modeTag = '<span class="mode-badge set">' + svgIcon('copy', 15) + ' 套卷模式</span>';
     else modeTag = '<span class="mode-badge mistake-free" id="mistakeModeBadge" style="cursor:pointer" title="点击切换错题本模式">' + svgIcon('square-pen') + ' 自由出处模式</span>';
   }
   // 关联徽标
@@ -6478,11 +7408,15 @@ function render() {
   if (p.type === 'mistake' && p.refProjectId && store.projects[p.refProjectId]) {
     const refName = store.projects[p.refProjectId].name;
     const short = refName.length > 10 ? refName.substring(0, 10) + '…' : refName;
-    linkBadge = `<span class="linked-badge" title="关联刷题本：${esc(refName)}">${svgIcon('link')} 关联：${esc(short)}</span>`;
+    linkBadge = `<span class="linked-badge clickable" data-ref-project="${p.refProjectId}">${svgIcon('link')} 关联：${esc(short)}</span>`;
   } else if (p.type === 'exercise') {
-    const linkedCount = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id).length;
-    if (linkedCount > 0) {
-      linkBadge = `<span class="linked-badge" title="${linkedCount}个关联错题本">${svgIcon('link')} ${linkedCount}个关联错题本</span>`;
+    const linkedMistakes = Object.values(store.projects).filter(o => o.type === 'mistake' && o.refProjectId === p.id);
+    if (linkedMistakes.length === 1) {
+      // 只有一个关联错题本：可点击直接切换
+      linkBadge = `<span class="linked-badge clickable" data-ref-project="${linkedMistakes[0].id}">${svgIcon('link')} 关联错题本</span>`;
+    } else if (linkedMistakes.length > 1) {
+      // 多个关联错题本：普通显示（上方已有切换）
+      linkBadge = `<span class="linked-badge">${svgIcon('link')} ${linkedMistakes.length}个关联错题本</span>`;
     }
   }
   $('#bookTitle').textContent = p.name;
@@ -6529,7 +7463,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   const qBtns = document.querySelectorAll('#reciteQuality .rec-qbtn');
   const qText = p.type === 'mistake' ? ['做对了', '看答案', '错了'] : ['记得', '模糊', '忘记'];
   qBtns.forEach((b, i) => { b.textContent = qText[i]; b.dataset.q = ['good','fuzzy','forgot'][i]; });
-  if (isExercise && !setMode) applyPageModeUI();
+  if (isExercise && !setMode) { pageRangeMode = hasPageGaps(p); applyPageModeUI(); }
   if (setMode) {
     if (!$('#inSetDate').value) $('#inSetDate').value = m.t;
     syncSetFormUI(p);
@@ -6581,7 +7515,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       const showPer = dt.per != null ? dt.per : (m.perStudyDay != null ? m.perStudyDay : (isFinite(m.needPerDay) ? m.needPerDay : 0));
       const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日需做';
-      _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), u === '套' ? (Math.round(showPer * 10) / 10).toFixed(1) : String(Math.ceil(showPer)), u);
       const bits = [];
       if (dt.plan && dt.plan.onTime) {
         // 加量追赶期：大字与状态卡"最省力按期方案"同源，避免看板与卡片数字打架
@@ -6610,7 +7544,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天做';
-      _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), u === '套' ? (Math.round(m.needPerDay * 10) / 10).toFixed(1) : String(Math.ceil(m.needPerDay)), u);
       $('#mNeedFoot').textContent = m.daysToMedium > 0 ? `粗估（剩余÷剩余自然日）· 再攒 ${m.daysToMedium} 个学习日就开始按你的节奏调整` : '再积累几个学习日，将按你的真实节奏给出学习日目标';
     }
   } else {
@@ -6665,7 +7599,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       const showPer = dt.per;
       const showWk = dt.wk || Math.max(1, Math.round(m.activityPerWeek));
       $('#labelNeed').textContent = '每个学习日新学';
-      _setBigNum($('#mNeed'), (Math.round(showPer * 10) / 10).toFixed(1), ru);
+      _setBigNum($('#mNeed'), String(Math.ceil(showPer)), ru);
       const bits = [];
       if (dt.plan && dt.plan.onTime) {
         if (dt.plan.onTime.heavy) {
@@ -6685,7 +7619,7 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
       $('#mNeedFoot').textContent = bits.join(' · ');
     } else {
       $('#labelNeed').textContent = '需平均每天学';
-      _setBigNum($('#mNeed'), (Math.round(m.needPerDay * 10) / 10).toFixed(1), u);
+      _setBigNum($('#mNeed'), String(Math.ceil(m.needPerDay)), ru);
       $('#mNeedFoot').textContent = m.daysToMedium > 0 ? `粗估（剩余÷剩余自然日）· 再攒 ${m.daysToMedium} 个学习日就开始按你的节奏调整` : `${ru} / 天`;
     }
   }
@@ -6723,21 +7657,39 @@ $('#headBadges').innerHTML = `<span class="type-badge ${type.badgeCls}">${type.i
   $('#statusIcon').innerHTML = status.icon;
   $('#statusTitle').textContent = status.title;
   $('#statusDesc').innerHTML = status.desc;
+  // 绑定"一键缩短间隔"按钮事件
+  var shortenBtns = document.querySelectorAll('.eta-shorten-btn');
+  for (var si = 0; si < shortenBtns.length; si++) {
+    shortenBtns[si].addEventListener('click', function() {
+      var ivStr = this.getAttribute('data-intervals');
+      if (!ivStr) return;
+      var newIv = ivStr.split('→').map(function(d) { return parseInt(d, 10) || 1; });
+      if (!newIv.length) return;
+      if (!confirm('确定将记忆间隔缩短为 ' + newIv.join('→') + ' 天？所有未攻克的错题会按新间隔重新排期。')) return;
+      p.intervals = newIv;
+      p.updatedAt = Date.now();
+      rescheduleAllItemsWithNewIntervals(p);
+      rebalanceAllItems(p);
+      saveStore();
+      render();
+      showToast('' + svgIcon('check-circle') + '', '间隔已缩短', '新间隔为 ' + newIv.join('→') + ' 天，所有未攻克的错题已按新间隔重新排期。', 3500);
+    });
+  }
   // 常驻算法说明：让用户知道数字怎么来、何时可信
   let algoNote = '';
   const doneAll = m.currentPage > 0 && m.remaining === 0;
   if (!doneAll) {
     if (p.type === 'mistake') {
       // 错题本是滚动复习，不是线性进度：不按"攻克速度"外推完成时间，说明要贴合其机制
-      algoNote = '每道错题按记忆间隔（1→2→4→7→15→30天）滚动复习，连续做对才算攻克。均匀模式会自动把每天的量错峰，你只要做完"今天到期"的即可，越往后复习越稀疏、负担越轻，不需要自己算每天做多少。';
+      algoNote = `每道错题按记忆间隔（${formatIntervals(p)}天）滚动复习，连续做对才算攻克。均匀模式会自动把每天的量错峰，你只要做完"今天到期"的即可，越往后复习越稀疏、负担越轻，不需要自己算每天做多少。`;
     } else if (p.type === 'recite') {
       // 背书本是"新学推进 + 间隔复习"双任务，且要预留完整复习周期，说明与刷题/错题都不同
       if (m.sprint) {
-        algoNote = `一轮完整复习约需 ${m.cycleDays} 天（1→2→4→7→15→30 间隔）。现在距目标日不足一个完整周期，已进入冲刺期，系统把"先复习已学、再挑重点学新"放在第一位；你只需按今天的清单做，不用再算新学目标。`;
+        algoNote = `一轮完整复习约需 ${m.cycleDays} 天（${formatIntervals(p)} 间隔）。现在距目标日不足一个完整周期，已进入冲刺期，系统把"先复习已学、再挑重点学新"放在第一位；你只需按今天的清单做，不用再算新学目标。`;
       } else if (!m.enoughData) {
         algoNote = `背书 = 新学推进 + 按间隔复习，一轮完整复习约需 ${m.cycleDays} 天。系统会算出新学截止日（${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'}），之后只做滚动复习；现在数据少，先按粗略目标推进。`;
       } else {
-        algoNote = `背书 = 新学 + 按间隔（1→2→4→7→15→30天）滚动复习，一轮约需 ${m.cycleDays} 天。系统按你的节奏安排每天新学页与复习并错峰，避免扎堆；新内容建议在 ${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'} 前学完，之后只做滚动复习，到期记得最牢。`;
+        algoNote = `背书 = 新学 + 按间隔（${formatIntervals(p)}天）滚动复习，一轮约需 ${m.cycleDays} 天。系统按你的节奏安排每天新学页与复习并错峰，避免扎堆；新内容建议在 ${m.newLearnEnd ? fmtCN(m.newLearnEnd) : '—'} 前学完，之后只做滚动复习，到期记得最牢。`;
       }
     } else if (!m.enoughData) {
       algoNote = `系统统计你最近每个"真正学习的日子"推进了多少${u}、每周大约学几天，据此折算目标。满 3 个学习日开始个性化（范围偏宽），满 7 个学习日、跨约 2 周后最可靠；现在数据少，先按粗略目标推进。`;
@@ -7356,9 +8308,9 @@ function renderReciteSprintBar(p) {
   } else if (d2d >= 0 && d2d <= 30) {
     leadText = `距考试还有 <strong>${d2d}</strong> 天，还剩 <strong>${unlearned}</strong> 条未学 / <strong>${overdue}</strong> 条逾期。时间紧，做减法比硬赶新内容更有效：`; leadIcon = svgIcon('hourglass');
   } else if (condOverdueHeavy) {
-    leadText = `已逾期 <strong>${overdue}</strong> 条，复习端压力较大。建议暂停新学，先清复习。`; leadIcon = '' + svgIcon('alert-triangle') + '';
+    leadText = `已逾期 <strong>${overdue}</strong> 条，复习端压力较大。建议暂停新学，先清复习。`; leadIcon = '' + svgIcon('x-circle') + '';
   } else if (condWindowClosed) {
-    leadText = `新学窗口已关闭，还剩 <strong>${unlearned}</strong> 条未学。建议暂停新学或战略放弃低频页段。`; leadIcon = '' + svgIcon('alert-triangle') + '';
+    leadText = `新学窗口已关闭，还剩 <strong>${unlearned}</strong> 条未学。建议暂停新学或战略放弃低频页段。`; leadIcon = '' + svgIcon('x-circle') + '';
   } else {
     leadText = '进度偏紧，做减法比硬赶更有效：'; leadIcon = svgIcon('hourglass');
   }
@@ -7678,10 +8630,11 @@ function renderReciteSoftEncourage(p) {
   const due = getDueItems(p).length;
 
   const pool = [
-    `已经复习了 ${done} 条，在往前走～没填满也没关系。`,
-    `坚持打开就已经很棒了，剩下的明天再说也没关系。`,
-    `今天做了 ${done} 条复习，比昨天又扎实了一点。`,
-    `不累的时候多过两条，累了就收工，节奏是自己的。`
+    `已经复习了 ${done} 条，在往前走，继续保持`,
+    `坚持打开就很棒，今天的复习在推进中`,
+    `今天做了 ${done} 条复习，比昨天又扎实了一点`,
+    `状态不错，接着过下一条`,
+    `复习在稳步推进，别停`,
   ];
   const text = pool[Math.floor(Math.random() * pool.length)];
 
@@ -7914,23 +8867,29 @@ function renderReview(p) {
     const excessSub = $('#excessSub');
     const obActions = excessBanner.querySelector('.ob-actions');
     const obHint = excessBanner.querySelector('.ob-hint');
-    // 档2：comfort < due <= smartCap → 中性信息条（灰色，无警示色，无分散按钮）
+    // 档2：comfort < due <= smartCap → 中性信息条（灰色，无警示色，保留分散按钮）
     // 档3：due > smartCap → 积压横幅（拆两行：正常到期Y + 逾期M）
     let tier = 0;
-    if (due.length > smartCap && !suppressNegatives) tier = 3;
+    if (due.length > smartCap) tier = 3;
     else if (due.length > comfort) tier = 2;
 
     if (tier === 3) {
       excessBanner.hidden = false;
       excessBanner.dataset.mode = 'main';
-      excessBanner.classList.add('tier3');
+      if (suppressNegatives) {
+        excessBanner.classList.remove('tier3');
+      } else {
+        excessBanner.classList.add('tier3');
+      }
       if (obMain) obMain.innerHTML = `今日正常到期 <strong>${normalDueN}</strong> 条 · 另有 <strong class="overdue-count">${overdueN}</strong> 条逾期待还`;
       if (excessSub) {
         // [v3 P2] deadline过期后不再催债，改为温和语气
         if (p.deadline && p.deadline < today) {
-          excessSub.textContent = '目标日已过，这些旧题做多少算多少。';
+          excessSub.textContent = '目标日已过，这些旧题做多少算多少，按自己的节奏来。';
+        } else if (suppressNegatives) {
+          excessSub.textContent = '今天已经复习不少了，剩余的按自己步调完成就好。';
         } else {
-          excessSub.textContent = '能坚持打开就已经很棒了，剩下的明天再说也没关系。也可以分散部分到未来。';
+          excessSub.textContent = '今天的复习量不小，拆成几次完成，保持节奏。也可以分散部分到未来。';
         }
       }
       if (obActions) obActions.style.display = '';
@@ -7941,18 +8900,19 @@ function renderReview(p) {
       excessBanner.classList.remove('tier3');
       if (obMain) obMain.innerHTML = `今日安排 <strong>${due.length}</strong> 条`;
       if (excessSub) excessSub.textContent = '';
-      if (obActions) obActions.style.display = 'none';
-      if (obHint) obHint.style.display = 'none';
+      // 保留分散按钮：超过舒适量时用户可能需要分散
+      if (obActions) obActions.style.display = '';
+      if (obHint) obHint.style.display = '';
     } else {
       // 温和模式：已做了不少但还有剩
       const todayTotal = due.length + todayReviewedItems;
-      const isGentle = !suppressNegatives && todayReviewedItems > 0 && todayTotal > comfort && due.length >= 3;
+      const isGentle = todayReviewedItems > 0 && todayTotal > comfort && due.length >= 3;
       if (isGentle) {
         excessBanner.hidden = false;
         excessBanner.dataset.mode = 'gentle';
         excessBanner.classList.remove('tier3');
         if (obMain) obMain.innerHTML = `今天已复习 <strong>${todayReviewedItems}</strong> 条，还剩 <strong>${due.length}</strong> 条`;
-        if (excessSub) excessSub.textContent = '能坚持打开就已经很棒了，剩下的明天再说也没关系。想歇一歇可以把剩余分散到未来。';
+        if (excessSub) excessSub.textContent = '已经复习了不少，继续保持节奏，按自己的步调来就好。';
         if (obActions) obActions.style.display = '';
         if (obHint) obHint.style.display = '';
       } else {
@@ -8036,7 +8996,20 @@ function renderReview(p) {
 
   if (!due.length && !retentionDue.length) {
     list.innerHTML = '';
-    $('#noReviewHint').hidden = false;
+    // 区分"完成全部"和"本来就没有"两种情况
+    const _today = todayStr();
+    let _reviewedToday = 0;
+    (p.items || []).forEach(it => {
+      const revs = it.reviews || [];
+      if (revs.length >= 2 && revs[revs.length - 1].date === _today) _reviewedToday++;
+    });
+    const hintEl = $('#noReviewHint');
+    if (_reviewedToday > 0) {
+      hintEl.textContent = '今日复习已全部完成，做得很好！';
+    } else {
+      hintEl.textContent = '今天没有需要复习的内容，轻松一下～';
+    }
+    hintEl.hidden = false;
     // [v2 背书 M5] 全部掌握完成态：remaining=0 且无未学 → 显示归档提示
     if (p.type === 'recite' && !p.archived) {
       const live = (p.items || []).filter(it => !it.mastered && !it.manualMastered && !it.finalReviewDate);
@@ -8117,13 +9090,18 @@ function renderReview(p) {
     if (aOver !== bOver) return bOver - aOver;
     const dateCmp = a.nextReviewDate.localeCompare(b.nextReviewDate);
     if (dateCmp !== 0) return dateCmp;
-    // 同一天到期：背书按书页顺序聚簇（同章节相邻、顺着书背，避免"3-5页、1-2页"的页码跳跃混乱）；
-    // 错题无页码顺序，按薄弱程度（分数低=更弱）先做。
-    if (p.type === 'recite') {
-      const ps = (a.pageStart ?? 0) - (b.pageStart ?? 0);
-      if (ps !== 0) return ps;
-      return (a.pageEnd ?? 0) - (b.pageEnd ?? 0);
+    // 同一天到期：错题和背书统一按书页顺序聚簇（同章节相邻、顺着书翻，避免页码跳跃来回翻）；
+    // 同一页码按录入时间（learnedDate）排序，录入早的先做；无页码时兜底按薄弱程度。
+    const aPs = a.pageStart ?? 0, bPs = b.pageStart ?? 0;
+    if (aPs !== bPs) return aPs - bPs;
+    const aPe = a.pageEnd ?? 0, bPe = b.pageEnd ?? 0;
+    if (aPe !== bPe) return aPe - bPe;
+    // 同一页码：按录入时间排序（learnedDate 早的先做）
+    if (a.learnedDate && b.learnedDate) {
+      const ldCmp = a.learnedDate.localeCompare(b.learnedDate);
+      if (ldCmp !== 0) return ldCmp;
     }
+    // 兜底：无页码或同页码同录入时间时，按薄弱程度（分数低=更弱）先做
     const sa = getItemScore(a) ?? 0.5, sb = getItemScore(b) ?? 0.5;
     if (sa !== sb) return sa - sb;
     return (a.stage || 0) - (b.stage || 0);
@@ -8186,9 +9164,10 @@ function renderReview(p) {
       ? `<span class="pull-fwd-tag" title="原定于 ${it.originalNextReviewDate}，为赶进度提前到今天">${svgIcon('zap')}提前</span>` : '';
     const errTagHtml = (it.errTags || []).map(reasonPill).join(' ');
     const lastNoteHtml = it.note ? `<span class="ri-lastnote">备注：${esc(it.note)}</span>` : '';
-    // 反复错（连续 2 次及以上"又错了"）：标为"关键薄弱点"，把挫败感转成"考前最该拿下的重点"
-    const weakKeyHtml = (p.type === 'mistake' && !it.mastered && !it.manualMastered && (it.wrongStreak || 0) >= 2)
-      ? `<span class="weak-key-tag">${svgIcon('key')} 关键薄弱点</span>` : '';
+    // 关键薄弱点：一旦连续错2次及以上就永久标记（错题/背书通用），把挫败感转成"考前最该拿下的重点"
+    // 兼容旧数据：everWeakKey 为空但 wrongStreak >= 2 时也显示，并在下次复习时永久标记
+    const weakKeyHtml = ((it.everWeakKey || (it.wrongStreak || 0) >= 2) && !it.mastered && !it.manualMastered)
+      ? `<span class="weak-key-tag">${svgIcon('key', 12)} 关键薄弱点</span>` : '';
     // 本轮没做对被打回：用极简计数体现"已重做几次"，做对即进下一轮（错题/背书通用）
     const ws = it.wrongStreak || 0;
     const retryHtml = ws >= 1 ? ` <span class="retry-cnt" title="本轮已重做 ${ws} 次 · 做对后进入下一轮">${svgIcon('refresh-cw', 11)} ${ws}</span>` : '';
@@ -8339,21 +9318,32 @@ function ensureKbdHintBar(p){
   if (getUIFlag('review_kbd_hint_dismissed')) return;
   // 触屏/平板不常驻键盘，不打扰
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+  const isMistake = p && p.type === 'mistake';
+  const q1 = isMistake ? '做对了' : '记得';
+  const q2 = isMistake ? '看答案' : '模糊';
+  const q3 = isMistake ? '又错了' : '忘记';
+  const sLabel = '已熟知';
+  const hintHtml = '<span>' + svgIcon('keyboard', 14) + ' 键盘快捷：</span>'
+    + '<span><b style="color:var(--brand)">1</b> ' + q1 + '</span>'
+    + '<span><b style="color:var(--brand)">2</b> ' + q2 + '</span>'
+    + '<span><b style="color:var(--brand)">3</b> ' + q3 + '</span>'
+    + '<span><b style="color:var(--brand)">S</b> ' + sLabel + '</span>';
   let bar = document.getElementById('reviewKbdHint');
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'reviewKbdHint';
     bar.style.cssText = 'display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted)';
-    bar.innerHTML = '<span>' + svgIcon('keyboard', 14) + ' 键盘快捷：</span>'
-      + '<span><b style="color:var(--brand)">1</b> 记得</span>'
-      + '<span><b style="color:var(--brand)">2</b> 模糊</span>'
-      + '<span><b style="color:var(--brand)">3</b> 忘记</span>'
-      + '<span><b style="color:var(--brand)">S</b> 跳过/已熟知</span>'
+    bar.innerHTML = hintHtml
       + '<button type="button" id="reviewKbdClose" aria-label="关闭快捷键说明" style="margin-left:auto;display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer;line-height:1;padding:2px 6px">'+svgIcon('x', 14)+'</button>';
     const list = $('#reviewList');
     section.insertBefore(bar, list);
     const close = document.getElementById('reviewKbdClose');
     if (close) close.addEventListener('click', () => { setUIFlag('review_kbd_hint_dismissed'); bar.remove(); });
+  } else {
+    // 已存在时更新文案（项目切换时错题/背书文案不同）
+    const closeBtn = document.getElementById('reviewKbdClose');
+    bar.innerHTML = hintHtml;
+    if (closeBtn) bar.appendChild(closeBtn);
   }
 }
 
@@ -8663,7 +9653,7 @@ function renderExerciseRecords(p) {
         `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
         `<span class="r-page">${textOf[i]}</span>` +
         `<span class="r-delta${dl > 0 ? '' : ' zero'}" style="margin-left:auto">${dlStr}</span>` +
-        `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条记录里的错题（格式：套号-题号，如 3-5）">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
+        `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记这条记录里的错题（格式：套号-题号，如 3-5）">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
         `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" data-set="${esc(r.set)}" title="删除">${svgIcon('x', 15)}</button>`;
       list.insertBefore(li, list.firstChild);
     });
@@ -8701,7 +9691,7 @@ function renderExerciseRecords(p) {
       `<span class="r-date">${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}</span>` +
       `<span class="r-page">${rangeStr}</span>` +
       `<span class="r-delta${delta > 0 ? '' : ' zero'}" style="margin-left:auto">${deltaStr}</span>` +
-      `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记/编辑这条打卡里的错题">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
+      `<button class="r-wrong" data-wrongrid="${esc(r.rid || '')}" title="补记这条打卡里的错题">${svgIcon('pencil')}${wmCount ? '(' + wmCount + ')' : ''}</button>` +
       `<button class="r-del" data-rid="${esc(r.rid || '')}" data-date="${esc(r.date)}" title="删除">${svgIcon('x', 15)}</button>`;
     list.insertBefore(li, list.firstChild);
   });
@@ -9203,8 +10193,60 @@ function drawChart(m, p) {
 }
 
 /* ============ 项目切换 ============ */
-function openSwitch() { renderProjectList(); $('#switchMask').hidden = false; modalTop($('#switchMask')); }
-function closeSwitch() { const m=$('#switchMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
+let _projectSortMode = false;
+function openSwitch() { _projectSortMode = false; renderProjectList(); $('#switchMask').hidden = false; modalTop($('#switchMask')); }
+function closeSwitch() { const m=$('#switchMask'); if(m.hidden) return; m.hidden=true; _projectSortMode=false; unlockBodyScroll(); }
+
+// 获取项目排序后的列表（按类型分组，组内按用户自定义顺序）
+function getSortedProjects(projects) {
+  const order = store.projectOrder || {};
+  const groups = { exercise: [], recite: [], mistake: [] };
+  Object.values(projects).forEach(p => {
+    if (!p.archived && groups[p.type]) groups[p.type].push(p);
+  });
+  // 组内排序：优先按用户自定义顺序，其次按updatedAt
+  Object.keys(groups).forEach(type => {
+    groups[type].sort((a, b) => {
+      const orderA = order[a.id];
+      const orderB = order[b.id];
+      if (orderA != null && orderB != null) return orderA - orderB;
+      if (orderA != null) return -1;
+      if (orderB != null) return 1;
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+  });
+  return groups;
+}
+
+// 组内移动项目（direction: -1上移, 1下移）
+function moveProject(projectId, direction) {
+  const p = store.projects[projectId];
+  if (!p) return;
+  const groups = getSortedProjects(store.projects);
+  const items = groups[p.type] || [];
+  const idx = items.findIndex(x => x.id === projectId);
+  if (idx < 0) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= items.length) return; // 已到边界
+  // 交换顺序：重新写入所有同组项目的order
+  if (!store.projectOrder) store.projectOrder = {};
+  const swapped = items[newIdx].id;
+  // 先把所有同组项目的order重置为当前位置
+  items.forEach((item, i) => { store.projectOrder[item.id] = i; });
+  // 交换
+  store.projectOrder[projectId] = newIdx;
+  store.projectOrder[swapped] = idx;
+  saveStore();
+  renderProjectList();
+}
+
+// 排序模式切换
+function toggleProjectSort() {
+  _projectSortMode = !_projectSortMode;
+  const btn = $('#sortProjectsBtn');
+  if (btn) btn.textContent = _projectSortMode ? '完成' : '排序';
+  renderProjectList();
+}
 
 function renderProjectList() {
   const list = $('#projectList');
@@ -9214,23 +10256,16 @@ function renderProjectList() {
     return;
   }
   const all = ids.map(id => store.projects[id]);
-  // 归档项目从首页隐藏，单独放收纳箱
-  const activeProjects = all.filter(p => !p.archived);
   const archivedProjects = all.filter(p => p.archived);
-  // 按类型分组：刷题、背书、错题
-  const groups = [
-    { key: 'exercise', label: '' + svgIcon('book-open') + ' 刷题', items: [] },
-    { key: 'recite', label: '' + svgIcon('brain') + ' 背书', items: [] },
-    { key: 'mistake', label: '' + svgIcon('clipboard-list') + ' 错题', items: [] },
+  // 按类型分组，组内按用户自定义顺序
+  const groups = getSortedProjects(store.projects);
+  const groupLabels = [
+    { key: 'exercise', label: '' + svgIcon('book-open') + ' 刷题' },
+    { key: 'recite', label: '' + svgIcon('brain') + ' 背书' },
+    { key: 'mistake', label: '' + svgIcon('clipboard-list') + ' 错题' },
   ];
-  activeProjects.forEach(p => {
-    const g = groups.find(g => g.key === p.type);
-    if (g) g.items.push(p);
-  });
-  // 组内按更新时间排序
-  groups.forEach(g => g.items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)));
 
-  const renderItem = (p) => {
+  const renderItem = (p, idx, groupLen) => {
     const m = getMetrics(p);
     const pct = m.total > 0 ? Math.min(100, m.currentPage / m.total * 100) : 0;
     const active = p.id === store.currentId;
@@ -9269,7 +10304,20 @@ function renderProjectList() {
       if (linkedCount > 0) linkInfo = ` · ${svgIcon('link')} ${linkedCount}个关联错题本`;
     }
 
-    return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}" data-id="${esc(p.id)}">
+    // 排序模式下的上下箭头
+    let sortBtns = '';
+    if (_projectSortMode) {
+      const upDisabled = idx === 0 ? 'disabled' : '';
+      const downDisabled = idx === groupLen - 1 ? 'disabled' : '';
+      sortBtns = `<span class="pi-sort-btns">
+        <button class="pi-sort-btn" data-sort-up="${esc(p.id)}" title="上移" ${upDisabled}>${svgIcon('chevron-up', 14)}</button>
+        <button class="pi-sort-btn" data-sort-down="${esc(p.id)}" title="下移" ${downDisabled}>${svgIcon('chevron-down', 14)}</button>
+      </span>`;
+    }
+
+    const delBtn = _projectSortMode ? '' : `<button class="pi-del" data-del="${p.id}" title="删除">${svgIcon('x', 15)}</button>`;
+
+    return `<li class="project-item ${type.typeCls}${active ? ' active' : ''}${_projectSortMode ? ' sort-mode' : ''}" data-id="${esc(p.id)}" data-type="${p.type}">
       <span class="pi-icon">${type.icon}</span>
       <div class="pi-main">
         <div class="pi-name">
@@ -9279,15 +10327,17 @@ function renderProjectList() {
         </div>
         <div class="pi-meta">${fmtUnitNum(m.currentPage)} / ${fmtUnitNum(m.total)} ${unitName(p)} · ${pct.toFixed(0)}% · 目标 ${p.deadline}${extra}${linkInfo}</div>
       </div>
-      <button class="pi-del" data-del="${p.id}" title="删除">${svgIcon('x', 15)}</button>
+      ${sortBtns}
+      ${delBtn}
     </li>`;
   };
 
   let html = '';
-  groups.forEach(g => {
-    if (g.items.length === 0) return;
-    html += `<li class="project-group-label" style="padding:8px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px">${g.label}（${g.items.length}）</li>`;
-    html += g.items.map(renderItem).join('');
+  groupLabels.forEach(g => {
+    const items = groups[g.key] || [];
+    if (items.length === 0) return;
+    html += `<li class="project-group-label" style="padding:8px 4px 4px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px">${g.label}（${items.length}）</li>`;
+    html += items.map((p, i) => renderItem(p, i, items.length)).join('');
   });
   // 已归档收纳箱
   if (archivedProjects.length > 0) {
@@ -9350,6 +10400,12 @@ function saveReminder(enabled, times) {
   const clean = [...new Set((times || []).filter(isValidHHMM))].sort();
   const t = clean.length ? clean : ['20:00'];
   setLocalVal(REMIND_KEY, JSON.stringify({ enabled: !!enabled, times: t, time: t[0] }));
+  // 同步到后端（已登录时）
+  try {
+    if (typeof STAuth !== 'undefined' && STAuth.isLoggedIn && STAuth.isLoggedIn()) {
+      STAuth.apiRequest('/api/user/reminder', { method: 'PUT', body: { enabled: !!enabled, times: t } }).catch(() => {});
+    }
+  } catch (_) {}
   return t;
 }
 /* 当天各时间点是否已弹过（防止同一分钟轮询重复弹、支持一天多个时间各弹一次） */
@@ -9539,37 +10595,44 @@ function getMondayOf(s) {
   return fmtDate(d);
 }
 const _pick = arr => arr[Math.floor(Math.random() * arr.length)];
+// 基于当天日期的伪随机选择，保证当天文案固定
+function _dayPick(arr, seedKey) {
+  const seed = todayStr() + '|' + (seedKey || '');
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  return arr[Math.abs(h) % arr.length];
+}
 
-/* 每周小结统计：分项目类型统计上周数据 */
-function buildWeeklyStats(today) {
+/* 每周小结统计：分项目类型统计指定周的数据，weekOffset=0上周，-1再之前一周 */
+function buildWeeklyStats(today, weekOffset = 0) {
   const todayD = parseDate(today);
   const isMonday = todayD.getDay() === 1; // 周一=1
   const thisMon = getMondayOf(today);
-  const lastMon = addDays(thisMon, -7);
-  const lastSun = addDays(thisMon, -1);
-  const beforeWeek = addDays(lastMon, -1);  // 上周开始前一天（用于算进度差）
-  const inWeek = d => d && d >= lastMon && d <= lastSun;
+  const weekMon = addDays(thisMon, -7 + weekOffset * 7);
+  const weekSun = addDays(thisMon, -1 + weekOffset * 7);
+  const beforeWeek = addDays(weekMon, -1);  // 该周开始前一天（用于算进度差）
+  const inWeek = d => d && d >= weekMon && d <= weekSun;
   const heat = {};
   let earliest = null;
 
   // 分类型统计
   let exercisePages = 0, exerciseSets = 0;   // 刷题：页/套
-  let reciteNew = 0, reciteReviews = 0;       // 背书：新学条/复习次
-  let mistakeNew = 0, mistakeMastered = 0, mistakeReviews = 0; // 错题：新增/攻克/复习
+  let reciteNew = 0;       // 背书：新学条
+  let mistakeNew = 0, mistakeMastered = 0; // 错题：新增/攻克
+  const mistakeReviewDays = new Set();
+  const reciteReviewDays = new Set();
 
   Object.values(store.projects).forEach(p => {
-    /* ===== 刷题本：用"上周结束进度 - 上周开始进度"的差值，天然去重、正确处理板块卷 ===== */
+    /* ===== 刷题本：用"该周结束进度 - 该周开始进度"的差值 ===== */
     if (p.type === 'exercise' && Array.isArray(p.records)) {
       p.records.forEach(r => {
         heat[r.date] = (heat[r.date] || 0) + 1;
         if (!earliest || r.date < earliest) earliest = r.date;
       });
       if (isSetMode(p)) {
-        // 套卷模式：getCompletedSets 按完成比例返回（板块加权），差值即上周实际完成套数
-        exerciseSets += getCompletedSets(p, lastSun) - getCompletedSets(p, beforeWeek);
+        exerciseSets += getCompletedSets(p, weekSun) - getCompletedSets(p, beforeWeek);
       } else {
-        // 习题册模式：按合并后的页码区间算，差值即上周实际刷的页数
-        exercisePages += getCompletedPagesAtDate(p, lastSun) - getCompletedPagesAtDate(p, beforeWeek);
+        exercisePages += getCompletedPagesAtDate(p, weekSun) - getCompletedPagesAtDate(p, beforeWeek);
       }
     }
 
@@ -9583,44 +10646,48 @@ function buildWeeklyStats(today) {
           else if (p.type === 'mistake') mistakeNew++;
         }
       }
-      // reviews[0] 是首次学习，idx>0 才是真正的复习
       (it.reviews || []).forEach((rv, idx) => {
         if (!rv || !rv.date) return;
         heat[rv.date] = (heat[rv.date] || 0) + 1;
         if (!earliest || rv.date < earliest) earliest = rv.date;
         if (idx > 0 && inWeek(rv.date)) {
-          if (p.type === 'recite') reciteReviews++;
-          else if (p.type === 'mistake') mistakeReviews++;
+          if (p.type === 'recite') reciteReviewDays.add(rv.date);
+          else if (p.type === 'mistake') mistakeReviewDays.add(rv.date);
         }
       });
-      // 保持复习评价（已掌握条目的定期回顾）也计入复习次数
       (it.retentionReviews || []).forEach(rv => {
         if (!rv || !rv.date) return;
         heat[rv.date] = (heat[rv.date] || 0) + 1;
         if (!earliest || rv.date < earliest) earliest = rv.date;
         if (inWeek(rv.date)) {
-          if (p.type === 'recite') reciteReviews++;
-          else if (p.type === 'mistake') mistakeReviews++;
+          if (p.type === 'recite') reciteReviewDays.add(rv.date);
+          else if (p.type === 'mistake') mistakeReviewDays.add(rv.date);
         }
       });
-      // 上周攻克的错题
       if (p.type === 'mistake' && (it.mastered || it.manualMastered) && inWeek(it.masteredDate)) {
         mistakeMastered++;
       }
     });
   });
 
+  const mistakeReviews = mistakeReviewDays.size;
+  const reciteReviews = reciteReviewDays.size;
+
   let activeDays = 0;
-  for (let i = 0; i < 7; i++) { if (heat[addDays(lastMon, i)]) activeDays++; }
-  const streak = currentStreak(heat, today);
+  for (let i = 0; i < 7; i++) { if (heat[addDays(weekMon, i)]) activeDays++; }
+  let weekStreak = 0, curStreak = 0;
+  for (let i = 0; i < 7; i++) {
+    if (heat[addDays(weekMon, i)]) { curStreak++; if (curStreak > weekStreak) weekStreak = curStreak; }
+    else curStreak = 0;
+  }
+  const streak = weekStreak;
   const ageDays = earliest ? diffDays(earliest, today) + 1 : 0;
-  // 汇总（套数/页数统一在累加后取整，避免多个项目各自四舍五入导致虚高）
   exerciseSets = Math.max(0, Math.round(exerciseSets));
   exercisePages = Math.max(0, Math.round(exercisePages));
   const totalReviews = reciteReviews + mistakeReviews;
   const totalNew = reciteNew + mistakeNew;
 
-  return { isMonday, lastMon, lastSun, activeDays, streak, ageDays,
+  return { isMonday, weekMon, weekSun, activeDays, streak, ageDays,
     exercisePages, exerciseSets,
     reciteNew, reciteReviews,
     mistakeNew, mistakeMastered, mistakeReviews,
@@ -9630,25 +10697,41 @@ function buildWeeklyStats(today) {
 function getWeeklyReviewHTML() {
   const today = todayStr();
   if (!Object.keys(store.projects || {}).length) return '';
-  const s = buildWeeklyStats(today);
+  const s = buildWeeklyStats(today, 0);  // 上周
+  const prev = buildWeeklyStats(today, -1);  // 再之前一周
   // 只在周一显示上周小结，周一全天展示
   if (!s.isMonday) return '';
   // 完全没有任何学习数据时不显示
   if (s.ageDays <= 0) return '';
-  // 上周完全没活动也不显示（没什么可总结的）
+  // 上周完全没活动也不显示
   if (s.activeDays === 0 && s.totalReviews === 0 && s.totalNew === 0
       && s.exercisePages === 0 && s.exerciseSets === 0 && s.mistakeMastered === 0) return '';
 
-  // 构建数据描述文本（用于文案填充）：只描述该用户实际做过的事
+  // 构建数据描述文本
   const parts = [];
   if (s.exercisePages > 0) parts.push(`刷了 ${s.exercisePages} 页题`);
   if (s.exerciseSets > 0) parts.push(`刷了 ${s.exerciseSets} 套卷`);
   if (s.reciteNew > 0) parts.push(`新背 ${s.reciteNew} 条`);
-  if (s.reciteReviews > 0) parts.push(`复习背书 ${s.reciteReviews} 次`);
   if (s.mistakeNew > 0) parts.push(`收录 ${s.mistakeNew} 道错题`);
   if (s.mistakeMastered > 0) parts.push(`攻克错题 ${s.mistakeMastered} 道`);
-  if (s.mistakeReviews > 0) parts.push(`复习错题 ${s.mistakeReviews} 次`);
   const whatYouDid = parts.length ? parts.join('、') : '完成了日常复习';
+
+  // 环比变化：加权综合学习状态指数
+  // 指数 = 学习天数*10 + 刷题页数*1 + 刷题套数*15 + 新背内容*1 + 复习背书天数*3
+  //       + 新增错题*0.5 + 攻克错题*3 + 复习错题天数*3 + 连续打卡*2(上限10)
+  const weekScore = w => w.activeDays * 10 + w.exercisePages * 1 + w.exerciseSets * 15
+    + w.reciteNew * 1 + w.reciteReviews * 3
+    + w.mistakeNew * 0.5 + w.mistakeMastered * 3 + w.mistakeReviews * 3
+    + Math.min(w.streak * 2, 10);
+  const curScore = weekScore(s);
+  const prevScore = weekScore(prev);
+  let compareText = '', compareCls = 'wr-compare-flat', comparePct = 0;
+  if (prev.ageDays > 0 && prevScore >= 20) {
+    comparePct = Math.round((curScore - prevScore) / prevScore * 100);
+    if (comparePct >= 5) { compareText = `↑ ${comparePct}%`; compareCls = 'wr-compare-up'; }
+    else if (comparePct <= -5) { compareText = `↓ ${Math.abs(comparePct)}%`; compareCls = 'wr-compare-down'; }
+    else { compareText = '持平'; }
+  }
 
   const fill = t => t
     .replace(/\{days\}/g, s.activeDays)
@@ -9656,7 +10739,9 @@ function getWeeklyReviewHTML() {
     .replace(/\{rest\}/g, 7 - s.activeDays)
     .replace(/\{reviews\}/g, s.totalReviews)
     .replace(/\{new\}/g, s.totalNew)
-    .replace(/\{what(YouDid)?\}/g, whatYouDid);
+    .replace(/\{what(YouDid)?\}/g, whatYouDid)
+    .replace(/\{comparePct\}/g, Math.abs(comparePct))
+    .replace(/\{compareText\}/g, compareText);
 
   // 冲刺期建议池
   const sprintTips = [
@@ -9668,34 +10753,36 @@ function getWeeklyReviewHTML() {
   ];
 
   let emoji, title, msgs, tips;
-  const isNew = s.ageDays < 7;
+  const isNew = s.ageDays < 14;
   const ky = getKaoyanInfo();
   const isSprint = ky.state === 'countdown' && ky.days >= 0 && ky.days <= 30;
+  // 环比状态
+  const isUp = compareCls === 'wr-compare-up';
+  const isDown = compareCls === 'wr-compare-down';
 
   if (isNew) {
     emoji = '' + svgIcon('sprout') + ''; title = '第一周 · 起步';
     msgs = [
       '欢迎开始记录！第一步往往最难，你已经迈出来了。',
       '把学习提上日程的这一刻，你就已经和昨天的自己不一样了。',
-      '万事开头难，你已经在路上了。先别急着追求完美，把"每天记一点"养起来。'
+      '万事开头难，你已经在路上了。把"每天记一点"养起来，后面会越来越顺。'
     ];
     tips = [
-      '这周不用追求量，先熟悉"学习→复习→掌握"的流程，节奏会自己长出来。',
-      '可以先从一个科目跑通完整流程，再慢慢加量，比一上来就铺满更稳。',
-      '把每天的目标定得轻松一点，连续几天都能完成，比一次猛学有用得多。'
+      '先熟悉"学习→复习→掌握"的完整流程，跑通一个科目再加量。',
+      '从一个科目开始跑通流程，再慢慢扩展，比一上来就铺满更稳。',
+      '把每天的目标定得踮踮脚能够到，连续完成几天，节奏自然就来了。'
     ];
   } else if (s.activeDays === 0) {
     emoji = '' + svgIcon('leaf') + ''; title = '上周 · 暂停了一下';
     msgs = [
       '上周暂时没有学习记录，没关系，节奏断了随时能接上。',
-      '休息本来就是备考的一部分。重要的不是从没停下，而是停下后还愿意回来。',
       '上周留白了，不代表前面的努力白费——学过的还在，捡起来比从零开始快得多。',
-      '停了一周？完全来得及。今天打开这个看板，就已经是重新开始了。'
+      '停了一周完全来得及，今天打开这个看板，就已经是重新开始了。'
     ];
     tips = [
-      '别想着一天补回一周的量，今天先学十几分钟、做几条复习，把状态找回来。',
+      '今天先学十几分钟、做几条复习，把状态找回来。',
       '把门槛降到最低：哪怕只复习3条、只看1页，先让"今天学过"这件事发生。',
-      '如果确实太累，就允许自己再缓一天，但定一个具体的重启时间，别让暂停变放弃。'
+      '定一个具体的重启时间，今天就开始，别让暂停变放弃。'
     ];
   } else if (s.activeDays === 7) {
     emoji = '' + svgIcon('flame') + ''; title = '上周 · 全勤';
@@ -9703,43 +10790,81 @@ function getWeeklyReviewHTML() {
       `上周7天全勤！${whatYouDid}，这份自律已经超过绝大多数人了。`,
       `一周七天一天不落，${whatYouDid}，你的稳定本身就是最强的竞争力。`,
       `全勤达成！${whatYouDid}，能每天坐下来学，本身就是很了不起的事。`,
-      `连续一周都在线——${whatYouDid}，你正在用行动告诉自己"我是能坚持的人"。`
+      isUp ? `7天全勤，${whatYouDid}，学习状态还比前一周提高了{comparePct}%，这个势头很猛。` : `7天全勤，${whatYouDid}，保持住这个节奏，继续往前推。`
     ];
     tips = [
-      '状态正好，也留意疲劳信号，睡够比多刷几道题更影响长期效率。',
-      '全勤很燃，记得留一点喘息时间——能稳稳走到12月的节奏才是好节奏。',
-      '天数已经拉满，接下来可以把注意力放到薄弱环节的质量上。'
+      '天数已经拉满，接下来把注意力放到薄弱环节的质量上。',
+      '趁状态稳定，定期回看一眼整体进度，确认方向没有跑偏。',
+      '全勤的基础上，在每天的内容质量上再抠细一点。'
     ];
-  } else if (s.streak >= 7 && s.activeDays >= 5) {
+  } else if (s.streak >= 5 && s.activeDays >= 5) {
     emoji = '' + svgIcon('activity') + ''; title = '上周 · 稳定输出';
     msgs = [
-      `已经连续打卡 {streak} 天，上周{whatYouDid}，坚持正在变成你的习惯。`,
-      `连续学了 {streak} 天，上周{whatYouDid}，这种细水长流的稳定最难得。`,
-      `{streak} 天的连续记录背后，上周{whatYouDid}，都是一天天攒下来的硬功夫。`
+      `上周最长连续打卡 {streak} 天，${whatYouDid}，坚持正在变成你的习惯。`,
+      `连续学了 {streak} 天，${whatYouDid}，这种细水长流的稳定最难得。`,
+      `{streak} 天的连续记录背后，${whatYouDid}，都是一天天攒下来的硬功夫。`,
+      isUp ? `连续{streak}天，${whatYouDid}，学习状态比前一周提高{comparePct}%，稳定还在往上走。` : `连续{streak}天，${whatYouDid}，稳定输出中，继续保持就好。`
     ];
     tips = [
-      '惯性已经建立，继续保持就好，周末也可以心安理得地放松半天。',
       '趁状态稳定，定期回看一眼整体进度，确认方向没有跑偏。',
-      '稳定是你的优势，接下来可以在每天的内容质量上再抠细一点。'
+      '稳定是你的优势，接下来在每天的内容质量上再抠细一点。',
+      '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
+    ];
+  } else if (s.activeDays >= 5 && isUp) {
+    emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 状态上升';
+    msgs = [
+      `上周{days}天的投入，${whatYouDid}，学习状态比前一周提高{comparePct}%，你正在加速靠近目标。`,
+      `一周{days}天在学习，${whatYouDid}，学习状态比前一周提高{comparePct}%，这个势头很好。`,
+      `{days}天的投入，学习状态提高{comparePct}%，${whatYouDid}，状态在往上走。`,
+      `学习状态提高{comparePct}%，${whatYouDid}，保持住这个加速度。`
+    ];
+    tips = [
+      '趁状态好，把之前拖延的硬骨头啃一啃，这时候效率最高。',
+      '继续保持这个频率，同时留意复习是否及时，别让欠账在后台累积。',
+      '上升期把目标再往上定一点，趁势推进更多内容。'
+    ];
+  } else if (s.activeDays >= 5 && isDown) {
+    emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
+    msgs = [
+      `上周{days}天的投入，${whatYouDid}，虽然学习状态比前一周略降{comparePct}%但底子还在。`,
+      `一周{days}天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
+      `{days}天的投入——${whatYouDid}——偶尔的波动很正常，这周把状态拉回来。`
+    ];
+    tips = [
+      '回想上周哪几天被占住了，能提前安排就更好。',
+      '保持这个频率，这周把下滑的指标补回来。',
+      '底子在，只要把天数稳住，量自然会跟上。'
     ];
   } else if (s.activeDays >= 5) {
     emoji = '' + svgIcon('trending-up') + ''; title = '上周 · 节奏不错';
     msgs = [
-      `上周学了 {days} 天，{whatYouDid}，这个节奏相当扎实。`,
-      `一周 {days} 天在学习，{whatYouDid}，已经跑赢了大多数人的状态。`,
-      `{days} 天的投入——{whatYouDid}——正在悄悄把你和目标的距离一点点缩短。`
+      `上周{days}天的投入，${whatYouDid}，这个节奏相当扎实。`,
+      `一周{days}天在学习，${whatYouDid}，已经跑赢了大多数人的状态。`,
+      `{days}天的投入——${whatYouDid}——正在悄悄把你和目标的距离一点点缩短。`
     ];
     tips = [
       '离全勤只差一两天，回想那天被什么占住了，能提前安排就更好。',
-      '节奏很好，别让偶尔的一两天中断，悄悄连成更长的松懈。',
-      '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。'
+      '保持这个频率，同时留意复习是否及时，别让欠账在后台累积。',
+      '在稳定的基础上，试着把每天的学习量再往上推一点。'
+    ];
+  } else if (s.activeDays >= 3 && isUp) {
+    emoji = '' + svgIcon('sun-medium') + ''; title = '上周 · 正在回升';
+    msgs = [
+      `上周{days}天的投入，${whatYouDid}，学习状态比前一周提高{comparePct}%，方向是对的。`,
+      `{days}天学习、{rest}天休整，${whatYouDid}，正在从低谷往上走。`,
+      `上周有{days}天在推进，${whatYouDid}，学习状态比前一周提高{comparePct}%，继续加把劲。`
+    ];
+    tips = [
+      '回升期最关键的是别断，先把连续天数拉起来，量自然会跟上。',
+      '从最容易上手的科目开始，先坐下、先学十分钟，往往就停不下来了。',
+      '把目标定在五天，踮踮脚就能够到，达到了再往上加。'
     ];
   } else if (s.activeDays >= 3) {
     emoji = '' + svgIcon('sun-medium') + ''; title = '上周 · 张弛有度';
     msgs = [
-      `上周学了 {days} 天，{whatYouDid}，已经有了一个不错的基本盘。`,
-      `{days} 天学习、{rest} 天休整，{whatYouDid}，张弛之间再加一点点就很理想。`,
-      `上周有 {days} 天在推进——{whatYouDid}——节奏在线，还有往上走的空间。`
+      `上周{days}天的投入，${whatYouDid}，已经有了一个不错的基本盘。`,
+      `{days}天学习、{rest}天休整，${whatYouDid}，张弛之间再加一点点就很理想。`,
+      `上周有{days}天在推进——${whatYouDid}——节奏在线，还有往上走的空间。`
     ];
     tips = [
       '试着把学习固定在每天同一时段，变成像吃饭一样的动作，天数会自然上来。',
@@ -9749,45 +10874,43 @@ function getWeeklyReviewHTML() {
   } else {
     emoji = '' + svgIcon('cloud-rain') + ''; title = '上周 · 刚起步';
     msgs = [
-      `上周学了 {days} 天，{whatYouDid}，虽然不多，但至少没有完全空白。`,
-      `上周只记录了 {days} 天，{whatYouDid}，没关系，这周从一个小目标重新起步就好。`,
-      `有 {days} 天的开始就不算晚，{whatYouDid}，真正可惜的是一直不开始。`
+      `上周{days}天的投入，${whatYouDid}，虽然不多，但至少没有完全空白。`,
+      `上周只记录了{days}天，${whatYouDid}，这周从一个小目标重新起步，会越来越好。`,
+      `有{days}天的开始就不算晚，${whatYouDid}，真正可惜的是一直不开始。`
     ];
     tips = [
-      '先别定大计划，这周争取比上周多一天，这就是实打实的进步。',
+      '这周争取比上周多一天，这就是实打实的进步。',
       '把学习材料放到最顺手的地方，减少"开始"那一下的阻力。',
       '哪怕每天只学二十分钟，一周也能攒出两个多小时，关键是先让频率上来。'
     ];
   }
   if (isSprint) tips = sprintTips;
 
-  // 数据格：根据用户实际使用的模式动态显示，没有数据的指标不出现
+  // 数据格
   const stat = (num, lab) => `<div class="wr-stat"><div class="wr-num">${num}</div><div class="wr-lab">${lab}</div></div>`;
-  // 复习卡片：只有一种模式时显示具体名称，两种都有则显示汇总
-  let reviewCard = null;
-  if (s.reciteReviews > 0 && s.mistakeReviews > 0) reviewCard = stat(s.totalReviews, '复习总次数');
-  else if (s.reciteReviews > 0) reviewCard = stat(s.reciteReviews, '复习背书');
-  else if (s.mistakeReviews > 0) reviewCard = stat(s.mistakeReviews, '复习错题');
+  const compareStat = compareText
+    ? `<div class="wr-stat wr-compare ${compareCls}"><div class="wr-num">${comparePct ? Math.abs(comparePct) + '%' : '持平'}</div><div class="wr-lab">学习状态</div></div>`
+    : null;
   const statsHtml = [
     stat(s.activeDays + ' / 7', '学习天数'),
     s.exercisePages > 0 ? stat(s.exercisePages, '刷题页数') : null,
     s.exerciseSets > 0 ? stat(s.exerciseSets, '刷题套数') : null,
     s.reciteNew > 0 ? stat(s.reciteNew, '新背内容') : null,
     s.mistakeNew > 0 ? stat(s.mistakeNew, '新增错题') : null,
-    reviewCard,
     s.mistakeMastered > 0 ? stat(s.mistakeMastered, '攻克错题') : null,
-    stat(s.streak, '连续打卡')
+    stat(s.streak, '连续打卡'),
+    compareStat
   ].filter(Boolean).join('');
 
   return `
     <div class="weekly-review">
       <div class="wr-head">
         <span class="wr-title">${emoji} ${title} · 学习小结</span>
-        <span class="wr-date">${fmtCN(s.lastMon)} - ${fmtCN(s.lastSun)}</span>
+        <span class="wr-date">${fmtCN(s.weekMon)} - ${fmtCN(s.weekSun)}</span>
       </div>
       <div class="wr-stats">${statsHtml}</div>
-      <div class="wr-msg">${fill(_pick(msgs))}</div>
-      <div class="wr-tip">${svgIcon('lightbulb')} ${fill(_pick(tips))}</div>
+      <div class="wr-msg">${fill(_dayPick(msgs, 'weekly-msg'))}</div>
+      <div class="wr-tip">${svgIcon('lightbulb')} ${fill(_dayPick(tips, 'weekly-tip'))}</div>
     </div>`;
 }
 
@@ -9813,7 +10936,12 @@ function getTodayStatus(p) {
     const target = dt && dt.per != null ? dt.per : (m && isFinite(m.needPerDay) ? m.needPerDay : 0);
     const td = m ? (m.todayDone || 0) : 0;
     if (!(target > 0)) return { state: 'none' };
-    if (td >= target) return { state: 'done', need: target, done: td };
+    // 套卷按 0.1 精度分模块录入，达标线与界面“需做 X / 已做 X”同口径，
+    // 避免出现“已做 0.3 / 0.3”却仍被判为进行中（真实 0.3<0.32 的小数误差）
+    const met = isSetMode(p)
+      ? (Math.round(td * 10) / 10) >= (Math.round(target * 10) / 10)
+      : td >= target;
+    if (met) return { state: 'done', need: target, done: td };
     if (td > 0) return { state: 'partial', need: target, done: td };
     return { state: 'todo', need: target, done: 0 };
   }
@@ -9836,7 +10964,8 @@ function getTodayStatus(p) {
 }
 
 function openDashboard() {
-  const ps = Object.values(store.projects);
+  const _sortedGroups = getSortedProjects(store.projects);
+  const ps = [..._sortedGroups.exercise, ..._sortedGroups.recite, ..._sortedGroups.mistake];
   const today = todayStr();
   let dueTotal = 0, overdueTotal = 0, retentionTotal = 0;
   const heat = {};
@@ -9923,38 +11052,78 @@ function openDashboard() {
 
   const streak = currentStreak(heat, today);
 
+  // —— 整体状态观察：从各项目metrics聚合趋势、断档、活跃度 ——
+  let trendUp = 0, trendDown = 0, hadLongBreak = false, activeProjects = 0;
+  ps.forEach(p => {
+    if (p.archived) return;
+    const m = getMetrics(p);
+    if (!m || !m.enoughData) return;
+    activeProjects++;
+    if (m.trendPct != null) {
+      if (m.trendPct >= 10) trendUp++;
+      else if (m.trendPct <= -10) trendDown++;
+    }
+    if (m.longestBreak >= 3) hadLongBreak = true;
+  });
+  const isHot = streak >= 5;
+  const isWarm = streak >= 3 && streak < 5;
+  const isSpeeding = trendUp > trendDown && activeProjects > 0;
+  const isSlowing = trendDown > trendUp && activeProjects > 0;
+  const isBack = hadLongBreak && streak >= 1 && streak <= 3; // 断档后回归
+
   let msg, enc, urgent = false;
   const g = timeGreeting();
+
   if (overdueTotal > 0) {
     msg = `有 <b>${overdueTotal}</b> 条已逾期，先把这些最该复习的清掉`; urgent = true;
-    enc = '越拖越忘，今天搞定就是胜利！';
+    enc = Coach.pick(['越拖越忘，今天搞定就是胜利 ⚠️', '逾期的题最容易丢分，优先清掉', '先把旧账清了，再学新的 📝', '搞定逾期，心里就踏实了 ✨'], 'dashoverdue');
   } else if (tasksTotal > 0 && tasksDone >= tasksTotal) {
-    if (tasksOver > 0) { msg = '今天的任务全部完成，还超额了'; enc = Coach.pick(Coach.overBig, 'dashover'); }
-    else { msg = `今天 ${tasksTotal} 个任务全部完成`; enc = Coach.pick(Coach.done, 'dashdone'); }
+    if (tasksOver > 0) {
+      msg = '今天的任务全部完成，还超额了';
+      enc = isHot
+        ? Coach.pick(['连续这么多天还超额，状态太强了 🔥', '超额完成+连续打卡，你势不可挡 ✨', '今天彻底爆发，这股劲头太棒了 🚀'], 'dashoverhot')
+        : Coach.pick(Coach.overBig, 'dashover');
+    }
+    else {
+      msg = `今天 ${tasksTotal} 个任务全部完成`;
+      enc = isHot
+        ? Coach.pick(['连续打卡+全部完成，节奏完美 ⭐', '又一天稳稳拿下，坚持的力量 💪', '全部完成！这份自律很了不起 🌟'], 'dashdonehot')
+        : Coach.pick(Coach.done, 'dashdone');
+    }
   } else if (tasksTotal > 0 && tasksDone > 0) {
-    msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 ${tasksTotal - tasksDone} 个`;
-    enc = Coach.pick(Coach.dashPartial, 'dashpartial');
+    msg = `今天已完成 <b>${tasksDone}/${tasksTotal}</b> 个任务，还剩 <b>${tasksTotal - tasksDone}</b> 个`;
+    if (isBack) enc = Coach.pick(['回来就好，已经在推进了 💪', '断了几天又捡起来，很棒 🌱', '重新进入状态了，继续保持 ✨'], 'dashpartialback');
+    else if (isSpeeding) enc = Coach.pick(['今天速度比平时快，手感正好 🚀', '效率在线，趁势把剩下的也拿下 ⚡', '进入状态了，越做越顺 🔥'], 'dashpartialfast');
+    else if (isSlowing) enc = Coach.pick(['今天慢一点没关系，稳扎稳打 🌱', '遇到难题了？搞懂一道是一道 📝', '节奏放缓说明这部分需要多花时间，吃透了后面会快 💡'], 'dashpartialslow');
+    else if (isHot) enc = Coach.pick(['连续这么多天，还在稳步推进 🌟', '节奏很稳，继续保持就好 ⭐', '坚持的人最厉害，加油 💪'], 'dashpartialhot');
+    else if (isWarm) enc = Coach.pick(['连续几天了，节奏不错 🔥', '保持住，今天也跟上 ⭐', '连续记录在积累，继续 💪'], 'dashpartialwarm');
+    else enc = Coach.pick(Coach.dashPartial, 'dashpartial');
   } else if (tasksInProgress > 0) {
     const _todoN = tasksTotal - tasksDone - tasksInProgress;
     msg = `已经开了个好头：<b>${tasksInProgress}</b> 个进行中` + (_todoN > 0 ? `，还有 <b>${_todoN}</b> 个待开始` : '') + '，顺手做完';
-    enc = Coach.pick(Coach.dashPartial, 'dashprogress');
+    enc = isSpeeding
+      ? Coach.pick(['开局很快，保持这个速度 🚀', '进入状态了，顺手做完 ⚡', '手感正好，一鼓作气 🔥'], 'dashprogressfast')
+      : Coach.pick(Coach.dashPartial, 'dashprogress');
   } else if (tasksTotal > 0) {
     msg = dueTotal > 0
       ? `今天有 <b>${dueTotal}</b> 条待复习，从它开始（共 ${tasksTotal} 个任务）`
       : `今天还有 <b>${tasksTotal}</b> 个任务待完成，从最顺手的开始`;
-    enc = '迈出第一步最重要，开个好头～';
+    if (isBack) enc = Coach.pick(['回来了就好，先从最简单的开始 💚', '断了几天没关系，今天重新出发 🌱', '能坐下来就是胜利，先动起来 ✨'], 'dashstartback');
+    else if (isHot) enc = Coach.pick(['连续这么多天，今天也别断 🔥', '状态正热，开个好头 ⭐', '保持住，今天也稳稳的 💪'], 'dashstarthot');
+    else if (isWarm) enc = Coach.pick(['连续几天了，今天也跟上 🔥', '节奏不错，继续保持 ⭐', '别断，开个好头 💪'], 'dashstartwarm');
+    else enc = Coach.pick(['迈出第一步最重要，开个好头 📖', '先做最简单的，进入状态就顺了', '坐下来翻开书，就成功了一半 ✨', '别想太多，先动起来 🚀', '今天的目标很明确，动手吧'], 'dashstart');
   } else if (retentionTotal > 0) {
     msg = `今天任务已清完，还有 <b>${retentionTotal}</b> 条已掌握内容可快速巩固`;
-    enc = '花几分钟确认还记得，记忆更牢～';
+    enc = Coach.pick(['花几分钟确认还记得，记忆更牢 🧠', '快速过一遍，防止遗忘 🔄', '巩固比学新的更重要 💡'], 'dashretention');
   } else {
     msg = '今天没有待完成的任务，状态很好';
-    enc = '轻松一下，也可以趁机动点新内容！';
+    enc = Coach.pick(['轻松一下，也可以趁机动点新内容 🌿', '没有任务压力，可以自由安排 ☁️', '今天可以复盘一下这周的内容 📊'], 'dashfree');
   }
   const statusChip = st => {
     if (!st) return '';
     if (st.state === 'done') return '<span class="ts-chip ts-done" title="今天的目标已全部完成">' + svgIcon('check') + ' 今日已完成</span>';
     if (st.state === 'partial') return `<span class="ts-chip ts-partial" title="今天已完成 ${fmtD(st.done)} / 共需 ${fmtD(st.need)}">◐ ${fmtD(st.done)}/${fmtD(st.need)}</span>`;
-    if (st.state === 'todo') return `<span class="ts-chip ts-todo" title="今天还有目标没完成">● 今日未完成${st.due ? ' · ' + st.due + '条' : ''}</span>`;
+    if (st.state === 'todo') return `<span class="ts-chip ts-todo" title="今天还有目标没完成">● 今日未完成</span>`;
     return '<span class="ts-chip ts-none" title="今天没有安排任务">今日无安排</span>';
   };
   const rowHtml = r => `
@@ -9974,11 +11143,8 @@ function openDashboard() {
   if (plannedSetTotal > 0) planParts.push(fmtD(plannedSetTotal) + '套');
   const planNum = planParts.length ? planParts.join('+') : '—';
   let notifHtml;
-  // 始终显示提醒设置界面：系统通知不可用时自动降级为应用内提醒
-  const sysNotifOK = 'Notification' in window && Notification.permission === 'granted';
-  const sysNotifShort = !('Notification' in window)
-    ? '应用内提醒'
-    : (Notification.permission === 'granted' ? '系统通知+应用内' : '应用内提醒');
+  // 邮件提醒：到点给注册邮箱发送今日待办邮件
+  const remindLabel = '邮件提醒';
   const timeRows = getReminder().times.map(t =>
     `<div class="rt-row" style="display:flex;gap:6px;align-items:center">
         <input type="time" class="rt-time" value="${t}" style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
@@ -9991,7 +11157,7 @@ function openDashboard() {
   notifHtml = `<div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-weight:600;font-size:14px">每日提醒</div>
-        <span style="font-size:11px;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:10px">${sysNotifShort}</span>
+        <span style="font-size:11px;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:10px">${remindLabel}</span>
       </div>
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div style="flex:1;min-width:0">
@@ -10007,7 +11173,7 @@ function openDashboard() {
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
-        到点按任务分别提醒今日待办。手机端保持页面打开即可，关闭后下次打开会补发错过的提醒。
+        到点将发送邮件提醒今日待办到你的注册邮箱。可设置多个时间点，测试邮件可点「预览」立即发送。
       </div>
     </div>`;
 
@@ -10016,7 +11182,6 @@ function openDashboard() {
     ${getWeeklyReviewHTML()}
     <div class="dash-hero ${urgent ? 'urgent' : ''}">
       <div class="greet-big">${g}${(typeof STAuth!=="undefined"&&STAuth.isLoggedIn()&&STAuth.getUsername())?"，"+esc(STAuth.getUsername())+"！":""}</div>
-      <div class="greet-sub">这是你今天的学习看板</div>
       <div class="hero-status">${msg}</div>
       <div class="hero-enc">${enc}</div>
     </div>
@@ -10064,24 +11229,40 @@ function openDashboard() {
   if (b) b.addEventListener('click', async () => {
     const curRem = getReminder();
     const times = collectTimes().length ? collectTimes() : curRem.times;
-    if (!curRem.enabled) {
-      // 尝试请求系统通知权限，但不强制——被拒绝或不支持时自动降级为应用内提醒
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        try { await Notification.requestPermission(); } catch (e) {}
+    const newEnabled = !curRem.enabled;
+    saveReminder(newEnabled, times);
+    // 同步到后端
+    try {
+      if (typeof STAuth !== 'undefined' && STAuth.isLoggedIn && STAuth.isLoggedIn()) {
+        await STAuth.apiRequest('/api/user/reminder', { method: 'PUT', body: { enabled: newEnabled, times } });
       }
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        alert('系统通知权限未授权，已为你开启应用内提醒（页面打开时顶部弹窗+提示音）。下次打开页面时也会补发错过的提醒。');
-      }
-      saveReminder(true, times);
-    } else {
-      saveReminder(false, times);
+    } catch (e) { console.warn('sync reminder setting failed:', e.message); }
+    if (newEnabled) {
+      showToast(svgIcon('mail'), '邮件提醒已开启', '到点将发送今日待办邮件到 ' + ((STAuth && STAuth.getUser && STAuth.getUser() && STAuth.getUser().email) || '你的邮箱'), 3000);
     }
     openDashboard();
   });
   const pv = $('#btnPreviewRemind');
-  if (pv) pv.addEventListener('click', () => {
-    const body = buildReminderBody();
-    fireReminder('Study Tracker 学习提醒（预览）', body);
+  if (pv) pv.addEventListener('click', async () => {
+    pv.disabled = true;
+    pv.textContent = '发送中...';
+    try {
+      if (typeof STAuth !== 'undefined' && STAuth.isLoggedIn && STAuth.isLoggedIn()) {
+        const r = await STAuth.apiRequest('/api/user/reminder/test', { method: 'POST' });
+        if (r && r.ok) {
+          showToast(svgIcon('mail'), '测试邮件已发送', '请查收 ' + (r.email || '') + ' 的邮箱（含垃圾箱）', 4000);
+        } else {
+          showToast(svgIcon('x-circle'), '发送失败', (r && r.error) || '邮件服务暂不可用', 4000);
+        }
+      } else {
+        showToast(svgIcon('x-circle'), '请先登录', '邮件提醒需要登录后使用', 3000);
+      }
+    } catch (e) {
+      showToast(svgIcon('x-circle'), '发送失败', e.message || '网络错误', 4000);
+    } finally {
+      pv.disabled = false;
+      pv.textContent = '预览';
+    }
   });
 }
 /* iOS/PWA 下 body{overflow:hidden} 无法阻止背景滚动，改用 position:fixed + 记录 scrollTop */
@@ -10151,7 +11332,7 @@ window.addEventListener('popstate', () => {
    1) 更新 --vvh 让弹窗高度收缩；2) 让打开的遮罩只占可视区，不被键盘盖住；
    3) 把当前聚焦的输入框滚入视野。 */
 function stActiveMask(){
-  var masks = document.querySelectorAll('.mask');
+  var masks = document.querySelectorAll('.mask, .ai-mask');
   for (var i=0;i<masks.length;i++){ if(!masks[i].hidden) return masks[i]; }
   return null;
 }
@@ -10199,6 +11380,8 @@ function buildReminderBody() {
   
   let totalOverdue = 0;
   let hasAnyTask = false;
+  let totalDueToday = 0;      // 今日复习总量（剩余+已完成）
+  let totalDueDone = 0;       // 今日已完成复习数
   
   projects.forEach(p => {
     const m = getMetrics(p);
@@ -10224,8 +11407,10 @@ function buildReminderBody() {
       if (need > 0 && m) {
         hasAnyTask = true;
         const done = m.todayDone || 0;
-        const needRounded = Math.round(need * 10) / 10;
-        if (done >= need) {
+        const needRounded = isSetMode(p) ? (Math.round(need * 10) / 10) : Math.ceil(need);
+        // 套卷按 0.1 精度分模块录入，达标判定与“已做 X / X”显示口径一致，避免“显示 0.3/0.3 却不打勾”
+        const met = isSetMode(p) ? (Math.round(done * 10) / 10) >= needRounded : done >= need;
+        if (met) {
           doneItems.push({ name: p.name, type: 'exercise', text: `今日目标${needRounded}${unit}，已完成${done}${unit} ${svgIcon('check-circle')}` });
         } else {
           planItems.push({ name: p.name, type: 'exercise', text: `今日约${needRounded}${unit}${done > 0 ? `（已完成${done}${unit}）` : ''}`, urgent: false });
@@ -10247,6 +11432,14 @@ function buildReminderBody() {
         dueItems.push({ name: p.name, type: isMistake ? 'mistake' : 'recite', text: `${du}${unitLabel}今日${isMistake ? '待解决' : '待复习'}` });
         hasAnyTask = true;
       }
+      // 统计今日已完成复习数（reviews[0]是首次学习，至少2条且最后一次在今天）
+      let rvDoneToday = 0;
+      (p.items || []).forEach(it => {
+        const revs = it.reviews || [];
+        if (revs.length >= 2 && revs[revs.length - 1].date === today) rvDoneToday++;
+      });
+      totalDueToday += du + rvDoneToday;
+      totalDueDone += rvDoneToday;
       
       // 错题本：无到期时显示进度
       if (isMistake && du === 0 && ov === 0 && m && m.remaining > 0) {
@@ -10259,7 +11452,7 @@ function buildReminderBody() {
         if (need > 0) {
           hasAnyTask = true;
           const done = m.todayDone || 0;
-          const needRounded = Math.round(need * 10) / 10;
+          const needRounded = Math.ceil(need);
           if (done >= need) {
             doneItems.push({ name: p.name, type: 'recite', text: `今日新学目标${needRounded}页，已完成${done}页 ${svgIcon('check-circle')}` });
           } else {
@@ -10274,7 +11467,7 @@ function buildReminderBody() {
   const parts = [];
   
   if (overdueItems.length) {
-    parts.push('' + svgIcon('alert-triangle') + ' 逾期（先清掉）');
+    parts.push('' + svgIcon('x-circle') + ' 逾期（先清掉）');
     overdueItems.forEach(it => { const icon = (TYPES[it.type] ? TYPES[it.type].icon : svgIcon('book-open')); parts.push(`• ${icon} ${esc(it.name)}：${it.text}`); });
     parts.push('');
   }
@@ -10314,7 +11507,14 @@ function buildReminderBody() {
 // 结尾鼓励统一走 Coach：按天哈希，同一天稳定、每天换新，不再 Math.random 跳老套句子
   let cheer = '';
   if (overdueItems.length) cheer = Coach.pick(Coach.back, 'rmback');
-  else if (dueItems.length) cheer = Coach.pick(Coach.progress.mid, 'rmdue');
+  else if (dueItems.length) {
+    // 根据今日复习进度选择文案，避免"啥都没做就说进度过半"
+    const rr = totalDueToday > 0 ? totalDueDone / totalDueToday : 0;
+    if (totalDueDone === 0) cheer = Coach.pick(Coach.progress.early, 'rmdue0') + '，先从最久没复习的开始';
+    else if (rr < 0.34) cheer = Coach.pick(Coach.progress.early, 'rmduee');
+    else if (rr < 0.7) cheer = Coach.pick(Coach.progress.mid, 'rmduem');
+    else cheer = Coach.pick(Coach.progress.late, 'rmduel');
+  }
   else if (planItems.length && doneItems.length) cheer = Coach.pick(Coach.dashPartial, 'rmpartial');
   else if (planItems.length) cheer = Coach.pick(Coach.start[coachSlot()], 'rmstart');
   else if (doneItems.length) cheer = Coach.pick(Coach.done, 'rmdone');
@@ -10393,7 +11593,9 @@ function playReminderBeep() {
 /* 统一提醒触发：优先系统通知，同时显示应用内提醒（双保险） */
 function fireReminder(title, body) {
   if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification(title, { body }); } catch (e) {}
+    // 系统通知只支持纯文本，去掉 SVG/HTML 标签，避免显示原始代码
+    const plainBody = body.replace(/<[^>]+>/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    try { new Notification(title, { body: plainBody }); } catch (e) {}
   }
   showInAppReminder(title, body);
 }
@@ -10420,8 +11622,8 @@ function checkAndFireReminders() {
   fireReminder('Study Tracker 学习提醒', buildReminderBody());
   return true;
 }
-// 每 30 秒轮询（页面打开状态下）
-setInterval(checkAndFireReminders, 30000);
+// 每 30 秒轮询（页面打开状态下）—— 已改为邮件提醒，应用内提醒轮询停用
+// setInterval(checkAndFireReminders, 30000);
 // 注意：首次调用已移到 boot() 内 loadStore 之后，避免时序竞争
 
 function rangeText(a, b) { return a === b ? `${a}` : `${a}-${b}`; }
@@ -10550,7 +11752,7 @@ function renderProgressInsights(p, m) {
       <div class="pp-stat"><div class="v ${holePages ? 'warn' : ''}">${holePages}</div><div class="k">漏做页数（${u}）</div></div>`;
     if (holes.length) {
       const preview = holes.slice(0, 6).map(r => rangeText(r.start, r.end)).join('、') + (holes.length > 6 ? ' 等' : '');
-      gapWarn = `<div class="pp-gap-warn">${svgIcon('alert-triangle')} 已学范围内有 <b>${holes.length}</b> 段、共 <b>${holePages}</b> 页夹在中间还没做：${preview}。这些通常是当时跳过的难点，建议优先回看。</div>`;
+      gapWarn = `<div class="pp-gap-warn">${svgIcon('x-circle')} 已学范围内有 <b>${holes.length}</b> 段、共 <b>${holePages}</b> 页夹在中间还没做：${preview}。这些通常是当时跳过的难点，建议优先回看。</div>`;
     }
   }
 
@@ -10596,7 +11798,7 @@ function renderProgressInsights(p, m) {
       if (m.perStudyDay != null) {
         planNum = num(m.perStudyDay);
       } else if (isFinite(m.needPerDay) && m.needPerDay > 0) {
-        planNum = num(m.needPerDay);
+        planNum = isSetMode(p) ? num(m.needPerDay) : String(Math.ceil(m.needPerDay));
         planNote = '（粗估：把剩余量均摊到剩余自然日；再攒几个学习日就开始按你的真实节奏修正）';
       }
     }
@@ -10609,7 +11811,7 @@ function renderProgressInsights(p, m) {
       etaLines = `完成时间范围还在估算中：再攒约 <b>${m.daysToMedium}</b> 个学习日就开始给出估算，累计满 7 个学习日（约 2 周）后范围更可靠。<br>当前未设截止日，可先按自己的节奏推进，或在设置里添加截止日获取每学习日目标。`;
     }
     if (m.sparseLogging) {
-      etaLines += `<br><span style="color:#96600c">${svgIcon('alert-triangle')} 你最近打卡间隔较长（中位数约 ${m.medianGap} 天），产能估计可能有偏差，建议每天记录一次。</span>`;
+      etaLines += `<br><span style="color:#96600c">${svgIcon('x-circle')} 你最近打卡间隔较长（中位数约 ${m.medianGap} 天），产能估计可能有偏差，建议每天记录一次。</span>`;
     }
   } else {
     etaLines = `按你最近每周约 <b>${num(m.activityPerWeek)}</b> 个学习日、每次约 <b>${num(m.perStudyDayRaw)}</b> ${u} 的节奏：<br>预计在 <b>${fmtCN(m.etaEarlyDate)} ～ ${fmtCN(m.etaLateDate)}</b> 之间完成，基准约 <b>${fmtCN(m.etaDate)}</b>。`;
@@ -10623,15 +11825,17 @@ function renderProgressInsights(p, m) {
         if (p.deadline && d > p.deadline) delayDate = d;
       }
       let body;
-      if (sf) body = sf + (delayDate ? `，想更从容也可以把截止日延后到约 ${fmtCN(delayDate)}` : '');
-      else body = delayDate
+      const canDelay = p.hardDeadline !== true;
+      if (sf) body = sf + (delayDate && canDelay ? `，想更从容也可以把截止日延后到约 ${fmtCN(delayDate)}` : '');
+      else body = (delayDate && canDelay)
         ? `按你最近的节奏基本能按时完成，想留更多余量的话，可把截止日延后到约 ${fmtCN(delayDate)}`
         : `按你最近的节奏基本能按时完成，偶尔状态起伏也正常，正常推进就好`;
       etaLines += `<br><span style="color:#96600c">${svgIcon('alert-triangle')} ${body}。</span>`;
     }
     else if (m.feasibility === 'impossible') {
       const dLong = m.feasibleDaysLong ? addDays(m.t, Math.ceil(m.feasibleDaysLong)) : null;
-      etaLines += `<br><span style="color:var(--bad)">${svgIcon('wrench')} 按现在节奏缺口较大，建议增加每周学习天数${dLong ? `，或把截止日延后到约 ${fmtCN(dLong)}` : ''}。</span>`;
+      const canDelay = p.hardDeadline !== true;
+      etaLines += `<br><span style="color:var(--bad)">${svgIcon('wrench')} 按现在节奏缺口较大，建议增加每周学习天数${dLong && canDelay ? `，或把截止日延后到约 ${fmtCN(dLong)}` : ''}。</span>`;
     }
     // 相对理想进度（与 getMetrics 同口径：填了 startDate 用它，否则用最早打卡日）
     if (m.effStart && p.deadline && m.total > 0) {
@@ -10643,13 +11847,13 @@ function renderProgressInsights(p, m) {
         if (Math.abs(g) >= 1) etaLines += g > 0
           ? `<br>${svgIcon('trending-up')} 相对“${m.effStart}→${p.deadline} 匀速”的理想进度，<b style="color:var(--ok)">超前约 ${g} ${u}</b>。`
           : `<br>${svgIcon('trending-down')} 相对理想进度，<b style="color:var(--bad)">慢了约 ${-g} ${u}</b>（这部分已经算进每天目标里，不用额外补）。`;
-        else etaLines += `<br>${svgIcon('minus')} 与理想进度基本同步。`;
+        else etaLines += `<br>${svgIcon('check')} 与理想进度基本同步。`;
       }
     }
   }
   const etaBox = `<div class="pp-insight-title">${svgIcon('orbit')} 完成预测</div><div class="pp-eta-box">${etaLines}</div>`;
 
-  const notePadHtml = `<div id="ppNotePadWrap" style="margin:16px 0">
+  const notePadHtml = `<div id="ppNotePadWrap" style="margin:14px 0 4px">
     <div class="wb-section-title">${svgIcon('pin')} 我的注意事项</div>
     <textarea id="ppNotePad" class="wb-notepad" placeholder="写点提醒自己的话，会一直显示在这里…&#10;例：线代第二问必用行列式展开；英语作文先列提纲"></textarea>
   </div>`;
@@ -11064,6 +12268,12 @@ function openSettings() {
   $('#intervalSectionTitle').hidden = !isRecite;
   $('#intervalSection').hidden = !isRecite;
   if (isRecite) $('#sIntervals').value = getIntervals(p).join(', ');
+  // 毕业提醒方式
+  if (isRecite) {
+    const mm = p.masterMode || 'ask';
+    const radio = document.querySelector('input[name="masterMode"][value="' + mm + '"]');
+    if (radio) radio.checked = true;
+  }
 
   // 复习模式（错题本 / 背书本都有复习模式；刷题本没有）
   const canReviewMode = isMistake || p.type === 'recite';
@@ -11237,9 +12447,23 @@ function openSettings() {
     updatePressurePanel();
     updateSpreadPressureHint();
   }, 50);
+
+  // 归档按钮状态：已归档显示"取消归档"，未归档显示"归档这本"
+  const archiveBtn = $('#btnArchiveProject');
+  if (archiveBtn) {
+    if (p.archived) {
+      archiveBtn.textContent = '取消归档';
+      archiveBtn.style.color = 'var(--brand2)';
+      archiveBtn.style.borderColor = 'rgba(176,122,75,.3)';
+    } else {
+      archiveBtn.textContent = '归档这本';
+      archiveBtn.style.color = 'var(--brand)';
+      archiveBtn.style.borderColor = 'rgba(46,107,79,.3)';
+    }
+  }
   } catch (e) {
     console.error('openSettings error:', e);
-    showToast('' + svgIcon('alert-triangle') + '', '设置加载有异常', e.message + '（窗口仍可使用）', 4000);
+    showToast('' + svgIcon('x-circle') + '', '设置加载有异常', e.message + '（窗口仍可使用）', 4000);
   }
 }
 // 捕获设置表单当前状态（用于未保存检测），带安全保护
@@ -11450,7 +12674,11 @@ function refreshUnitTplSelect(selectEl) {
   if (!selectEl) return;
   const cur = selectEl.value;
   selectEl.innerHTML = '<option value="">从模板加载（可选）</option>';
+  // 按 id 去重，防止历史重复数据导致下拉显示重复模板
+  const _seen = new Set();
   (store.unitTemplates || []).forEach(t => {
+    if (!t || !t.id || _seen.has(t.id)) return;
+    _seen.add(t.id);
     const op = document.createElement('option');
     op.value = t.id; op.textContent = t.name + `（${t.units.length}个单元）`;
     selectEl.appendChild(op);
@@ -11495,7 +12723,7 @@ function applyPaperTpl(val, listEl) {
 }
 function saveUnitTplFromEditor(defaultName) {
   const units = readUnitRows();
-  if (!units.length) { showToast('' + svgIcon('alert-triangle') + '', '无法保存', '请先添加至少一个单元', 2000); return; }
+  if (!units.length) { showToast('' + svgIcon('x-circle') + '', '无法保存', '请先添加至少一个单元', 2000); return; }
   const name = prompt('模板名称：', defaultName || '');
   if (!name || !name.trim()) return;
   const existing = (store.unitTemplates || []).find(t => t.name === name.trim());
@@ -11513,7 +12741,7 @@ function saveUnitTplFromEditor(defaultName) {
 }
 function savePaperTplFromEditor(defaultName) {
   const sections = readPaperSecRows($('#sPaperSecList'));
-  if (!sections.length) { showToast('' + svgIcon('alert-triangle') + '', '无法保存', '请先添加至少一个板块', 2000); return; }
+  if (!sections.length) { showToast('' + svgIcon('x-circle') + '', '无法保存', '请先添加至少一个板块', 2000); return; }
   const name = prompt('模板名称：', defaultName || '');
   if (!name || !name.trim()) return;
   const existing = (store.paperTemplates || []).find(t => t.name === name.trim());
@@ -11554,7 +12782,7 @@ function readUnitRowsFromList(listEl) {
     }
   });
   if (fixedCount > 0) {
-    showToast('' + svgIcon('alert-triangle') + '', '页码已自动修正', `${fixedCount}个单元的结束页小于起始页，已自动调整为与起始页相同`, 3000);
+    showToast('' + svgIcon('x-circle') + '', '页码已自动修正', `${fixedCount}个单元的结束页小于起始页，已自动调整为与起始页相同`, 3000);
   }
   // 单元页码重叠检测：同父级（level 相同）的相邻单元间页码范围重叠时警告
   const overlaps = [];
@@ -11567,7 +12795,7 @@ function readUnitRowsFromList(listEl) {
     }
   }
   if (overlaps.length) {
-    showToast('' + svgIcon('alert-triangle') + '', '单元页码有重叠', overlaps.slice(0, 3).join('；'), 3000);
+    showToast('' + svgIcon('x-circle') + '', '单元页码有重叠', overlaps.slice(0, 3).join('；'), 3000);
   }
   // 构建嵌套树
   const tree = [];
@@ -11592,7 +12820,14 @@ function openTplManager(type) {
 }
 function renderTplManagerList() {
   const list = $('#tplManagerList');
-  const templates = tplManagerType === 'unit' ? (store.unitTemplates || []) : (store.paperTemplates || []);
+  let templates = tplManagerType === 'unit' ? (store.unitTemplates || []) : (store.paperTemplates || []);
+  // 按 id 去重，防止历史重复数据导致管理器显示重复模板
+  const _seen = new Set();
+  templates = templates.filter(t => {
+    if (!t || !t.id || _seen.has(t.id)) return false;
+    _seen.add(t.id);
+    return true;
+  });
   if (!templates.length) {
     list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px 0">还没有保存的模板<br><span style="font-size:12px">在设置页编辑好单元/板块后，点「存为模板」即可保存</span></div>';
     return;
@@ -11679,7 +12914,7 @@ function openWeaknessBoard() {
 }
 function closeWeaknessBoard() { const m=$('#weaknessMask'); if(m.hidden) return; m.hidden=true; unlockBodyScroll(); }
 
-/* 热力图自适应布局（全局函数，供 renderWeaknessBoard 和 renderMemberHeatmap 共用）
+/* 热力图自适应布局（全局函数，供 renderWeaknessBoard 使用）
    按滚动容器真实可用宽度决定显示多少周+格子尺寸，使格子刚好填满、不横向滚动。
    @param maxWeeks 宽屏最多显示周数；@param minWeeks 窄屏最少显示周数。
    返回 {weeks, cell, gap}，并把尺寸写入 wrap 作用域的 CSS 变量。 */
@@ -11770,34 +13005,52 @@ function renderWeaknessBoard(p) {
   var _hmNow = new Date();
   if (!_hmCurMonth) _hmCurMonth = { y: _hmNow.getFullYear(), m: _hmNow.getMonth() };
 
-  // 收集每日实际复习 / 计划复习
-  var dailyActual = {}, dailyPlanned = {};
+  // 收集每日学习记录（含首次学习，用于热力图颜色和天数统计）
+  // 和每日复习记录（排除首次学习，用于"实际复习X题"和详情列表）
+  var dailyActual = {}, dailyReview = {}, dailyPlanned = {};
   items.forEach(function(it){
-    (it.reviews || []).forEach(function(rv){
+    (it.reviews || []).forEach(function(rv, idx){
       if (!rv || !rv.date) return;
       if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
       dailyActual[rv.date].push({ item: it, quality: rv.quality || rv.result || 'review' });
+      // 排除首次学习（新录入），只统计后续复习
+      if (idx === 0) return;
+      if (!dailyReview[rv.date]) dailyReview[rv.date] = [];
+      dailyReview[rv.date].push({ item: it, quality: rv.quality || rv.result || 'review' });
     });
     (it.retentionReviews || []).forEach(function(rv){
       if (!rv || !rv.date) return;
       if (!dailyActual[rv.date]) dailyActual[rv.date] = [];
       dailyActual[rv.date].push({ item: it, quality: rv.result || 'review', retention: true });
+      if (!dailyReview[rv.date]) dailyReview[rv.date] = [];
+      dailyReview[rv.date].push({ item: it, quality: rv.result || 'review', retention: true });
     });
     if (it.nextReviewDate && !isMastered(it)) {
       if (!dailyPlanned[it.nextReviewDate]) dailyPlanned[it.nextReviewDate] = [];
       dailyPlanned[it.nextReviewDate].push(it);
     }
   });
+  // 按日期和题目去重：同一天同一道题只算一次（取最后一次复习的quality）
+  ['dailyActual', 'dailyReview'].forEach(function(key){
+    var obj = key === 'dailyActual' ? dailyActual : dailyReview;
+    Object.keys(obj).forEach(function(d){
+      var seen = {};
+      obj[d].forEach(function(r){
+        seen[r.item.id] = r;
+      });
+      obj[d] = Object.values(seen);
+    });
+  });
   var todayVal = todayStr();
   var allDates = Object.keys(dailyActual).filter(function(d){ return d <= todayVal; }).sort();
-  var totalReviews = allDates.reduce(function(s,d){ return s + dailyActual[d].length; }, 0);
+  var totalReviews = allDates.reduce(function(s,d){ return s + (dailyReview[d]||[]).length; }, 0);
 
   // 统计卡片
   function _hmSetStats(total, reviews, streak){
     var t=$('#wbHeatStatTotal'), r=$('#wbHeatStatReviews'), s=$('#wbHeatStatStreak');
     if (t) t.textContent=total; if (r) r.textContent=reviews; if (s) s.textContent=streak;
   }
-  // 连续打卡：今天没学从昨天起算、不清零
+  // 连续打卡：今天没学从昨天起算、不清零（用dailyActual含新录入，只要有学习就算）
   var streak = 0;
   var _cur = new Date(); _cur.setHours(0,0,0,0);
   if ((dailyActual[fmtDate(_cur)]||[]).length === 0) _cur.setDate(_cur.getDate()-1);
@@ -11810,7 +13063,7 @@ function renderWeaknessBoard(p) {
   _hmSetStats(allDates.length, totalReviews, streak);
 
   // 缓存供月份切换重渲染
-  _hmCache = { dailyActual: dailyActual, dailyPlanned: dailyPlanned, p: p, todayVal: todayVal };
+  _hmCache = { dailyActual: dailyActual, dailyReview: dailyReview, dailyPlanned: dailyPlanned, p: p, todayVal: todayVal };
 
   function _hmLevel(n){ if(n<=0)return 0; if(n===1)return 1; if(n<=3)return 2; if(n<=6)return 3; return 4; }
 
@@ -11849,13 +13102,14 @@ function renderWeaknessBoard(p) {
       var dt = new Date(y, m, d);
       var ds = fmtDate(dt);
       var n = (_hmCache.dailyActual[ds]||[]).length;
+      var reviewN = (_hmCache.dailyReview[ds]||[]).length;
       var isFuture = ds > _hmCache.todayVal;
       var isToday = ds === _hmCache.todayVal;
       var lv = isFuture ? 0 : _hmLevel(n);
       var plannedN = (_hmCache.dailyPlanned[ds]||[]).length;
       var hasPlan = plannedN > 0;
       var cls = 'wb-cal-cell hm-' + lv + (isToday?' wb-cal-today':'') + (isFuture?' wb-cal-future':'') + (hasPlan?' wb-cal-has-plan':'');
-      var title = (isFuture ? '未来日期' : (ds + ' 复习' + n + '次')) + (hasPlan ? ' / 计划' + plannedN + '题' : '');
+      var title = (isFuture ? '未来日期' : (ds + ' 学习' + n + '题/复习' + reviewN + '题')) + (hasPlan ? ' / 计划' + plannedN + '题' : '');
       cells.push('<div class="' + cls + '" data-date="' + ds + '" title="' + title + '"><span class="wb-cal-num">' + d + '</span>' + (hasPlan ? '<span class="wb-cal-plan-dot" title="当天有计划复习"></span>' : '') + '</div>');
     }
     while (cells.length < 42) cells.push('<div class="wb-cal-cell wb-cal-empty"></div>');
@@ -11865,7 +13119,7 @@ function renderWeaknessBoard(p) {
     hmEl.querySelectorAll('.wb-cal-cell:not(.wb-cal-empty)').forEach(function(cell){
       cell.addEventListener('click', function(){
         var ds = cell.getAttribute('data-date');
-        _hmShowDetail(ds, _hmCache.dailyActual[ds]||[], _hmCache.dailyPlanned[ds]||[], _hmCache.p);
+        _hmShowDetail(ds, _hmCache.dailyReview[ds]||[], _hmCache.dailyPlanned[ds]||[], _hmCache.p);
       });
     });
   }
@@ -11879,15 +13133,18 @@ function renderWeaknessBoard(p) {
     dateEl.textContent = ds + ' 周' + wd[dt.getDay()];
 
     var isFutureDay = ds > _hmCache.todayVal;
+    var hasStudy = (_hmCache.dailyActual[ds]||[]).length > 0;
     var rateHtml;
     if (isFutureDay) {
       rateHtml = planned.length > 0
         ? '待复习 <b>' + planned.length + '</b> 题（计划日期）'
         : '当天无计划任务';
-    } else if (planned.length > 0) {
-      // 完成率分子在 actualGroups（按题目去重）计算后填充，见下方
+    } else if (actual.length > 0) {
+      rateHtml = '实际复习 <b>' + actual.length + '</b> 题';
+    } else if (hasStudy) {
+      rateHtml = '当天有新录入，无复习记录';
     } else {
-      rateHtml = '当天无计划任务，实际复习' + actual.length + '题';
+      rateHtml = '当天没有学习记录';
     }
     function itemHtml(it, tag){
       var loc = fmtItemLocator(pRef, it);
@@ -11920,17 +13177,13 @@ function renderWeaknessBoard(p) {
       var g = aMap.get(r.item); g.qualities.push(r.quality); g.count++;
     });
     var actualGroups = Array.from(aMap.values());
-    if (!isFutureDay && planned.length > 0) {
-      var pct = Math.round(actualGroups.length / planned.length * 100);
-      rateHtml = '完成率 <b>' + pct + '%</b>' + (pct > 100 ? '（超额完成）' : '') + '（实际' + actualGroups.length + '/计划' + planned.length + '）';
-    }
     var actualHtml = actualGroups.length
       ? '<div class="wb-heat-detail-list">' + actualGroups.map(function(g){
           var uq = Array.from(new Set(g.qualities.map(function(q){ return qMap[q]||q; })));
           var tag = g.count>1 ? (uq.join('/')+' ×'+g.count) : (qMap[g.qualities[0]]||g.qualities[0]);
           return itemHtml(g.item, tag);
         }).join('') + '</div>'
-      : '<div class="wb-heat-detail-empty">当天没有复习记录</div>';
+      : '<div class="wb-heat-detail-empty">' + (hasStudy ? '当天只有新录入，没有复习记录' : '当天没有学习记录') + '</div>';
     // 未来复习计划（全部：从明天起所有有计划的日期，按日期升序；今天已在"当天计划复习"展示；间隔重复算法下计划会随复习动态变化）
     var futureDays = [];
     Object.keys(_hmCache.dailyPlanned).forEach(function(d){
@@ -11945,9 +13198,13 @@ function renderWeaknessBoard(p) {
           return '<div class="hd-future-day"><span class="hd-future-date">' + fd.date + '</span><span class="hd-future-count">' + fd.count + '题</span><span class="hd-future-preview">' + fd.preview + '</span></div>';
         }).join('') + '</div></div>'
       : '';
+    // 完全去掉计划复习区块，只显示实际复习（未来日期仍显示计划）
+    var plannedSection = isFutureDay
+      ? '<div class="wb-heat-detail-section"><h4>' + svgIcon('clipboard-list') + ' 当天计划复习</h4>' + plannedHtml + '</div>'
+      : '';
     bodyEl.innerHTML =
       '<div class="wb-heat-detail-rate">' + rateHtml + '</div>' +
-      '<div class="wb-heat-detail-section"><h4>' + svgIcon('clipboard-list') + ' 当天计划复习</h4>' + plannedHtml + '</div>' +
+      plannedSection +
       '<div class="wb-heat-detail-section"><h4>' + svgIcon('check-circle') + ' 当天实际复习</h4>' + actualHtml + '</div>' +
       futureHtml;
     detailEl.hidden = false;
@@ -12012,6 +13269,8 @@ function renderWeaknessBoard(p) {
   let filtered = items.map(it => ({ it, score: getItemScore(it) }));
   if (filter === 'weak') {
     filtered = filtered.filter(({ it, score }) => !isMastered(it) && score !== null && score < weakThreshold);
+  } else if (filter === 'weakkey') {
+    filtered = filtered.filter(({ it }) => (it.everWeakKey || (it.wrongStreak || 0) >= 2) && !isMastered(it));
   } else if (filter === 'due') {
     filtered = filtered.filter(({ it }) => !isMastered(it) && it.nextReviewDate && it.nextReviewDate <= today);
   } else if (filter === 'unreviewed') {
@@ -12052,7 +13311,12 @@ function renderWeaknessBoard(p) {
   // 已掌握过滤器下显示随机抽题按钮
   const masteredActions = $('#wbMasteredActions');
   if (masteredActions) {
-    masteredActions.hidden = filter !== 'mastered' || !isMistake;
+    masteredActions.hidden = filter !== 'mastered';
+  }
+  // 关键薄弱点过滤器下显示随机抽题按钮
+  const weakKeyActions = $('#wbWeakKeyActions');
+  if (weakKeyActions) {
+    weakKeyActions.hidden = filter !== 'weakkey';
   }
 
   const list = $('#wbList');
@@ -12107,6 +13371,8 @@ function renderWeaknessBoard(p) {
       if (!inUnit.length && !hasChildren) return '';
       // 父单元的总条目数（含子单元），与 getUnitMastery 的计算范围一致
       const totalInUnit = filtered.filter(({ it }) => itemInUnit(it, u)).length;
+      // 筛选模式下：如果整个单元（含子单元）都没有匹配条目，不显示该单元
+      if (totalInUnit === 0) return '';
       const info = getUnitMastery(p, u);
       // 四态渲染（仅错题本；背书走旧逻辑）
       let umi, upct, uBarColor;
@@ -12520,8 +13786,19 @@ function doImport(imported, mode) {
 /* ============ 事件绑定 ============ */
 $('#btnSwitch').addEventListener('click', openSwitch);
 $('#switchClose').addEventListener('click', closeSwitch);
+$('#sortProjectsBtn').addEventListener('click', toggleProjectSort);
 $('#btnNewProject').addEventListener('click', () => { closeSwitch(); openFormCreate(); });
 $('#btnCreateFirst').addEventListener('click', openFormCreate);
+$('#btnWelcomeSync').addEventListener('click', function(){
+  if (typeof STAuth !== 'undefined' && STAuth.triggerSync) {
+    var btn = this;
+    btn.disabled = true;
+    var orig = btn.textContent;
+    btn.textContent = '同步中…';
+    setTimeout(function(){ btn.disabled = false; btn.textContent = orig; }, 8000);
+    STAuth.triggerSync();
+  }
+});
 $('#btnSettings').addEventListener('click', openSettings);
 $('#btnLinkRef').addEventListener('click', () => {
   openSettings();
@@ -12700,7 +13977,7 @@ function submitFormCreate() {
   if (needBookEnd && (isNaN(bookEnd) || bookEnd < 1)) { setFieldError($('#fBookEnd'), '请填写正文结束页（资料的最后一页）'); $('#fBookEnd').focus(); return; }
   if (usePageRange && bookStartRaw && (isNaN(bookStart) || bookStart < 1)) { setFieldError($('#fBookStart'), '正文起始页必须 ≥ 1'); $('#fBookStart').focus(); return; }
   if (needBookEnd && bookStart > bookEnd) { setFieldError($('#fBookEnd'), '起始页不能大于结束页'); $('#fBookEnd').focus(); return; }
-  if (scopeMode && !scopePageCount) { showToast('' + svgIcon('alert-triangle') + '', '请填写页码区间', '至少一个要做的页码区间（只填“起”=单页）', 2800); return; }
+  if (scopeMode && !scopePageCount) { showToast('' + svgIcon('x-circle') + '', '请填写页码区间', '至少一个要做的页码区间（只填“起”=单页）', 2800); return; }
   if (!deadline) { setFieldError($('#fDeadline'), '请选择计划完成日期'); $('#fDeadline').focus(); return; }
   if (deadline && diffDays(todayStr(), deadline) < 0) { setFieldError($('#fDeadline'), '计划完成日期不能早于今天'); $('#fDeadline').focus(); return; }
   if (startDate && diffDays(startDate, deadline) < 0) { setFieldError($('#fStartDate'), '开始日期不能晚于截止日期'); $('#fStartDate').focus(); return; }
@@ -12837,6 +14114,14 @@ function submitFormCreate() {
   }
   store.projects[id] = newProject;
   store.currentId = id;
+  // 新建项目自动加到同组末尾
+  if (!store.projectOrder) store.projectOrder = {};
+  const existingInGroup = Object.values(store.projects).filter(p => p.type === type && p.id !== id && !p.archived);
+  const maxOrder = existingInGroup.reduce((max, p) => {
+    const o = store.projectOrder[p.id];
+    return o != null ? Math.max(max, o) : max;
+  }, -1);
+  store.projectOrder[id] = maxOrder + 1;
   saveStore();
   // 恢复类型选择器
   document.querySelectorAll('input[name="ptype"]').forEach(r => { r.disabled = false; });
@@ -12910,7 +14195,7 @@ function switchMistakeFormat(targetMode) {
         <li>原有复习规划（间隔、排期、容量）完全不变</li>
       </ul>
       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 12px;margin-bottom:8px">
-        <div style="color:#dc2626;font-weight:700;font-size:13px;margin-bottom:4px">${svgIcon('alert-triangle')} 此切换不可逆</div>
+        <div style="color:#dc2626;font-weight:700;font-size:13px;margin-bottom:4px">${svgIcon('x-circle')} 此切换不可逆</div>
         <div style="color:#991b1b;font-size:12.5px;line-height:1.6">
           转换后<b>不能</b>从${isPage ? '习题册' : '套卷'}模式转回自由出处模式，也不能在习题册和套卷之间互转。请确认后再操作。
         </div>
@@ -13138,7 +14423,7 @@ function confirmModeSwitch(newMode) {
   } else {
     target.className = 'mode-help-card mode-classic';
     target.innerHTML = '<div style="font-weight:700;margin-bottom:6px">' + svgIcon('book-open') + ' 经典间隔模式</div>' +
-      '<div style="color:var(--muted);font-size:13px;line-height:1.7">严格按间隔天数（1→2→4→7→15→30天）提醒复习。<br><b>适合</b>：量少、能跟上节奏、希望严格遵循记忆曲线。</div>';
+      '<div style="color:var(--muted);font-size:13px;line-height:1.7">严格按间隔天数（' + formatIntervals(p) + '天）提醒复习。<br><b>适合</b>：量少、能跟上节奏、希望严格遵循记忆曲线。</div>';
   }
   $('#modeSwitchConfirmMask').hidden = false;
   modalTop($('#modeSwitchConfirmMask'));
@@ -13228,7 +14513,7 @@ function handleUnitEditClick(e, listEl) {
     return;
   }
   if (action === 'add-child') {
-    if (curLevel >= 2) { showToast('' + svgIcon('alert-triangle') + '', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
+    if (curLevel >= 2) { showToast('' + svgIcon('x-circle') + '', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
     const newRow = addUnitRowToList(listEl, '', '', '', curLevel + 1);
     // 找到当前单元后面所有连续的子单元，把新子单元追加到最后一个子单元后面（而非紧挨着父单元）
     let insertAfter = row;
@@ -13240,11 +14525,11 @@ function handleUnitEditClick(e, listEl) {
     }
     insertAfter.after(newRow);
   } else if (action === 'indent-right') {
-    if (curLevel >= 2) { showToast('' + svgIcon('alert-triangle') + '', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
+    if (curLevel >= 2) { showToast('' + svgIcon('x-circle') + '', '已达最大层级', '最多支持3级嵌套（章→节→小节）', 1500); return; }
     const prev = row.previousElementSibling;
-    if (!prev) { showToast('' + svgIcon('alert-triangle') + '', '无法降级', '第一个单元不能降级为子单元', 1500); return; }
+    if (!prev) { showToast('' + svgIcon('x-circle') + '', '无法降级', '第一个单元不能降级为子单元', 1500); return; }
     const prevLevel = parseInt(prev.dataset.level || '0', 10);
-    if (curLevel >= prevLevel + 1) { showToast('' + svgIcon('alert-triangle') + '', '无法降级', '只能比上一个单元深一级', 1500); return; }
+    if (curLevel >= prevLevel + 1) { showToast('' + svgIcon('x-circle') + '', '无法降级', '只能比上一个单元深一级', 1500); return; }
     row.dataset.level = curLevel + 1;
     row.querySelector('.unit-edit-main').style.paddingLeft = (curLevel + 1) * 24 + 'px';
     const treeLine = row.querySelector('.unit-tree-line');
@@ -13256,7 +14541,7 @@ function handleUnitEditClick(e, listEl) {
     const newRow = addUnitRowToList(listEl, unitName, us, ue, curLevel + 1);
     row.replaceWith(newRow);
   } else if (action === 'indent-left') {
-    if (curLevel <= 0) { showToast('' + svgIcon('alert-triangle') + '', '无法升级', '已经是最顶级单元', 1500); return; }
+    if (curLevel <= 0) { showToast('' + svgIcon('x-circle') + '', '无法升级', '已经是最顶级单元', 1500); return; }
     row.dataset.level = curLevel - 1;
     row.querySelector('.unit-edit-main').style.paddingLeft = (curLevel - 1) * 24 + 'px';
     if (curLevel - 1 <= 0) {
@@ -13290,27 +14575,53 @@ $('#importFile').addEventListener('change', e => {
   e.target.value = '';
 });
 
-/* 彻底清除全部数据：localStorage + IndexedDB + Cache 三层全清，二次确认后 reload */
+/* 彻底清除全部数据：先清云端（若已登录），再清本地 localStorage + IndexedDB + Cache，保留登录态，二次确认后 reload */
 $('#btnWipeAll').addEventListener('click', async () => {
   if (!confirm('彻底清除全部数据？\n\n会删除所有项目、记录、设置，不可恢复。\n建议先「导出备份」。\n\n确定继续吗？')) return;
   if (!confirm('再次确认：真的要清空全部数据并重启页面吗？此操作不可逆。')) return;
-  try { Object.keys(localStorage).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  const btn = $('#btnWipeAll');
+  const oldText = btn.textContent;
+  btn.disabled = true; btn.textContent = '清除中…';
   try {
-    const dbs = await indexedDB.databases();
-    for (const d of dbs) {
-      await new Promise(res => {
-        const req = indexedDB.deleteDatabase(d.name);
-        req.onsuccess = req.onerror = req.onblocked = () => res();
-      });
+    // 1. 先清云端（若已登录）
+    var tok = null;
+    try { tok = (window.STAuth && STAuth.getToken) ? STAuth.getToken() : (localStorage.getItem('st_auth_token') || sessionStorage.getItem('st_auth_token')); } catch(e) {}
+    if (tok) {
+      try {
+        await fetch('/api/data/wipe', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' }
+        });
+      } catch(e) { console.warn('云端清除失败，继续清除本地:', e); }
     }
-  } catch (e) {}
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      for (const k of keys) await caches.delete(k);
-    }
-  } catch (e) {}
-  location.reload();
+    // 2. 保留登录态相关键，避免清除后自动退出登录
+    const keepKeys = ['st_auth_token', 'st_auth_user', 'st_auth_persist'];
+    const keepValues = {};
+    keepKeys.forEach(k => { try { keepValues[k] = localStorage.getItem(k); } catch(e) {} });
+    try { Object.keys(localStorage).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+    // 恢复登录态
+    keepKeys.forEach(k => { if (keepValues[k] !== null) { try { localStorage.setItem(k, keepValues[k]); } catch(e) {} } });
+    // 3. 清 IndexedDB
+    try {
+      const dbs = await indexedDB.databases();
+      for (const d of dbs) {
+        await new Promise(res => {
+          const req = indexedDB.deleteDatabase(d.name);
+          req.onsuccess = req.onerror = req.onblocked = () => res();
+        });
+      }
+    } catch (e) {}
+    // 4. 清 Cache
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const k of keys) await caches.delete(k);
+      }
+    } catch (e) {}
+    location.reload();
+  } finally {
+    btn.disabled = false; btn.textContent = oldText;
+  }
 });
 
 function submitSettings() {
@@ -13421,6 +14732,11 @@ function submitSettings() {
   p.scopeMode = (canScope && scopeMode && !p.unitMode) ? scopeMode : false;
   p.targetRanges = p.scopeMode ? targetRanges : [];
   p.intervals = intervals;
+  // 毕业提醒方式
+  if (p.type !== 'exercise') {
+    const checked = document.querySelector('input[name="masterMode"]:checked');
+    p.masterMode = checked ? checked.value : 'ask';
+  }
 
   // 复习模式（仅错题本）
   let needRebalance = false;
@@ -13600,6 +14916,29 @@ $('#btnReset').addEventListener('click', () => {
   });
 });
 
+// 设置面板：归档/取消归档
+$('#btnArchiveProject').addEventListener('click', () => {
+  const p = store.projects[editingProjectId];
+  if (!p) return;
+  const typeWord = p.type === 'exercise' ? '刷题本' : (p.type === 'recite' ? '背书本' : '错题本');
+  if (p.archived) {
+    p.archived = false;
+    p.updatedAt = Date.now();
+    saveStore();
+    closeSettings();
+    render();
+    showToast('' + svgIcon('package') + '', '已取消归档', `「${p.name}」已恢复到首页。`, 2500);
+  } else {
+    if (!confirm(`确定要归档「${p.name}」吗？\n归档后${typeWord}会移到收纳箱，不再出现在首页，数据保留可随时恢复。`)) return;
+    p.archived = true;
+    p.updatedAt = Date.now();
+    saveStore();
+    closeSettings();
+    render();
+    showToast('' + svgIcon('package') + '', '已归档', `这本${typeWord}已移到「已归档」收纳箱，数据保留可随时取消归档。`, 3000);
+  }
+});
+
 // 修复：在弹窗内拖拽选择文字时鼠标移出弹窗松开，会误触发遮罩层click导致弹窗关闭
 let _mouseDownInModal = false;
 document.addEventListener('mousedown', e => { _mouseDownInModal = !!e.target.closest('.modal'); }, true);
@@ -13609,6 +14948,20 @@ $('#formMask').addEventListener('click', e => { if (e.target === $('#formMask') 
 $('#settingsMask').addEventListener('click', e => { if (e.target === $('#settingsMask') && !_mouseDownInModal) closeSettings(); });
 
 $('#projectList').addEventListener('click', e => {
+  // 排序：上移
+  const upBtn = e.target.closest('[data-sort-up]');
+  if (upBtn) {
+    e.stopPropagation();
+    moveProject(upBtn.dataset.sortUp, -1);
+    return;
+  }
+  // 排序：下移
+  const downBtn = e.target.closest('[data-sort-down]');
+  if (downBtn) {
+    e.stopPropagation();
+    moveProject(downBtn.dataset.sortDown, 1);
+    return;
+  }
   // 取消归档
   const unarchBtn = e.target.closest('[data-unarchive]');
   if (unarchBtn) {
@@ -13641,6 +14994,7 @@ $('#projectList').addEventListener('click', e => {
       store.tombstones[id] = Date.now();
       clearRefsTo(id);
       delete ppExpandedSet[id]; // 清理进度看板的展开状态缓存
+      if (store.projectOrder) delete store.projectOrder[id]; // 清理排序
       if (wasCurrent) {
         const rest = Object.keys(store.projects);
         store.currentId = rest.length ? rest[0] : null;
@@ -13674,6 +15028,27 @@ $('#projectList').addEventListener('click', e => {
 
 /* 页码录入：顺序 / 区间切换 */
 let pageRangeMode = false;
+/* 是否默认「按区间录入」：只看当前已学页码是否存在漏做/跳过的空洞。
+   哪怕历史上用过区间录入，只要各目标范围（正文/单元）内已学页是从起点连续覆盖、
+   中间没夹未做的页，就默认顺序录入方便操作；存在开头跳过或中间空洞时才默认区间。 */
+function hasPageGaps(p) {
+  if (!p || !Array.isArray(p.records) || !p.records.length) return false;
+  const targets = getTargetPageRanges(p);
+  if (!targets.length) return false;
+  const done = getBookDoneRanges(p);
+  if (!done.length) return false;
+  for (const t of targets) {
+    const inside = mergeRanges(done
+      .map(r => ({ start: Math.max(r.start, t.start), end: Math.min(r.end, t.end) }))
+      .filter(r => r.end >= r.start));
+    if (!inside.length) continue;
+    if (inside[0].start > t.start) return true; // 目标范围开头有跳过的页
+    for (let i = 0; i < inside.length - 1; i++) {
+      if (inside[i + 1].start > inside[i].end + 1) return true; // 中间夹着未做的页
+    }
+  }
+  return false;
+}
 function applyPageModeUI() {
   const lead = $('#piLead'), st = $('#inPageStart'), dash = $('#piDash'),
         end = $('#inPageEnd'), tg = $('#btnToggleRange');
@@ -13687,7 +15062,7 @@ function applyPageModeUI() {
   }
   if (pageRangeMode) {
     lead.textContent = '第'; st.hidden = false; dash.hidden = false;
-    end.placeholder = '结束页'; tg.textContent = '回到顺序录入';
+    end.placeholder = '结束页'; tg.textContent = '顺序录入';
   } else {
     lead.textContent = '学到第'; st.hidden = true; st.value = ''; dash.hidden = true;
     end.placeholder = lastEnd > 0 ? `上次 ${lastEnd}，本次到` : '页码';
@@ -13720,7 +15095,8 @@ function retainEntryValue(el) {
 
 function resetEntryInputs() {
   const t = todayStr();
-  pageRangeMode = false; applyPageModeUI();
+  const p = cur();
+  pageRangeMode = hasPageGaps(p); applyPageModeUI();
   ['inPageStart', 'inPageEnd'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
   if ($('#inDate')) $('#inDate').value = t;
   ['inSetNo', 'inSetDone', 'inSetTotalQ'].forEach(id => { const el = $(`#${id}`); if (el) el.value = ''; });
@@ -13941,7 +15317,7 @@ $('#btnSetCheckin').addEventListener('click', () => {
   p.updatedAt = Date.now();
   saveStore();
   if (window.__lastSetCapWarn) {
-    showToast('' + svgIcon('alert-triangle') + '', '部分板块已达100%封顶', window.__lastSetCapWarn);
+    showToast('' + svgIcon('x-circle') + '', '部分板块已达100%封顶', window.__lastSetCapWarn);
     window.__lastSetCapWarn = null;
   } else {
     showToast('' + svgIcon('check-circle') + '', '已记录', `第 ${setNo} 套`);
@@ -13950,8 +15326,8 @@ $('#btnSetCheckin').addEventListener('click', () => {
   $('#inSetTotalQ').value = '';
   render();
   maybeShowProgressPraise(p);
-  // [v2 M7] 套卷打卡后也弹错题快录（每天最多 1 次）
-  if (p.type === 'exercise' && p.wrongQuickRecordShownDate !== todayStr()) {
+  // [v2 M7] 套卷打卡后弹错题快录
+  if (p.type === 'exercise') {
     setTimeout(() => openWrongQuickRecord(p, { setNo }), 900);
   }
 });
@@ -14015,14 +15391,34 @@ $('#btnCheckin').addEventListener('click', () => {
     if (cp && cp.endPage != null && endPage < cp.endPage) {
       if (!confirm(`今天已经学到第 ${cp.endPage} 页，现在改成第 ${endPage} 页会回退进度。\n\n确定要回退吗？`)) return;
     }
-    if (cp) cp.endPage = endPage;
-    else p.records.push({ rid: genId(), date, endPage });
+    var seqPages = 1 + (gapFilled || 0);
+    if (cp) { cp.endPage = endPage; cp.pages = seqPages; }
+    else p.records.push({ rid: genId(), date, endPage, pages: seqPages });
   } else {
     const dup = p.records.find(r => r.date === date && r.startPage === startPage && r.endPage === endPage);
-    if (!dup) p.records.push({ rid: genId(), date, startPage, endPage });
+    if (!dup) p.records.push({ rid: genId(), date, startPage, endPage, pages: Math.max(Number(endPage) - Number(startPage) + 1, 1) });
   }
   p.updatedAt = Date.now();
   saveStore();
+  // 更新已学时长
+  if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+    var totalMin = Number(p.todayEstimatedTotalMinutes);
+    var totalUnits = Number(p.todayTotalUnits);
+    if (isFinite(totalMin) && totalMin > 0 && isFinite(totalUnits) && totalUnits > 0) {
+      // 新模式：按比例重新计算
+      StudyTime._recomputeTodayStudied();
+      StudyTime.updateDisplay();
+    } else {
+      // 旧模式：estMinPerPage × 页数
+      var perPage = Number(p.estMinPerPage);
+      if (!isFinite(perPage) || perPage <= 0) perPage = 8;
+      if (perPage > 120) perPage = 120;
+      var pages = startPage != null ? Math.max(Number(endPage) - Number(startPage) + 1, 0) : (1 + (gapFilled || 0));
+      if (pages > 0) {
+        StudyTime.addStudied(Math.round(pages * perPage));
+      }
+    }
+  }
   const isSinglePage = startPage != null && startPage === endPage;
   showToast('' + svgIcon('check-circle') + '', '已记录', startPage != null
     ? (isSinglePage ? `第 ${endPage} 页` : `第 ${startPage}-${endPage} 页`)
@@ -14035,8 +15431,8 @@ $('#btnCheckin').addEventListener('click', () => {
   $('#inPageEnd').value = '';
   render();
   maybeShowProgressPraise(p);
-  // [v2 M7] 打卡后弹错题快录条（每天最多 1 次，wrongQuickRecordShownDate）
-  if (p.type === 'exercise' && p.wrongQuickRecordShownDate !== todayStr()) {
+  // [v2 M7] 打卡后弹错题快录
+  if (p.type === 'exercise') {
     setTimeout(() => openWrongQuickRecord(p, { startPage: startPage != null ? startPage : endPage, endPage: endPage }), 900);
   }
   markOfflineWrite('checkin'); // ux-28
@@ -14062,7 +15458,7 @@ $('#btnReciteAdd').addEventListener('click', () => {
   }
 
   const content = ($('#reciteContent').value || '').trim();
-  const errTags = ($('#reciteErrTagSel').value || '').split(',').filter(Boolean);
+  const errTags = ($('#reciteErrTagSel').value || '').split(/[,，]+/).filter(Boolean);
   const note = ($('#reciteNote').value || '').trim().slice(0, 60);
   const source = ($('#reciteSource') ? $('#reciteSource').value : '').trim().slice(0, 40);
   const isMistake = p.type === 'mistake';
@@ -14091,7 +15487,7 @@ $('#btnReciteAdd').addEventListener('click', () => {
   if (!content) { setFieldError($('#reciteContent'), isMistake ? '请填写错题内容' : '请填写学习内容'); $('#reciteContent').focus(); return; }
   // 超长文本边界：避免误粘贴整段文章撑爆本地存储与渲染（500 字足够记录一道错题/一个知识点）
   if (content.length > 500) { setFieldError($('#reciteContent'), (isMistake ? '错题内容' : '学习内容') + '超过 500 字，提炼一下关键题干再记录'); $('#reciteContent').focus(); return; }
-  if (!reciteQuality) { showToast('' + svgIcon('alert-triangle') + '', '请先选择学习效果', '在下方点选「记得/模糊/忘记」后再提交', 2600); return; }
+  if (!reciteQuality) { showToast('' + svgIcon('x-circle') + '', '请先选择学习效果', '在下方点选「记得/模糊/忘记」后再提交', 2600); return; }
   if (date > todayStr()) { setFieldError($('#reciteDate'), '学习日期不能晚于今天'); $('#reciteDate').focus(); return; }
 
   const intervals = getIntervals(p);
@@ -14195,7 +15591,7 @@ function finishNewReason(permanent) {
   // 从录入表单来的：自动在新错因下拉里勾选
   if (v && !forItemId) {
     setTimeout(() => {
-      const sel = ($('#reciteErrTagSel').value || '').split(',').filter(Boolean);
+      const sel = ($('#reciteErrTagSel').value || '').split(/[,，]+/).filter(Boolean);
       if (!sel.includes(v)) sel.push(v);
       $('#reciteErrTagSel').value = sel.join(',');
       renderReasonDropdown(p);
@@ -14238,19 +15634,19 @@ function getReviewFeedback(quality, p, item) {
   let pool;
   if (quality === 'good') {
     pool = isMistake
-      ? ['' + svgIcon('check') + ' 做对了，下次见', '' + svgIcon('check') + ' 稳了，下次见', '' + svgIcon('check') + ' 拿下']
-      : ['' + svgIcon('check') + ' 记住啦，下次见', '' + svgIcon('check') + ' 很稳，下次见', '' + svgIcon('check') + ' 拿下'];
+      ? [{icon: svgIcon('check'), text: '做对了，下次见'}, {icon: svgIcon('check'), text: '稳了，下次见'}, {icon: svgIcon('check'), text: '拿下'}]
+      : [{icon: svgIcon('check'), text: '记住啦，下次见'}, {icon: svgIcon('check'), text: '很稳，下次见'}, {icon: svgIcon('check'), text: '拿下'}];
   } else if (quality === 'fuzzy') {
     pool = isMistake
-      ? ['～ 看答案了，下次再练', '～ 差一点，下次巩固', '～ 再眼熟两遍']
-      : ['～ 还差一点，下次巩固', '～ 再眼熟两遍', '～ 有点模糊'];
+      ? [{icon: '～', text: '看答案了，下次再练'}, {icon: '～', text: '差一点，下次巩固'}, {icon: '～', text: '再眼熟两遍'}]
+      : [{icon: '～', text: '还差一点，下次巩固'}, {icon: '～', text: '再眼熟两遍'}, {icon: '～', text: '有点模糊'}];
   } else {
     pool = isMistake
-      ? ['' + svgIcon('x') + ' 没关系，下次重做', '' + svgIcon('x') + ' 忘了正常，下次再来', '' + svgIcon('x') + ' 多过一次就牢了']
-      : ['' + svgIcon('x') + ' 忘了正常，下次再来', '' + svgIcon('x') + ' 下次再过一遍', '' + svgIcon('x') + ' 多过一次就牢了'];
+      ? [{icon: svgIcon('x'), text: '没关系，下次重做'}, {icon: svgIcon('x'), text: '忘了正常，下次再来'}, {icon: svgIcon('x'), text: '多过一次就牢了'}]
+      : [{icon: svgIcon('x'), text: '忘了正常，下次再来'}, {icon: svgIcon('x'), text: '下次再过一遍'}, {icon: svgIcon('x'), text: '多过一次就牢了'}];
   }
-  const full = _pick(pool);
-  let text = full.slice(2);
+  const fb = _pick(pool);
+  let text = fb.text;
   // [v2 背书 M6·⑦] 冲刺期答完模糊/忘记后，反馈区显示实际 gap 天数
   if (p.type === 'recite' && p.deadline && quality !== 'good' && item.nextReviewDate) {
     const d2d = diffDays(todayStr(), p.deadline);
@@ -14259,16 +15655,16 @@ function getReviewFeedback(quality, p, item) {
       if (gap > 0) text += `（已安排 ${gap} 天后重现，考前薄弱项高频复现中）`;
     }
   }
-  return { icon: full.slice(0, 1), text: text };
+  return { icon: fb.icon, text: text };
 }
 // 保持复习评价的反馈
 function getRetentionFeedback(item, result) {
   if (result === 'pass') {
-    const full = _pick(['' + svgIcon('check') + ' 还记得，下次再巩固', '' + svgIcon('check') + ' 记得很牢，下次见', '' + svgIcon('check') + ' 稳，下次再巩固']);
-    return { icon: full.slice(0, 1), text: full.slice(2) };
+    const fb = _pick([{icon: svgIcon('check'), text: '还记得，下次再巩固'}, {icon: svgIcon('check'), text: '记得很牢，下次见'}, {icon: svgIcon('check'), text: '稳，下次再巩固'}]);
+    return fb;
   }
-  const full = _pick(['～ 模糊了，已排到最近重做', '～ 没关系，回到复习列表多过两遍']);
-  return { icon: full.slice(0, 1), text: full.slice(2) };
+  const fb = _pick([{icon: '～', text: '模糊了，已排到最近重做'}, {icon: '～', text: '没关系，回到复习列表多过两遍'}]);
+  return fb;
 }
 
 // 清理过期未做的"提前复习"：如果用户点提前复习后当天没做，第二天恢复回原计划日期，不惩罚
@@ -14286,6 +15682,7 @@ function cleanupExpiredEarlyPulls(p) {
         // 恢复到原始计划日期，取消"提前"标记
         it.nextReviewDate = it.originalNextReviewDate;
         it.earlyReviewed = false;
+        it.updatedAt = Date.now();
         changed++;
       }
       delete it.originalNextReviewDate;
@@ -14344,8 +15741,8 @@ $('#reviewList').addEventListener('click', e => {
     const allGood = recent.length >= 1 && recent.every(r => r.quality === 'good');
     const tooFew = reviewCount < 3;
 
-    // 直接标记（不弹窗）条件：已勾选"以后不再提示" + 满3次 + 最近3次全对
-    if (p.skipConfirmDismissed && !tooFew && allGood) {
+    // 直接标记（不弹窗）条件：自动熟知模式 或 已勾选"以后不再提示" + 满3次 + 最近3次全对
+    if ((p.skipConfirmDismissed || p.masterMode === 'auto') && !tooFew && allGood) {
       item.manualMastered = true;
       item.masteredDate = todayStr();
       item.nextReviewDate = null;
@@ -14456,7 +15853,7 @@ function checkReviewMilestone(p) {
     if (p.reviewMode === 'balanced' && remaining <= threshold) {
       tip = `今天还剩 ${remaining} 条，在舒适量内，量力而行就好。`;
     } else {
-      tip = `还有 ${remaining} 条，可以分散到未来减轻压力。`;
+      tip = `还有 ${remaining} 条，按自己的节奏来就好。`;
     }
     showToast('' + svgIcon('party-popper') + '', `今天已经复习 ${reviewedToday} 条，辛苦了！`, tip, 5000);
   }
@@ -14477,14 +15874,14 @@ $('#overdueBanner').addEventListener('click', e => {
     } else if (r.moved > 0) {
       showToast('' + svgIcon('calendar') + '', `已分散 ${r.moved} 条内容`, `未来 ${days} 天均匀安排，今天不再堆积。`);
     } else {
-      showToast('' + svgIcon('alert-triangle') + '', `${r.blocked} 条逾期内容不能再推迟了`, '它们逾期太久或已多次推迟，再推会真的忘掉，已移到今天，建议优先清掉。', 4200);
+      showToast('' + svgIcon('x-circle') + '', `${r.blocked} 条逾期内容不能再推迟了`, '它们逾期太久或已多次推迟，再推会真的忘掉，已移到今天，建议优先清掉。', 4200);
     }
   } else {
     const cap = getComfortCap(p, todayStr());
     const dueN = getDueItems(p).length;
     if (dueN > cap) {
       // 还超舒适量却一条没动：全部被防饥饿锁死（逾期太久），不能再往后推
-      showToast('' + svgIcon('alert-triangle') + '', '逾期内容不能再推迟了', '这些题逾期太久或已多次推迟，再推会真的忘掉，建议今天先清最上面的几条。', 4200);
+      showToast('' + svgIcon('x-circle') + '', '逾期内容不能再推迟了', '这些题逾期太久或已多次推迟，再推会真的忘掉，建议今天先清最上面的几条。', 4200);
     } else {
       showToast('' + svgIcon('check-circle') + '', '今天的量在舒适范围内', `共 ${dueN} 条（舒适量 ${cap}），逾期的几条建议今天直接清掉，不必再往后分散。`, 4200);
     }
@@ -14513,7 +15910,7 @@ $('#overdueBanner').addEventListener('click', e => {
         showToast('' + svgIcon('clipboard-list') + '', `已分散 ${count} 条到未来`, `优先保留最该复习的，其余 ${days} 天内均匀安排。`);
       }
     } else if (due.length > cap) {
-      showToast('' + svgIcon('alert-triangle') + '', '这些内容不能再推迟了', '它们已经被推迟多次，或逾期超过当前间隔的 2 倍，再推会真的忘掉，建议今天优先完成最上面的几条。', 4200);
+      showToast('' + svgIcon('x-circle') + '', '这些内容不能再推迟了', '它们已经被推迟多次，或逾期超过当前间隔的 2 倍，再推会真的忘掉，建议今天优先完成最上面的几条。', 4200);
     } else if (isGentle) {
       showToast('' + svgIcon('check-circle') + '', '剩余量不多', '已经做到这里了，剩下的直接清掉会更轻松。');
     } else {
@@ -14652,6 +16049,23 @@ $('#recordList').addEventListener('click', e => {
       if (idx >= 0) {
         const [removed] = p.records.splice(idx, 1);
         if (removed && removed.rid) store.tombstones[removed.rid] = Date.now();
+        // 更新已学时长
+        var delMin1 = 0;
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          var tm1 = Number(p.todayEstimatedTotalMinutes);
+          var tu1 = Number(p.todayTotalUnits);
+          if (isFinite(tm1) && tm1 > 0 && isFinite(tu1) && tu1 > 0) {
+            StudyTime._recomputeTodayStudied();
+            StudyTime.updateDisplay();
+          } else {
+            var pp1 = Number(p.estMinPerPage);
+            if (isFinite(pp1) && pp1 > 0) {
+              var dp1 = removed.startPage != null ? (Number(removed.endPage) - Number(removed.startPage) + 1) : 1;
+              delMin1 = Math.round(Math.max(0, dp1) * pp1);
+              if (delMin1 > 0) StudyTime.subtractStudied(delMin1);
+            }
+          }
+        }
         p.updatedAt = Date.now();
         saveStore();
         render();
@@ -14659,6 +16073,16 @@ $('#recordList').addEventListener('click', e => {
           if (!store.projects[p.id]) return;
           p.records.splice(Math.min(idx, p.records.length), 0, removed);
           if (removed && removed.rid) delete store.tombstones[removed.rid];
+          if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+            var tm1b = Number(p.todayEstimatedTotalMinutes);
+            var tu1b = Number(p.todayTotalUnits);
+            if (isFinite(tm1b) && tm1b > 0 && isFinite(tu1b) && tu1b > 0) {
+              StudyTime._recomputeTodayStudied();
+              StudyTime.updateDisplay();
+            } else if (delMin1 > 0) {
+              StudyTime.addStudied(delMin1);
+            }
+          }
           p.updatedAt = Date.now();
           saveStore();
           render();
@@ -14673,6 +16097,23 @@ $('#recordList').addEventListener('click', e => {
       if (idx >= 0) {
         const [removed] = p.records.splice(idx, 1);
         if (removed && removed.rid) store.tombstones[removed.rid] = Date.now();
+        // 更新已学时长
+        var delMin2 = 0;
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          var tm2 = Number(p.todayEstimatedTotalMinutes);
+          var tu2 = Number(p.todayTotalUnits);
+          if (isFinite(tm2) && tm2 > 0 && isFinite(tu2) && tu2 > 0) {
+            StudyTime._recomputeTodayStudied();
+            StudyTime.updateDisplay();
+          } else {
+            var pp2 = Number(p.estMinPerPage);
+            if (isFinite(pp2) && pp2 > 0) {
+              var dp2 = removed.startPage != null ? (Number(removed.endPage) - Number(removed.startPage) + 1) : 1;
+              delMin2 = Math.round(Math.max(0, dp2) * pp2);
+              if (delMin2 > 0) StudyTime.subtractStudied(delMin2);
+            }
+          }
+        }
         p.updatedAt = Date.now();
         saveStore();
         render();
@@ -14680,6 +16121,16 @@ $('#recordList').addEventListener('click', e => {
           if (!store.projects[p.id]) return;
           p.records.splice(Math.min(idx, p.records.length), 0, removed);
           if (removed && removed.rid) delete store.tombstones[removed.rid];
+          if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+            var tm2b = Number(p.todayEstimatedTotalMinutes);
+            var tu2b = Number(p.todayTotalUnits);
+            if (isFinite(tm2b) && tm2b > 0 && isFinite(tu2b) && tu2b > 0) {
+              StudyTime._recomputeTodayStudied();
+              StudyTime.updateDisplay();
+            } else if (delMin2 > 0) {
+              StudyTime.addStudied(delMin2);
+            }
+          }
           p.updatedAt = Date.now();
           saveStore();
           render();
@@ -14695,6 +16146,10 @@ $('#recordList').addEventListener('click', e => {
       removed.forEach(function(r){ if (r.rid) store.tombstones[r.rid] = Date.now(); });
       p.updatedAt = Date.now();
       saveStore();
+      if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+        StudyTime._recomputeTodayStudied();
+        StudyTime.updateDisplay();
+      }
       render();
       showUndo(`已删除 ${removed.length} 条打卡记录`, () => {
         if (!store.projects[p.id]) return;
@@ -14702,6 +16157,10 @@ $('#recordList').addEventListener('click', e => {
         p.records = (p.records || []).concat(removed);
         p.updatedAt = Date.now();
         saveStore();
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          StudyTime._recomputeTodayStudied();
+          StudyTime.updateDisplay();
+        }
         render();
       });
     }
@@ -14714,15 +16173,46 @@ $('#recordList').addEventListener('click', e => {
       if (idx >= 0) {
         const [removed] = p.items.splice(idx, 1);
         if (removed && removed.id) store.tombstones[removed.id] = Date.now();
+        // 快录占位条目：同步从关联刷题本打卡记录的 wrongMarks 里移除
+        let undoRefInfo = null;
+        if (removed && removed.fromExerciseRid && removed.fromExerciseMark && p.refProjectId && store.projects[p.refProjectId]) {
+          const refP = store.projects[p.refProjectId];
+          const rec = (refP.records || []).find(r => r.rid === removed.fromExerciseRid);
+          if (rec && Array.isArray(rec.wrongMarks)) {
+            const before = rec.wrongMarks.length;
+            rec.wrongMarks = rec.wrongMarks.filter(m => m !== removed.fromExerciseMark);
+            if (rec.wrongMarks.length < before) {
+              undoRefInfo = { refProjectId: p.refProjectId, rid: removed.fromExerciseRid, mark: removed.fromExerciseMark };
+              refP.updatedAt = Date.now();
+            }
+          }
+        }
         p.updatedAt = Date.now();
         saveStore();
+        if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+          StudyTime._recomputeTodayStudied();
+          StudyTime.updateDisplay();
+        }
         render();
         showUndo(`已删除「${removed.content.slice(0, 12)}…」`, () => {
           if (!store.projects[p.id]) return;
           p.items.splice(Math.min(idx, p.items.length), 0, removed);
           if (removed && removed.id) delete store.tombstones[removed.id];
+          // 撤销删除：加回刷题本打卡记录的 wrongMarks
+          if (undoRefInfo && store.projects[undoRefInfo.refProjectId]) {
+            const refP = store.projects[undoRefInfo.refProjectId];
+            const rec = (refP.records || []).find(r => r.rid === undoRefInfo.rid);
+            if (rec && Array.isArray(rec.wrongMarks) && !rec.wrongMarks.includes(undoRefInfo.mark)) {
+              rec.wrongMarks.push(undoRefInfo.mark);
+              refP.updatedAt = Date.now();
+            }
+          }
           p.updatedAt = Date.now();
           saveStore();
+          if (typeof StudyTime !== 'undefined' && StudyTime.hasAi()) {
+            StudyTime._recomputeTodayStudied();
+            StudyTime.updateDisplay();
+          }
           render();
         });
       }
@@ -14776,22 +16266,50 @@ document.querySelectorAll('.wb-filter-btn').forEach(btn => {
   });
 });
 
-/* 随机抽题复习：从已掌握中随机选5道，重新加入复习队列 */
+/* 随机抽题复习：从已掌握/关键薄弱点中随机选5道，重新加入复习队列 */
+let _randomReviewSource = 'mastered'; // 'mastered' 或 'weakkey'
 $('#btnRandomReview').addEventListener('click', () => {
   const p = cur();
-  if (!p || p.type !== 'mistake') return;
+  if (!p) return;
+  _randomReviewSource = 'mastered';
+  const isMistake = p.type === 'mistake';
   const mastered = (p.items || []).filter(it => it.mastered || it.manualMastered);
   if (mastered.length < 1) {
-    showToast('' + svgIcon('inbox') + '', '还没有已攻克的错题', '先攻克一些错题，再来抽查吧～', 3000);
+    showToast('' + svgIcon('inbox') + '', isMistake ? '还没有已攻克的错题' : '还没有已掌握的条目', '先攻克一些再来抽查吧～', 3000);
     return;
   }
   const n = Math.min(5, mastered.length);
+  const doneWord = isMistake ? '攻克' : '掌握';
   $('#randomReviewConfirmDesc').innerHTML =
-    `从已攻克的 <b>${mastered.length}</b> 道错题中随机抽出 <b>${n}</b> 道复习。<br>做错了会自动重新加入复习队列，做对了可重新标记为已攻克。`;
+    `从已${doneWord}的 <b>${mastered.length}</b> 道${isMistake ? '错题' : '条目'}中随机抽出 <b>${n}</b> 道复习。<br>做错了会自动重新加入复习队列，做对了可重新标记为已${doneWord}。`;
   const warn = $('#randomReviewConfirmWarn');
   if (mastered.length < 5) {
     warn.hidden = false;
-    warn.textContent = `已攻克的错题不足5道（仅${mastered.length}道），将全部抽出。`;
+    warn.textContent = `已${doneWord}的不足5道（仅${mastered.length}道），将全部抽出。`;
+  } else {
+    warn.hidden = true;
+  }
+  $('#randomReviewConfirmMask').hidden = false;
+  modalTop($('#randomReviewConfirmMask'));
+});
+/* 关键薄弱点随机抽题重做 */
+$('#btnRandomWeakKey').addEventListener('click', () => {
+  const p = cur();
+  if (!p) return;
+  _randomReviewSource = 'weakkey';
+  const isMistake = p.type === 'mistake';
+  const weakKeys = (p.items || []).filter(it => (it.everWeakKey || (it.wrongStreak || 0) >= 2) && !it.mastered && !it.manualMastered);
+  if (weakKeys.length < 1) {
+    showToast('' + svgIcon('key') + '', '还没有关键薄弱点', '连续做错2次及以上的题目会标记为关键薄弱点', 3000);
+    return;
+  }
+  const n = Math.min(5, weakKeys.length);
+  $('#randomReviewConfirmDesc').innerHTML =
+    `从关键薄弱点的 <b>${weakKeys.length}</b> 道${isMistake ? '错题' : '条目'}中随机抽出 <b>${n}</b> 道重做。<br>这些是考前最该拿下的重点，做对了可继续推进间隔重复。`;
+  const warn = $('#randomReviewConfirmWarn');
+  if (weakKeys.length < 5) {
+    warn.hidden = false;
+    warn.textContent = `关键薄弱点不足5道（仅${weakKeys.length}道），将全部抽出。`;
   } else {
     warn.hidden = true;
   }
@@ -14850,29 +16368,48 @@ $('#importConfirmCancel').addEventListener('click', () => {
 $('#randomReviewConfirmOk').addEventListener('click', () => {
   const p = cur();
   if (!p) return;
-  const mastered = (p.items || []).filter(it => it.mastered || it.manualMastered);
-  const n = Math.min(5, mastered.length);
-  // 随机洗牌取前n个
-  const shuffled = [...mastered].sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, n);
+  const isMistake = p.type === 'mistake';
   const today = todayStr();
-  picked.forEach(it => {
-    it.mastered = false;
-    it.manualMastered = false;
-    it.masteredDate = null;
-    it.nextReviewDate = today;
-    it.spreadCount = 0;
-    it.stage = 0; // 抽查当作没攻克过重新过一遍，避免做错后排到30天
-    clearRetention(it);
-    // 不往 reviews 里塞假记录，避免污染掌握判定、掌握度分数和历史面板
-  });
+  let picked = [];
+  let sourceLabel = '';
+  if (_randomReviewSource === 'weakkey') {
+    // 关键薄弱点：只把nextReviewDate设为今天，不重置stage（保留复习进度）
+    const weakKeys = (p.items || []).filter(it => (it.everWeakKey || (it.wrongStreak || 0) >= 2) && !it.mastered && !it.manualMastered);
+    const n = Math.min(5, weakKeys.length);
+    const shuffled = [...weakKeys].sort(() => Math.random() - 0.5);
+    picked = shuffled.slice(0, n);
+    picked.forEach(it => {
+      it.nextReviewDate = today;
+      it.spreadCount = 0;
+      it.earlyReviewed = false;
+      delete it.originalNextReviewDate;
+    });
+    sourceLabel = '关键薄弱点';
+  } else {
+    // 已攻克：重置为未攻克，重新过一遍
+    const mastered = (p.items || []).filter(it => it.mastered || it.manualMastered);
+    const n = Math.min(5, mastered.length);
+    const shuffled = [...mastered].sort(() => Math.random() - 0.5);
+    picked = shuffled.slice(0, n);
+    picked.forEach(it => {
+      it.mastered = false;
+      it.manualMastered = false;
+      it.masteredDate = null;
+      it.nextReviewDate = today;
+      it.spreadCount = 0;
+      it.stage = 0; // 抽查当作没攻克过重新过一遍，避免做错后排到30天
+      clearRetention(it);
+      // 不往 reviews 里塞假记录，避免污染掌握判定、掌握度分数和历史面板
+    });
+    sourceLabel = isMistake ? '已攻克' : '已掌握';
+  }
   p.updatedAt = Date.now();
   saveStore();
   $('#randomReviewConfirmMask').hidden = true;
   unlockBodyScroll(); // 补上 randomReviewConfirmMask 的解锁
   closeWeaknessBoard();
   render();
-  showToast('' + svgIcon('dice-5') + '', `已从已攻克中随机抽出 ${n} 道`, '做错了会自动继续复习，做对了可重新标记为已攻克。', 4000);
+  showToast('' + svgIcon('dice-5') + '', `已从${sourceLabel}中随机抽出 ${picked.length} 道`, _randomReviewSource === 'weakkey' ? '考前最该拿下的重点，做对了继续推进间隔重复。' : '做错了会自动继续复习，做对了可重新标记。', 4000);
 });
 
 /* 完成情况面板 */
@@ -15118,7 +16655,7 @@ document.addEventListener('keydown', e => {
   else if (!$('#dashMask').hidden) closeDashboard();
   else if (!$('#reasonKindMask').hidden) { $('#reasonKindClose').click(); }
   else if (!$('#skipConfirmMask').hidden) { $('#skipCancel').click(); }
-  // confirmMasterMask 不响应 ESC，必须主动选择一个选项
+  else if (!$('#confirmMasterMask').hidden) { $('#cmCancel').click(); }
   else if (!$('#settingsMask').hidden) closeSettings();
   else if (!$('#formMask').hidden) closeForm();
   else if (!$('#switchMask').hidden) closeSwitch();
@@ -15131,6 +16668,35 @@ document.addEventListener('keydown', e => {
   else if (!$('#tplManagerMask').hidden) { $('#tplManagerClose').click(); }
   else if (!$('#incognitoMask').hidden) { closeIncognito(); }
   // dataSecurityMask 不响应 ESC，必须等3秒后点击"我已知晓"
+});
+
+/* confirmMasterMask 键盘导航：Enter确认当前选项，↑↓切换选项 */
+document.addEventListener('keydown', e => {
+  const mask = $('#confirmMasterMask');
+  if (!mask || mask.hidden) return;
+  const opts = mask.querySelectorAll('.cm-opt');
+  if (!opts.length) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const focused = mask.querySelector('.cm-opt:focus') || opts[0];
+    if (focused) focused.click();
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    let idx = Array.from(opts).findIndex(o => o === document.activeElement);
+    if (idx < 0) idx = 0;
+    idx = e.key === 'ArrowDown' ? (idx + 1) % opts.length : (idx - 1 + opts.length) % opts.length;
+    opts[idx].focus();
+  }
+});
+
+/* skipConfirmMask 键盘导航：Enter确认，Esc取消（Esc已在全局处理） */
+document.addEventListener('keydown', e => {
+  const mask = $('#skipConfirmMask');
+  if (!mask || mask.hidden) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    $('#skipConfirmYes').click();
+  }
 });
 
 /* 统一表单回车导航：回车跳到下一个可见输入框，最后一个回车提交 */
@@ -15176,6 +16742,8 @@ try {
   if (mq.addEventListener) mq.addEventListener('change', handler);
   else if (mq.addListener) mq.addListener(handler);
 } catch (e) {}
+/* 当用户选"跟随时间"时，每5分钟检查一次时间是否跨了白天/晚上边界 */
+setInterval(() => { if (getThemePref() === 'time') applyTheme(); }, 5 * 60 * 1000);
 
 /* resize 重绘图表加 debounce，避免拖动窗口时高频重绘卡顿 */
 let _resizeT = null;
@@ -15191,7 +16759,7 @@ window.addEventListener('resize', () => {
   if (history.scrollRestoration) history.scrollRestoration = 'manual';
   // 版本强制下线机制：大版本更新时清除登录态（仅 token/user，学习数据完整保留）
   // 每次需要强制全员重新登录时，修改下方 APP_VERSION 的值即可
-  const APP_VERSION = '20261005';
+  const APP_VERSION = '20261018';
   const VER_KEY = 'st_app_version';
   try {
     const lastVer = localStorage.getItem(VER_KEY);
@@ -15223,8 +16791,8 @@ window.addEventListener('resize', () => {
   render();
   // ux-16/26：所有表单输入框输入时仅清除对应红字错误（轻量样式），不触发全量 render/saveStore
   try { autoClearFieldError(); } catch (e) {}
-  // 页面打开时补发今天错过的提醒（延迟 1.5 秒等页面渲染完成，此时 loadStore 已完成）
-  setTimeout(checkAndFireReminders, 1500);
+  // 页面打开时补发今天错过的提醒（延迟 1.5 秒等页面渲染完成，此时 loadStore 已完成）—— 已改为邮件提醒，应用内提醒停用
+  // setTimeout(checkAndFireReminders, 1500);
   // 主界面渲染完成后立即隐藏首屏加载界面（消除白屏）
   const splash = document.getElementById('splashScreen');
   if (splash) {
@@ -15250,16 +16818,19 @@ window.addEventListener('resize', () => {
 // 房间成员上限，与后端 MAX_ROOM_MEMBERS=20 保持一致
 var SR_MAX_MEMBERS = 20;
 var studyRoomState = {
-  room: null,        // {id, roomCode, name, isOwner, isPublic}
+  room: null,        // {id, roomCode, name, isOwner, isPublic, intro, category}
   members: [],       // 成员数组
   pollTimer: null,
-  pendingKickUserId: null // 踢人确认弹窗暂存的目标成员 id
+  pendingKickUserId: null, // 踢人确认弹窗暂存的目标成员 id
+  plazaCategory: 'all'     // 广场当前筛选标签
 };
 
 // 打开自习室主页面（导航按钮入口）
 async function openStudyRoomPage() {
   var mask = $('#studyRoomMask');
   if (!mask) return;
+  // 清除入口红点：进入自习室即视为已查看
+  clearLikeDot();
   // 必须在弹窗仍处于 hidden 时调用 modalTop：其内部幂等判断会在「已可见」时早退，
   // 若先 hidden=false 再调用，lockBodyScroll 不会执行，背景滚动将锁不住。
   try { modalTop(mask); } catch (e) {}
@@ -15267,12 +16838,53 @@ async function openStudyRoomPage() {
   try {
     await loadStudyRoomMe();
   } catch (e) {
-    showToast('' + svgIcon('alert-triangle') + '', '加载失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('x-circle') + '', '加载失败', e.message || '请稍后重试', 2500);
     studyRoomState.room = null;
     studyRoomState.members = [];
     renderStudyRoomViews();
   }
   startStudyRoomPolling();
+}
+
+// ══════════════ 自习室入口红点（未读点赞） ══════════════
+// 用 localStorage 记录上次查看时的点赞数和日期；有新赞则在导航按钮显示红点
+function _todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function checkLikeDot() {
+  var dot = $('#srLikeDot');
+  if (!dot) return;
+  try {
+    var seenDate = localStorage.getItem('sr_like_seen_date') || '';
+    var seenCount = parseInt(localStorage.getItem('sr_like_seen_count') || '0', 10);
+    var today = _todayStr();
+    // 跨天重置
+    if (seenDate !== today) {
+      seenCount = 0;
+      localStorage.setItem('sr_like_seen_date', today);
+      localStorage.setItem('sr_like_seen_count', '0');
+    }
+    STAuth.apiRequest('/api/study-room/likes').then(function(data) {
+      var cur = (data && data.received) || 0;
+      if (cur > seenCount) {
+        dot.hidden = false;
+      } else {
+        dot.hidden = true;
+      }
+    }).catch(function() { /* 静默失败，不影响主流程 */ });
+  } catch (e) { /* localStorage 不可用时静默 */ }
+}
+function clearLikeDot() {
+  var dot = $('#srLikeDot');
+  if (dot) dot.hidden = true;
+  try {
+    STAuth.apiRequest('/api/study-room/likes').then(function(data) {
+      var cur = (data && data.received) || 0;
+      localStorage.setItem('sr_like_seen_date', _todayStr());
+      localStorage.setItem('sr_like_seen_count', String(cur));
+    }).catch(function() {});
+  } catch (e) {}
 }
 
 // 关闭自习室主页面（返回按钮）
@@ -15328,63 +16940,223 @@ function renderStudyRoomViews() {
   // 公开/私有徽章
   var badge = $('#srVisibilityBadge');
   if (badge) badge.innerHTML = studyRoomState.room.isPublic ? '' + svgIcon('globe') + ' 公开' : '' + svgIcon('lock') + ' 私有';
+  // 房间标签徽章（在名称行旁显示）
+  var catBadge = $('#srRoomCategory');
+  if (catBadge) {
+    var cat = studyRoomState.room.category || 'other';
+    catBadge.textContent = cat === 'other' ? '' : srCategoryLabel(cat);
+    catBadge.style.display = cat === 'other' ? 'none' : '';
+  }
+  // 房间简介（在房间号行下方显示）
+  var introEl = $('#srRoomIntro');
+  if (introEl) {
+    var intro = studyRoomState.room.intro || '';
+    introEl.textContent = intro;
+    introEl.style.display = intro ? '' : 'none';
+  }
   // 是否房主：房间标记优先，否则从成员里找自己的 isOwner
   var selfMember = (studyRoomState.members || []).find(function(m){ return m.isSelf; });
   studyRoomState.iAmOwner = !!(studyRoomState.room.isOwner || (selfMember && selfMember.isOwner));
   var ownerActions = $('#srOwnerActions');
   if (ownerActions) ownerActions.hidden = !studyRoomState.iAmOwner;
+  // 从已有 /me 数据回填隐私开关（不再另发请求）
+  refreshStudyRoomPrivacyToggle();
   renderMemberList();
 }
 
-// 渲染成员列表（紧凑两行：第一行 名字+房主/我标记；第二行 连续·今日状态 内联合一）
+// 渲染成员列表（keyed diff：按 userId 复用 DOM，只更新变化的成员，避免头像闪、hover 丢）
 function renderMemberList() {
   var listEl = $('#srMemberList');
   if (!listEl) return;
   var members = studyRoomState.members || [];
   var iAmOwner = !!studyRoomState.iAmOwner;
-  listEl.innerHTML = members.map(function(m) {
-    var avatarHtml = m.avatar
-      ? '<img src="' + esc(m.avatar) + '" alt="">'
-      : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
-    // 连续打卡 streak（基础社交信息，对所有成员可见，后端已真实返回）
-    var streak = (typeof m.streak === 'number') ? m.streak : 0;
-    var streakHtml = streak > 0
-      ? '<span class="sr-meta-streak">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
-      : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
-    // 今日状态：publicData||isSelf 显示具体次数；未公开者只显示是否打卡（基础社交信息），不显示具体次数
-    var todayHtml;
-    if (!(m.publicData || m.isSelf)) {
-      var hasToday = !!m.checkedInToday;
-      todayHtml = hasToday
-        ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日已打卡</span>'
-        : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+
+  // 现有卡片按 userId 索引
+  var existing = {};
+  Array.prototype.forEach.call(listEl.children, function(card) {
+    var uid = parseInt(card.getAttribute('data-user-id'), 10);
+    if (uid) existing[uid] = card;
+  });
+
+  var seenUids = {};
+  members.forEach(function(m) {
+    seenUids[m.userId] = true;
+    var card = existing[m.userId];
+    if (!card) {
+      // 新成员：创建完整卡片
+      card = buildMemberCard(m, iAmOwner);
+      listEl.appendChild(card);
     } else {
-      var n = m.todayReviewCount || 0;
-      todayHtml = n > 0
-        ? '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日复习 ' + n + ' 次</span>'
-        : '<span class="sr-meta-today sr-today-zero">今日未打卡</span>';
+      // 已有成员：只更新动态部分（在线点、meta 行、踢人按钮），不重建头像
+      updateMemberCardDynamic(card, m, iAmOwner);
     }
-    var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
-    var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
-    // 房主对非本人显示「踢出」按钮
-    var kickBtn = (iAmOwner && !m.isSelf)
-      ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
-      : '';
-    return '<div class="sr-member-card" data-user-id="' + m.userId + '">'
-      + '<div class="sr-member-avatar" data-user-id="' + m.userId + '" title="点击查看详情">' + avatarHtml + '</div>'
-      + '<div class="sr-member-info">'
-      +   '<div class="sr-member-name-row">'
-      +     '<span class="sr-member-name">' + esc(m.username || '匿名') + '</span>'
-      +     ownerBadge + selfTag
-      +   '</div>'
-      +   '<div class="sr-member-meta">'
-      +     streakHtml
-      +     '<span class="sr-meta-divider">·</span>'
-      +     todayHtml
-      +   '</div>'
-      + '</div>' + kickBtn + '</div>';
-    // 头像点击 / 踢人按钮统一由 initStudyRoomUI 中的事件委托处理，避免重复绑定
-  }).join('');
+  });
+
+  // 删除已离开的成员卡片
+  Object.keys(existing).forEach(function(uid) {
+    if (!seenUids[uid]) listEl.removeChild(existing[uid]);
+  });
+}
+
+// 构建单个成员卡片 DOM（新成员时调用一次）
+function buildMemberCard(m, iAmOwner) {
+  var div = document.createElement('div');
+  div.className = 'sr-member-card';
+  div.setAttribute('data-user-id', m.userId);
+
+  var avatarHtml = m.avatar
+    ? '<img src="' + esc(m.avatar) + '" alt="">'
+    : '<span class="sr-avatar-fallback">' + svgIcon('user') + '</span>';
+  var onlineDot = buildOnlineDot(m);
+
+  var ownerBadge = m.isOwner ? '<span class="sr-owner-badge">房主</span>' : '';
+  var starBadge = m.isTodayStar ? '<span class="sr-star-badge" title="今日活跃度第1名">' + svgIcon('star') + ' 今日之星</span>' : '';
+  var selfTag = m.isSelf ? '<span class="sr-self-tag">（我）</span>' : '';
+  // 徽章标签：连续学习达到对应天数直接显示徽章名
+  var streakForBadge = (typeof m.streak === 'number') ? m.streak : 0;
+  var badgeName = '';
+  var badgeClass = '';
+  if (streakForBadge >= 365) { badgeName = '学以致用'; badgeClass = 'sr-badge-tag-year'; }
+  else if (streakForBadge >= 100) { badgeName = '融会贯通'; badgeClass = 'sr-badge-tag-legend'; }
+  else if (streakForBadge >= 30) { badgeName = '博览群书'; badgeClass = 'sr-badge-tag-master'; }
+  else if (streakForBadge >= 14) { badgeName = '温故知新'; badgeClass = 'sr-badge-tag-half'; }
+  else if (streakForBadge >= 7) { badgeName = '日读成习'; badgeClass = 'sr-badge-tag-pro'; }
+  else if (streakForBadge >= 3) { badgeName = '开卷有得'; badgeClass = 'sr-badge-tag-beginner'; }
+  var streakBadge = badgeName ? '<span class="sr-badge-tag ' + badgeClass + '">' + badgeName + '</span>' : '';
+  var kickBtn = (iAmOwner && !m.isSelf)
+    ? '<button class="ghost-btn sr-kick-btn" data-user-id="' + m.userId + '" type="button">踢出</button>'
+    : '';
+  // 点赞按钮：自己→点击查看谁赞了我；别人→点击点赞
+  var likesCount = m.likesReceived || 0;
+  var likedClass = m.likedByMe ? ' sr-like-btn-liked' : '';
+  var likeBtn = '<button class="sr-like-btn' + likedClass + '" data-user-id="' + m.userId + '" type="button" title="'
+    + (m.isSelf ? '查看谁给我点了赞' : '给TA点赞') + '">'
+    + svgIcon('thumbs-up') + '<span class="sr-like-count">' + likesCount + '</span></button>';
+
+  div.innerHTML =
+    '<div class="sr-member-avatar-wrap">'
+    +   '<div class="sr-member-avatar" data-user-id="' + m.userId + '" title="点击查看详情">' + avatarHtml + '</div>'
+    +   onlineDot
+    + '</div>'
+    + '<div class="sr-member-info">'
+    +   '<div class="sr-member-name-row">'
+    +     '<span class="sr-member-name">' + esc(m.username || '匿名') + '</span>'
+    +     ownerBadge + streakBadge + starBadge + selfTag
+    +   '</div>'
+    +   '<div class="sr-member-meta">'
+    +     buildMemberMetaHtml(m)
+    +   '</div>'
+    + '</div>'
+    + '<div class="sr-member-actions">' + likeBtn + kickBtn + '</div>';
+  return div;
+}
+
+// 更新已有成员卡片的动态部分（在线点 + meta 行 + 踢人按钮显隐）
+function updateMemberCardDynamic(card, m, iAmOwner) {
+  // 在线点
+  var avatarWrap = card.querySelector('.sr-member-avatar-wrap');
+  if (avatarWrap) {
+    var oldDot = avatarWrap.querySelector('.sr-online-dot');
+    if (oldDot) oldDot.remove();
+    var dotHtml = buildOnlineDot(m);
+    if (dotHtml) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = dotHtml;
+      avatarWrap.appendChild(tmp.firstChild);
+    }
+  }
+  // meta 行（streak + 今日状态）
+  var metaEl = card.querySelector('.sr-member-meta');
+  if (metaEl) metaEl.innerHTML = buildMemberMetaHtml(m);
+  // 徽章标签（名字行）：streak变化时更新
+  var nameRow = card.querySelector('.sr-member-name-row');
+  if (nameRow) {
+    var oldBadge = nameRow.querySelector('.sr-badge-tag');
+    if (oldBadge) oldBadge.remove();
+    var s = (typeof m.streak === 'number') ? m.streak : 0;
+    var bn = '', bc = '';
+    if (s >= 365) { bn = '学以致用'; bc = 'sr-badge-tag-year'; }
+    else if (s >= 100) { bn = '融会贯通'; bc = 'sr-badge-tag-legend'; }
+    else if (s >= 30) { bn = '博览群书'; bc = 'sr-badge-tag-master'; }
+    else if (s >= 14) { bn = '温故知新'; bc = 'sr-badge-tag-half'; }
+    else if (s >= 7) { bn = '日读成习'; bc = 'sr-badge-tag-pro'; }
+    else if (s >= 3) { bn = '开卷有得'; bc = 'sr-badge-tag-beginner'; }
+    if (bn) {
+      var badgeSpan = document.createElement('span');
+      badgeSpan.className = 'sr-badge-tag ' + bc;
+      badgeSpan.textContent = bn;
+      var ownerEl = nameRow.querySelector('.sr-owner-badge');
+      var starEl = nameRow.querySelector('.sr-star-badge');
+      if (ownerEl) {
+        nameRow.insertBefore(badgeSpan, ownerEl.nextSibling);
+      } else if (starEl) {
+        nameRow.insertBefore(badgeSpan, starEl);
+      } else {
+        var nameEl = nameRow.querySelector('.sr-member-name');
+        if (nameEl) nameRow.insertBefore(badgeSpan, nameEl.nextSibling);
+      }
+    }
+  }
+  // 踢人按钮显隐
+  var oldKick = card.querySelector('.sr-kick-btn');
+  var shouldShowKick = iAmOwner && !m.isSelf;
+  var actionsEl = card.querySelector('.sr-member-actions');
+  if (shouldShowKick && !oldKick) {
+    var btn = document.createElement('button');
+    btn.className = 'ghost-btn sr-kick-btn';
+    btn.setAttribute('data-user-id', m.userId);
+    btn.type = 'button';
+    btn.textContent = '踢出';
+    if (actionsEl) actionsEl.appendChild(btn); else card.appendChild(btn);
+  } else if (!shouldShowKick && oldKick) {
+    oldKick.remove();
+  }
+  // 点赞数更新
+  var likeBtn = card.querySelector('.sr-like-btn');
+  if (likeBtn) {
+    var cnt = likeBtn.querySelector('.sr-like-count');
+    if (cnt) cnt.textContent = m.likesReceived || 0;
+    if (m.likedByMe) likeBtn.classList.add('sr-like-btn-liked');
+    else likeBtn.classList.remove('sr-like-btn-liked');
+  }
+}
+
+// 构建成员 meta 行 HTML（streak + 今日状态 + 在线文字）
+function buildMemberMetaHtml(m) {
+  var streak = (typeof m.streak === 'number') ? m.streak : 0;
+  var streakClass = 'sr-streak-normal';
+  var streakTitle = '';
+  if (streak >= 365) { streakClass = 'sr-streak-year'; streakTitle = '学以致用'; }
+  else if (streak >= 100) { streakClass = 'sr-streak-legend'; streakTitle = '融会贯通'; }
+  else if (streak >= 30) { streakClass = 'sr-streak-master'; streakTitle = '博览群书'; }
+  else if (streak >= 14) { streakClass = 'sr-streak-half'; streakTitle = '温故知新'; }
+  else if (streak >= 7) { streakClass = 'sr-streak-pro'; streakTitle = '日读成习'; }
+  else if (streak >= 3) { streakClass = 'sr-streak-beginner'; streakTitle = '开卷有得'; }
+  var streakHtml = streak > 0
+    ? '<span class="sr-meta-streak ' + streakClass + '" title="' + streakTitle + '">' + svgIcon('flame') + ' 连续 ' + streak + ' 天</span>'
+    : '<span class="sr-meta-streak sr-streak-zero">暂无连续打卡</span>';
+  var todayHtml;
+  var hasToday = !!m.checkedInToday;
+  if (hasToday) {
+    todayHtml = '<span class="sr-meta-today sr-today-ok">' + svgIcon('check-circle') + ' 今日学习中</span>';
+  } else {
+    todayHtml = '<span class="sr-meta-today sr-today-zero">今日待开始</span>';
+  }
+  // 在线状态文字（away 时显示"x分钟前"）
+  var onlineText = '';
+  if (m.onlineStatus === 'away' && m.onlineLabel) {
+    onlineText = '<span class="sr-meta-online">' + esc(m.onlineLabel) + '</span>';
+  }
+  return streakHtml + '<span class="sr-meta-divider">·</span>' + todayHtml
+    + (onlineText ? '<span class="sr-meta-divider">·</span>' + onlineText : '');
+}
+
+// 构建在线状态指示点 HTML
+function buildOnlineDot(m) {
+  var st = m.onlineStatus || 'offline';
+  if (st === 'online') return '<span class="sr-online-dot sr-online-on" title="在线"></span>';
+  if (st === 'away') return '<span class="sr-online-dot sr-online-away" title="' + esc(m.onlineLabel || '离开') + '"></span>';
+  return '<span class="sr-online-dot sr-online-off" title="离线"></span>';
 }
 
 // 点击成员头像：未公开且非自己则弹提示；公开或自己则拉详情
@@ -15411,7 +17183,7 @@ async function openMemberDetail(userId) {
     var dm = $('#srMemberDetailMask');
     if (dm) dm.hidden = false;
   } catch (e) {
-    showToast('' + svgIcon('alert-triangle') + '', '加载失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('x-circle') + '', '加载失败', e.message || '请稍后重试', 2500);
   }
 }
 
@@ -15433,122 +17205,182 @@ function renderMemberDetail(profile) {
       recentEl.innerHTML = '<div class="sr-recent-empty">暂无学习记录</div>';
     } else {
       recentEl.innerHTML = recent.map(function(a) {
+        var bits = [];
+        var pages = a.pages || 0;
+        var sets = a.sets || 0;
+        var reviews = a.reviews != null ? a.reviews : (a.reviewCount || 0);
+        if (pages > 0) bits.push('刷题 ' + pages + ' 页');
+        if (sets > 0) bits.push('刷套卷 ' + sets + ' 套');
+        if (reviews > 0) bits.push('复习 ' + reviews + ' 条');
+        var detail = bits.length ? bits.join('，') : '已学习';
         return '<div class="sr-recent-item">'
           + '<span class="sr-recent-date">' + esc((a.date || '').slice(5)) + ' ' + esc(a.dayOfWeek || '') + '</span>'
-          + '<span class="sr-recent-count">复习 ' + (a.reviewCount || 0) + ' 次</span>'
+          + '<span class="sr-recent-count">' + esc(detail) + '</span>'
           + '</div>';
       }).join('');
     }
   }
   // 统计卡片
-  var week = profile.weekReviewCount || [];
-  var weekSum = week.reduce(function(a,b){ return (a||0) + (b||0); }, 0);
-  var wc = $('#srDetailWeekCount'); if (wc) wc.textContent = weekSum;
+  var wc = $('#srDetailWeekCount'); if (wc) wc.textContent = (profile.weekStudyDays != null ? profile.weekStudyDays : (profile.weekReviewCount || []).filter(function(n){return n>0;}).length) + '天';
   var st = $('#srDetailStreak'); if (st) st.textContent = (profile.currentStreak || 0) + '天';
-  var tt = $('#srDetailTotal'); if (tt) tt.textContent = profile.totalReviews || 0;
+  var tt = $('#srDetailTotal'); if (tt) tt.textContent = (profile.totalStudyDays != null ? profile.totalStudyDays : 0) + '天';
   var pj = $('#srDetailProjects'); if (pj) pj.textContent = profile.projectCount || 0;
+  // 今日各项目完成量环形图
+  renderProjectTodayCharts(profile.projectToday || []);
 }
 
-// 复用现有热力图 CSS 类（wb-heatmap-col / hm-cell / hm-0~hm-4）渲染后端返回的 {date: count} 数据
-// 与个人版 renderHeatmap 一致：列内 hm-col-label 月份标签 + dow hm-dow-spacer，废弃 monthsEl 的 margin-left 硬编码
-function renderMemberHeatmap(heatmapData, containerEl, monthsEl) {
-  if (!containerEl) return;
-  var mmScrollEl = containerEl.closest('.wb-heatmap-scroll');
-  var mmWrapEl = containerEl.closest('.wb-heatmap-wrap');
-  // 周数与格子尺寸按弹窗容器宽度自适应（宽屏可多显示），不横向滚动
-  var WEEKS = planHeatmapLayout(mmScrollEl, mmWrapEl, 52, 8).weeks;
-  var todayDate = new Date();
-  var todayStrVal = todayStr();
-  var dayOfWeek = todayDate.getDay(); // 0=周日
-  var daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  var lastMonday = new Date(todayDate);
-  lastMonday.setDate(todayDate.getDate() - daysSinceMonday);
-
-  var columns = [];
-  for (var w = WEEKS - 1; w >= 0; w--) {
-    var colStart = new Date(lastMonday);
-    colStart.setDate(lastMonday.getDate() - w * 7);
-    var days = [];
-    for (var d = 0; d < 7; d++) {
-      var dt = new Date(colStart);
-      dt.setDate(colStart.getDate() + d);
-      var ds = fmtDate(dt); // 本地时间格式化，修复 UTC 时区偏移
-      var n = heatmapData[ds] || 0;
-      var isFuture = ds > todayStrVal;
-      var isToday = ds === todayStrVal;
-      days.push({ date: ds, n: n, isFuture: isFuture, isToday: isToday });
-    }
-    columns.push({ start: colStart, days: days });
+// 渲染今日各项目完成量环形图（统一单环多段，SVG 原生绘制）
+// 不同单位按权重换算为等效学习量后分段：刷题页/背书页=1，套卷=4，错题条=0.3
+// 中心显示"今日 N 项有进展"，下方图例列出各项目完成量，hover 显示完整项目名
+function renderProjectTodayCharts(projects) {
+  var container = $('#srDetailCharts');
+  if (!container) return;
+  var emptyHtml = '<div class="sr-charts-empty"><span class="sr-empty-ico">🌱</span>今天还没有学习记录<br>完成学习后，这里会显示今日各项目的完成分布</div>';
+  if (!projects.length) {
+    container.innerHTML = emptyHtml;
+    return;
   }
-
-  function levelOf(n) {
-    if (n <= 0) return 0;
-    if (n === 1) return 1;
-    if (n <= 3) return 2;
-    if (n <= 6) return 3;
-    return 4;
+  // 不同单位的等效学习量权重
+  function getWeight(p) {
+    if (p.type === 'exercise' && (p.unit === '套' || p.unit === 'set')) return 4.0;
+    if (p.type === 'mistake') return 0.3;
+    return 1.0;
   }
-
-  // 列内月份标签：该列周一进入新的月份/年份时在列顶显示，彻底消除 margin-left 硬编码错位
-  var lastMonth = -1, lastYear = -1;
-  columns.forEach(function(col) {
-    var y = col.start.getFullYear(), m = col.start.getMonth();
-    var label = '';
-    if (lastMonth === -1 || y !== lastYear || m !== lastMonth) {
-      label = (lastYear !== -1 && y !== lastYear) ? (y + '年' + (m + 1) + '月') : ((m + 1) + '月');
-    }
-    lastMonth = m; lastYear = y;
-    col.monthLabel = label;
+  var weighted = projects.map(function(p) {
+    return { p: p, w: Math.max(0, p.todayCount || 0) * getWeight(p) };
+  }).filter(function(x) { return x.w > 0; });
+  if (!weighted.length) {
+    container.innerHTML = emptyHtml;
+    return;
+  }
+  var totalW = weighted.reduce(function(s, x) { return s + x.w; }, 0);
+  // 纸感学院派20色调色板：绿色系为主(1-10)，暖金棕(11-15)，中性灰绿(16-20)，相邻明度差足够大
+  var palette = [
+    '#1e4d35','#2a5f45','#3a7558','#4a8c6e','#5a9e78',
+    '#6ba88a','#7ab898','#8fc0a9','#a5cfb8','#bbdcc9',
+    '#c9a96e','#b8956a','#a67c52','#8b6b4a','#7a5c3e',
+    '#6b8e9e','#7a9e8b','#9e8b6e','#8a9a7b','#a8b5a0'
+  ];
+  var size = 140, strokeW = 16;
+  var r = (size - strokeW) / 2 - 2; // 留2px边距，hover变粗时不会溢出SVG边界
+  var cx = size / 2, cy = size / 2;
+  var circ = 2 * Math.PI * r;
+  // 项目越多间隙越小：单项目无间隙，2-3项1.5px，4-8项1px，9-15项0.6px，16+项0.3px
+  var n = weighted.length;
+  var gap = n <= 1 ? 0 : n > 15 ? 0.3 : n > 8 ? 0.6 : n > 3 ? 1.0 : 1.5;
+  // 背景轨
+  var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">'
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" class="sr-chart-track" stroke-width="' + strokeW + '"/>';
+  // 各项目分段
+  var offset = 0;
+  var segData = [];
+  weighted.forEach(function(x, i) {
+    var frac = x.w / totalW;
+    var len = Math.max(0, circ * frac - gap);
+    var color = palette[i % palette.length];
+    var p = x.p;
+    var count = p.todayCount;
+    var countStr = Number.isInteger(count) ? String(count) : count.toFixed(1);
+    var name = p.projectName || '未命名项目';
+    var unit = p.unit || '页';
+    var pct = Math.round(frac * 100);
+    segData.push({ name: name, countStr: countStr, unit: unit, pct: pct, color: color });
+    svg += '<circle class="sr-ring-seg" cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '"'
+      + ' stroke-dasharray="' + len.toFixed(2) + ' ' + (circ - len + 0.01).toFixed(2) + '"'
+      + ' stroke-dashoffset="' + (-offset).toFixed(2) + '"'
+      + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"'
+      + ' data-idx="' + i + '"'
+      + ' title="' + esc(name) + ' · ' + countStr + esc(unit) + ' · ' + pct + '%"/>'
+      + '';
+    offset += len + gap;
   });
-  // 顶部月份行已废弃，清空并隐藏
-  if (monthsEl) { monthsEl.innerHTML = ''; monthsEl.style.display = 'none'; }
-
-  // dow 行顶部补 14px 标签占位，与列内月份标签位对齐（只补一次）
-  var dowEl = document.querySelector('#srMemberDetailMask .wb-heatmap-dow');
-  if (dowEl && !dowEl.querySelector('.hm-dow-spacer')) {
-    var sp = document.createElement('div');
-    sp.className = 'hm-dow-spacer';
-    sp.style.height = '14px';
-    dowEl.insertBefore(sp, dowEl.firstChild);
-  }
-
-  // 只替换固定尺寸容器内部内容，不操作 body 滚动、不改变页面整体高度
-  containerEl.innerHTML = columns.map(function(col) {
-    var labelHtml = '<div class="hm-col-label">' + esc(col.monthLabel) + '</div>';
-    return '<div class="wb-heatmap-col">' + labelHtml + col.days.map(function(d) {
-      var lv = d.isFuture ? 0 : levelOf(d.n);
-      var cls = 'hm-cell hm-' + lv + (d.isToday ? ' hm-today' : '') + (d.isFuture ? ' hm-future' : '');
-      var title = d.isFuture ? '未来日期' : (d.date + ' 复习' + d.n + '次');
-      return '<div class="' + cls + '" data-date="' + d.date + '" title="' + title + '"></div>';
-    }).join('') + '</div>';
+  svg += '</svg>';
+  // 图例：颜色点 + 项目名（截断，hover完整） + 完成量+单位
+  var legend = weighted.map(function(x, i) {
+    var color = palette[i % palette.length];
+    var p = x.p;
+    var count = p.todayCount;
+    var countStr = Number.isInteger(count) ? String(count) : count.toFixed(1);
+    var name = p.projectName || '未命名项目';
+    var unit = p.unit || '页';
+    return '<div class="sr-legend-item" data-idx="' + i + '" title="' + esc(name) + ' · ' + countStr + esc(unit) + '">'
+      + '<span class="sr-legend-dot" style="background:' + color + '"></span>'
+      + '<span class="sr-legend-name">' + esc(name) + '</span>'
+      + '<span class="sr-legend-val">' + countStr + esc(unit) + '</span>'
+      + '</div>';
   }).join('');
-
-  // 固定一行详情：初始占位空行
-  var dayEl = $('#srDetailDay');
-  if (dayEl) dayEl.innerHTML = '&nbsp;';
-
-  // 点击非未来格子：在 srDetailDay 显示「日期 周X · 复习 N 次」；未来格子（hm-future）不可点
-  containerEl.querySelectorAll('.hm-cell:not(.hm-future)').forEach(function(cell) {
-    cell.addEventListener('click', function() {
-      var ds = cell.getAttribute('data-date');
-      var n = heatmapData[ds] || 0;
-      var dt = new Date(ds + 'T00:00:00');
-      var weekNames = ['日', '一', '二', '三', '四', '五', '六'];
-      if (dayEl) dayEl.textContent = ds + ' 周' + weekNames[dt.getDay()] + ' · 复习 ' + n + ' 次';
+  container.innerHTML = '<div class="sr-unified-chart">'
+    + '<div class="sr-unified-ring" id="srUnifiedRing">' + svg
+    +   '<div class="sr-unified-center"><span class="sr-unified-num" id="srRingNum">' + weighted.length + '项</span><span class="sr-unified-label" id="srRingLabel">今日有进展</span></div>'
+    + '</div>'
+    + '<div class="sr-unified-legend">' + legend + '</div>'
+    + '</div>';
+  // hover交互：环形段或图例项hover时，中心显示该项目详情，其他段变暗
+  var ringEl = $('#srUnifiedRing');
+  var numEl = $('#srRingNum');
+  var labelEl = $('#srRingLabel');
+  if (ringEl && numEl && labelEl) {
+    var segs = ringEl.querySelectorAll('.sr-ring-seg');
+    var legendItems = container.querySelectorAll('.sr-legend-item');
+    function highlight(idx) {
+      segs.forEach(function(s, i) {
+        if (i === idx) {
+      s.setAttribute('stroke-width', String(strokeW + 2));
+          s.style.opacity = '1';
+        } else {
+          s.setAttribute('stroke-width', String(strokeW));
+          s.style.opacity = '0.35';
+        }
+      });
+      legendItems.forEach(function(li, i) {
+        li.style.opacity = (i === idx) ? '1' : '0.4';
+      });
+      var d = segData[idx];
+      if (d) {
+        numEl.textContent = d.countStr + d.unit;
+        numEl.style.color = d.color;
+        labelEl.textContent = d.name + ' · ' + d.pct + '%';
+      }
+    }
+    function reset() {
+      segs.forEach(function(s) {
+        s.setAttribute('stroke-width', String(strokeW));
+        s.style.opacity = '1';
+      });
+      legendItems.forEach(function(li) { li.style.opacity = '1'; });
+      numEl.textContent = weighted.length + '项';
+      numEl.style.color = '';
+      labelEl.textContent = '今日有进展';
+    }
+    segs.forEach(function(s, i) {
+      s.addEventListener('mouseenter', function() { highlight(i); });
+      s.addEventListener('mouseleave', reset);
     });
-  });
+    legendItems.forEach(function(li, i) {
+      li.addEventListener('mouseenter', function() { highlight(i); });
+      li.addEventListener('mouseleave', reset);
+    });
+  }
 }
 
 // 创建房间：POST /api/study-room/create
 async function submitCreateRoom() {
   var nameInput = $('#srCreateNameInput');
+  var introInput = $('#srCreateIntroInput');
+  var catSelect = $('#srCreateCategorySelect');
+  var pubCb = $('#srCreateIsPublic');
   var errEl = $('#srCreateError');
   var name = (nameInput.value || '').trim();
   if (!name) { if (errEl){ errEl.textContent = '请输入房间名'; errEl.hidden = false; } return; }
+  var intro = introInput ? (introInput.value || '').trim() : '';
+  var category = catSelect ? (catSelect.value || 'other') : 'other';
+  var isPublic = pubCb ? !!pubCb.checked : false;
   try {
-    await STAuth.apiRequest('/api/study-room/create', { method: 'POST', body: { name: name } });
+    await STAuth.apiRequest('/api/study-room/create', { method: 'POST', body: { name: name, intro: intro, category: category, isPublic: isPublic } });
     var cm = $('#srCreateMask'); if (cm) cm.hidden = true;
     nameInput.value = '';
+    if (introInput) introInput.value = '';
+    if (pubCb) pubCb.checked = false;
     if (errEl) errEl.hidden = true;
     await loadStudyRoomMe();
     showToast('' + svgIcon('party-popper') + '', '创建成功', '房间号已生成，可分享给朋友', 2500);
@@ -15611,7 +17443,7 @@ async function confirmLeaveRoom() {
     else if (data && data.transferredTo) msg = '已退出，房间转让给 ' + data.transferredTo;
     showToast('' + svgIcon('hand') + '', '退出成功', msg, 2500);
   } catch (e) {
-    showToast('' + svgIcon('alert-triangle') + '', '退出失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('x-circle') + '', '退出失败', e.message || '请稍后重试', 2500);
   }
 }
 
@@ -15619,7 +17451,7 @@ async function confirmLeaveRoom() {
 function askDisbandRoom() {
   if (!studyRoomState.room) return;
   var tEl = $('#srDisbandConfirmText');
-  if (tEl) tEl.innerHTML = '' + svgIcon('alert-triangle') + ' 解散后所有成员将被移出，不可恢复。确定解散？';
+  if (tEl) tEl.innerHTML = '' + svgIcon('x-circle') + ' 解散后所有成员将被移出，不可恢复。确定解散？';
   var dm = $('#srDisbandConfirmMask'); if (dm) dm.hidden = false;
 }
 
@@ -15638,7 +17470,7 @@ async function confirmDisbandRoom() {
     renderStudyRoomViews();
     showToast('' + svgIcon('trash-2') + '', '已解散', '自习室已解散，所有成员已移出', 2600);
   } catch (e) {
-    showToast('' + svgIcon('alert-triangle') + '', '解散失败', e.message || '请稍后重试', 2600);
+    showToast('' + svgIcon('x-circle') + '', '解散失败', e.message || '请稍后重试', 2600);
   }
 }
 
@@ -15658,7 +17490,7 @@ function fallbackCopyRoomCode(text) {
   var ta = document.createElement('textarea');
   ta.value = text; document.body.appendChild(ta); ta.select();
   try { document.execCommand('copy'); showToast('' + svgIcon('clipboard-list') + '', '已复制', text, 2000); }
-  catch(e){ showToast('' + svgIcon('alert-triangle') + '', '复制失败', '请手动复制：' + text, 3000); }
+  catch(e){ showToast('' + svgIcon('x-circle') + '', '复制失败', '请手动复制：' + text, 3000); }
   document.body.removeChild(ta);
 }
 
@@ -15675,6 +17507,12 @@ async function openStudyRoomPlaza() {
   await loadStudyRoomPlaza();
 }
 
+// category 英文值 → 中文显示
+function srCategoryLabel(cat) {
+  var map = { kaoyan: '考研', kaogong: '考公', qimo: '期末', english: '英语', other: '其他' };
+  return map[cat] || '其他';
+}
+
 // 拉取并渲染广场房间列表
 async function loadStudyRoomPlaza() {
   var loading = $('#srPlazaLoading');
@@ -15684,10 +17522,14 @@ async function loadStudyRoomPlaza() {
   if (list) list.innerHTML = '';
   if (empty) empty.hidden = true;
   try {
-    var data = await STAuth.apiRequest('/api/study-room/plaza');
+    var url = '/api/study-room/plaza';
+    if (studyRoomState.plazaCategory && studyRoomState.plazaCategory !== 'all') {
+      url += '?category=' + encodeURIComponent(studyRoomState.plazaCategory);
+    }
+    var data = await STAuth.apiRequest(url);
     renderPlazaList((data && data.rooms) || []);
   } catch (e) {
-    showToast('' + svgIcon('alert-triangle') + '', '加载失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('x-circle') + '', '加载失败', e.message || '请稍后重试', 2500);
     if (list) list.innerHTML = '';
     if (empty) empty.hidden = false; // 出错时落到空态，避免白屏
   } finally {
@@ -15712,6 +17554,15 @@ function renderPlazaList(rooms) {
     var isFull = !!r.isFull;
     // 已满：显示「已满」徽章，按钮 disabled 且文案改为「已满」
     var fullBadge = isFull ? '<span class="sr-plaza-full">已满</span>' : '';
+    // 标签徽章
+    var cat = r.category || 'other';
+    var catBadge = cat !== 'other' ? '<span class="sr-plaza-cat">' + srCategoryLabel(cat) + '</span>' : '';
+    // 近7天活跃
+    var active7 = r.active7 || 0;
+    var active7Html = '<span class="sr-plaza-active">活跃 ' + active7 + ' 人</span>';
+    // 简介（截断）
+    var intro = r.intro || '';
+    var introHtml = intro ? '<div class="sr-plaza-intro">' + esc(intro) + '</div>' : '';
     var joinBtn;
     if (isFull) {
       joinBtn = '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" disabled type="button">已满</button>';
@@ -15721,8 +17572,9 @@ function renderPlazaList(rooms) {
       joinBtn = '<button class="primary sr-plaza-join-btn" data-code="' + esc(r.roomCode) + '" type="button">加入</button>';
     }
     return '<div class="sr-plaza-card">'
-      + '<div class="sr-plaza-name"><span class="sr-plaza-name-text">' + esc(r.name || '未命名房间') + '</span>' + fullBadge + '</div>'
-      + '<div class="sr-plaza-meta">' + (r.memberCount || 0) + '/' + SR_MAX_MEMBERS + ' 人 · 房主 ' + esc(r.ownerName || '匿名') + '</div>'
+      + '<div class="sr-plaza-name"><span class="sr-plaza-name-text">' + esc(r.name || '未命名房间') + '</span>' + catBadge + fullBadge + '</div>'
+      + introHtml
+      + '<div class="sr-plaza-meta">' + (r.memberCount || 0) + '/' + SR_MAX_MEMBERS + ' 人 · 房主 ' + esc(r.ownerName || '匿名') + ' · ' + active7Html + '</div>'
       + joinBtn
       + '</div>';
   }).join('');
@@ -15738,7 +17590,7 @@ async function joinPlazaRoom(roomCode) {
     showToast('' + svgIcon('check-circle') + '', '加入成功', '欢迎来到自习室', 2500);
   } catch (e) {
     // 不吞错：后端原消息（如已在某个自习室、房间人数已满）原样提示，引导用户先退出
-    showToast('' + svgIcon('alert-triangle') + '', '加入失败', e.message || '请稍后重试', 2800);
+    showToast('' + svgIcon('x-circle') + '', '加入失败', e.message || '请稍后重试', 2800);
   }
 }
 
@@ -15771,7 +17623,61 @@ async function confirmKickMember() {
     await loadStudyRoomMe();
     showToast('' + svgIcon('user-minus') + '', '已踢出', '该成员已被移出房间', 2200);
   } catch (e) {
-    showToast('' + svgIcon('alert-triangle') + '', '操作失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('x-circle') + '', '操作失败', e.message || '请稍后重试', 2500);
+  }
+}
+
+// ============ 每日点赞 ============
+// 给某人点赞
+async function doLike(userId, btnEl) {
+  try {
+    var data = await STAuth.apiRequest('/api/study-room/like', { method: 'POST', body: { toUserId: userId } });
+    // 乐观更新：点赞数+1，高亮
+    if (btnEl) {
+      btnEl.classList.add('sr-like-btn-liked');
+      var cnt = btnEl.querySelector('.sr-like-count');
+      if (cnt) cnt.textContent = (parseInt(cnt.textContent, 10) || 0) + 1;
+    }
+    // 更新state
+    var m = (studyRoomState.members || []).find(function(x){ return x.userId === userId; });
+    if (m) { m.likedByMe = true; m.likesReceived = (m.likesReceived || 0) + 1; }
+    if (data && data.message) {
+      showToast('' + svgIcon('thumbs-up') + '', '点赞成功', data.message, 2000);
+    }
+  } catch (e) {
+    showToast('' + svgIcon('x-circle') + '', '点赞失败', e.message || '请稍后重试', 2200);
+  }
+}
+
+// 打开点赞列表弹窗（查看谁给我点了赞）
+async function openLikeList() {
+  var modal = $('#srLikeModal');
+  var body = $('#srLikeBody');
+  if (!modal || !body) return;
+  modal.hidden = false;
+  body.innerHTML = '<div class="sr-like-loading">加载中…</div>';
+  try {
+    var data = await STAuth.apiRequest('/api/study-room/likes');
+    var likes = (data && data.likes) || [];
+    if (!likes.length) {
+      body.innerHTML = '<div class="sr-like-empty">今天还没有人给你点赞，去给别人点个赞吧～</div>';
+      return;
+    }
+    var html = '';
+    likes.forEach(function(l) {
+      var avatarHtml = l.avatar
+        ? '<img src="' + esc(l.avatar) + '" alt="">'
+        : '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      html += '<div class="sr-like-item">'
+        + '<div class="sr-like-avatar">' + avatarHtml + '</div>'
+        + '<div class="sr-like-info">'
+        +   '<div class="sr-like-name">' + esc(l.username || '匿名') + '</div>'
+        +   '<div class="sr-like-msg">' + esc(l.message || '') + '</div>'
+        + '</div></div>';
+    });
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div class="sr-like-empty">加载失败：' + esc(e.message || '请稍后重试') + '</div>';
   }
 }
 
@@ -15782,9 +17688,13 @@ function openRoomSettings() {
   if (!room) return;
   var nameInput = $('#srSettingsNameInput');
   var pubCb = $('#srSettingsIsPublic');
+  var introInput = $('#srSettingsIntroInput');
+  var catSelect = $('#srSettingsCategorySelect');
   var errEl = $('#srSettingsError');
   if (nameInput) nameInput.value = room.name || '';
   if (pubCb) pubCb.checked = !!room.isPublic;
+  if (introInput) introInput.value = room.intro || '';
+  if (catSelect) catSelect.value = room.category || 'other';
   if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
   var m = $('#srRoomSettingsMask'); if (m) m.hidden = false;
 }
@@ -15794,13 +17704,17 @@ async function saveRoomSettings() {
   var room = studyRoomState.room;
   var nameInput = $('#srSettingsNameInput');
   var pubCb = $('#srSettingsIsPublic');
+  var introInput = $('#srSettingsIntroInput');
+  var catSelect = $('#srSettingsCategorySelect');
   var errEl = $('#srSettingsError');
   if (!room || !nameInput || !pubCb) return;
   var name = (nameInput.value || '').trim();
   if (!name) { if (errEl){ errEl.textContent = '房间名不能为空'; errEl.hidden = false; } nameInput.focus(); return; }
   if (name.length > 20) { if (errEl){ errEl.textContent = '房间名最多 20 个字'; errEl.hidden = false; } nameInput.focus(); return; }
+  var intro = introInput ? (introInput.value || '').trim() : '';
+  var category = catSelect ? (catSelect.value || 'other') : 'other';
   try {
-    await STAuth.apiRequest('/api/study-room/settings', { method: 'PATCH', body: { name: name, isPublic: !!pubCb.checked } });
+    await STAuth.apiRequest('/api/study-room/settings', { method: 'PATCH', body: { name: name, isPublic: !!pubCb.checked, intro: intro, category: category } });
     var m = $('#srRoomSettingsMask'); if (m) m.hidden = true;
     await loadStudyRoomMe();
     showToast('' + svgIcon('check-circle') + '', '已保存', '房间设置已更新', 2000);
@@ -15831,21 +17745,18 @@ async function saveStudyRoomPublic(val) {
     await STAuth.apiRequest('/api/study-room/privacy', { method: 'PATCH', body: { public: !!val } });
     showToast('' + svgIcon('check-circle') + '', '隐私设置已保存', val ? '已公开学习数据到自习室' : '已关闭学习数据公开', 2200);
   } catch (e) {
-    showToast('' + svgIcon('alert-triangle') + '', '保存失败', e.message || '请稍后重试', 2500);
+    showToast('' + svgIcon('x-circle') + '', '保存失败', e.message || '请稍后重试', 2500);
     var cb = $('#srStudyRoomPublic');
     if (cb) cb.checked = !val; // 回滚
   }
 }
 
-// 打开自习室时刷新隐私开关状态（从 /me 中找自己的 publicData）
-async function refreshStudyRoomPrivacyToggle() {
+// 从已有 /me 返回的 self 项回填隐私开关状态（不另发请求）
+function refreshStudyRoomPrivacyToggle() {
   var cb = $('#srStudyRoomPublic');
   if (!cb) return;
-  try {
-    var data = await STAuth.apiRequest('/api/study-room/me');
-    var self = (data.members || []).find(function(m){ return m.isSelf; });
-    cb.checked = !!(self && self.publicData);
-  } catch (e) { /* 未登录或出错时保持原状 */ }
+  var self = (studyRoomState.members || []).find(function(m){ return m.isSelf; });
+  cb.checked = !!(self && self.publicData);
 }
 
 // 初始化所有事件绑定
@@ -15886,6 +17797,32 @@ function initStudyRoomUI() {
   bind('#srLeaveCancelBtn', 'click', function(){ var m = $('#srLeaveConfirmMask'); if (m) m.hidden = true; });
   bind('#srLeaveCancelBtn2', 'click', function(){ var m = $('#srLeaveConfirmMask'); if (m) m.hidden = true; });
   bind('#srLeaveConfirmBtn', 'click', confirmLeaveRoom);
+
+  // 徽章说明弹窗
+  bind('#srBadgeHelpBtn', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = false; });
+  bind('#srBadgeHelpClose', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = true; });
+  bind('#srBadgeHelpMask', 'click', function(){ var m = $('#srBadgeHelpModal'); if (m) m.hidden = true; });
+
+  // 点赞：事件委托（成员列表动态渲染）
+  var memberListEl = $('#srMemberList');
+  if (memberListEl) {
+    memberListEl.addEventListener('click', function(e) {
+      var btn = e.target.closest ? e.target.closest('.sr-like-btn') : null;
+      if (!btn) return;
+      var userId = parseInt(btn.getAttribute('data-user-id'), 10);
+      if (!userId) return;
+      var m = (studyRoomState.members || []).find(function(x){ return x.userId === userId; });
+      if (!m) return;
+      if (m.isSelf) {
+        openLikeList();
+      } else {
+        doLike(userId, btn);
+      }
+    });
+  }
+  // 点赞列表弹窗
+  bind('#srLikeClose', 'click', function(){ var m = $('#srLikeModal'); if (m) m.hidden = true; });
+  bind('#srLikeMask', 'click', function(){ var m = $('#srLikeModal'); if (m) m.hidden = true; });
 
   // 公开自习室广场
   bind('#srPlazaBtn', 'click', openStudyRoomPlaza);
@@ -15937,6 +17874,18 @@ function initStudyRoomUI() {
       }
     });
   }
+  // 广场分类筛选按钮
+  var plazaFiltersEl = $('#srPlazaFilters');
+  if (plazaFiltersEl) {
+    plazaFiltersEl.addEventListener('click', function(e) {
+      var btn = e.target.closest ? e.target.closest('.sr-plaza-filter') : null;
+      if (!btn) return;
+      plazaFiltersEl.querySelectorAll('.sr-plaza-filter').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      studyRoomState.plazaCategory = btn.getAttribute('data-cat') || 'all';
+      loadStudyRoomPlaza();
+    });
+  }
 
   // 点击遮罩空白处关闭弹窗（自习室主页面除外；子弹窗只 hidden，不重复 lock/unlock）
   ['srMemberDetailMask','srPrivateMask','srLeaveConfirmMask','srCreateMask','srJoinMask','srKickConfirmMask','srRoomSettingsMask','srDisbandConfirmMask'].forEach(function(mid){
@@ -15949,14 +17898,11 @@ function initStudyRoomUI() {
   if (privacyCb) {
     privacyCb.addEventListener('change', function(){ saveStudyRoomPublic(this.checked); });
   }
-  // 打开自习室时刷新开关状态
-  bind('#studyRoomNavBtn', 'click', function(){ setTimeout(refreshStudyRoomPrivacyToggle, 300); });
-  // 进入房间视图时也刷新一次
-  var origOpenRoom = window._srOpenRoom;
-  if (typeof openStudyRoom === 'function') {
-    var _orig = openStudyRoom;
-    window.openStudyRoom = function(){ _orig.apply(this, arguments); setTimeout(refreshStudyRoomPrivacyToggle, 300); };
-  }
+  // 隐私开关状态已在 renderStudyRoomViews() 中从 /me 返回的 self 项回填，无需另发请求
+
+  // 自习室入口红点：启动时检查一次，之后每 10 秒检查一次（接近实时）
+  checkLikeDot();
+  setInterval(checkLikeDot, 10000);
 }
 
 // 安卓/物理返回键：专门处理自习室层。
@@ -16014,15 +17960,12 @@ if (document.readyState === 'loading') {
     suggestions: [],   // 当前对话已渲染的建议卡，便于应用/撤销
     editingMsgEl: null,       // 当前正在编辑的用户消息 DOM
     abortController: null,    // 用于停止生成
-    editAborted: false        // 编辑时主动 abort，抑制"已停止生成"提示
+    editAborted: false,       // 编辑时主动 abort，抑制"已停止生成"提示
+    userMsgSeq: 0            // 用户消息序号，用于生成对话索引的锚点id
   };
 
-  /* ---- 示例问题库 ---- */
-  var SAMPLE_QUESTIONS = [
-    '帮我分析最薄弱的知识点',
-    '离考试还有多久，现在的节奏来得及吗？',
-    '帮我看看这周的学习情况'
-  ];
+  /* ---- 示例问题库（已移除，保持界面简洁） ---- */
+  var SAMPLE_QUESTIONS = [];
   function pickSamples(){
     return SAMPLE_QUESTIONS.slice();
   }
@@ -16177,6 +18120,8 @@ if (document.readyState === 'loading') {
     var codeStore = [];
     var s = esc(raw).replace(/```([\s\S]*?)```/g, function(m, code){
       code = code.replace(/^\n+/, '').replace(/\n+$/, '');
+      // 去掉语言标记行（如 python、javascript 等），只保留代码内容
+      code = code.replace(/^[a-zA-Z0-9_+-]+#?\n/, '');
       codeStore.push(code);
       return '\u0000CODE' + (codeStore.length - 1) + '\u0000';
     });
@@ -16186,10 +18131,41 @@ if (document.readyState === 'loading') {
       return '\u0000ICODE' + (codeStore.length - 1) + '\u0000';
     });
 
+    // 抽离数学公式，支持四种格式：
+    //   块级：$$...$$ 和 \[...\]
+    //   行内：$...$ 和 \(...\)
+    // 注意：公式在 esc() 之后抽离，内容已被HTML转义（\变成&#92;），需要反转义后再给KaTeX
+    function unescapeHtml(s){
+      return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&#92;/g,'\\');
+    }
+    var mathStore = [];
+    // 块级公式：$$...$$
+    s = s.replace(/\$\$([\s\S]*?)\$\$/g, function(m, formula){
+      mathStore.push({type:'block', formula: unescapeHtml(formula.replace(/^\n+/,'').replace(/\n+$/,''))});
+      return '\u0000MATHB' + (mathStore.length - 1) + '\u0000';
+    });
+    // 块级公式：\[...\] （转义后为 &#92;[...&#92;]）
+    s = s.replace(/&#92;\[([\s\S]*?)&#92;\]/g, function(m, formula){
+      mathStore.push({type:'block', formula: unescapeHtml(formula.replace(/^\n+/,'').replace(/\n+$/,''))});
+      return '\u0000MATHB' + (mathStore.length - 1) + '\u0000';
+    });
+    // 行内公式：$...$
+    s = s.replace(/\$([^$\n]+?)\$/g, function(m, formula){
+      mathStore.push({type:'inline', formula: unescapeHtml(formula)});
+      return '\u0000MATHI' + (mathStore.length - 1) + '\u0000';
+    });
+    // 行内公式：\(...\) （转义后为 &#92;(...&#92;)）
+    s = s.replace(/&#92;\(([^)\n]*?)&#92;\)/g, function(m, formula){
+      mathStore.push({type:'inline', formula: unescapeHtml(formula)});
+      return '\u0000MATHI' + (mathStore.length - 1) + '\u0000';
+    });
+
     // 2) 行内元素（在纯文本行上处理）
     function inline(line){
       // 加粗 **x**
       line = line.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      // 删除线 ~~x~~
+      line = line.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
       // 斜体 *x* 或 _x_（避免和加粗冲突，加粗已先处理）
       line = line.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
       line = line.replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
@@ -16232,11 +18208,15 @@ if (document.readyState === 'loading') {
       // 表格：当前行是 |...| 且下一行为 |---|
       if (/^\s*\|.*\|\s*$/.test(ln) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i+1])) {
         flushList(openList); openList = null;
-        var header = ln.trim().replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); });
+        // 处理表格中的 \| 转义：先替换成占位符，分割后还原
+        function splitTableRow(row) {
+          return row.trim().replace(/^\||\|$/g, '').replace(/\\\|/g, '\u0000PIPE\u0000').split('|').map(function(c){ return c.trim().replace(/\u0000PIPE\u0000/g, '|'); });
+        }
+        var header = splitTableRow(ln);
         i += 2; // 跳过分隔行
         var rows = [];
         while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
-          rows.push(lines[i].trim().replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); }));
+          rows.push(splitTableRow(lines[i]));
           i++;
         }
         var t = '<table><thead><tr>' + header.map(function(h){ return '<th>' + inline(h) + '</th>'; }).join('') + '</tr></thead><tbody>';
@@ -16246,6 +18226,14 @@ if (document.readyState === 'loading') {
         t += '</tbody></table>';
         out.push(t);
         continue;
+      }
+      // 任务列表 - [ ] / - [x]
+      if (/^\s*[-•·]\s+\[[ xX]\]\s+/.test(ln)) {
+        if (openList !== 'ul') { flushList(openList); out.push('<ul class="task-list">'); openList = 'ul'; }
+        var checked = /^\s*[-•·]\s+\[[xX]\]/.test(ln);
+        var taskText = ln.replace(/^\s*[-•·]\s+\[[ xX]\]\s+/, '');
+        out.push('<li class="task-item' + (checked ? ' done' : '') + '">' + (checked ? '☑ ' : '☐ ') + inline(taskText) + '</li>');
+        i++; continue;
       }
       // 无序列表 - / · / *
       if (/^\s*[-•·]\s+/.test(ln)) {
@@ -16275,6 +18263,40 @@ if (document.readyState === 'loading') {
     html = html.replace(/\u0000ICODE(\d+)\u0000/g, function(m, idx){
       return '<code>' + codeStore[+idx] + '</code>';
     });
+
+    // 5) 还原公式占位符，调用KaTeX渲染（KaTeX未加载时显示原始公式）
+    function preprocessMath(formula){
+      // 兼容AI常用的非标准LaTeX命令：\dx \dy \dt \du \dv → \mathrm{d}x 等
+      return formula
+        .replace(/\\d(?=[xyuvt])/g, '\\mathrm{d}')
+        .replace(/\\text\{([^}]*)\}/g, function(m, t){ return '\\text{' + t + '}'; });
+    }
+    function renderMath(formula, displayMode){
+      try {
+        if (window.katex) {
+          let processed = preprocessMath(formula);
+          // 行内公式中的分式用 \dfrac 显示样式，避免过小看不清
+          if (!displayMode && /\\frac\s*\{/.test(processed)) {
+            processed = processed.replace(/\\frac\s*\{/g, '\\dfrac{');
+          }
+          return katex.renderToString(processed, {
+            displayMode: displayMode,
+            throwOnError: false,
+            output: 'html',
+            strict: false,
+            trust: true
+          });
+        }
+      } catch(e) {}
+      return displayMode ? '$$' + esc(formula) + '$$' : '$' + esc(formula) + '$';
+    }
+    html = html.replace(/\u0000MATHB(\d+)\u0000/g, function(m, idx){
+      return '<div class="ai-math-block">' + renderMath(mathStore[+idx].formula, true) + '</div>';
+    });
+    html = html.replace(/\u0000MATHI(\d+)\u0000/g, function(m, idx){
+      return '<span class="ai-math-inline">' + renderMath(mathStore[+idx].formula, false) + '</span>';
+    });
+
     return html;
   }
 
@@ -16287,6 +18309,7 @@ if (document.readyState === 'loading') {
     mask.hidden = false;
     if (typeof lockBodyScroll === 'function') lockBodyScroll();
     dot.hidden = true;   // 打开即消红点
+    try { localStorage.removeItem('ai_dot_ts'); } catch(_) {} // 同步其他标签页消红点
     // 首次打开按需加载配置
     ensureConfig();
     // 若未配置 key，对话 Tab 显示空态
@@ -16295,6 +18318,12 @@ if (document.readyState === 'loading') {
     renderSamples();
     // 刷新今日已学/剩余时长显示
     if (typeof StudyTime !== 'undefined') StudyTime.updateDisplay();
+    // 更新对话索引
+    updateOutline();
+    // 打开面板后，如果有消息则滚动到底部（修复刷新后停在顶部的bug）
+    if (els.msgs && els.msgs.children.length > 0) {
+      requestAnimationFrame(function(){ scrollBottom(true); });
+    }
   }
   function closePanel(){
     mask.hidden = true;
@@ -16356,9 +18385,14 @@ if (document.readyState === 'loading') {
   }
   function refreshChatEmptyState(){
     var hasKey = hasKeyConfigured();
+    window.__aiConfigured = hasKey;
     if (els.empty) els.empty.hidden = hasKey;
     if (els.msgs) els.msgs.style.display = hasKey ? '' : 'none';
     updateInputVisibility();   // 未配置 Key 时连输入区一起隐藏
+    if (typeof StudyTime !== 'undefined') {
+      StudyTime.updateDisplay();
+      StudyTime.estimateTodayIfNeeded();
+    }
   }
 
   /* ---- 消息渲染 ---- */
@@ -16373,6 +18407,9 @@ if (document.readyState === 'loading') {
     var div = document.createElement('div');
     div.className = 'ai-msg user';
     div.dataset.raw = text;
+    // 给用户消息分配唯一id，用于对话索引跳转
+    var msgId = 'ai-msg-' + (++state.userMsgSeq);
+    div.id = msgId;
     div.innerHTML = md(text);
     // 操作栏：复制 + 编辑
     var bar = document.createElement('div');
@@ -16399,18 +18436,40 @@ if (document.readyState === 'loading') {
     div.appendChild(ts);
     els.msgs.appendChild(div);
     scrollBottom();
+    updateOutline();
+    return div;
   }
   function addTyping(){
     var div = document.createElement('div');
     div.className = 'ai-msg ai';
-    div.innerHTML = '<span class="ai-typing"><i></i><i></i><i></i></span>';
     div.id = 'aiTyping';
+    div.innerHTML = '<span class="ai-typing"><i></i><i></i><i></i></span><span class="ai-typing-status">正在思考…</span>';
     els.msgs.appendChild(div);
     scrollBottom();
+    // 动态状态提示：按等待时间切换，让用户知道 AI 在做什么
+    var statusEl = div.querySelector('.ai-typing-status');
+    var steps = [
+      { at: 0,    text: '正在思考…' },
+      { at: 3000, text: '正在组织思路…' },
+      { at: 8000, text: '正在分析…' },
+      { at: 15000, text: '正在整理回复…' },
+      { at: 25000, text: '还在思考中，问题比较复杂…' }
+    ];
+    var timers = [];
+    steps.forEach(function(s) {
+      var t = setTimeout(function() {
+        if (statusEl) statusEl.textContent = s.text;
+      }, s.at);
+      timers.push(t);
+    });
+    div._typingTimers = timers;
   }
   function removeTyping(){
     var t = document.getElementById('aiTyping');
-    if (t) t.remove();
+    if (t) {
+      if (t._typingTimers) t._typingTimers.forEach(clearTimeout);
+      t.remove();
+    }
   }
   function addAiMsg(html, isProactive, createdAt){
     var div = document.createElement('div');
@@ -16432,6 +18491,7 @@ if (document.readyState === 'loading') {
     };
     // 重新回答
     bar.querySelector('.ai-regen').onclick = function(){
+      if (state.sending) return; // 生成中忽略：避免删掉正在输出/历史回复并覆盖输入框
       var userMsgs = els.msgs.querySelectorAll('.ai-msg.user');
       if (userMsgs.length) {
         var lastUser = userMsgs[userMsgs.length - 1];
@@ -16453,32 +18513,156 @@ if (document.readyState === 'loading') {
     scrollBottom();
     return div;
   }
-  function scrollBottom(){
-    if (els.body && autoScrollEnabled) els.body.scrollTop = els.body.scrollHeight;
+  function scrollBottom(force){
+    if (!els.body) return;
+    if (force || autoScrollEnabled) {
+      els.body.scrollTop = els.body.scrollHeight;
+      if (force) autoScrollEnabled = true; // 强制滚动后重新开启跟随
+    }
   }
-  // 智能跟随：用户往上滚就停，滚回底部附近就重新跟随
+  // 智能跟随：用户往上划一点点就停止跟随，滚回底部附近才恢复（灵敏模式）
   var autoScrollEnabled = true;
-  var scrollBtn = null;
-  function ensureScrollBtn(){
-    if (scrollBtn || !els.body) return;
-    scrollBtn = document.createElement('button');
-    scrollBtn.className = 'ai-scroll-bottom';
-    scrollBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
-    scrollBtn.title = '回到底部';
-    scrollBtn.style.cssText = 'position:absolute;right:16px;bottom:8px;width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:5';
-    els.body.style.position = 'relative';
-    els.body.appendChild(scrollBtn);
-    scrollBtn.onclick = () => { autoScrollEnabled = true; scrollBottom(); scrollBtn.style.display = 'none'; };
-  }
+  var _lastScrollTop = 0;
   function onAiBodyScroll(){
     if (!els.body) return;
+    var curTop = els.body.scrollTop;
     var dist = els.body.scrollHeight - els.body.scrollTop - els.body.clientHeight;
-    if (dist > 80) {
-      autoScrollEnabled = false;
-      if (scrollBtn) scrollBtn.style.display = 'flex';
-    } else {
-      autoScrollEnabled = true;
-      if (scrollBtn) scrollBtn.style.display = 'none';
+    // 向上滚动（curTop < lastTop）立即停止跟随；在底部附近恢复跟随
+    if (curTop < _lastScrollTop - 1) autoScrollEnabled = false;
+    else if (dist <= 30) autoScrollEnabled = true;
+    _lastScrollTop = curTop;
+    highlightOutlineItem();
+  }
+
+  /* ---- 对话索引（固定在可视区域右侧，DeepSeek ScrollNav风格） ---- */
+  function updateOutline(){
+    var outline = document.getElementById('aiOutline');
+    var track = document.getElementById('aiOutlineTrack');
+    var popupList = document.getElementById('aiOutlinePopupList');
+    if (!outline || !track || !popupList) return;
+    var userMsgs = els.msgs ? els.msgs.querySelectorAll('.ai-msg.user') : [];
+    // 没有用户消息时隐藏索引栏
+    if (!userMsgs.length) { outline.hidden = true; return; }
+    outline.hidden = false;
+
+    // 轨道高度 = 可视区域高度（索引固定在右侧，不随滚动）
+    var trackHeight = outline.offsetHeight || 300;
+    // 对话总高度（滚动内容的完整高度）
+    var totalHeight = els.msgs.scrollHeight || els.msgs.offsetHeight || 1;
+
+    // 生成短横线标记（按消息中心在整个对话中的相对比例，分布在固定可视高度上）
+    var trackHtml = '';
+    var popupHtml = '';
+    for (var i = 0; i < userMsgs.length; i++) {
+      var msg = userMsgs[i];
+      var raw = msg.dataset.raw || msg.textContent.trim() || '';
+      var title = raw.length > 22 ? raw.slice(0, 22) + '…' : raw;
+      // 标记位置：消息中心在对话总高度中的比例 × 可视轨道高度（用中心比用顶部更均匀）
+      var msgCenter = msg.offsetTop + msg.offsetHeight / 2;
+      var ratio = totalHeight > 0 ? (msgCenter / totalHeight) : 0;
+      var top = Math.max(0, Math.min(trackHeight - 3, ratio * trackHeight));
+      trackHtml += '<div class="ai-outline-marker" data-target="' + msg.id + '" style="top:' + top + 'px" title="' + esc(raw) + '"></div>';
+      popupHtml += '<div class="ai-outline-popup-item" data-target="' + msg.id + '">'
+                 + '<span class="ai-outline-popup-dot"></span>'
+                 + '<span class="ai-outline-popup-text">' + esc(title) + '</span>'
+                 + '</div>';
+    }
+    track.innerHTML = trackHtml;
+    popupList.innerHTML = popupHtml;
+
+    // 事件只绑定一次（防止updateOutline多次调用导致重复绑定、旧闭包引用已替换DOM）
+    if (!outline._eventsBound) {
+      outline._eventsBound = true;
+
+      // 轨道级mousemove：根据鼠标Y坐标找到最近的刻度并高亮
+      track.addEventListener('mousemove', function(e){
+        var rect = track.getBoundingClientRect();
+        var mouseY = e.clientY - rect.top;
+        var curMarkers = track.querySelectorAll('.ai-outline-marker');
+        var curPopupItems = popupList.querySelectorAll('.ai-outline-popup-item');
+        var nearestIdx = 0;
+        var nearestDist = Infinity;
+        for (var i = 0; i < curMarkers.length; i++) {
+          var markerTop = parseFloat(curMarkers[i].style.top) || 0;
+          var dist = Math.abs(markerTop - mouseY);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIdx = i;
+          }
+        }
+        for (var k = 0; k < curPopupItems.length; k++) {
+          curPopupItems[k].classList.toggle('active', k === nearestIdx);
+        }
+        // 浮层滚动让当前项居中
+        var activeItem = curPopupItems[nearestIdx];
+        if (activeItem && popupList.scrollHeight > popupList.clientHeight) {
+          var itemTop = activeItem.offsetTop;
+          var itemHeight = activeItem.offsetHeight;
+          popupList.scrollTop = itemTop - popupList.clientHeight / 2 + itemHeight / 2;
+        }
+      });
+
+      // 轨道级click：点击轨道任意位置，跳转到最近的刻度
+      track.addEventListener('click', function(e){
+        e.stopPropagation();
+        var rect = track.getBoundingClientRect();
+        var mouseY = e.clientY - rect.top;
+        var curMarkers = track.querySelectorAll('.ai-outline-marker');
+        var nearestIdx = 0;
+        var nearestDist = Infinity;
+        for (var i = 0; i < curMarkers.length; i++) {
+          var markerTop = parseFloat(curMarkers[i].style.top) || 0;
+          var dist = Math.abs(markerTop - mouseY);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIdx = i;
+          }
+        }
+        var target = document.getElementById(curMarkers[nearestIdx].dataset.target);
+        if (target && els.body) {
+          var containerRect = els.body.getBoundingClientRect();
+          var targetRect = target.getBoundingClientRect();
+          var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
+          els.body.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+      });
+
+      // 点击浮层项跳转（事件委托）
+      popupList.addEventListener('click', function(e){
+        var item = e.target.closest('.ai-outline-popup-item');
+        if (!item) return;
+        e.stopPropagation();
+        var target = document.getElementById(item.dataset.target);
+        if (target && els.body) {
+          var containerRect = els.body.getBoundingClientRect();
+          var targetRect = target.getBoundingClientRect();
+          var offset = targetRect.top - containerRect.top + els.body.scrollTop - 12;
+          els.body.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+      });
+    }
+    highlightOutlineItem();
+  }
+
+  function highlightOutlineItem(){
+    var track = document.getElementById('aiOutlineTrack');
+    var popupList = document.getElementById('aiOutlinePopupList');
+    if ((!track && !popupList) || !els.body) return;
+    var markers = track ? track.querySelectorAll('.ai-outline-marker') : [];
+    var popupItems = popupList ? popupList.querySelectorAll('.ai-outline-popup-item') : [];
+    if (!markers.length && !popupItems.length) return;
+    var scrollCenter = els.body.scrollTop + els.body.clientHeight * 0.3;
+    var activeIdx = 0;
+    for (var i = 0; i < markers.length; i++) {
+      var target = document.getElementById(markers[i].dataset.target);
+      if (!target) continue;
+      if (target.offsetTop <= scrollCenter + 20) activeIdx = i;
+    }
+    for (var k = 0; k < markers.length; k++) {
+      markers[k].classList.toggle('active', k === activeIdx);
+    }
+    for (var m = 0; m < popupItems.length; m++) {
+      popupItems[m].classList.toggle('active', m === activeIdx);
     }
   }
 
@@ -16616,7 +18800,11 @@ if (document.readyState === 'loading') {
     if (a.projectId && store.projects && store.projects[a.projectId]) p = store.projects[a.projectId];
     switch(a.op){
       case 'adjust_daily_comfort':
-        if (p && typeof a.value === 'number' && isFinite(a.value)) p.dailyComfort = Math.max(1, Math.round(a.value));
+        if (p && typeof a.value === 'number' && isFinite(a.value)) {
+          var _cv = Math.max(1, Math.round(a.value));
+          p.dailyComfort = _cv;
+          p.spreadThreshold = _cv; // 同步修改实际生效的分散阈值字段
+        }
         break;
       case 'adjust_deadline':
         if (p && typeof a.value === 'string') p.deadline = a.value;
@@ -16784,7 +18972,7 @@ if (document.readyState === 'loading') {
     var p = a.projectId ? store.projects[a.projectId] : null;
     switch(a.op){
       case 'adjust_daily_comfort':
-        if (p) a.inverse = { op:'adjust_daily_comfort', projectId:a.projectId, value:p.dailyComfort };
+        if (p) a.inverse = { op:'adjust_daily_comfort', projectId:a.projectId, value:(p.spreadThreshold != null ? p.spreadThreshold : p.dailyComfort) };
         break;
       case 'adjust_deadline':
         if (p) a.inverse = { op:'adjust_deadline', projectId:a.projectId, value:p.deadline };
@@ -16904,7 +19092,7 @@ if (document.readyState === 'loading') {
       if (typeof render === 'function') render();
       card.style.opacity = '';
       if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = '应用选中 ' + selected.length + ' 条 →'; }
-      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '应用失败', (e.message || '请稍后再试') + '，本地改动已回滚');
+      if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', '应用失败', (e.message || '请稍后再试') + '，本地改动已回滚');
     }
   }
 
@@ -16931,7 +19119,7 @@ if (document.readyState === 'loading') {
       rec.el.querySelector('.ai-suggest-bar').innerHTML = '已撤销 · 改动已回滚';
       if (typeof showToast === 'function') showToast(svgIcon('corner-up-left'), '已撤销', '改动已回滚');
     } catch(e) {
-      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '撤销失败', e.message || '请稍后再试');
+      if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', '撤销失败', e.message || '请稍后再试');
     }
   }
 
@@ -17081,20 +19269,7 @@ if (document.readyState === 'loading') {
       refBox.innerHTML = refHtml;
       div.appendChild(refBox);
     }
-    // 长回复折叠：超过 500 字默认收起前 ~300px，提供展开/收起
-    var plainLen = (text || '').length;
-    if (plainLen > 500) {
-      div.classList.add('ai-clamp');
-      var toggle = document.createElement('button');
-      toggle.className = 'ai-fold-toggle';
-      toggle.type = 'button';
-      toggle.textContent = '展开全文 ▾';
-      toggle.onclick = function(){
-        var clamped = div.classList.toggle('ai-clamp');
-        toggle.textContent = clamped ? '展开全文 ▾' : '收起 ▴';
-      };
-      div.appendChild(toggle);
-    }
+    // 所有回复直接全部展示，不折叠
     return div;
   }
 
@@ -17153,7 +19328,7 @@ if (document.readyState === 'loading') {
           context: ctx
         })
       });
-      removeTyping();
+      // 不在发送后立即 removeTyping，等收到第一个 delta 或 meta 事件再移除
 
       if (!streamResp.ok) {
         var errText = '';
@@ -17202,19 +19377,21 @@ if (document.readyState === 'loading') {
 
           if (eventName === 'meta') {
             // 工具调用完成，开始输出正文
+            removeTyping();
             if (parsed.toolCalls && parsed.toolCalls.length && !toolCallsShown) {
               // 先创建消息元素，插入工具调用 trace
-              streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
-              currentMdEl = streamMsgEl.querySelector('.md p');
+              streamMsgEl = addAiMsg('<div class="md"></div>');
+              currentMdEl = streamMsgEl.querySelector('.md');
               var traceEl = renderToolTrace(parsed.toolCalls);
               if (traceEl) streamMsgEl.insertBefore(traceEl, streamMsgEl.firstChild);
               toolCallsShown = true;
             }
           } else if (eventName === 'delta') {
             // 逐字追加
+            removeTyping();
             if (!streamMsgEl) {
-              streamMsgEl = addAiMsg('<div class="md"><p></p></div>');
-              currentMdEl = streamMsgEl.querySelector('.md p');
+              streamMsgEl = addAiMsg('<div class="md"></div>');
+              currentMdEl = streamMsgEl.querySelector('.md');
             }
             fullText += parsed.text || '';
             if (currentMdEl) {
@@ -17257,13 +19434,19 @@ if (document.readyState === 'loading') {
         // 没有收到 done 事件（异常断开），用已收到的文本渲染
         if (streamMsgEl) streamMsgEl.remove();
         renderAiReply(fullText, null, null);
+      } else {
+        // 既无 done 也无任何 delta：连接异常中断，不能静默，给用户明确反馈
+        addErrorBubble('NETWORK', '连接中断，没有收到回复，请重试');
       }
 
       updateSamplesVisibility();
-      if (mask && mask.hidden && dot) dot.hidden = false;
+      if (mask && mask.hidden && dot) { dot.hidden = false; try { localStorage.setItem('ai_dot_ts', String(Date.now())); } catch(_) {} }
     } catch(e) {
       removeTyping();
-      if (e.code === 'ABORTED') {
+      // 流式用的是原生 fetch（非 aiFetch 包装），abort 抛的是 DOMException{name:'AbortError'}，
+      // 其 code 是遗留数字而非字符串 'ABORTED'，必须同时认两种形态，否则点“停止”会被当成错误气泡。
+      var isAbort = !!(e && (e.code === 'ABORTED' || e.name === 'AbortError'));
+      if (isAbort) {
         // 用户主动停止：移除流式临时消息，显示浅灰提示，不报错
         if (streamMsgEl) { streamMsgEl.remove(); streamMsgEl = null; }
         if (!state.editAborted) {
@@ -17286,6 +19469,35 @@ if (document.readyState === 'loading') {
   }
 
   /* ---- 历史 Tab ---- */
+  var histManageMode = false;
+  var histSelected = new Set();
+
+  function updateHistBatchBar() {
+    var bar = document.getElementById('aiHistBatchBar');
+    var countEl = document.getElementById('aiHistSelectedCount');
+    var delBtn = document.getElementById('aiHistBatchDel');
+    var selectAll = document.getElementById('aiHistSelectAll');
+    if (!bar) return;
+    bar.hidden = !histManageMode;
+    if (countEl) countEl.textContent = '已选 ' + histSelected.size + ' 项';
+    if (delBtn) delBtn.disabled = histSelected.size === 0;
+    if (selectAll) {
+      var items = document.querySelectorAll('.ai-hist-item');
+      selectAll.checked = items.length > 0 && histSelected.size === items.length;
+    }
+  }
+
+  function setHistManageMode(on) {
+    histManageMode = on;
+    if (!on) histSelected.clear();
+    var items = document.querySelectorAll('.ai-hist-item');
+    items.forEach(function(it) {
+      it.classList.toggle('manage-mode', on);
+      it.classList.remove('selected');
+    });
+    updateHistBatchBar();
+  }
+
   async function loadHistory(){
     var list = els.histList;
     var empty = els.histEmpty;
@@ -17294,14 +19506,17 @@ if (document.readyState === 'loading') {
       var data = await aiFetch('/api/ai/conversations');
       var convs = data.conversations || data || [];
       list.innerHTML = '';
-      if (!convs.length) { list.innerHTML = ''; empty.hidden = false; return; }
+      if (!convs.length) { list.innerHTML = ''; empty.hidden = false; setHistManageMode(false); return; }
       empty.hidden = true;
       convs.forEach(function(c){
         var item = document.createElement('div');
-        item.className = 'ai-hist-item' + (c.isPinned ? ' pinned' : '');
+        item.className = 'ai-hist-item' + (c.isPinned ? ' pinned' : '') + (histManageMode ? ' manage-mode' : '');
+        item.setAttribute('data-id', c.id);
+        if (histSelected.has(c.id)) item.classList.add('selected');
         var title = c.title || (c.lastMessage ? c.lastMessage.slice(0,18) : '新会话');
         item.innerHTML =
-          '<div class="hi-main">'
+          '<input type="checkbox" class="hi-checkbox" ' + (histSelected.has(c.id) ? 'checked' : '') + '>'
+          + '<div class="hi-main">'
           + '<div class="hi-title">' + (c.isPinned ? '<span class="hi-pin-icon">' + svgIcon('pin') + '</span>' : '') + esc(title) + '</div>'
           + '<div class="hi-preview">' + esc(c.lastMessage || '') + ' · ' + esc(formatTime(c.lastAt || c.updatedAt)) + '</div>'
           + '</div>'
@@ -17311,8 +19526,24 @@ if (document.readyState === 'loading') {
           + '<button class="hi-btn hi-del" type="button" title="删除会话">' + svgIcon('trash-2') + '</button>'
           + '</div>';
         item.onclick = function(ev){
+          if (histManageMode) {
+            if (ev.target.classList.contains('hi-checkbox')) return;
+            var cb = item.querySelector('.hi-checkbox');
+            cb.checked = !cb.checked;
+            if (cb.checked) histSelected.add(c.id); else histSelected.delete(c.id);
+            item.classList.toggle('selected', cb.checked);
+            updateHistBatchBar();
+            return;
+          }
           if (ev.target.closest('.hi-actions')) return;
           openConversation(c.id);
+        };
+        var cb = item.querySelector('.hi-checkbox');
+        cb.onclick = function(ev) {
+          ev.stopPropagation();
+          if (cb.checked) histSelected.add(c.id); else histSelected.delete(c.id);
+          item.classList.toggle('selected', cb.checked);
+          updateHistBatchBar();
         };
         item.querySelector('.hi-rename').onclick = function(ev){
           ev.stopPropagation();
@@ -17331,18 +19562,24 @@ if (document.readyState === 'loading') {
           ev.stopPropagation();
           if (!confirm('删除这个会话？')) return;
           aiFetch('/api/ai/conversations/' + c.id, { method: 'DELETE' }).then(function(){
-            if (state.convId === c.id) state.convId = null;
+            if (state.convId === c.id) {
+              state.convId = null;
+              els.msgs.innerHTML = '';
+              refreshChatEmptyState();
+            }
             loadHistory();
           }).catch(function(){});
         };
         list.appendChild(item);
       });
+      updateHistBatchBar();
     } catch(e) {
       list.innerHTML = '<p style="color:var(--bad);font-size:12.5px;padding:10px">' + esc(e.message || '加载失败') + '</p>';
     }
   }
   async function openConversation(id){
     state.convId = id;
+    state.userMsgSeq = 0; // 重置用户消息序号
     switchTab('chat');
     els.msgs.innerHTML = '';
     try {
@@ -17354,18 +19591,33 @@ if (document.readyState === 'loading') {
         else addAiMsg('<div class="md">' + md(m.content || m.message || '') + '</div>', false, ts);
       });
       if (!msgs.length) addAiMsg('<div class="md">' + md('这是一个新会话，问我点什么吧。') + '</div>');
+      // 历史消息加载完成后，多次延迟滚动到底部（markdown/公式渲染需要时间，一次rAF不够）
+      var scrollAttempts = 0;
+      function tryScrollBottom(){
+        scrollBottom(true);
+        scrollAttempts++;
+        if (scrollAttempts < 5) setTimeout(tryScrollBottom, scrollAttempts * 60);
+      }
+      requestAnimationFrame(tryScrollBottom);
+      updateOutline();
     } catch(e) {
       addErrorBubble(e.code, e.message);
     }
   }
   function newConversation(){
     state.convId = null;
+    state.userMsgSeq = 0;
     switchTab('chat');
     els.msgs.innerHTML = '';
     renderSamples();
+    updateOutline();
   }
   function formatTime(ts){
     if (!ts) return '';
+    // SQLite datetime 是 UTC 时间，加 Z 标记让 JS 正确解析
+    if (typeof ts === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(ts)) {
+      ts = ts.replace(' ', 'T') + 'Z';
+    }
     var d = new Date(ts);
     if (isNaN(d.getTime())) return '';
     var diff = (Date.now() - d.getTime()) / 1000;
@@ -17422,7 +19674,7 @@ if (document.readyState === 'loading') {
         aiFetch('/api/ai/memory', { method: 'DELETE' }).then(function(){
           if (typeof showToast === 'function') showToast('' + svgIcon('brain') + '', '已清空', 'AI记忆已重置');
         }).catch(function(e){
-          if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '清空失败', e.message || '');
+          if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', '清空失败', e.message || '');
         });
       };
     }
@@ -17503,7 +19755,7 @@ if (document.readyState === 'loading') {
     } catch(e) {
       result.classList.add('bad');
       result.innerHTML = '' + svgIcon('x') + ' ' + (e.message || '连接失败');
-      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '连接失败', e.message || '请检查 Key');
+      if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', '连接失败', e.message || '请检查 Key');
     } finally {
       if (testBtn) { testBtn.disabled = false; testBtn.textContent = '测试连接'; }
     }
@@ -17540,7 +19792,7 @@ if (document.readyState === 'loading') {
       result.style.color = '';
       result.classList.add('field-error');
       result.textContent = e.message || '保存失败';
-      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '保存失败', e.message || '');
+      if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', '保存失败', e.message || '');
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -17555,7 +19807,7 @@ if (document.readyState === 'loading') {
       loadHistory();
       if (typeof showToast === 'function') showToast('' + svgIcon('trash-2') + '', '已清空', '全部对话历史已删除');
     } catch(e) {
-      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '', '清空失败', e.message || '');
+      if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', '清空失败', e.message || '');
     }
   }
 
@@ -17573,8 +19825,18 @@ if (document.readyState === 'loading') {
     mask = document.getElementById('aiMask');
     dot = document.getElementById('aiFabDot');
     if (!fab || !mask) return;
+    // 红点多标签同步：其他标签页生成回复时置位、打开面板时清除；storage 事件双向同步
+    try {
+      window.addEventListener('storage', function (e) {
+        if (!e || e.key !== 'ai_dot_ts' || !dot) return;
+        if (e.newValue) { if (mask && mask.hidden) dot.hidden = false; }
+        else { dot.hidden = true; }
+      });
+    } catch (_) {}
     // 未登录时隐藏AI入口
     if (typeof STAuth === 'undefined' || !STAuth.isLoggedIn()) { fab.style.display = 'none'; return; }
+    // 登录后立即预加载AI配置：确保 __aiConfigured 在打卡前已设置，否则 StudyTime.hasAi() 返回 false 导致打卡不加时长
+    ensureConfig();
     drawer = mask.querySelector('.ai-drawer');
     els = {
       msgs: document.getElementById('aiMsgs'),
@@ -17604,7 +19866,6 @@ if (document.readyState === 'loading') {
     };
 
     // 智能滚动：用户往上滚停跟随，滚回底部重新跟随
-    ensureScrollBtn();
     if (els.body) els.body.addEventListener('scroll', onAiBodyScroll);
 
     fab.onclick = function(){ mask.hidden ? openPanel() : closePanel(); };
@@ -17633,6 +19894,7 @@ if (document.readyState === 'loading') {
       initHours = StudyTime.getBudgetMin() / 60;
       StudyTime.bindEvents();
       StudyTime.updateDisplay();
+      StudyTime.estimateTodayIfNeeded();
     }
     setBudgetHours(initHours);
     if (els.budgetHours) {
@@ -17674,6 +19936,8 @@ if (document.readyState === 'loading') {
       // 判断是否为触屏设备（手机/平板）：触屏回车换行，非触屏回车发送
       var isTouchDevice = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
       els.input.addEventListener('keydown', function(e){
+        // 中文/日文输入法组词中（含 keyCode 229），回车是确认候选词，不能发送也不能 preventDefault
+        if (e.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter' && !e.shiftKey) {
           if (isTouchDevice) {
             // 触屏设备：回车默认换行，不发送（点发送按钮才发）
@@ -17695,6 +19959,49 @@ if (document.readyState === 'loading') {
     // 历史
     var newConvBtn = document.getElementById('aiNewConv');
     if (newConvBtn) newConvBtn.onclick = newConversation;
+
+    // 历史记录批量管理
+    var manageBtn = document.getElementById('aiHistManage');
+    if (manageBtn) manageBtn.onclick = function() { setHistManageMode(true); };
+    var cancelBtn = document.getElementById('aiHistCancel');
+    if (cancelBtn) cancelBtn.onclick = function() { setHistManageMode(false); loadHistory(); };
+    var selectAllBtn = document.getElementById('aiHistSelectAll');
+    if (selectAllBtn) selectAllBtn.onclick = function() {
+      var items = document.querySelectorAll('.ai-hist-item');
+      if (selectAllBtn.checked) {
+        items.forEach(function(it) {
+          var id = it.getAttribute('data-id');
+          if (id) histSelected.add(id);
+          it.classList.add('selected');
+          var cb = it.querySelector('.hi-checkbox');
+          if (cb) cb.checked = true;
+        });
+      } else {
+        histSelected.clear();
+        items.forEach(function(it) {
+          it.classList.remove('selected');
+          var cb = it.querySelector('.hi-checkbox');
+          if (cb) cb.checked = false;
+        });
+      }
+      updateHistBatchBar();
+    };
+    var batchDelBtn = document.getElementById('aiHistBatchDel');
+    if (batchDelBtn) batchDelBtn.onclick = async function() {
+      if (histSelected.size === 0) return;
+      if (!confirm('确定删除选中的 ' + histSelected.size + ' 个会话？')) return;
+      var ids = Array.from(histSelected);
+      for (var i = 0; i < ids.length; i++) {
+        try { await aiFetch('/api/ai/conversations/' + ids[i], { method: 'DELETE' }); } catch(e) {}
+        if (state.convId === ids[i]) {
+          state.convId = null;
+          els.msgs.innerHTML = '';
+          refreshChatEmptyState();
+        }
+      }
+      setHistManageMode(false);
+      loadHistory();
+    };
 
     // 设置
     var testBtn = document.getElementById('aiTest');
