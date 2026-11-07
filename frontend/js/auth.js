@@ -9,7 +9,7 @@
   var syncPending = false;   // 同步进行中又有新变更时标记，当前同步结束后自动补一次
   var _lastSyncEtag = null;  // 上次 GET /api/data 的 ETag，用于 304 增量判断
   var _localDirty = false;   // 本地数据自上次成功推送后是否有变更
-  var SYNC_DEBOUNCE_MS = 5000;
+  var SYNC_DEBOUNCE_MS = 2000;  // 打卡后2秒内同步，降低关页丢失风险
   var PERIODIC_SYNC_MS = 60000;   // 每 60 秒自动双向同步一次
   var _syncRetryCount = 0;        // 同步失败自动退避重试计数（成功后清零）
   var _syncRetryTimer = null;     // 同步失败自动重试定时器
@@ -79,7 +79,35 @@
   // 页面从后台回到前台时立即同步一次（多端数据更快收敛）
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible' && isLoggedIn() && !isSyncing) syncFromCloud();
+    // 页面隐藏时立即同步（用户切后台/关标签页前把数据推上去）
+    if (document.visibilityState === 'hidden' && isLoggedIn() && _localDirty) flushSync();
   });
+  // 页面关闭前强制同步（兜底，防止关页丢失数据）
+  window.addEventListener('pagehide', function(){
+    if (isLoggedIn() && _localDirty) flushSync();
+  });
+  window.addEventListener('beforeunload', function(){
+    if (isLoggedIn() && _localDirty) flushSync();
+  });
+
+  // 同步阻塞式推送：用于页面关闭/隐藏时，确保数据不丢失
+  function flushSync() {
+    try {
+      var token = getToken();
+      if (!token) return;
+      var xhr = new XMLHttpRequest();
+      xhr.open('PUT', '/api/data', false);  // false=同步请求，阻塞直到完成
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+      xhr.send(JSON.stringify({ store: store }));
+      if (xhr.status >= 200 && xhr.status < 300) {
+        _localDirty = false;
+        lastCloudSync = new Date();
+      }
+    } catch (e) {
+      // 同步请求失败也不阻塞页面关闭，数据仍在本地，下次打开会重试
+    }
+  }
 
   function getToken() {
     try {
@@ -343,6 +371,8 @@
     if (typeof render === 'function') { try { render(); } catch(e) {} }
     // 标记本地数据归属为新账号，避免下次登录时因无归属标记而误清空
     try { store.ownerUserId = data.user.id; saveStore(); } catch(e) {}
+    // 拉取后端邮件提醒设置（新账号默认关闭）
+    try { fetchReminderSettings(); } catch(e) {}
     startPeriodicSync();
     return data.user;
   }
@@ -367,8 +397,24 @@
     }
     // 标记归属为当前用户（saveStore 随整 store 持久化到 localStorage/IndexedDB）
     try { store.ownerUserId = currentUser.id; saveStore(); } catch(e) {}
+    // 拉取后端邮件提醒设置，同步到本地
+    try { fetchReminderSettings(); } catch(e) {}
     startPeriodicSync();
     return data.user;
+  }
+  /* 从后端拉取邮件提醒设置并同步到本地（登录后调用） */
+  function fetchReminderSettings() {
+    if (typeof apiRequest !== 'function' || typeof saveReminder !== 'function') return;
+    apiRequest('/api/user/reminder', { method: 'GET' }).then(function(r) {
+      if (r && r.ok && r.times && Array.isArray(r.times)) {
+        // 只写本地，不触发后端同步（避免循环）
+        try {
+          var REMIND_KEY = 'st_reminder';
+          var t = r.times.length ? r.times : ['20:00'];
+          localStorage.setItem(REMIND_KEY, JSON.stringify({ enabled: !!r.enabled, times: t, time: t[0] }));
+        } catch(_) {}
+      }
+    }).catch(function() {});
   }
   /* 登出/切换账号时彻底清除本地学习数据（localStorage + IndexedDB + Cache 三层），
      防止新账号登录后把老账号数据同步到云端（数据串号） */
@@ -640,17 +686,18 @@
       var base = (cu > lu) ? cpx : lp;
       var other = (cu > lu) ? lp : cpx;
       var mergedP = JSON.parse(JSON.stringify(base));
-      if(Array.isArray(base.records) && Array.isArray(other.records)){
-        var have = new Set(base.records.map(function(r){return r.rid;}).filter(Boolean));
-        var extra = other.records.filter(function(r){ return r.rid && !have.has(r.rid) && !(out.tombstones[r.rid]); });
-        if(extra.length){
-          mergedP.records = base.records.concat(extra);
-          mergedP.records.sort(function(a,b){
-            var da = String(a.date||''), db = String(b.date||'');
-            return da < db ? -1 : (da > db ? 1 : 0);
-          });
-          mergedP.updatedAt = Math.max(lu, cu);
-        }
+      // records：按 rid 集合 union（用 || 而非 &&，防止基底无 records 时丢弃另一端的打卡记录）
+      if(Array.isArray(base.records) || Array.isArray(other.records)){
+        var baseRecs = Array.isArray(base.records) ? base.records : [];
+        var otherRecs = Array.isArray(other.records) ? other.records : [];
+        var have = new Set(baseRecs.map(function(r){return r.rid;}).filter(Boolean));
+        var extra = otherRecs.filter(function(r){ return r.rid && !have.has(r.rid) && !(out.tombstones[r.rid]); });
+        mergedP.records = baseRecs.concat(extra);
+        mergedP.records.sort(function(a,b){
+          var da = String(a.date||''), db = String(b.date||'');
+          return da < db ? -1 : (da > db ? 1 : 0);
+        });
+        mergedP.updatedAt = Math.max(lu, cu);
       }
       // items：按 id union + 字段级 LWW（防两端改不同 item 互相覆盖；与后端 mergeProjects 同构）
       if(Array.isArray(base.items) || Array.isArray(other.items)){
@@ -670,6 +717,24 @@
     if(!curOk){
       if(cloudStore && cloudStore.currentId && out.projects[cloudStore.currentId]) out.currentId = cloudStore.currentId;
       else out.currentId = ids.length ? ids[0] : null;
+    }
+    // 顶层标量字段合并（v195 修复：旧逻辑只合并 projects/tombstones/templates，
+    // 导致本地 mistakeGuided=False 永远无法被云端 True 覆盖，每次切错题本都弹引导；
+    // 也导致 projectOrder 在本地缺失时无法从云端补回，排序漂移。）
+    if (cloudStore) {
+      if (cloudStore.mistakeGuided === true) out.mistakeGuided = true;
+      if (cloudStore.uiFlags && typeof cloudStore.uiFlags === 'object') {
+        out.uiFlags = out.uiFlags || {};
+        Object.keys(cloudStore.uiFlags).forEach(function(k){
+          if (cloudStore.uiFlags[k]) out.uiFlags[k] = true;
+        });
+      }
+      if (cloudStore.projectOrder && typeof cloudStore.projectOrder === 'object') {
+        out.projectOrder = out.projectOrder || {};
+        Object.keys(cloudStore.projectOrder).forEach(function(pid){
+          if (!(pid in out.projectOrder)) out.projectOrder[pid] = cloudStore.projectOrder[pid];
+        });
+      }
     }
     return out;
   }
@@ -805,6 +870,11 @@
           _lastSaveSig = '';
           saveStore();
           if (typeof render === 'function') render();
+          // 云端数据有变化时，若dashboard面板已打开，重新渲染以更新上周小结等统计
+          try {
+            var dashMask = document.getElementById('dashMask');
+            if (dashMask && !dashMask.hidden && typeof openDashboard === 'function') openDashboard();
+          } catch(e) {}
           if (addedFromCloud > 0 && typeof showToast === 'function') {
             showToast('' + svgIcon('cloud') + '','已从云端同步', addedFromCloud + ' 条新记录', 3000);
           }
@@ -820,6 +890,8 @@
           showToast('' + svgIcon('cloud') + '','已从云端恢复数据','共 ' + cloudProjectCount + ' 个任务');
         }
       }
+      // 云同步后补全可能缺失的内置预设单元模板
+      try { if (typeof ensurePresetTemplates === 'function') ensurePresetTemplates(); } catch(e) {}
       _syncOk = true;
     } catch(e) {
       console.error('云端同步失败:', e);
@@ -827,7 +899,7 @@
       // 失败也要把 shimmer 还原成真实列表（否则骨架条一直占着）
       if (typeof render === 'function') { try { render(); } catch (er) {} }
       // ux-14：顶部可点击重试的 toast
-      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','同步失败','网络异常，点此重试', 4000, function(){ syncFromCloud({ skeleton: true }); });
+      if (typeof showToast === 'function') showToast('' + svgIcon('alert-triangle') + '','同步失败','网络异常，刷新重试', 4000, function(){ syncFromCloud({ skeleton: true }); });
       // 指数退避自动重试：10s → 30s → 60s，共 3 次；之后停止，等 60s 周期同步或用户手动重试
       if (_syncRetryCount < 3) {
         var retryDelays = [10000, 30000, 60000];
@@ -1272,7 +1344,7 @@
         var self = currentUser && u.id === currentUser.id;
         var name = esc(u.username || '');
         var nameJs = esc(JSON.stringify(u.username || ''));
-        var adminBadge = u.isSuperAdmin ? '<span class="badge-admin">超级管理员</span>' : (u.isAdmin ? '<span class="badge-admin">管理员</span>' : '');
+        var adminBadge = u.isSuperAdmin ? '<span class="badge-admin adm-role-badge">超管</span>' : (u.isAdmin ? '<span class="badge-admin adm-role-badge">管理员</span>' : '');
         var st = u.deletedAt 
                ? (u.deleteReason === 'self' ? '<span class="badge-deleted">已注销</span>' : '<span class="badge-deleted">回收站</span>')
                : (u.status === 'disabled' ? '<span class="badge-disabled">已禁用</span>' : '<span class="badge-active">正常</span>');
@@ -1290,13 +1362,17 @@
           if (meSuper) ops += '<button class="ghost-btn adm-op" onclick="STAuth._toggleAdmin(' + u.id + ',' + (u.isAdmin ? 'false' : 'true') + ')">' + (u.isAdmin ? '取消管理员' : '设为管理员') + '</button>';
           ops += '<button class="ghost-btn adm-op adm-danger" onclick="STAuth._softDelete(' + u.id + ',' + nameJs + '">删除</button>';
         }
+        // 管理员徽章放在操作列：self/受保护账号跟文字同行，普通管理员独占一行在按钮上方
+        var opCol = (self || (u.isSuperAdmin && !meSuper))
+          ? ops + (adminBadge ? ' ' + adminBadge.replace('adm-role-badge','') : '')
+          : adminBadge + ops;
         return '<tr><td><input type="checkbox" class="ad-table-check rowcheck" data-id="' + u.id + '"' + checked + '></td>'
-          + '<td>' + u.id + '</td><td>' + name + adminBadge + '</td><td>' + esc(u.email || '—') + '</td>'
+          + '<td>' + u.id + '</td><td title="' + name + '">' + name + '</td><td title="' + esc(u.email || '—') + '">' + esc(u.email || '—') + '</td>'
           + '<td>' + st + '</td><td>' + (u.projectCount || 0) + '</td>'
-          + '<td>' + fmtSync(u.lastLoginAt) + '</td><td>' + (u.createdAt ? fmtDateTime(u.createdAt) : '—') + '</td>'
-          + '<td><div class="adm-ops">' + ops + '</div></td></tr>';
+          + '<td>' + fmtSync(u.lastLoginAt) + '</td><td>' + (u.createdAt ? fmtSync(u.createdAt) : '—') + '</td>'
+          + '<td><div class="adm-ops">' + opCol + '</div></td></tr>';
       }).join('');
-      renderPager(); updateBatchBar();
+      renderPager(); updateBatchBar(); updateSortHeaders();
     } catch(e){
       tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--bad)">' + esc(e.message || '加载失败') + '</td></tr>';
     }
@@ -1308,6 +1384,16 @@
     var prev = document.getElementById('adPagerPrev'), next = document.getElementById('adPagerNext');
     if (prev) prev.disabled = (page <= 1);
     if (next) next.disabled = (page >= pages);
+  }
+  function updateSortHeaders(){
+    var ths = document.querySelectorAll('#adminPaneUsers .sort-th');
+    if (!ths.length) return;
+    ths.forEach(function(th){
+      th.classList.remove('sort-asc','sort-desc');
+      if (th.getAttribute('data-sort') === adminState.usersSort) {
+        th.classList.add(adminState.usersSortDir === 'desc' ? 'sort-desc' : 'sort-asc');
+      }
+    });
   }
   function updateBatchBar(){
     var n = Object.keys(adminState.selected).length;
@@ -1321,6 +1407,59 @@
       head.indeterminate = checkedN > 0 && checkedN < rows.length;
     }
   }
+  // 解析User-Agent获取设备类型
+  function parseDevice(ua) {
+    if (!ua) return '未知';
+    ua = ua.toLowerCase();
+    let device = '', browser = '';
+    // 先判断是否平板（UA中含tablet，或android无mobile，或ipad）
+    const isTablet = ua.includes('tablet') || ua.includes('ipad') || (ua.includes('android') && !ua.includes('mobile'));
+    // 设备类型（优先识别鸿蒙/iOS/Android，再识别桌面系统；平板优先于手机）
+    if (ua.includes('openharmony') || ua.includes('harmonyos') || ua.includes('harmony')) {
+      device = isTablet ? '鸿蒙平板' : '鸿蒙';
+    } else if (ua.includes('ipad')) {
+      device = 'iPad';
+    } else if (ua.includes('iphone') || ua.includes('ipod')) {
+      device = 'iPhone';
+    } else if (isTablet && ua.includes('android')) {
+      device = 'Android平板';
+    } else if (ua.includes('android')) {
+      device = 'Android';
+    } else if (ua.includes('macintosh') || ua.includes('mac os')) {
+      device = isTablet ? 'iPad' : 'Mac';
+    } else if (ua.includes('windows')) {
+      device = 'Windows';
+    } else if (ua.includes('cros')) {
+      device = 'ChromeOS';
+    } else if (ua.includes('linux')) {
+      device = 'Linux';
+    } else {
+      device = '其他';
+    }
+    // 浏览器（注意顺序：国产/内置浏览器要在Chrome/Safari之前判断）
+    if (ua.includes('doubaoworkvm') || ua.includes('doubao')) browser = '豆包';
+    else if (ua.includes('micromessenger')) browser = '微信';
+    else if (ua.includes('miuibrowser') || ua.includes('xiaomi')) browser = '小米浏览器';
+    else if (ua.includes('huaweibrowser') || ua.includes('arkweb')) browser = '华为浏览器';
+    else if (ua.includes('vivobrowser')) browser = 'vivo浏览器';
+    else if (ua.includes('oppobrowser') || ua.includes('heytapbrowser')) browser = 'OPPO浏览器';
+    else if (ua.includes('samsungbrowser')) browser = '三星浏览器';
+    else if (ua.includes('qqbrowser') || ua.includes('mqqbrowser')) browser = 'QQ浏览器';
+    else if (ua.includes('ucbrowser') || ua.includes('ubrowser')) browser = 'UC浏览器';
+    else if (ua.includes('quark')) browser = '夸克';
+    else if (ua.includes('baidubrowser') || ua.includes('bdbrowser') || ua.includes('baiduboxapp')) browser = '百度';
+    else if (ua.includes('360se') || ua.includes('360ee') || ua.includes('qihu')) browser = '360浏览器';
+    else if (ua.includes('maxthon')) browser = '遨游';
+    else if (ua.includes('metasr') || ua.includes('sogou')) browser = '搜狗';
+    else if (ua.includes('toutiao') || ua.includes('aweme') || ua.includes('newsarticle')) browser = '头条系';
+    else if (ua.includes('edg')) browser = 'Edge';
+    else if (ua.includes('opr') || ua.includes('opera')) browser = 'Opera';
+    else if (ua.includes('chrome') && !ua.includes('edg')) browser = 'Chrome';
+    else if (ua.includes('firefox')) browser = 'Firefox';
+    else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari';
+    else browser = '其他';
+    return device + ' · ' + browser;
+  }
   async function _userDetail(id){
     try {
       var d = await apiRequest('/api/admin/users/' + id, {method:'GET'});
@@ -1328,7 +1467,9 @@
       document.getElementById('udTitle').textContent = '用户详情 · ' + (u.username || ('#' + u.id));
       var logins = (d.recentLogins || []).map(function(l){
         var ok = l.result ? '成功' : '失败';
+        var device = parseDevice(l.ua);
         return '<div class="login-row"><span class="lr-ip">' + esc(l.ip || '—') + '</span> · ' + ok +
+          '<span class="lr-device">' + esc(device) + '</span>' +
           '<div class="lr-meta">' + (l.created_at ? fmtDateTime(l.created_at) : '') + ' · ' + esc(l.ua || '—') + '</div></div>';
       }).join('') || '<div style="color:var(--muted);font-size:12.5px">暂无登录记录</div>';
       var codes = (d.inviteCodes || []).map(function(c){
@@ -1336,13 +1477,47 @@
         return '<div class="login-row"><span class="lr-ip">' + esc(c.code || '') + '</span> · ' + st +
           '<div class="lr-meta">' + (c.note ? '备注：' + esc(c.note) : '') + (c.note && c.channel ? ' · ' : '') + (c.channel ? '渠道：' + esc(c.channel) : '') + (!c.note && !c.channel ? '—' : '') + (c.used_at ? ' · ' + fmtDateTime(c.used_at) : '') + '</div></div>';
       }).join('') || '<div style="color:var(--muted);font-size:12.5px">无关联邀请码</div>';
+      // 项目列表
+      var projects = d.projects || [];
+      var typeMap = {exercise:'刷题本', mistake:'错题本', recite:'背书本', set:'套卷'};
+      var projHtml = projects.length > 0
+        ? '<div class="ud-projects" id="udProjects" style="display:none;margin-top:8px">' +
+          projects.map(function(p){
+            return '<div class="ud-proj-item">' +
+              '<span class="ud-proj-name">' + esc(p.name || '未命名') + '</span>' +
+              '<span class="ud-proj-type">' + (typeMap[p.type] || p.type || '未知') + '</span>' +
+              '</div>';
+          }).join('') + '</div>'
+        : '';
+      // 使用状态分析：用最后登录时间判断活跃，最后同步时间只做展示
+      var lastLogin = u.lastLoginAt ? new Date(u.lastLoginAt) : null;
+      var lastSync = dt.lastSyncAt ? new Date(dt.lastSyncAt) : null;
+      var now = new Date();
+      var daysSinceLogin = lastLogin ? Math.floor((now - lastLogin) / 86400000) : null;
+      var statusText = '', statusNote = '';
+      if (u.deletedAt) {
+        statusText = u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）';
+      } else if (u.status === 'disabled') {
+        statusNote = '<span class="ud-status-badge ud-status-bad">已封禁</span>';
+      } else if (u.status === 'active') {
+        if (daysSinceLogin != null && daysSinceLogin <= 1) {
+          statusNote = '<span class="ud-status-badge ud-status-ok">活跃</span>';
+        } else if (daysSinceLogin != null && daysSinceLogin > 7) {
+          statusNote = '<span class="ud-status-badge ud-status-warn">近' + daysSinceLogin + '天未登录</span>';
+        } else {
+          statusText = '正常';
+        }
+      } else {
+        statusText = esc(u.status || '—');
+      }
       document.getElementById('udBody').innerHTML =
         '<div class="drow"><span>邮箱</span><b>' + esc(u.email || '—') + '</b></div>'
-        + '<div class="drow"><span>状态</span><b>' + (u.deletedAt ? (u.deleteReason === 'self' ? '已注销（用户自助）' : '已删除（管理员操作）') : esc(u.status || '—')) + '</b></div>'
+        + '<div class="drow"><span>状态</span><b>' + statusText + '</b> ' + statusNote + '</div>'
         + (u.banReason ? '<div class="drow"><span>封禁原因</span><b>' + esc(u.banReason) + '</b></div>' : '')
         + (u.banUntil ? '<div class="drow"><span>封禁至</span><b>' + fmtDateTime(u.banUntil) + '</b></div>' : '')
         + '<div class="drow"><span>数据量</span><b>' + (dt.sizeBytes != null ? Math.round(dt.sizeBytes/1024*100)/100 + ' KB' : '—') + '</b></div>'
-        + '<div class="drow"><span>项目数</span><b>' + (dt.projectCount || 0) + '</b></div>'
+        + '<div class="drow"><span>项目数</span><b style="cursor:pointer;color:var(--brand);text-decoration:underline" onclick="var el=document.getElementById(\'udProjects\');if(el){el.style.display=el.style.display===\'none\'?\'block\':\'none\';}">' + (dt.projectCount || 0) + '个（点击展开）</b></div>'
+        + projHtml
         + '<div class="drow"><span>最后同步</span><b>' + fmtDateTime(dt.lastSyncAt) + '</b></div>'
         + '<div class="drow"><span>注册时间</span><b>' + fmtDateTime(u.createdAt) + '</b></div>'
         + '<div class="dsec">最近登录</div>' + logins
@@ -1350,13 +1525,19 @@
       document.getElementById('userDrawerMask').hidden = false;
     } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '加载失败'); }
   }
-  async function _resetPw(id){
+  function _resetPw(id){
+    openConfirm({title:'重置密码', msg:'将为该用户生成一次性临时密码，用户需用临时密码登录后立即修改。确定继续？', onOk:function(){ _doResetPw(id); }});
+  }
+  async function _doResetPw(id){
     try {
       var d = await apiRequest('/api/admin/users/' + id + '/reset-password', {method:'POST'});
       document.getElementById('resetPwBody').innerHTML =
         '<p class="msub">' + esc(d.message || '临时密码已生成，请转告用户并提醒其登录后立即修改') + '</p>'
         + '<div class="invite-code-display">' + esc(d.tempPassword) + '</div>';
-      document.getElementById('resetPwMask').hidden = false;
+      var mask = document.getElementById('resetPwMask');
+      mask.hidden = false;
+      if (typeof modalTop === 'function') modalTop(mask);
+      if (typeof lockBodyScroll === 'function') lockBodyScroll();
     } catch(e){ if (typeof showToast === 'function') showToast('' + svgIcon('x-circle') + '', e.message || '重置失败'); }
   }
   var _banUserId = null;
@@ -1447,6 +1628,26 @@
   }
 
   /* ---- 邀请码 admin-42/44 ---- */
+  function renderUsedBy(names, code) {
+    if (!names || !names.length) return '—';
+    if (names.length <= 3) return names.map(esc).join('、');
+    var shown = names.slice(0, 3).map(esc).join('、');
+    var tags = names.map(function(n){ return '<span class="ub-tag">' + esc(n) + '</span>'; }).join('');
+    return '<span class="ub-collapsed">' + shown + '、<a href="javascript:;" class="ub-link" onclick="STAuth._toggleInviteUsers(\'' + esc(code) + '\')">+' + (names.length - 3) + '</a></span>'
+         + '<span class="ub-expanded" id="ub-' + esc(code) + '" style="display:none">' + tags + ' <a href="javascript:;" class="ub-link" onclick="STAuth._toggleInviteUsers(\'' + esc(code) + '\')">收起</a></span>';
+  }
+  function _toggleInviteUsers(code) {
+    var expanded = document.getElementById('ub-' + code);
+    if (!expanded) return;
+    var collapsed = expanded.previousElementSibling;
+    if (expanded.style.display === 'none') {
+      expanded.style.display = 'inline';
+      if (collapsed) collapsed.style.display = 'none';
+    } else {
+      expanded.style.display = 'none';
+      if (collapsed) collapsed.style.display = 'inline';
+    }
+  }
   async function loadInviteList(){
     var tb = document.getElementById('adminInvitesBody'); if (!tb) return;
     tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted)">加载中…</td></tr>';
@@ -1479,7 +1680,7 @@
         else if (c.usedCount >= c.maxUses) st = '<span class="badge-used">已用完</span>';
         else if (c.usedCount > 0) st = '<span class="badge-unused" style="background:#e8f4fd;color:#1a73e8">使用中</span>';
         else st = '<span class="badge-unused">未用</span>';
-        var userNames = (c.usedByNames && c.usedByNames.length) ? c.usedByNames.map(esc).join('、') : '—';
+        var userNames = renderUsedBy(c.usedByNames, c.code);
         var exp = c.expiresAt ? fmtDateTime(c.expiresAt) : '永久';
         var canBatchDel = !!(c.usedCount > 0 || c.revokedAt || expired);
         var checked = adminState.selectedInvites[c.code] ? ' checked' : '';
@@ -1774,8 +1975,8 @@
     bindClose('banClose', function(){ document.getElementById('banMask').hidden = true; });
     bindClose('banCancel', function(){ document.getElementById('banMask').hidden = true; });
     bindClose('banOk', _doBan);
-    bindClose('resetPwClose', function(){ document.getElementById('resetPwMask').hidden = true; });
-    bindClose('resetPwOk', function(){ document.getElementById('resetPwMask').hidden = true; });
+    bindClose('resetPwClose', function(){ document.getElementById('resetPwMask').hidden = true; if (typeof unlockBodyScroll === 'function') unlockBodyScroll(); });
+    bindClose('resetPwOk', function(){ document.getElementById('resetPwMask').hidden = true; if (typeof unlockBodyScroll === 'function') unlockBodyScroll(); });
     bindClose('resetPwCopy', function(){ var t = document.querySelector('#resetPwBody .invite-code-display'); if (t && navigator.clipboard) navigator.clipboard.writeText(t.textContent); });
     bindClose('udClose', function(){ document.getElementById('userDrawerMask').hidden = true; });
     var bDelAcct = document.getElementById('btnDeleteAccount');
@@ -2186,12 +2387,14 @@
     _deleteCode: _deleteCode,
     _batchDeleteInvites: _batchDeleteInvites,
     _copyCode: _copyCode,
+    _toggleInviteUsers: _toggleInviteUsers,
     scheduleCloudSync: scheduleCloudSync,
     triggerSync: triggerSync,
     syncFromCloud: function(opts){ return syncFromCloud(opts); },
     tryPromptInstallOnce: tryPromptInstallOnce,
     initAuth: initAuth,
     bindEvents: bindEvents,
+    openAuth: openAuth,
     closeAuth: closeAuth,
     closeProfile: closeProfile,
     isLoginWallActive: isLoginWallActive

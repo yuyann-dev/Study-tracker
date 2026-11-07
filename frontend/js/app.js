@@ -2712,8 +2712,16 @@ function getMetrics(p) {
 
   const daysLeft = p.deadline ? diffDays(t, p.deadline) : null;
   const daysAvailable = daysLeft === null ? null : daysLeft + 1;
-  // 兼容旧通知/看板：假设"天天学"的保守自然日均值
-  const needPerDay = daysAvailable > 0 ? remaining / daysAvailable : Infinity;
+  // 兼容旧通知/看板：假设"天天学"的保守自然日均值。
+  // 口径与 perStudyDay 一致：用"今天开始前的剩余"= remaining + 今天已做量，
+  // 避免今天做了 N 页后，分母仍含今天导致每天目标被低估。
+  const _todayDoneForNeed = (function() {
+    try {
+      const cy = getCompletedPagesAtDate(p, addDays(t, -1));
+      return Math.max(0, currentPage - cy);
+    } catch(e) { return 0; }
+  })();
+  const needPerDay = daysAvailable > 0 ? (remaining + _todayDoneForNeed) / daysAvailable : Infinity;
 
   // ---- 收集所有完成日期（exercise→records.date；recite/mistake→items.learnedDate + masteredDate）----
   const dateSet = new Set();
@@ -2915,7 +2923,12 @@ function getMetrics(p) {
     if (mActive >= 3) momentumNatRate = (mActive / 7) * (mTotal / mActive);
   }
   if (enoughData && remaining > 0 && hasDeadline) {
-    perStudyDay = remaining / studyDaysRemaining;
+    // 修复：今天已做的量已从 remaining 扣除，但 studyDaysRemaining 仍含今天，
+    // 会导致每天任务量被低估（今天做的那 1 页两头占：分子扣了、分母还占一天）。
+    // 用"今天开始前的剩余" = remaining + 今天已做量 来算每学习日目标。
+    var _cumY = getCompletedPagesAtDate(p, addDays(t, -1));
+    var _todayDoneForGoal = Math.max(0, currentPage - _cumY);
+    perStudyDay = (remaining + _todayDoneForGoal) / studyDaysRemaining;
     if (perStudyDayRaw > 0) {
       ratio = perStudyDay / perStudyDayRaw;
       // 乐观边界 = 长期最好状态 与 最近 7 天势头 取较高者；保守边界仍用长期低值，不轻易承诺"轻松"
@@ -5251,7 +5264,10 @@ function getCatchUpPlan(p, m) {
   const curRate = m.perStudyDayRaw > 0 ? m.perStudyDayRaw : 1;
   const out = { onTime: null, alt: null, delay: null, curWk, curRate };
   if (!(remaining > 0 && daysAvailable > 0)) return out;
-  const perFor = (wk) => remaining / (daysAvailable * wk / 7); // 每周学 wk 天时，每个学习日的量
+  // 修复：remaining 已扣掉今天做的量，但 daysAvailable 仍含今天，会导致每天任务量被低估。
+  // 用"今天开始前的剩余" = remaining + 今天已做量 来算每个学习日需做量。
+  const _todayDone = m.todayDone || 0;
+  const perFor = (wk) => (remaining + _todayDone) / (daysAvailable * wk / 7); // 每周学 wk 天时，每个学习日的量
   const MAX_MULT = 2.5; // 每次量超过平时 2.5 倍视为硬撑，不放进"可行按期方案"
 
   // 1) 保持当前频率（改动最小，缺口小时优先）
